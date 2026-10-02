@@ -1,0 +1,59 @@
+{
+	"$schema": "https://turbo.build/schema.json",
+	// Pass runtime configuration through without adding it to cache keys.
+	// TMPDIR preserves the caller's temporary-directory location.
+	"globalPassThroughEnv": ["CTX*", "TWILIO*", "TMPDIR"],
+	"tasks": {
+		"//#format.verify": {
+			"cache": false
+		},
+		"//#tsc.scripts": {
+			"dependsOn": ["^build"],
+			"outputs": []
+		},
+		"build": {
+			"dependsOn": ["^build"],
+			"outputs": ["dist/**", "bin/**", "build/**", ".vercel/**"]
+		},
+		"clean": {
+			"cache": false
+		},
+		"dev": {
+			"cache": false,
+			"dependsOn": ["^build"],
+			"persistent": true
+		},
+		"dev:watch": {
+			"cache": false,
+			"dependsOn": ["^build"],
+			"persistent": true
+		},
+		"fuzz": {
+			"cache": false,
+			"outputs": []
+		},
+		"test": {
+			"dependsOn": ["^build"],
+			"outputs": []
+		},
+		"test:integration:browser": {
+			"dependsOn": ["^build"],
+			"outputs": []
+		},
+		"test:integration:claude": {
+			"dependsOn": ["build"],
+			"outputs": [],
+			// Real Claude integration tests receive their runtime OAuth credential
+			// without adding it to cache keys.
+			"passThroughEnv": ["CLAUDE_CODE_OAUTH_TOKEN"]
+		},
+		"test:integration:node": {
+			"dependsOn": ["^build"],
+			"outputs": []
+		},
+		"tsc": {
+			"dependsOn": ["^build", "^tsc"],
+			"outputs": []
+		}
+	}
+}

@@ -1,0 +1,25 @@
+node_modules/
+packages/*/node_modules/
+.turbo/
+.vercel/
+.doublecheck/
+.playwright-mcp
+.playwright-cli
+.doublecheck
+.superpowers
+dist/
+dist-npm/
+dist-types/
+artifacts/
+release-binaries/
+bin/
+*.tsbuildinfo
+
+
+.DS_Store
+
+packages/*/.vitest-attachments/
+# Vitest browser mode writes failure screenshots beside tests, wherever they live.
+**/__screenshots__/
+
+.codegraph/

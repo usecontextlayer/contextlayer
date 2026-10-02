@@ -1,0 +1,47 @@
+{
+	"dependencies": {
+		"hono": "^4.13.3",
+		"jose": "^6.2.9",
+		"zod": "^4.4.3"
+	},
+	"devDependencies": {
+		"@sentry/node": "10.74.0",
+		"tsdown": "latest",
+		"vitest": "^4.1.11"
+	},
+	"exports": {
+		".": {
+			"import": "./dist/index.mjs",
+			"types": "./dist/index.d.mts"
+		},
+		"./ctx-machine-token": {
+			"import": "./dist/ctx-machine-token.mjs",
+			"types": "./dist/ctx-machine-token.d.mts"
+		},
+		"./ctx-token-provider": {
+			"import": "./dist/ctx-token-provider.mjs",
+			"types": "./dist/ctx-token-provider.d.mts"
+		},
+		"./sentry-event-cap": {
+			"import": "./dist/sentry-event-cap.mjs",
+			"types": "./dist/sentry-event-cap.d.mts"
+		},
+		"./testing": {
+			"import": "./dist/testing.mjs",
+			"types": "./dist/testing.d.mts"
+		}
+	},
+	"main": "./dist/index.mjs",
+	"name": "@usecontextlayer/shared",
+	"private": true,
+	"scripts": {
+		"build": "npx tsdown",
+		"clean": "rm -rf dist dist-types *.tsbuildinfo",
+		"dev:watch": "npx tsdown --watch",
+		"test": "npx vitest run --config vitest.config.ts",
+		"tsc": "npx tsc -b tsconfig.json"
+	},
+	"type": "module",
+	"types": "./dist/index.d.mts",
+	"version": "0.11.0"
+}

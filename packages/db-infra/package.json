@@ -1,0 +1,38 @@
+{
+	"dependencies": {
+		"commander": "^15.0.0",
+		"kysely": "^0.29.5",
+		"kysely-postgres-js": "^3.0.0",
+		"postgres": "^3.4.9"
+	},
+	"devDependencies": {
+		"@types/node": "^24.13.3",
+		"tsdown": "latest",
+		"tsx": "^4.23.12",
+		"typescript": "latest",
+		"vitest": "^4.1.11"
+	},
+	"exports": {
+		".": {
+			"import": "./dist/index.mjs",
+			"types": "./dist/index.d.mts"
+		},
+		"./ephemeral": {
+			"import": "./dist/ephemeral.mjs",
+			"types": "./dist/ephemeral.d.mts"
+		}
+	},
+	"main": "./dist/index.mjs",
+	"name": "@usecontextlayer/db-infra",
+	"private": true,
+	"scripts": {
+		"build": "npx tsdown",
+		"clean": "rm -rf dist dist-types *.tsbuildinfo",
+		"dev:watch": "npx tsdown --watch",
+		"test:integration:node": "npx vitest run --config vitest.integration.node.config.ts",
+		"tsc": "tsc -b tsconfig.json"
+	},
+	"type": "module",
+	"types": "./dist/index.d.mts",
+	"version": "0.11.0"
+}

@@ -1,0 +1,8 @@
+name: Build release artifacts
+description: "Builds the remaining workspace packages."
+runs:
+  using: composite
+  steps:
+    - name: Build workspace packages
+      shell: bash
+      run: pnpm exec turbo run build

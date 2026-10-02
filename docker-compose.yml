@@ -1,0 +1,28 @@
+# One shared local Postgres instance for database integration tests. Each suite
+# provisions fresh `ctx_*_<hex8>` databases through @usecontextlayer/db-infra/ephemeral
+# and drops only its own databases on teardown. Production connections are
+# injected by callers; this instance is for local development only.
+#
+# The top-level `name:` pins the compose project — without it, compose scopes
+# the project to the directory basename, so every checkout would mint its own
+# colliding container fighting for :6489. With it, `docker compose up -d
+# postgres` targets ONE project from any checkout and is idempotent.
+name: contextlayer
+
+services:
+  postgres:
+    image: postgres:latest
+    restart: unless-stopped
+    # Non-durable on purpose (postgres docs §14.5 "Non-Durable Settings"): every
+    # DROP DATABASE forces an immediate checkpoint whose sync phase fsyncs every
+    # dirty file server-wide — under a full integration lane that stalled
+    # concurrent teardowns 24-41s and flaked 30s hooks. fsync=off makes that
+    # sync phase a no-op. The trade: an abrupt host/VM crash can corrupt the
+    # cluster — recovery is recreating the container, which loses nothing here
+    # because every database on it is ephemeral by design.
+    command: postgres -c fsync=off -c full_page_writes=off
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "6489:5432"

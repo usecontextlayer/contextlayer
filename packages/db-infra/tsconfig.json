@@ -1,0 +1,16 @@
+{
+	"compilerOptions": {
+		"composite": true,
+		"emitDeclarationOnly": true,
+		"noEmit": false,
+		"outDir": "dist-types",
+		"paths": {
+			"@/*": ["./*"]
+		},
+		"types": ["node"]
+	},
+	"exclude": ["dist-types", "vitest.integration.node.config.ts"],
+	"extends": "../../tsconfig.base.json",
+	"include": ["**/*.ts"],
+	"references": []
+}

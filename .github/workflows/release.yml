@@ -1,0 +1,162 @@
+name: release
+
+# Run manually against an existing vX.Y.Z tag after a successful manual check run
+# for the same commit. Pushes and tags do not start this workflow.
+# Ordering: publish packages -> create the GitHub release.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Build + publish packages
+    runs-on: ubuntu-latest
+    # Generous ceiling: the wait-for-check step can burn up to ~check's duration
+    # before the build/publish tail runs.
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      actions: read # read check.yml's workflow runs for the gate
+    env:
+      GH_TOKEN: ${{ github.token }}
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Require a tag ref
+        # A manual run can target any ref; publishing requires a version tag.
+        # Everything below assumes a vX.Y.Z tag (the version derives from
+        # GITHUB_REF_NAME), so reject a branch dispatch up front with a clear message
+        # instead of waiting for check and then tripping `release.ts verify <branch>`.
+        run: |
+          case "$GITHUB_REF" in
+            refs/tags/v*) echo "release ref: $GITHUB_REF_NAME" ;;
+            *) echo "::error::release.yml must run on a vX.Y.Z tag, got '$GITHUB_REF'. Re-run with --ref vX.Y.Z." ; exit 1 ;;
+          esac
+      - name: Wait for check to pass for this commit
+        # Require a successful manual check run for this exact commit.
+        run: |
+          deadline=$(( $(date +%s) + 1800 ))
+          while true; do
+            result=$(gh api -X GET "repos/$GITHUB_REPOSITORY/actions/workflows/check.yml/runs" \
+              -f head_sha="$GITHUB_SHA" -f exclude_pull_requests=true \
+              --jq '.workflow_runs | sort_by(.created_at) | last | "\(.status // "none") \(.conclusion // "none")"') \
+              || result="api_poll_failed none"
+            status=${result%% *}
+            conclusion=${result##* }
+            if [ "$status" = "completed" ]; then
+              if [ "$conclusion" = "success" ]; then
+                echo "check.yml passed for $GITHUB_SHA"
+                break
+              fi
+              echo "::error::check.yml concluded '$conclusion' for $GITHUB_SHA — not releasing."
+              exit 1
+            fi
+            if [ "$(date +%s)" -ge "$deadline" ]; then
+              echo "::error::Timed out after 30m waiting for check.yml on $GITHUB_SHA."
+              exit 1
+            fi
+            echo "check.yml status='${status}' for $GITHUB_SHA; waiting 15s…"
+            sleep 15
+          done
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-workspace
+      - id: version
+        name: Derive release version from the tag
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "VERSION=$v" >> "$GITHUB_ENV"
+      - name: Validate the release tag
+        # Tag-only integrity. `verify <version>` is stronger than check's
+        # consistency pass: every package manifest must equal this tag.
+        run: |
+          pnpm exec tsx scripts/release.ts verify "$VERSION"
+      - name: Build release artifacts
+        uses: ./.github/actions/build-artifacts
+      - name: Authenticate to npm
+        # Wire the publish token into the runner's user ~/.npmrc (pnpm config set's
+        # default scope), which `pnpm publish` reads via the config hierarchy. Done
+        # here in CI instead of via a committed repo-root .npmrc, so the token never
+        # touches the tree and contributors don't get a "Failed to replace env in
+        # config: ${NPM_TOKEN}" warning on every local pnpm install.
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: pnpm config set //registry.npmjs.org/:_authToken "$NPM_TOKEN"
+      - name: Publish npm packages
+        # Every non-private npm package is discovered from
+        # the SAME classifier `release.ts audit` reports, so the audit's "will publish"
+        # is true by construction and a new package needs no edit here.
+        # Idempotent via `pnpm view`'s EXIT CODE, never its output. pnpm prints
+        # `ERR_PNPM_PACKAGE_NOT_FOUND` to STDOUT, so capturing a MISSING version
+        # under `2>/dev/null` yields a non-empty string and an is-it-empty test
+        # inverts: it reports "already on npm" and skips the publish.
+        # `pnpm publish` replaces the workspace:* protocol with concrete versions;
+        # --no-git-checks skips pnpm's branch/clean-tree guard (we publish from a
+        # detached tag checkout).
+        run: |
+          set -e
+          for dir in $(node --import tsx scripts/release.ts publish-list npm); do
+            name=$(jq -r .name "$dir/package.json")
+            version=$(jq -r .version "$dir/package.json")
+            if pnpm view "$name@$version" version >/dev/null 2>&1; then
+              echo "skip $name@$version (already on npm)"
+            else
+              echo "publish $name@$version from $dir"
+              pnpm publish --access public --no-git-checks "$dir"
+            fi
+          done
+
+  # packages/twilio (see its README) redeploys the committed Function source to
+  # the sid-pinned Serverless service — the pin in the deploy script is what
+  # stops a credentialed run from creating a second service. `needs: publish`
+  # only: this ships checkout source, not a tagged image.
+  deploy-twilio:
+    name: Deploy Twilio serverless
+    needs: publish
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    # concurrent runs would race twilio-run against the same pinned service.
+    concurrency: twilio-deploy
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+      - name: Deploy the Twilio service
+        working-directory: packages/twilio
+        env:
+          TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+          TWILIO_API_KEY_SID: ${{ secrets.TWILIO_API_KEY_SID }}
+          TWILIO_API_KEY_SECRET: ${{ secrets.TWILIO_API_KEY_SECRET }}
+          CTX_FOUNDER_CELL: ${{ secrets.CTX_FOUNDER_CELL }}
+        # an unset secret arrives as "" and twilio-run drops empty values
+        # silently — fail loud instead.
+        run: |
+          if [ -z "$CTX_FOUNDER_CELL" ]; then
+            echo "CTX_FOUNDER_CELL secret is empty" >&2
+            exit 1
+          fi
+          printf 'CTX_FOUNDER_CELL=%s\n' "$CTX_FOUNDER_CELL" > .env
+          npm run deploy
+
+  github-release:
+    name: Create GitHub release
+    # Create the release marker once packages are published.
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Create GitHub release
+        # No assets — everything installs from a registry; the release is a version
+        # marker / changelog. We run on the tag, so tag_name is github.ref_name.
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          body: |
+            Release ${{ needs.publish.outputs.version }}.
+
+            Published retained public packages to npm at version
+            `${{ needs.publish.outputs.version }}`.

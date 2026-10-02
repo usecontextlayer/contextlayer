@@ -1,0 +1,55 @@
+name: check
+
+on:
+  workflow_dispatch:
+
+# Run verification manually during setup. Pushes and pull requests do not start it.
+concurrency:
+  # A new manual check cancels an older check for the same ref.
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  # Read-only: check builds and tests but never touches a registry or a secret.
+  contents: read
+
+jobs:
+  checks:
+    name: Checks (versions, format, types, tests, build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-workspace
+      - name: Verify release version consistency
+        # Manifests must all share one version. The
+        # stronger tag-equals-version assertion lives in release.yml (tag context).
+        run: pnpm exec tsx scripts/release.ts verify
+      - name: Check workspace references
+        # Fast, node-only drift guard, run once up front (the old check + test
+        # scripts each re-ran it). Fails in seconds if a workspace dep is wrong,
+        # before the expensive parallel tail spins up.
+        run: pnpm run check.workspace-references
+      - name: Check Tailwind deprecations
+        # Compiles package classes against their design systems and fails on any
+        # utility resolving through a theme key
+        # Tailwind deprecated. Needs node_modules only, so it sits with the cheap
+        # checks rather than the build-dependent tail.
+        run: pnpm run check.tailwind-deprecations
+      - uses: actions/cache@v4
+        # Browser binaries are cached by dependency lockfile; restore-keys
+        # warm-start an exact miss.
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            playwright-${{ runner.os }}-${{ runner.arch }}-
+      - name: Lint, typecheck, and test (Node)
+        # Cap parallel tasks to avoid oversubscribing the runner.
+        run: npx turbo run tsc test format.verify tsc.scripts --concurrency=4
+      - name: Build release artifacts (workspace packages)
+        # Same composite release.yml ships from — single source of truth for the
+        # build commands. Prove the publishable artifacts build for this ref.
+        uses: ./.github/actions/build-artifacts
+      - name: Assert clean working tree
+        run: git diff --exit-code

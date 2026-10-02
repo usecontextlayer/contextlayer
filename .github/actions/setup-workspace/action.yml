@@ -1,0 +1,39 @@
+name: Setup workspace
+description: "Installs the Node toolchain through mise, restores pnpm and Turbo caches, and installs Node dependencies."
+runs:
+  using: composite
+  steps:
+    - uses: jdx/mise-action@v4
+    # pnpm comes from mise-action (mise.toml pins it to the root package.json
+    # `packageManager` version) — mise is the one pnpm source; corepack stays unused.
+    - name: Resolve pnpm store path
+      shell: bash
+      run: echo "PNPM_STORE_PATH=$(pnpm store path --silent)" >> "$GITHUB_ENV"
+    - uses: actions/cache@v4
+      # pnpm content-addressed store, keyed on pnpm-lock.yaml so it self-refreshes
+      # when deps change; restore-keys prefix-matches the newest prior store.
+      # `pnpm install --frozen-lockfile` then materializes node_modules from the
+      # warm store via hardlinks — faster and more deterministic than caching the
+      # symlinked node_modules trees directly.
+      with:
+        path: ${{ env.PNPM_STORE_PATH }}
+        key: pnpm-store-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
+        restore-keys: |
+          pnpm-store-${{ runner.os }}-${{ runner.arch }}-
+    - uses: actions/cache@v4
+      # Turborepo task cache (turbo v2 default dir: .turbo/cache). Without this
+      # it's never persisted across runs — turbo only dedups within a single run
+      # — so every CI run re-executes build/tsc/test from cold. Per Turborepo's
+      # official GitHub Actions guide: per-commit key (GH cache entries are
+      # immutable, so a static key would write once and rot) with a prefix
+      # restore-key to seed from the newest prior .turbo. A coarse key is correct
+      # here because turbo content-hashes its own task inputs internally — it
+      # only replays artifacts whose hashes still match and re-runs the rest.
+      with:
+        path: .turbo
+        key: turbo-${{ runner.os }}-${{ runner.arch }}-${{ github.sha }}
+        restore-keys: |
+          turbo-${{ runner.os }}-${{ runner.arch }}-
+    - name: Install Node dependencies
+      shell: bash
+      run: pnpm install --frozen-lockfile

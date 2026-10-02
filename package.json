@@ -1,0 +1,42 @@
+{
+	"devDependencies": {
+		"@biomejs/biome": "^2.5.9",
+		"@types/node": "^24.13.3",
+		"tree-sitter": "^0.25.1",
+		"tree-sitter-typescript": "^0.23.2",
+		"tsdown": "latest",
+		"tsx": "latest",
+		"turbo": "2.10.11",
+		"typescript": "latest",
+		"vitest": "^4.1.11",
+		"zod": "^4.4.3"
+	},
+	"engines": {
+		"node": ">=24.0.0"
+	},
+	"name": "@usecontextlayer",
+	"packageManager": "pnpm@11.22.0",
+	"private": true,
+	"scripts": {
+		"biome.fix": "./node_modules/.bin/biome check --fix --error-on-warnings .",
+		"biome.verify": "./node_modules/.bin/biome check --error-on-warnings .",
+		"build": "npx turbo run build",
+		"check": "pnpm run check.workspace-references && pnpm run check.tailwind-deprecations && pnpm run format.fix && pnpm run tsc",
+		"check.tailwind-deprecations": "node --import tsx ./scripts/check-tailwind-deprecations.ts",
+		"check.workspace-references": "node --import tsx ./scripts/check-workspace-references.ts",
+		"clean": "npx turbo run clean && rm -rf node_modules .turbo",
+		"format": "pnpm run format.fix",
+		"format.fix": "pnpm run biome.fix",
+		"format.verify": "pnpm run biome.verify",
+		"ncu": "npx npm-check-updates --workspaces --root --cooldown 1d",
+		"test": "pnpm run check.workspace-references && npx turbo run test",
+		"test:integration": "pnpm run check.workspace-references && npx turbo run test:integration:node test:integration:browser test:integration:claude",
+		"test:integration:browser": "pnpm run check.workspace-references && npx turbo run test:integration:browser",
+		"test:integration:claude": "pnpm run check.workspace-references && npx turbo run test:integration:claude",
+		"test:integration:node": "pnpm run check.workspace-references && npx turbo run test:integration:node",
+		"tokei": "tokei . -e docs -e pnpm-lock.yaml",
+		"tsc": "npx turbo run tsc tsc.scripts",
+		"tsc.scripts": "npx tsc -p scripts/tsconfig.json"
+	},
+	"type": "module"
+}

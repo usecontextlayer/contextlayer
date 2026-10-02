@@ -1,0 +1,23 @@
+packages:
+  - 'packages/*'
+
+# db-infra uses this postgres 3.4.9 patch to settle COPY errors and reject writes to a closed socket. Keep it identical to pggit's driver patch when updating either copy.
+patchedDependencies:
+  postgres: patches/postgres.patch
+
+# Enforce the Node version floor declared in package.json.
+engineStrict: true
+
+# Install explicitly before running tasks. pnpm's automatic dependency repair races when Turbo starts multiple tasks concurrently.
+verifyDepsBeforeRun: false
+
+# Keep dependency updates aligned with pnpm's one-day release-age policy using ncu --cooldown 1d. Any temporary minimumReleaseAgeExclude must name the exact third-party version and be removed after it clears the window.
+
+# Each dependency with an install script needs an explicit verdict: true runs it, false keeps it unrun. esbuild installs its platform binary; msw installs its test worker. The parser packages use their packaged binaries.
+# Enable a disabled script only with evidence that its build is required.
+allowBuilds:
+  esbuild: true
+  msw: true
+  tree-sitter: false
+  tree-sitter-javascript: false
+  tree-sitter-typescript: false

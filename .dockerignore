@@ -1,0 +1,29 @@
+# Build artifacts and caches
+node_modules
+packages/*/node_modules
+.turbo
+.cache
+dist
+dist-npm
+dist-types
+artifacts
+release-binaries
+*.tsbuildinfo
+
+# Runtime state
+.claude
+
+# Test fixtures and traces
+test-results
+playwright-report
+coverage
+packages/*/.vitest-attachments
+**/__screenshots__
+
+# Git and editor noise
+.git
+.github
+.vscode
+.idea
+.DS_Store
+*.log

@@ -1,0 +1,4 @@
+# The founder's real cell is runtime config, never source — it deploys as a
+# Twilio Function env var from this uncommitted .env.
+.env
+.twiliodeployinfo

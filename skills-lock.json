@@ -1,0 +1,29 @@
+{
+	"skills": {
+		"sentry-cli": {
+			"computedHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+			"skillPath": "packages/cli/.cursor/skills/sentry-cli/SKILL.md",
+			"source": "getsentry/cli",
+			"sourceType": "github"
+		},
+		"sentry-debug-issue": {
+			"computedHash": "09fc7477ec7ca9f7f5afaf08f552fbf88b1220520a20300e575380ccac29865d",
+			"skillPath": "skills/sentry-debug-issue/SKILL.md",
+			"source": "getsentry/plugin-claude",
+			"sourceType": "github"
+		},
+		"sentry-instrument": {
+			"computedHash": "5e64905d390bd39d4a70bdf088d955351bbecb96fe76f3396ddf01dfb165279c",
+			"skillPath": "skills/sentry-instrument/SKILL.md",
+			"source": "getsentry/plugin-claude",
+			"sourceType": "github"
+		},
+		"shadcn": {
+			"computedHash": "f615de216e085a84e31593ad0fa9062232adc40cd87b7c7ab2b8e49abf6500be",
+			"skillPath": "skills/shadcn/SKILL.md",
+			"source": "shadcn/ui",
+			"sourceType": "github"
+		}
+	},
+	"version": 1
+}
