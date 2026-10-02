@@ -1,0 +1,73 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"account_id": "662809b9404bec57077de451f84b26cb",
+	"artifacts": [
+		{
+			"binding": "ARTIFACTS",
+			"namespace": "contextlayer-dev"
+		}
+	],
+	"compatibility_date": "2026-10-02",
+	"compatibility_flags": ["nodejs_compat"],
+	"containers": [
+		{
+			"class_name": "CiSandbox",
+			"image": "./Dockerfile",
+			"instance_type": "standard-4",
+			"max_instances": 10
+		}
+	],
+	"durable_objects": {
+		"bindings": [
+			{
+				"class_name": "CiSandbox",
+				"name": "SANDBOX"
+			}
+		]
+	},
+	"exports": {
+		"CiSandbox": {
+			"storage": "sqlite",
+			"type": "durable-object"
+		}
+	},
+	"main": "index.ts",
+	"name": "contextlayer-build",
+	"observability": {
+		"enabled": true
+	},
+	"r2_buckets": [
+		{
+			"binding": "BACKUP_BUCKET",
+			"bucket_name": "contextlayer-build-backups"
+		}
+	],
+	"triggers": {
+		"events": [
+			{
+				"filter": {
+					"namespace": "contextlayer-dev"
+				},
+				"targets": [
+					{
+						"type": "workflow",
+						"workflow_name": "contextlayer-build"
+					}
+				],
+				"type": "cf.artifacts.repo.pushed"
+			}
+		]
+	},
+	"vars": {
+		"BACKUP_BUCKET_NAME": "contextlayer-build-backups",
+		"CLOUDFLARE_ACCOUNT_ID": "662809b9404bec57077de451f84b26cb"
+	},
+	"workers_dev": false,
+	"workflows": [
+		{
+			"binding": "CI_WORKFLOW",
+			"class_name": "Build",
+			"name": "contextlayer-build"
+		}
+	]
+}

@@ -1,0 +1,29 @@
+{
+	"extends": ["//"],
+	"tasks": {
+		"db.codegen": {
+			"cache": false,
+			"dependsOn": ["^build"]
+		},
+		"db.latest": {
+			"cache": false,
+			"dependsOn": ["^build"]
+		},
+		"db.manage": {
+			"cache": false,
+			"dependsOn": ["^build"]
+		},
+		"dev": {
+			"dependsOn": ["build"],
+			"passThroughEnv": ["CLOUDFLARE_*"]
+		},
+		"dev:watch": {
+			"passThroughEnv": ["CLOUDFLARE_*"]
+		},
+		"test:integration:node": {
+			"cache": false,
+			"dependsOn": ["build"],
+			"passThroughEnv": ["CLOUDFLARE_*"]
+		}
+	}
+}

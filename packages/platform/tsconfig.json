@@ -1,0 +1,20 @@
+{
+	"compilerOptions": {
+		"allowImportingTsExtensions": true,
+		"paths": {
+			"@/*": ["./app/*", "./.react-router/types/app/*"]
+		},
+		"rootDirs": [".", "./.react-router/types"],
+		"tsBuildInfoFile": "./node_modules/.cache/tsconfig.tsbuildinfo",
+		"types": ["node", "vite/client"],
+		"verbatimModuleSyntax": false
+	},
+	"exclude": ["build", "node_modules"],
+	"extends": "../../tsconfig.base.json",
+	"include": ["**/*.ts", "**/*.tsx", ".react-router/types/**/*"],
+	"references": [
+		{
+			"path": "../db-infra"
+		}
+	]
+}

@@ -16,8 +16,12 @@ verifyDepsBeforeRun: false
 # Each dependency with an install script needs an explicit verdict: true runs it, false keeps it unrun. esbuild installs its platform binary; msw installs its test worker. The parser packages use their packaged binaries.
 # Enable a disabled script only with evidence that its build is required.
 allowBuilds:
+  workerd: false
   esbuild: true
   msw: true
   tree-sitter: false
   tree-sitter-javascript: false
   tree-sitter-typescript: false
+
+minimumReleaseAgeExclude:
+  - '@awesome.me/kit-b228b21a21@1.0.2'

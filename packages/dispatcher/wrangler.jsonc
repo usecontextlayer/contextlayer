@@ -1,0 +1,26 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"account_id": "662809b9404bec57077de451f84b26cb",
+	"compatibility_date": "2026-10-02",
+	"dispatch_namespaces": [
+		{
+			"binding": "APPS",
+			"namespace": "contextlayer-dev"
+		}
+	],
+	"main": "index.ts",
+	"name": "contextlayer-dispatcher",
+	"observability": {
+		"enabled": true
+	},
+	"routes": [
+		{
+			"pattern": "*.contextlayer.xyz/*",
+			"zone_id": "05346f30e7de4d8f63fe8889156a7f73"
+		}
+	],
+	"vars": {
+		"CTX_PLATFORM_URL": "https://3af6a6ec6486.ngrok.app"
+	},
+	"workers_dev": false
+}
