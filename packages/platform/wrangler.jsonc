@@ -1,0 +1,28 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"account_id": "662809b9404bec57077de451f84b26cb",
+	"artifacts": [
+		{
+			"binding": "ARTIFACTS",
+			"namespace": "contextlayer-dev",
+			"remote": true
+		}
+	],
+	"assets": {
+		"binding": "ASSETS",
+		"directory": "build/client",
+		"run_worker_first": true
+	},
+	"compatibility_date": "2026-10-02",
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	"main": "app/server.ts",
+	"name": "contextlayer-platform",
+	"routes": [
+		{
+			"pattern": "slate.usecontextlayer.com",
+			"custom_domain": true
+		}
+	]
+}

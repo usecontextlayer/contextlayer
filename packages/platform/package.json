@@ -7,7 +7,6 @@
 		"@fortawesome/fontawesome-svg-core": "^7.3.1",
 		"@fortawesome/react-fontawesome": "^3.5.0",
 		"@hono/zod-openapi": "^1.6.3",
-		"@react-router/node": "^8.4.0",
 		"@usecontextlayer/db-infra": "workspace:*",
 		"class-variance-authority": "^0.7.1",
 		"cn": "^0.4.0",
@@ -25,6 +24,8 @@
 		"zod": "^4.4.3"
 	},
 	"devDependencies": {
+		"@cloudflare/vite-plugin": "^1.62.4",
+		"@cloudflare/workers-types": "^5.20261001.1",
 		"@react-router/dev": "^8.4.0",
 		"@tailwindcss/vite": "^4.3.3",
 		"@types/node": "^24.13.3",
@@ -36,7 +37,8 @@
 		"tsx": "^4.23.12",
 		"typescript": "latest",
 		"vite": "^8.3.2",
-		"vitest": "^4.1.11"
+		"vitest": "^4.1.11",
+		"wrangler": "^4.146.0"
 	},
 	"engines": {
 		"node": ">=24.19.0"
@@ -48,9 +50,9 @@
 		"db.codegen": "node --import tsx app/manage.ts codegen",
 		"db.latest": "node --import tsx app/manage.ts latest",
 		"db.manage": "node --import tsx app/manage.ts",
-		"dev": "node build/server/index.js",
-		"dev:watch": "react-router dev --host 127.0.0.1",
-		"start": "node build/server/index.js",
+		"dev": "vite preview --host 127.0.0.1",
+		"dev:watch": "vite dev --host 127.0.0.1",
+		"start": "vite preview --host 127.0.0.1",
 		"test:integration:node": "vitest run --config vitest.integration.node.config.ts",
 		"tsc": "react-router typegen && tsc --noEmit"
 	},

@@ -1,28 +1,33 @@
 import { RouterContextProvider } from "react-router"
-import { createHonoServer } from "react-router-hono-server/node"
+import { createHonoServer } from "react-router-hono-server/cloudflare"
 import { createApi } from "@/api"
-import { createArtifactsClient } from "@/artifacts.server"
-import { artifactsContext, databaseContext } from "@/context"
+import { artifactsContext, databaseContext, type PlatformEnv } from "@/context"
 import { createPlatformDb } from "@/database"
 import { parsePlatformEnv } from "@/env"
 import { createGitApp } from "@/git.server"
 
-const env = parsePlatformEnv(process.env)
-const artifacts = createArtifactsClient(env)
-const db = createPlatformDb(env.CTX_PLATFORM_DATABASE_URL)
-
-export default await createHonoServer({
+export default await createHonoServer<PlatformEnv>({
 	configure(app) {
-		app.route("/git", createGitApp(db, artifacts))
-		app.route("/api", createApi(db, artifacts, env.CTX_APPS_DOMAIN))
+		app.use(async (c, next) => {
+			const config = parsePlatformEnv(c.env)
+			const db = createPlatformDb(config.CTX_PLATFORM_DATABASE_URL)
+			c.set("config", config)
+			c.set("db", db)
+			try {
+				await next()
+			} finally {
+				c.executionCtx.waitUntil(db.destroy())
+			}
+		})
+		app.route("/git", createGitApp())
+		app.route("/api", createApi())
 		app.get("/", (c) => c.redirect("/dashboard/apps"))
 	},
 	defaultLogger: false,
-	getLoadContext() {
+	getLoadContext(c) {
 		const context = new RouterContextProvider()
-		context.set(databaseContext, db)
-		context.set(artifactsContext, artifacts)
+		context.set(databaseContext, c.var.db)
+		context.set(artifactsContext, c.env.ARTIFACTS)
 		return context
 	},
-	port: env.CTX_PLATFORM_PORT,
 })

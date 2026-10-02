@@ -20,7 +20,7 @@
 		}
 	],
 	"vars": {
-		"CTX_PLATFORM_URL": "https://3af6a6ec6486.ngrok.app"
+		"CTX_PLATFORM_URL": "https://slate.usecontextlayer.com"
 	},
 	"workers_dev": false
 }

@@ -6,7 +6,7 @@
 		},
 		"rootDirs": [".", "./.react-router/types"],
 		"tsBuildInfoFile": "./node_modules/.cache/tsconfig.tsbuildinfo",
-		"types": ["node", "vite/client"],
+		"types": ["node", "vite/client", "@cloudflare/workers-types"],
 		"verbatimModuleSyntax": false
 	},
 	"exclude": ["build", "node_modules"],

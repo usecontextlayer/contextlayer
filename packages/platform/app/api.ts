@@ -1,15 +1,10 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi"
 import { appSchema, listedAppSchema } from "@/apps.schema"
 import { createApp, listApps, resolveApp } from "@/apps.server"
-import type { ArtifactsClient } from "@/artifacts.server"
-import type { PlatformDb } from "@/database"
+import type { PlatformEnv } from "@/context"
 
-export function createApi(
-	db: PlatformDb,
-	artifacts: ArtifactsClient,
-	appsDomain: string,
-) {
-	const api = new OpenAPIHono()
+export function createApi() {
+	const api = new OpenAPIHono<PlatformEnv>()
 	api.openapi(
 		createRoute({
 			method: "get",
@@ -25,7 +20,7 @@ export function createApi(
 			},
 		}),
 		async (c) => {
-			const app = await resolveApp(db, c.req.valid("query").hostname)
+			const app = await resolveApp(c.var.db, c.req.valid("query").hostname)
 			if (!app) return c.notFound()
 			return c.json(app, 200)
 		},
@@ -44,7 +39,7 @@ export function createApi(
 				},
 			},
 		}),
-		async (c) => c.json({ apps: await listApps(db, artifacts) }, 200),
+		async (c) => c.json({ apps: await listApps(c.var.db, c.env.ARTIFACTS) }, 200),
 	)
 	api.openapi(
 		createRoute({
@@ -58,7 +53,11 @@ export function createApi(
 				},
 			},
 		}),
-		async (c) => c.json(await createApp(db, artifacts, appsDomain), 201),
+		async (c) =>
+			c.json(
+				await createApp(c.var.db, c.env.ARTIFACTS, c.var.config.CTX_APPS_DOMAIN),
+				201,
+			),
 	)
 	api.doc31("/openapi.json", {
 		info: { title: "ContextLayer Platform", version: "0.1.0" },

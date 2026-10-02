@@ -8,6 +8,8 @@ import { createInterface } from "node:readline"
 import { promisify } from "node:util"
 import { provisionEphemeralDatabases } from "@usecontextlayer/db-infra/ephemeral"
 import { expect, test } from "vitest"
+import { z } from "zod"
+import { appSchema, listedAppSchema } from "@/apps.schema"
 import { migrateToLatest } from "@/database/migrate"
 import { parsePlatformEnv } from "@/env"
 
@@ -21,6 +23,16 @@ test("created app has a stable Git remote, repository, and dashboard entry", asy
 		...process.env,
 		CTX_PLATFORM_DATABASE_URL: databases.urls.ctx_platform_test,
 	})
+	const cloudflare = z
+		.object({
+			CLOUDFLARE_ACCOUNT_ID: z.string().min(1),
+			CLOUDFLARE_API_TOKEN: z.string().min(1),
+		})
+		.parse(process.env)
+	const wranglerConfig = JSON.parse(
+		await readFile(join(import.meta.dirname, "wrangler.jsonc"), "utf8"),
+	)
+	const namespace = z.string().parse(wranglerConfig.artifacts[0].namespace)
 	let appId: string | undefined
 	const dir = await mkdtemp(join(tmpdir(), "platform-story-"))
 	const socket = createServer()
@@ -30,16 +42,35 @@ test("created app has a stable Git remote, repository, and dashboard entry", asy
 	if (!address || typeof address === "string") throw new Error("Expected TCP address")
 	const port = address.port
 	await new Promise<void>((resolve) => socket.close(() => resolve()))
-	const server = spawn(process.execPath, ["build/server/index.js"], {
-		cwd: import.meta.dirname,
-		env: {
-			...process.env,
-			CTX_PLATFORM_DATABASE_URL: databases.urls.ctx_platform_test,
-			CTX_PLATFORM_PORT: String(port),
-			NODE_ENV: "production",
+	const envFile = join(dir, ".env")
+	await writeFile(
+		envFile,
+		Object.entries(env)
+			.map(([key, value]) => `${key}=${JSON.stringify(value)}`)
+			.join("\n"),
+		{ mode: 0o600 },
+	)
+	const server = spawn(
+		process.execPath,
+		[
+			"node_modules/wrangler/bin/wrangler.js",
+			"dev",
+			"--config",
+			"build/server/wrangler.json",
+			"--env-file",
+			envFile,
+			"--ip",
+			"127.0.0.1",
+			"--port",
+			String(port),
+		],
+		{
+			cwd: import.meta.dirname,
+			env: { ...process.env, WRANGLER_SEND_METRICS: "false" },
+			stdio: ["ignore", "pipe", "inherit"],
 		},
-		stdio: ["ignore", "pipe", "inherit"],
-	})
+	)
+	server.stdout.on("data", (chunk) => process.stdout.write(chunk))
 	const exited = once(server, "exit")
 	try {
 		let origin = ""
@@ -54,11 +85,11 @@ test("created app has a stable Git remote, repository, and dashboard entry", asy
 		const getApps = async () => {
 			const response = await fetch(`${origin}/api/apps`)
 			expect(response.status).toBe(200)
-			return response.json()
+			return z.object({ apps: z.array(listedAppSchema) }).parse(await response.json())
 		}
 		const created = await fetch(`${origin}/api/apps`, { method: "POST" })
 		expect(created.status).toBe(201)
-		const app = await created.json()
+		const app = appSchema.parse(await created.json())
 		appId = app.id
 		expect(app.id).toMatch(/^[0-9a-f-]{36}$/)
 		expect(app.public_hostname).toMatch(/^[a-z-]+\.contextlayer\.xyz$/)
@@ -80,7 +111,13 @@ test("created app has a stable Git remote, repository, and dashboard entry", asy
 		const html = await page.text()
 		expect(html).toContain(app.public_hostname)
 		expect(html).toMatch(new RegExp(`<code\\b[^>]*>${revision.slice(0, 7)}</code>`))
-		const schema = await (await fetch(`${origin}/api/openapi.json`)).json()
+		const schema = z
+			.object({
+				paths: z.object({
+					"/apps": z.object({ get: z.object({ operationId: z.string() }) }),
+				}),
+			})
+			.parse(await (await fetch(`${origin}/api/openapi.json`)).json())
 		expect(schema.paths["/apps"].get.operationId).toBe("listApps")
 		await git("clone", "--branch", "main", `${origin}/git/${appId}`, "cloned")
 		expect(
@@ -107,9 +144,9 @@ test("created app has a stable Git remote, repository, and dashboard entry", asy
 		await databases.dropAll()
 		if (appId) {
 			const deleted = await fetch(
-				`https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/artifacts/namespaces/${env.CTX_ARTIFACTS_NAMESPACE}/repos/${appId}`,
+				`https://api.cloudflare.com/client/v4/accounts/${cloudflare.CLOUDFLARE_ACCOUNT_ID}/artifacts/namespaces/${namespace}/repos/${appId}`,
 				{
-					headers: { authorization: `Bearer ${env.CLOUDFLARE_API_TOKEN}` },
+					headers: { authorization: `Bearer ${cloudflare.CLOUDFLARE_API_TOKEN}` },
 					method: "DELETE",
 				},
 			)

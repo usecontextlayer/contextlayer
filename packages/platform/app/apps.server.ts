@@ -1,17 +1,13 @@
 import { adjectives, animals, colors, uniqueNamesGenerator } from "unique-names-generator"
-import { z } from "zod"
-import { type ArtifactsClient, readArtifactsResult } from "@/artifacts.server"
 import type { PlatformDb } from "@/database"
 import type { AppId } from "@/database/models/public/App"
 
-export async function listApps(db: PlatformDb, artifacts: ArtifactsClient) {
+export async function listApps(db: PlatformDb, artifacts: Artifacts) {
 	const apps = await db.selectFrom("app").selectAll().orderBy("public_hostname").execute()
 	return Promise.all(
 		apps.map(async (app) => {
-			const commits = await readArtifactsResult(
-				await artifacts.request(`/repos/${app.id}/log?ref=main&limit=1`),
-				z.array(z.object({ hash: z.string() })),
-			)
+			using repo = await artifacts.get(app.id)
+			const commits = await repo.log({ limit: 1, ref: "main" })
 			return { ...app, latest_commit: commits[0]?.hash ?? null }
 		}),
 	)
@@ -25,11 +21,7 @@ export function resolveApp(db: PlatformDb, hostname: string) {
 		.executeTakeFirst()
 }
 
-export function createApp(
-	db: PlatformDb,
-	artifacts: ArtifactsClient,
-	appsDomain: string,
-) {
+export function createApp(db: PlatformDb, artifacts: Artifacts, appsDomain: string) {
 	const name = uniqueNamesGenerator({
 		dictionaries: [adjectives, colors, animals],
 		separator: "-",
@@ -40,17 +32,14 @@ export function createApp(
 			.values({ public_hostname: `${name}.${appsDomain}` })
 			.returningAll()
 			.executeTakeFirstOrThrow()
-		await readArtifactsResult(
-			await artifacts.request("/repos", { default_branch: "main", name: app.id }),
-			z.object({ remote: z.url() }),
-		)
+		await artifacts.create(app.id, { setDefaultBranch: "main" })
 		return app
 	})
 }
 
 export async function getGitAccess(
 	db: PlatformDb,
-	artifacts: ArtifactsClient,
+	artifacts: Artifacts,
 	id: AppId,
 	write: boolean,
 ) {
@@ -60,17 +49,8 @@ export async function getGitAccess(
 		.where("id", "=", id)
 		.executeTakeFirst()
 	if (!app) return null
-	const repo = await readArtifactsResult(
-		await artifacts.request(`/repos/${encodeURIComponent(id)}`),
-		z.object({ remote: z.url() }),
-	)
-	const token = await readArtifactsResult(
-		await artifacts.request("/tokens", {
-			repo: id,
-			scope: write ? "write" : "read",
-			ttl: 3600,
-		}),
-		z.object({ plaintext: z.string() }),
-	)
-	return { remote: repo.remote, token: token.plaintext }
+	using repo = await artifacts.get(id)
+	const info = await repo.info()
+	const token = await repo.createToken(write ? "write" : "read", 3600)
+	return { remote: info.remote, token: token.plaintext }
 }

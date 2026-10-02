@@ -25,3 +25,9 @@ Use Font Awesome Slab Regular icons through the official React component and npm
 The platform owns `app.id` (Postgres UUID primary key) and `app.public_hostname` (unique index). No display name. The UUID names the Artifacts repository and is the immutable `/git/<app-id>` address. Creation happens through `POST /api/apps` during `ctx init`, not on first push. Use the existing `db-infra` helpers, package-owned Kysely migrations, and Kanel-generated models. Never hand-edit generated models. The server owns its database connection; migrations run through the package's database management commands.
 
 The package sets `verbatimModuleSyntax: false`, matching old-v2’s Kanel-backed packages, because Kanel emits a default export of the Database type. Keep generated files unmodified.
+
+## Workers runtime
+
+Platform runs on Cloudflare Workers through `react-router-hono-server/cloudflare` and the Cloudflare Vite plugin. Use workerd for local development and Wrangler for local production verification. Configuration comes from Worker bindings, validated in `env.ts`. Hono middleware owns each request's Postgres.js/Kysely connection, shares it with API handlers and React Router loaders, and closes it through `waitUntil`. Keep migrations and Kanel generation in the Node CLI; do not run them inside the Worker.
+
+Use the native `ARTIFACTS` Worker binding directly in domain functions. Repository handles implement `Disposable`: acquire them with `using`. The namespace belongs in Wrangler configuration; runtime Artifacts REST clients and API-token secrets are unnecessary.

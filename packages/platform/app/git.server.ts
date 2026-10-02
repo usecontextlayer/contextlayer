@@ -3,21 +3,24 @@ import { proxy } from "hono/proxy"
 import { z } from "zod"
 import { appSchema } from "@/apps.schema"
 import { getGitAccess } from "@/apps.server"
-import type { ArtifactsClient } from "@/artifacts.server"
-
-import type { PlatformDb } from "@/database"
+import type { PlatformEnv } from "@/context"
 
 const serviceSchema = z.enum(["git-upload-pack", "git-receive-pack"])
 
-export function createGitApp(db: PlatformDb, artifacts: ArtifactsClient) {
-	const app = new Hono()
-	const handle: Handler = async (c) => {
+export function createGitApp() {
+	const app = new Hono<PlatformEnv>()
+	const handle: Handler<PlatformEnv> = async (c) => {
 		const id = appSchema.shape.id.parse(c.req.param("id"))
 		const service = serviceSchema.parse(
 			c.req.method === "GET" ? c.req.query("service") : c.req.param("service"),
 		)
 		const path = c.req.method === "GET" ? "/info/refs" : `/${service}`
-		const access = await getGitAccess(db, artifacts, id, service === "git-receive-pack")
+		const access = await getGitAccess(
+			c.var.db,
+			c.env.ARTIFACTS,
+			id,
+			service === "git-receive-pack",
+		)
 		if (!access) return c.notFound()
 		const url = new URL(access.remote)
 		url.pathname += path
