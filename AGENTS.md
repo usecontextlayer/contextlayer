@@ -1,6 +1,6 @@
 # AGENTS
 
-This pnpm workspace retains three private packages: db-infra, shared, and twilio. The old product stack and deployment images have been removed. Both GitHub workflows are manual-only.
+This pnpm workspace contains seven private packages: cli, db-infra, shared, twilio, platform, build, and dispatcher. Platform proxies Git to Cloudflare Artifacts and serves OpenAPI endpoints and the React Router dashboard; its operation-ownership rules live in `packages/platform/AGENTS.md`. The old product stack and deployment images have been removed. Both GitHub workflows are manual-only.
 
 ## Never Write to Customer Data Without Per-Write Permission
 
@@ -120,7 +120,7 @@ For package-scoped tasks in this repo, ALWAYS use Turbo with `--filter=` selecto
 
 ### Local Development
 
-Run setup and workspace commands from `DEVELOPING.md`. Libraries expose `dev:watch` for rebuilds; there is no app server or dev-composition launcher in this workspace. The shared local Postgres instance is needed only for database integration tests.
+Run setup and workspace commands from `DEVELOPING.md`. Libraries expose `dev:watch` for rebuilds. The root `dev` and `dev:watch` scripts run the platform through Turbo; platform requires Cloudflare Artifacts configuration. The shared local Postgres instance hosts the platform database and isolated integration-test databases.
 
 ### Doppler
 
@@ -241,7 +241,7 @@ Tests are sorted by a **filename suffix** along two orthogonal axes defined in `
 
 A package carries a tier's config and script only when it uses that tier. Unit configs exclude the integration markers through `unitTestExclude`; only a package that actually runs browser tests may exclude that runtime's marker from its Node unit project. Misplaced tests therefore run in Node and fail instead of silently disappearing. When adding the first test of a tier, add the matching per-package config and task using the includes exported by `vitest.shared.ts`.
 
-`DEVELOPING.md` owns the run commands and prerequisites. The remaining suite has Node unit tests in shared and Node integration tests in db-infra. Browser and Claude tasks and taxonomy are retained.
+`DEVELOPING.md` owns the run commands and prerequisites. The remaining suite has Node unit tests in shared and Node integration tests in db-infra and platform. Browser and Claude tasks and taxonomy are retained.
 
 #### Assert on the Contract, Not the Inside
 
