@@ -1,7 +1,10 @@
+import { exports as entrypoints } from "cloudflare:workers"
 import { Hono } from "hono"
 import { getCookie } from "hono/cookie"
 import { z } from "zod"
 import { type Bindings, parseEnv } from "@/env"
+
+export { Tools } from "@/tools"
 
 const viewerSession = z.object({ user: z.object({ id: z.string().min(1) }) }).nullable()
 
@@ -13,10 +16,11 @@ app.all("*", async (c) => {
 	const env = parseEnv(c.env)
 	const publicManifest =
 		c.req.path === "/slate.json" && ["GET", "HEAD"].includes(c.req.method)
+	let session: string | undefined
 	if (!publicManifest) {
 		const signIn = new URL("/start", env.CTX_VIEWER_AUTH_URL)
 		signIn.searchParams.set("return_to", c.req.url)
-		const session = getCookie(c, "__Secure-ctx_viewer")
+		session = getCookie(c, "__Secure-ctx_viewer")
 		if (!session) return c.redirect(signIn.href)
 		const response = await fetch(`${env.CTX_AUTH_ISSUER}/get-session`, {
 			headers: { Authorization: `Bearer ${session}` },
@@ -36,7 +40,10 @@ app.all("*", async (c) => {
 		.join(";")
 	if (cookies) request.headers.set("cookie", cookies)
 	else request.headers.delete("cookie")
-	return c.env.APPS.get(id).fetch(request)
+	const props = session
+		? { tools: entrypoints.Tools({ props: { appId: id, sessionToken: session } }) }
+		: {}
+	return c.env.APPS.get(id, { props }).fetch(request)
 })
 
 export default app

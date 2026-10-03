@@ -34,7 +34,7 @@ Calls return `{ data, logId }`. Validate the tool-specific `data` in your loader
 
 The package root exports the `Tools` interface and `toolsContext`. `@usecontextlayer/sdk/local` exports the local `Tools` Worker entrypoint. `@usecontextlayer/sdk/worker` exports `createApp`, which creates the React Router request handler and supplies `toolsContext` from the local binding or production request props. `@usecontextlayer/sdk/vite` owns the `contextlayer` integration. The CLI package owns the Node startup helper and saved-login handling. The generated application supplies its virtual server-build import, mode, and development flag through thin Worker wiring, and composes Vite plugins. The Cloudflare Vite plugin runs the auxiliary Worker only in development; production bundles exclude it and its service binding.
 
-The platform execution API is implemented; deployed viewer integration is not yet implemented. The packaged request handler reserves `ctx.props.tools` for that later path. Local access-token bindings are not included in production builds.
+In hosted apps, the dispatcher supplies `ctx.props.tools` as a request-scoped RPC handle. Its methods call the same platform execution API using the viewer session; the app cannot read the underlying viewer credential. The platform resolves the signed-in viewer’s assignment for the app and slug, so a viewer using the same account as the CLI uses the same saved assignment. Local access-token bindings are not included in production builds.
 
 ## Vite configuration
 

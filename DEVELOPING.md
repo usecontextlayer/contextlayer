@@ -55,7 +55,7 @@ pnpm ctx init my-react-router-app
 
 Platform’s protected APIs accept either a CLI access token in `Authorization: Bearer` or the existing `__Secure-ctx_viewer` cookie. Both resolve to a ContextLayer user ID; `/api/me` returns `{id}`. The viewer cookie is verified through the configured `CTX_AUTH_ISSUER`’s `/get-session` endpoint, using web’s existing bearer plugin. No additional secret or migration is needed. An explicit bearer token takes precedence.
 
-For local verification, start platform with `pnpm exec turbo run dev:watch --filter=@usecontextlayer/platform -- --port 3030`, point the local CLI at `http://127.0.0.1:3030`, and run `ctx whoami`. Send a second request to `/api/me` with the viewer cookie from a signed-in app on `contextlayer.xyz`; the IDs should match when both logins use the same account. Forward the cookie explicitly for this check: its browser domain does not include platform or localhost. Do not save its value in source, logs, or shell history. Hosted Tools forwarding remains a separate milestone.
+For local verification, start platform with `pnpm exec turbo run dev:watch --filter=@usecontextlayer/platform -- --port 3030`, point the local CLI at `http://127.0.0.1:3030`, and run `ctx whoami`. Send a second request to `/api/me` with the viewer cookie from a signed-in app on `contextlayer.xyz`; the IDs should match when both logins use the same account. Forward the cookie explicitly for this check: its browser domain does not include platform or localhost. Do not save its value in source, logs, or shell history. The dispatcher’s Tools entrypoint forwards this cookie to platform for hosted tool calls.
 
 ## Local app tools
 
@@ -65,7 +65,7 @@ The generated app installs `@usecontextlayer/sdk`; it depends on the CLI for sav
 
 `pnpm dev` starts both Workers through the Cloudflare Vite plugin; there is no separate tools server or `ctx dev` command. The local Worker calls `POST /api/apps/{id}/tools/call`, and the platform resolves the signed-in user's assignment before executing through Composio. Local credentials and the auxiliary Worker are excluded from production builds. The CLI installs matching first-party package versions and exempts `@usecontextlayer/*` from pnpm's release-age policy.
 
-[The SDK README](packages/sdk/README.md) documents the loader API and Gmail example. [Architecture](ARCHITECTURE.md) owns the connection-slug contract and runtime boundaries. Deployed viewer integration remains a later milestone. When verifying unpublished source, install locally packed CLI and SDK packages in the generated app.
+[The SDK README](packages/sdk/README.md) documents the loader API and Gmail example. [Architecture](ARCHITECTURE.md) owns the connection-slug contract and runtime boundaries. The dispatcher supplies hosted Tools through native request-scoped RPC; the current implementation still awaits deployment and the hosted Gmail acceptance check. When verifying unpublished source, install locally packed CLI and SDK packages in the generated app.
 
 ## Platform development
 
