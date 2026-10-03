@@ -11,7 +11,7 @@
 	"assets": {
 		"binding": "ASSETS",
 		"directory": "build/client",
-		"run_worker_first": true
+		"run_worker_first": ["/api/*", "/git/*", "/dashboard/*"]
 	},
 	"compatibility_date": "2026-10-02",
 	"compatibility_flags": ["nodejs_compat"],

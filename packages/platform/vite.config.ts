@@ -6,7 +6,6 @@ import { reactRouterHonoServer } from "react-router-hono-server/dev"
 import { defineConfig } from "vite"
 
 export default defineConfig({
-	base: "/dashboard/",
 	plugins: [
 		tailwindcss(),
 		cloudflare({ viteEnvironment: { name: "ssr" } }),

@@ -7,15 +7,20 @@ const sessionSchema = z.object({ user: userSchema }).nullable()
 
 export type AuthIdentity = {
 	user: z.infer<typeof userSchema>
-	credential: { type: "access-token" | "session"; token: string }
+	credential:
+		| { type: "access-token"; token: string }
+		| { type: "session"; token: string }
+		| { type: "cookie"; cookie: string }
 }
 
 export function credentialHeaders(credential: AuthIdentity["credential"]) {
 	const headers = new Headers()
 	if (credential.type === "access-token") {
 		headers.set("Authorization", `Bearer ${credential.token}`)
-	} else {
+	} else if (credential.type === "session") {
 		headers.set("Cookie", `__Secure-ctx_viewer=${encodeURIComponent(credential.token)}`)
+	} else {
+		headers.set("Cookie", credential.cookie)
 	}
 	return headers
 }
@@ -41,9 +46,17 @@ export async function authenticateAccessToken(token: string, issuer: string) {
 	return claims.scope.split(" ").includes("ctx:access") ? { id: claims.sub } : null
 }
 
-export async function authenticateSession(token: string, issuer: string) {
+export async function authenticateSession(
+	credential: Exclude<AuthIdentity["credential"], { type: "access-token" }>,
+	issuer: string,
+) {
+	const headers = credentialHeaders(credential)
+	if (credential.type === "session") {
+		headers.delete("Cookie")
+		headers.set("Authorization", `Bearer ${credential.token}`)
+	}
 	const response = await fetch(`${issuer.replace(/\/$/, "")}/get-session`, {
-		headers: { Authorization: `Bearer ${token}` },
+		headers,
 	})
 	if (!response.ok) throw new Error(`Session lookup failed: ${response.status}`)
 	return sessionSchema.parse(await response.json())?.user ?? null

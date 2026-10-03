@@ -31,6 +31,8 @@ import { callTool } from "@/tools.server"
 const security: NonNullable<RouteConfig["security"]> = [
 	{ bearerAuth: [] },
 	{ viewerCookie: [] },
+	{ webCookie: [] },
+	{ localWebCookie: [] },
 ]
 
 export function createApi() {
@@ -42,6 +44,16 @@ export function createApi() {
 	api.openAPIRegistry.registerComponent("securitySchemes", "viewerCookie", {
 		in: "cookie",
 		name: "__Secure-ctx_viewer",
+		type: "apiKey",
+	})
+	api.openAPIRegistry.registerComponent("securitySchemes", "webCookie", {
+		in: "cookie",
+		name: "__Secure-better-auth.session_token",
+		type: "apiKey",
+	})
+	api.openAPIRegistry.registerComponent("securitySchemes", "localWebCookie", {
+		in: "cookie",
+		name: "better-auth.session_token",
 		type: "apiKey",
 	})
 	api.openapi(

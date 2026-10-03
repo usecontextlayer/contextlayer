@@ -1,7 +1,7 @@
 import { RouterContextProvider } from "react-router"
 import { createHonoServer } from "react-router-hono-server/cloudflare"
 import { createApi } from "@/api"
-import { type IdentityEnv, identifyUser, requireAuth } from "@/auth.middleware"
+import { type IdentityEnv, identifyUser, requireDashboardAuth } from "@/auth.middleware"
 import {
 	artifactsContext,
 	configContext,
@@ -28,7 +28,7 @@ export default await createHonoServer<IdentityEnv>({
 		app.use("*", identifyUser)
 		app.route("/git", createGitApp())
 		app.route("/api", createApi())
-		app.use("/dashboard/*", requireAuth)
+		app.use("/dashboard/*", requireDashboardAuth)
 		app.get("/", (c) => c.redirect("/dashboard/apps"))
 	},
 	defaultLogger: false,
