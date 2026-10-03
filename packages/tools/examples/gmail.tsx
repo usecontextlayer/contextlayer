@@ -16,7 +16,7 @@ const inbox = z.object({
 export async function loader({ context }: LoaderFunctionArgs) {
 	const result = await context
 		.get(toolsContext)
-		.call("learnwithcarl.com", "GMAIL_FETCH_EMAILS", {
+		.call("work-email", "GMAIL_FETCH_EMAILS", {
 			include_payload: false,
 			label_ids: ["INBOX"],
 			max_results: 5,
@@ -31,7 +31,7 @@ export default function Home() {
 		<main className="mx-auto max-w-3xl p-8">
 			<h1 className="text-2xl font-semibold">Your Gmail inbox</h1>
 			<p className="mt-2 text-sm text-gray-500">
-				Fetched by this page's server loader through Composio For You.
+				Fetched by this page's server loader through your assigned Gmail connection.
 			</p>
 			<ul className="mt-6 divide-y divide-gray-200">
 				{loaderData.messages.map((message) => (

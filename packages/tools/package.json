@@ -1,6 +1,5 @@
 {
 	"dependencies": {
-		"@modelcontextprotocol/client": "2.3.0",
 		"zod": "^4.4.3"
 	},
 	"devDependencies": {

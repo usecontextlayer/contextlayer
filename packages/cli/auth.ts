@@ -55,7 +55,7 @@ export async function login() {
 	console.log("Signed in to ContextLayer.")
 }
 
-export async function whoami() {
+export async function getAccessToken() {
 	let credentials = credentialSchema.parse(JSON.parse(await readFile(authPath, "utf8")))
 	if (
 		credentials.issuer !== env.CTX_AUTH_ISSUER ||
@@ -72,8 +72,12 @@ export async function whoami() {
 			credentials.refreshToken,
 		)
 	}
+	return credentials.accessToken
+}
+
+export async function whoami() {
 	const response = await fetch(new URL("/api/me", env.CTX_PLATFORM_URL), {
-		headers: { authorization: `Bearer ${credentials.accessToken}` },
+		headers: { authorization: `Bearer ${await getAccessToken()}` },
 	})
 	if (!response.ok) throw new Error(`Identity request failed: HTTP ${response.status}`)
 	const user = z.object({ id: z.string().min(1) }).parse(await response.json())

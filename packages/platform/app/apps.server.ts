@@ -1,4 +1,5 @@
 import { adjectives, animals, colors, uniqueNamesGenerator } from "unique-names-generator"
+import { publicHostnameSchema } from "@/apps.schema"
 import type { PlatformDb } from "@/database"
 import type { AppId } from "@/database/models/public/App"
 
@@ -26,10 +27,11 @@ export function createApp(db: PlatformDb, artifacts: Artifacts, appsDomain: stri
 		dictionaries: [adjectives, colors, animals],
 		separator: "-",
 	})
+	const publicHostname = publicHostnameSchema.parse(`${name}.${appsDomain}`)
 	return db.transaction().execute(async (trx) => {
 		const app = await trx
 			.insertInto("app")
-			.values({ public_hostname: `${name}.${appsDomain}` })
+			.values({ public_hostname: publicHostname })
 			.returningAll()
 			.executeTakeFirstOrThrow()
 		await artifacts.create(app.id, { setDefaultBranch: "main" })

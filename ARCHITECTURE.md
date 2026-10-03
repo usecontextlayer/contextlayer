@@ -3,7 +3,7 @@
 The repository contains eight packages; `@usecontextlayer/cli` and `@usecontextlayer/tools` are public and the others are private:
 
 - `cli` — Published as `@usecontextlayer/cli`; Commander-based `ctx` executable, bundled with tsdown; its version comes from its package manifest, and `init` delegates project creation to the official `create-cloudflare@latest` React Router scaffold.
-- `tools` — Local Composio For You Worker implementation and the shared Tools interface/React Router context.
+- `tools` — Local Tools Worker forwarding to the platform execution API, and the shared Tools interface/React Router context.
 - `db-infra` — Postgres/Kysely connections, migrations, and ephemeral database helpers.
 - `shared` — Authentication, token handling, test helpers, and Sentry event capping.
 - `twilio` — Twilio Functions for founder call routing and answer screening.
@@ -23,6 +23,8 @@ Hono middleware creates a request-scoped Postgres.js/Kysely connection from vali
 
 `GET /api/apps/resolve?hostname=<public-hostname>` validates the hostname with Zod and calls `resolveApp()`, which looks up the unique `app.public_hostname` and returns `{ "id": "<app-id>" }`. An unassigned hostname returns HTTP 404. The dispatcher uses this lookup contract; the platform owns the mapping.
 
+Public hostname assignment rejects subdomains in the hardcoded reserved list in `packages/platform/app/apps.schema.ts`. `local` is reserved because it selects the current checkout in the CLI; it cannot be an app subdomain.
+
 Git clients use the immutable `/git/<app-id>` endpoint. Git routes validate the ID, check the platform app record, obtain repository-scoped Artifacts credentials, and use Hono's proxy helper to forward protocol traffic. Pushes do not create app records. Credentials stay server-side. Authentication is not implemented yet.
 
 ## Build pipeline
@@ -41,22 +43,61 @@ The platform is deployed at `https://slate.usecontextlayer.com` with Neon Postgr
 
 This section is the source of truth for the tool-call contract and its ownership boundaries. Future authoring-agent skills should reference it. The reusable package and `ctx init` integration implement the local React Router/Composio path described here.
 
-**Current implementation:** the published For You adapter passes the first argument to Composio as an account alias. **Agreed replacement:** apps declare connection requirements in `slate.json`, keyed by slug, and call `tools.call(slug, toolSlug, args)`. ContextLayer resolves the slug to a Composio Platform connected account. Individual assignments are stored in platform Postgres with unique `(app_id, user_id, connection_slug)`; shared assignments belong to `(app_id, connection_slug)`. The assignment stores the Composio connected-account ID, never provider credentials. Composio owns credentials, token refresh, tool identifiers, and shared-connection access controls. Local developers and deployed viewers use the same assignment model. This migration is not implemented yet; do not treat the old direct-alias requirement as a constraint on new work.
+Apps declare connection requirements in `public/slate.json`, keyed by slug, and call `tools.call(slug, toolSlug, args)`. ContextLayer resolves the slug to a Composio Platform connected account using `(app_id, user_id, slug)` in platform Postgres. The assignment stores the connected-account ID, never provider credentials. Composio owns provider credentials, refresh, and tool execution. Shared assignment storage and deployed viewer execution remain unimplemented.
 
 ```ts
-await tools.call("learnwithcarl.com", "GMAIL_FETCH_EMAILS", {
-  max_results: 5,
-});
+await tools.call("work-email", "GMAIL_FETCH_EMAILS", { max_results: 5 });
 ```
 
-Here `learnwithcarl.com` is an example alias assigned to a Gmail account in Composio, not a domain that ContextLayer resolves. The alias selects the connected account; the tool slug selects the operation. Local configuration supplies only the developer’s Composio For You consumer key. Do not introduce `COMPOSIO_CONNECTIONS`, require account IDs in environment variables, or translate app-defined names to Composio accounts.
+`@usecontextlayer/cli/vite` exports `getLocalToolsBindings`. The generated async Vite configuration calls it only during development: Node reads the AppID from Git origin and obtains a current access token through the same saved-login implementation used by CLI commands. It returns `CTX_APP_ID`, `CTX_PLATFORM_URL`, and `CTX_ACCESS_TOKEN` for the auxiliary Worker's programmatic bindings. It does not copy the refresh token into the Worker. Restart `pnpm dev` when the access token expires. Generated apps install the CLI as a development dependency; no separate auth package or middleware is involved.
 
-The `@usecontextlayer/tools` package owns the MCP client and response handling, the local Tools Worker, credential validation, and the Tools interface/React Router context through separate exports. The generated app owns the thin Worker entrypoint, standard Vite/Cloudflare configuration, context wiring, and local configuration example. Keep the Gmail page as an example rather than the default application.
+The `@usecontextlayer/tools` package owns the local Tools Worker, binding and response validation, and Tools interface/React Router context. The generated app owns thin Worker entrypoints and standard Vite/Cloudflare configuration. The Gmail page remains an example, not the default application. The former For You adapter and consumer-key configuration have been removed from source; published v0.11.3 still has the old behavior until the next release.
 
-During local development, the existing Cloudflare Vite plugin runs the React Router app and a development-only auxiliary Tools Worker under `pnpm dev`. A native RPC service binding supplies the Tools handle, which the app entrypoint puts into React Router context. The Tools Worker reads the developer’s For You consumer key from ignored local configuration and calls Composio’s MCP endpoint; Composio executes the actual external tool. Developers connect their accounts directly on composio.dev. This path requires neither ContextLayer sign-in nor access to ContextLayer’s Cloudflare account.
+During local development, the Cloudflare Vite plugin runs the React Router app and a development-only auxiliary Tools Worker under `pnpm dev`. A native RPC service binding supplies the Tools handle, which the app entrypoint puts into React Router context. The Tools Worker calls the platform's authenticated execution endpoint with the connection slug, tool name, and arguments. The platform resolves the assigned connection and executes through Composio. The loader receives `{data, logId}`; a reported Composio error throws with its log ID.
 
-The planned hosted entrypoint receives its Tools handle through dispatcher-supplied `ctx.props` instead of the local service binding. That composition difference stays at the entrypoint; loaders and actions consume the same context contract. The local auxiliary Worker and its service binding are excluded from production builds. Hosted identity, authorization, and system/author/viewer authority resolution remain separate work; selecting an account alias does not grant permission to use it.
+The planned hosted entrypoint receives its Tools handle through dispatcher-supplied `ctx.props` instead of the local service binding. That composition difference stays at the entrypoint. The local auxiliary Worker and its token binding are excluded from production builds. Hosted identity and authorization remain separate work.
+
+## Key contract: app connection requirements
+
+The author owns `<APP_DIR>/public/slate.json`, served at `/slate.json` by the framework's native static-asset handling. This is the single source of the app's connection requirements. Vite serves the local file during development and includes it in the production assets, so each deployment carries its own requirements. Do not add a custom resource route, a copied root manifest, or a separate requirements store.
+
+The manifest contains a `connections` object keyed by the slug used in `tools.call(slug, toolSlug, args)`. Each requirement declares its Composio `toolkit` and `mode` (`individual` or `shared`). New apps start with an empty `connections` object. For example:
+
+```json
+{
+  "connections": {
+    "work-email": {
+      "toolkit": "gmail",
+      "mode": "individual"
+    }
+  }
+}
+```
+
+Local tooling reads the checkout's `public/slate.json`; callers inspecting a running app fetch `/slate.json` from that app's origin. Deployed requirements come from the deployed app, not the latest Git commit. Consumers validate the manifest with Zod. Requirements are public declarations, not credentials or account selections: individual assignments belong to `(app_id, user_id, slug)` in platform Postgres, and shared assignments belong to `(app_id, slug)`. Individual assignment storage and resolution are implemented below; shared assignment storage is not yet implemented.
 
 ## CLI authentication
 
 The CLI login implementation uses OAuth device authorization through web's existing Better Auth OAuth provider. The user approves a code at web's `/device` page; `openid-client` handles device requests, polling, and refresh. Tokens target `urn:ctx:platform` with `ctx:access`. The CLI stores tokens in `~/.contextlayer/auth.json` and `ctx whoami` calls platform's `/api/me`, which verifies signature, issuer, audience, expiry, subject, and scope using web's JWKS. This endpoint is the initial authentication slice; the existing app and Git routes remain unauthenticated. The device extension requires web schema migration and a registered public OAuth client before use. Local and production end-to-end verification passed: the user approved the device code, the CLI saved its tokens, and `ctx whoami` authenticated successfully against `/api/me`. Production uses issuer `https://www.usecontextlayer.com/api/auth` and platform `https://slate.usecontextlayer.com`. The new CLI authentication commands have not yet been published to npm.
+
+## Composio Platform connections
+
+`ctx connections list` calls authenticated `GET /api/connections`. The shared `listConnections` domain function uses `@composio/core` to list connected accounts filtered by the verified ContextLayer user ID, following Composio pagination. There is no separate Composio user mapping. The API returns only ID, toolkit, alias, display name, and status, validated with Zod; provider credentials remain in Composio. Hono middleware shares the existing bearer verification between `/me` and `/connections`. The project key is a platform Worker secret supplied by Doppler `platform/prod`, never a CLI credential. This path supports Composio Platform only; existing For You connections are not imported. `ctx connections add <toolkit>` calls authenticated `POST /api/connections`. Its domain function creates a Composio session for the verified user and calls `session.authorize(toolkit)`, returning only the hosted authorization link. The user completes provider authorization on Composio and checks the result with the list command. Composio owns this private connection and the OAuth lifecycle. App assignment and Platform tool execution are implemented below.
+
+## App-scoped connection listing
+
+`ctx connections <target> list` accepts an AppID, public hostname, or `local`. One authenticated OpenAPI operation, `POST /api/apps/{target}/connections/list`, delegates to `listAppConnections`, which owns the app lookup and requirement resolution. With an empty JSON body it fetches the registered app’s deployed `/slate.json`. With a `manifest` body it validates and uses those requirements for this request only. Local CLI mode must run from the app root. It reads `public/slate.json` relative to the current directory, extracts the AppID from origin’s `/git/<app-id>` URL, and submits both using the saved user login. It does not search parent directories or add an AppID to the manifest. The Git remote supplies an identifier, not authority; app access must be authorized separately before assignment writes or tool execution. It requires no local dev server and does not persist the supplied manifest. AppID and hostname targets use the deployed manifest. The response contains the app and each requirement’s slug, toolkit, mode, and connection_id; individual assignments are read from `app_connection_assignment` for the authenticated user; unassigned and shared requirements return null. The existing global account-list and account-authorization commands remain available.
+
+The CLI owns local file/Git I/O and HTTP presentation. The API boundary validates the target into either `{ id }` or `{ public_hostname }` and validates any supplied manifest with Zod. The shared domain operation receives these typed values, owns the app lookup and deployed-manifest fetch, and returns structured requirements. Local requirements are request-scoped input, never a replacement for deployed requirements.
+
+## Individual connection assignment storage
+
+`app_connection_assignment` stores individual choices using `(app_id, user_id, slug)` as its composite primary key. `app_id` is a UUID foreign key to `app.id` with `ON DELETE CASCADE`; `user_id`, `slug`, and `connection_id` are non-null text. `user_id` is the authenticated ContextLayer subject, `slug` is the manifest connection key, and `connection_id` is Composio’s connected-account ID. The primary key supplies the unique index for native Postgres upsert. Toolkit and mode remain in the manifest. Migration 002 and Kanel-generated types implement this schema. `ctx connection <target> assign <slug> <connection_id>` calls authenticated `POST /api/apps/{target}/connections/assign`; `assignAppConnection` resolves the app and uses a native Postgres upsert. The user ID comes from the verified login, never the request body. `listAppConnections` reads that user’s assignments and joins them to individual requirements by slug. Local assignment obtains the AppID from Git origin and does not read or validate the manifest. The user explicitly deferred authorization, account ownership, toolkit compatibility, and requirement-existence validation; only request shape and database constraints are enforced.
+
+Migration 002 is applied to production Neon. The deployed assignment/listing API was verified by assigning the demo app’s work-email requirement and reading the same stored connection through local, AppID, and public-hostname targets. CLI changes are available in the local build; no npm release has been cut.
+
+### Platform tool execution
+
+`POST /api/apps/{id}/tools/call` accepts `{slug, tool, arguments}` and authenticates with the same ContextLayer bearer token as connection assignment. The shared `callTool` domain function looks up `(app_id, verified user_id, slug)` in `app_connection_assignment`. It retrieves the assigned account's toolkit from Composio and creates a user-scoped session with that toolkit and connected account explicitly selected, then calls `session.execute`. The response preserves Composio's `{data, error, logId}` result; a missing assignment returns 404. The Composio project key remains on the platform. App ownership, manifest-policy enforcement, and shared-connection execution are not implemented in this slice.
+
+Local loader integration uses the development-only Vite startup helper and Tools Worker described above. Its access token is a startup snapshot; no continuously refreshing local authentication service is involved.

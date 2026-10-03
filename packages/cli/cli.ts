@@ -1,9 +1,15 @@
 #!/usr/bin/env node
 import { cp } from "node:fs/promises"
-import { Command } from "commander"
+import { Argument, Command } from "commander"
 import { execa } from "execa"
 import { z } from "zod"
 import { login, whoami } from "@/auth"
+import {
+	addConnection,
+	assignAppConnection,
+	listAppConnections,
+	listConnections,
+} from "@/connections"
 import { env } from "@/env"
 import { version } from "@/package.json"
 
@@ -64,6 +70,18 @@ program
 		process.exitCode = install.exitCode
 		if (install.exitCode !== 0) return
 
+		const installCli = await execa(
+			"pnpm",
+			["add", "-D", `@usecontextlayer/cli@${version}`],
+			{
+				cwd: directory,
+				reject: false,
+				stdio: "inherit",
+			},
+		)
+		process.exitCode = installCli.exitCode
+		if (installCli.exitCode !== 0) return
+
 		const response = await fetch(new URL("/api/apps", env.CTX_PLATFORM_URL), {
 			method: "POST",
 		})
@@ -88,5 +106,39 @@ program
 	.command("whoami")
 	.description("Show your ContextLayer user ID using the saved login")
 	.action(whoami)
+
+const connections = program
+	.command("connections")
+	.description("Manage your connected accounts")
+	.argument("[target]", "AppID, public hostname, or local (run from the app root)")
+	.addArgument(new Argument("[operation]", "App connection operation").choices(["list"]))
+	.action(async (target, operation) => {
+		if (!target || !operation)
+			connections.error("Expected: ctx connections <target> list")
+		await listAppConnections(target)
+	})
+
+connections
+	.command("list")
+	.description("List your Composio accounts with their toolkit, identity, and status")
+	.action(listConnections)
+
+connections
+	.command("add <toolset>")
+	.description(
+		"Print a Composio authorization link to connect an account (for example, gmail)",
+	)
+	.action(addConnection)
+
+program
+	.command("connection")
+	.description("Assign a connection to an app requirement")
+	.argument("<target>", "AppID, public hostname, or local (run from the app root)")
+	.addArgument(new Argument("<operation>").choices(["assign"]))
+	.argument("<slug>", "Connection requirement slug")
+	.argument("<connection_id>", "Composio connected-account ID")
+	.action(async (target, _operation, slug, connectionId) => {
+		await assignAppConnection(target, slug, connectionId)
+	})
 
 await program.parseAsync()
