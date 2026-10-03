@@ -16,6 +16,8 @@ export const publicHostnameSchema = z
 export const appSchema = z
 	.object({
 		id: z.uuid().transform((id) => id as AppId),
+		owner_organization_id: z.string().min(1).nullable(),
+		owner_user_id: z.string().min(1).nullable(),
 		public_hostname: publicHostnameSchema,
 	})
 	.openapi("App")

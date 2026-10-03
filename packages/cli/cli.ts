@@ -3,7 +3,7 @@ import { cp } from "node:fs/promises"
 import { Argument, Command } from "commander"
 import { execa } from "execa"
 import { z } from "zod"
-import { login, whoami } from "@/auth"
+import { getAccessToken, login, whoami } from "@/auth"
 import {
 	addConnection,
 	assignAppConnection,
@@ -18,9 +18,10 @@ const program = new Command().name("ctx").description("ContextLayer CLI").versio
 program
 	.command("init <directory>")
 	.description(
-		"Create a Cloudflare React Router project with local Composio tools, register an app, and set its immutable Git remote",
+		"Create a Cloudflare React Router project, register an app owned by your signed-in account (ctx login), and set its immutable Git remote",
 	)
 	.action(async (directory: string) => {
+		const accessToken = await getAccessToken()
 		const result = await execa(
 			"pnpm",
 			[
@@ -71,6 +72,7 @@ program
 		if (install.exitCode !== 0) return
 
 		const response = await fetch(new URL("/api/apps", env.CTX_PLATFORM_URL), {
+			headers: { authorization: `Bearer ${accessToken}` },
 			method: "POST",
 		})
 		if (!response.ok) throw new Error(`App creation failed: HTTP ${response.status}`)

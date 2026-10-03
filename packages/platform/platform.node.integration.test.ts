@@ -23,12 +23,7 @@ test("created app has a stable Git remote, repository, and dashboard entry", asy
 		...process.env,
 		CTX_PLATFORM_DATABASE_URL: databases.urls.ctx_platform_test,
 	})
-	const cloudflare = z
-		.object({
-			CLOUDFLARE_ACCOUNT_ID: z.string().min(1),
-			CLOUDFLARE_API_TOKEN: z.string().min(1),
-		})
-		.parse(process.env)
+	const accessToken = z.string().min(1).parse(process.env.CTX_TEST_ACCESS_TOKEN)
 	const wranglerConfig = JSON.parse(
 		await readFile(join(import.meta.dirname, "wrangler.jsonc"), "utf8"),
 	)
@@ -87,10 +82,17 @@ test("created app has a stable Git remote, repository, and dashboard entry", asy
 			expect(response.status).toBe(200)
 			return z.object({ apps: z.array(listedAppSchema) }).parse(await response.json())
 		}
-		const created = await fetch(`${origin}/api/apps`, { method: "POST" })
+		expect((await fetch(`${origin}/api/apps`, { method: "POST" })).status).toBe(401)
+		const headers = { authorization: `Bearer ${accessToken}` }
+		const identity = await fetch(`${origin}/api/me`, { headers })
+		expect(identity.status).toBe(200)
+		const user = z.object({ id: z.string().min(1) }).parse(await identity.json())
+		const created = await fetch(`${origin}/api/apps`, { headers, method: "POST" })
 		expect(created.status).toBe(201)
 		const app = appSchema.parse(await created.json())
 		appId = app.id
+		expect(app.owner_user_id).toBe(user.id)
+		expect(app.owner_organization_id).toBeNull()
 		expect(app.id).toMatch(/^[0-9a-f-]{36}$/)
 		expect(app.public_hostname).toMatch(/^[a-z-]+\.contextlayer\.xyz$/)
 		expect((await getApps()).apps).toContainEqual({ ...app, latest_commit: null })
@@ -143,14 +145,22 @@ test("created app has a stable Git remote, repository, and dashboard entry", asy
 		await rm(dir, { force: true, recursive: true })
 		await databases.dropAll()
 		if (appId) {
-			const deleted = await fetch(
-				`https://api.cloudflare.com/client/v4/accounts/${cloudflare.CLOUDFLARE_ACCOUNT_ID}/artifacts/namespaces/${namespace}/repos/${appId}`,
+			await execFile(
+				process.execPath,
+				[
+					"node_modules/wrangler/bin/wrangler.js",
+					"artifacts",
+					"repos",
+					"delete",
+					appId,
+					"--namespace",
+					namespace,
+					"--force",
+				],
 				{
-					headers: { authorization: `Bearer ${cloudflare.CLOUDFLARE_API_TOKEN}` },
-					method: "DELETE",
+					cwd: import.meta.dirname,
 				},
 			)
-			expect(deleted.ok).toBe(true)
 		}
 	}
 })

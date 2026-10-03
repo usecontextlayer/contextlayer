@@ -3,6 +3,8 @@ import { publicHostnameSchema } from "@/apps.schema"
 import type { PlatformDb } from "@/database"
 import type { AppId } from "@/database/models/public/App"
 
+export type AppOwner = { type: "user"; id: string } | { type: "organization"; id: string }
+
 export async function listApps(db: PlatformDb, artifacts: Artifacts) {
 	const apps = await db.selectFrom("app").selectAll().orderBy("public_hostname").execute()
 	return Promise.all(
@@ -22,7 +24,12 @@ export function resolveApp(db: PlatformDb, hostname: string) {
 		.executeTakeFirst()
 }
 
-export function createApp(db: PlatformDb, artifacts: Artifacts, appsDomain: string) {
+export function createApp(
+	db: PlatformDb,
+	artifacts: Artifacts,
+	appsDomain: string,
+	owner: AppOwner,
+) {
 	const name = uniqueNamesGenerator({
 		dictionaries: [adjectives, colors, animals],
 		separator: "-",
@@ -31,7 +38,11 @@ export function createApp(db: PlatformDb, artifacts: Artifacts, appsDomain: stri
 	return db.transaction().execute(async (trx) => {
 		const app = await trx
 			.insertInto("app")
-			.values({ public_hostname: publicHostname })
+			.values({
+				owner_organization_id: owner.type === "organization" ? owner.id : null,
+				owner_user_id: owner.type === "user" ? owner.id : null,
+				public_hostname: publicHostname,
+			})
 			.returningAll()
 			.executeTakeFirstOrThrow()
 		await artifacts.create(app.id, { setDefaultBranch: "main" })

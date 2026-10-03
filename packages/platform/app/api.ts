@@ -116,18 +116,27 @@ export function createApi() {
 	api.openapi(
 		createRoute({
 			method: "post",
+			middleware: [requireAuth] as const,
 			operationId: "createApp",
 			path: "/apps",
 			responses: {
 				201: {
 					content: { "application/json": { schema: appSchema } },
-					description: "Created app with an immutable ID and public hostname",
+					description:
+						"App owned by the authenticated user with an immutable ID and public hostname",
+				},
+				401: {
+					description: "A valid ContextLayer access token or viewer session is required",
 				},
 			},
+			security,
 		}),
 		async (c) =>
 			c.json(
-				await createApp(c.var.db, c.env.ARTIFACTS, c.var.config.CTX_APPS_DOMAIN),
+				await createApp(c.var.db, c.env.ARTIFACTS, c.var.config.CTX_APPS_DOMAIN, {
+					id: c.var.user.id,
+					type: "user",
+				}),
 				201,
 			),
 	)
