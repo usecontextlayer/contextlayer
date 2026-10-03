@@ -1,6 +1,7 @@
 import { adjectives, animals, colors, uniqueNamesGenerator } from "unique-names-generator"
 import {
 	type App,
+	type AppOwnerFilter,
 	type AppTarget,
 	appSchema,
 	DEFAULT_APP_VISIBILITY,
@@ -9,18 +10,22 @@ import {
 import { type AuthIdentity, listOrganizationIds } from "@/auth.server"
 import type { PlatformDb } from "@/database"
 import type { AppId } from "@/database/models/public/App"
+import type { Owner } from "@/owner"
 
 export type AppAccess = { app: App; identity: AuthIdentity }
-
-export type AppOwner = { type: "user"; id: string } | { type: "organization"; id: string }
 
 export async function listApps(
 	db: PlatformDb,
 	artifacts: Artifacts,
 	identity: AuthIdentity,
 	issuer: string,
+	filter: AppOwnerFilter,
 ) {
-	const rows = await db.selectFrom("app").selectAll().orderBy("public_hostname").execute()
+	let query = db.selectFrom("app").selectAll().orderBy("public_hostname")
+	if (filter.type === "user") query = query.where("owner_user_id", "=", filter.id)
+	if (filter.type === "organization")
+		query = query.where("owner_organization_id", "=", filter.id)
+	const rows = await query.execute()
 	const storedApps = rows.map((row) => appSchema.parse(row))
 	const organizationIds = storedApps.some((app) => app.owner_organization_id !== null)
 		? await listOrganizationIds(identity, issuer)
@@ -86,7 +91,7 @@ export function createApp(
 	db: PlatformDb,
 	artifacts: Artifacts,
 	appsDomain: string,
-	owner: AppOwner,
+	owner: Owner,
 ) {
 	const name = uniqueNamesGenerator({
 		dictionaries: [adjectives, colors, animals],

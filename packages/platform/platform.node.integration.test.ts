@@ -87,7 +87,7 @@ test("app ownership protects viewing, listing, and native Git source access", as
 		}
 		expect((await fetch(`${origin}/api/apps`, { method: "POST" })).status).toBe(401)
 		expect((await fetch(`${origin}/api/apps`)).status).toBe(401)
-		expect((await fetch(`${origin}/dashboard/apps`)).status).toBe(401)
+		expect((await fetch(`${origin}/dashboard/personal/apps`)).status).toBe(401)
 		const identity = await fetch(`${origin}/api/me`, { headers })
 		expect(identity.status).toBe(200)
 		const user = z.object({ id: z.string().min(1) }).parse(await identity.json())
@@ -174,7 +174,7 @@ test("app ownership protects viewing, listing, and native Git source access", as
 		const revision = await git("rev-parse", "HEAD")
 		await git("push", `${origin}/git/${appId}`, "main")
 		expect((await getApps()).apps).toContainEqual({ ...app, latest_commit: revision })
-		const page = await fetch(`${origin}/dashboard/apps`, { headers })
+		const page = await fetch(`${origin}/dashboard/personal/apps`, { headers })
 		expect(page.status).toBe(200)
 		const html = await page.text()
 		expect(html).toContain(app.public_hostname)

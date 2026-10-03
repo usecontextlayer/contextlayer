@@ -1,5 +1,6 @@
 import { z } from "@hono/zod-openapi"
 import type { AppId } from "@/database/models/public/App"
+import type { Owner } from "@/owner"
 
 const reservedSubdomains = ["local", "auth"]
 
@@ -35,3 +36,23 @@ export const appTargetSchema = z.union([
 ])
 export type AppTarget = z.infer<typeof appTargetSchema>
 export const resolveAppQuerySchema = z.object({ hostname: z.hostname().toLowerCase() })
+
+export const listAppsQuerySchema = z
+	.strictObject({
+		owner_organization_id: appSchema.shape.owner_organization_id
+			.unwrap()
+			.min(1)
+			.optional()
+			.openapi({ description: "Filter by the owning Better Auth organization ID" }),
+		owner_user_id: appSchema.shape.owner_user_id
+			.unwrap()
+			.min(1)
+			.optional()
+			.openapi({ description: "Filter by the owning Better Auth user ID" }),
+	})
+	.refine(
+		(query) =>
+			query.owner_user_id === undefined || query.owner_organization_id === undefined,
+		{ message: "Supply either owner_user_id or owner_organization_id, not both" },
+	)
+export type AppOwnerFilter = Owner | { type: "all" }

@@ -11,8 +11,10 @@ import {
 	type ViewingEnv,
 } from "@/apps.middleware"
 import {
+	type AppOwnerFilter,
 	appSchema,
 	appTargetSchema,
+	listAppsQuerySchema,
 	listedAppSchema,
 	resolveAppQuerySchema,
 } from "@/apps.schema"
@@ -101,9 +103,12 @@ export function createApi() {
 	catalog.use("*", requireAuth)
 	catalog.openapi(
 		createRoute({
+			description:
+				"List manageable apps. Supply either owner_user_id or owner_organization_id, or omit both to list all manageable apps.",
 			method: "get",
 			operationId: "listApps",
 			path: "/",
+			request: { query: listAppsQuerySchema },
 			responses: {
 				200: {
 					content: {
@@ -111,22 +116,32 @@ export function createApi() {
 					},
 					description: "Apps owned by this user or their organizations",
 				},
+				400: { description: "Invalid ownership filter; supply at most one owner ID" },
 				401: { description: "A valid ContextLayer login is required" },
 			},
 			security,
 		}),
-		async (c) =>
-			c.json(
+		async (c) => {
+			const query = c.req.valid("query")
+			const filter: AppOwnerFilter =
+				query.owner_user_id !== undefined
+					? { id: query.owner_user_id, type: "user" }
+					: query.owner_organization_id !== undefined
+						? { id: query.owner_organization_id, type: "organization" }
+						: { type: "all" }
+			return c.json(
 				{
 					apps: await listApps(
 						c.var.db,
 						c.env.ARTIFACTS,
 						c.var.identity,
 						c.var.config.CTX_AUTH_ISSUER,
+						filter,
 					),
 				},
 				200,
-			),
+			)
+		},
 	)
 	catalog.openapi(
 		createRoute({

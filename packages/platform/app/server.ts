@@ -29,7 +29,7 @@ export default await createHonoServer<IdentityEnv>({
 		app.route("/git", createGitApp())
 		app.route("/api", createApi())
 		app.use("/dashboard/*", requireDashboardAuth)
-		app.get("/", (c) => c.redirect("/dashboard/apps"))
+		app.get("/", (c) => c.redirect("/dashboard"))
 	},
 	defaultLogger: false,
 	getLoadContext(c) {

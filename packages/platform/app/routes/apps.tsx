@@ -1,6 +1,9 @@
 import { faBox, faCode } from "@awesome.me/kit-b228b21a21/icons/slab/regular"
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome"
 import { listApps } from "@/apps.server"
+import { findOrganizationBySlug } from "@/auth.server"
+import { AuthProvider } from "@/components/auth-provider"
+import { OrganizationSwitcher } from "@/components/organization-switcher"
 import { Badge } from "@/components/ui/badge"
 import {
 	Empty,
@@ -19,36 +22,61 @@ import {
 	ItemTitle,
 } from "@/components/ui/item"
 import { Separator } from "@/components/ui/separator"
+import { UserMenu } from "@/components/user-menu"
 import {
 	artifactsContext,
 	configContext,
 	databaseContext,
 	identityContext,
 } from "@/context"
+import type { OwnerDetails } from "@/owner"
 import type { Route } from "@/routes/+types/apps"
 
 export function meta() {
 	return [{ title: "Apps · ContextLayer" }]
 }
 
-export async function loader({ context }: Route.LoaderArgs) {
+export async function loader({ context, request, params }: Route.LoaderArgs) {
+	const issuer = context.get(configContext).CTX_AUTH_ISSUER
+	const identity = context.get(identityContext)
+	const organization = params.organizationSlug
+		? await findOrganizationBySlug(identity, issuer, params.organizationSlug)
+		: undefined
+	if (params.organizationSlug && !organization)
+		throw new Response("Organization not found", { status: 404 })
+	const owner: OwnerDetails = organization
+		? {
+				id: organization.id,
+				name: organization.name,
+				slug: organization.slug,
+				type: "organization",
+			}
+		: { id: identity.user.id, type: "user" }
+	const signIn = new URL("/auth/sign-in", issuer)
+	signIn.searchParams.set("redirectTo", request.url)
 	return {
 		apps: await listApps(
 			context.get(databaseContext),
 			context.get(artifactsContext),
-			context.get(identityContext),
-			context.get(configContext).CTX_AUTH_ISSUER,
+			identity,
+			issuer,
+			owner,
 		),
+		issuer,
+		owner,
+		signInUrl: signIn.href,
 	}
 }
 
-export default function Apps({ loaderData: { apps } }: Route.ComponentProps) {
+export default function Apps({
+	loaderData: { apps, issuer, signInUrl, owner },
+}: Route.ComponentProps) {
 	return (
-		<>
+		<AuthProvider issuer={issuer}>
 			<header className="border-b">
 				<div className="mx-auto flex h-14 max-w-5xl items-center gap-4 px-6">
 					<a
-						href="/dashboard/apps"
+						href="/dashboard"
 						className="font-logo text-base font-normal"
 					>
 						contextlayer
@@ -58,6 +86,10 @@ export default function Apps({ loaderData: { apps } }: Route.ComponentProps) {
 						className="h-4"
 					/>
 					<span className="text-sm text-muted-foreground">Dashboard</span>
+					<div className="ml-auto flex items-center gap-3">
+						<OrganizationSwitcher owner={owner} />
+						<UserMenu signInUrl={signInUrl} />
+					</div>
 				</div>
 			</header>
 			<main className="mx-auto max-w-5xl space-y-6 px-6 py-10">
@@ -126,7 +158,9 @@ export default function Apps({ loaderData: { apps } }: Route.ComponentProps) {
 						</EmptyHeader>
 						<EmptyContent className="max-w-full">
 							<code className="max-w-full overflow-x-auto rounded-md bg-muted p-3 text-xs whitespace-nowrap">
-								ctx init my-app
+								{owner.type === "organization"
+									? `ctx init --org ${owner.slug} my-app`
+									: "ctx init my-app"}
 							</code>
 							<p className="text-muted-foreground">
 								Your app will appear here after initialization.
@@ -135,6 +169,6 @@ export default function Apps({ loaderData: { apps } }: Route.ComponentProps) {
 					</Empty>
 				)}
 			</main>
-		</>
+		</AuthProvider>
 	)
 }

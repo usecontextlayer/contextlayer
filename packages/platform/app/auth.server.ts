@@ -61,3 +61,25 @@ export async function authenticateSession(
 	if (!response.ok) throw new Error(`Session lookup failed: ${response.status}`)
 	return sessionSchema.parse(await response.json())?.user ?? null
 }
+
+export const organizationSchema = z.object({
+	id: z.string().min(1),
+	logo: z.string().nullish(),
+	name: z.string(),
+	slug: z.string().min(1),
+})
+
+export async function findOrganizationBySlug(
+	identity: AuthIdentity,
+	issuer: string,
+	slug: string,
+) {
+	const response = await fetch(`${issuer.replace(/\/$/, "")}/organization/list`, {
+		headers: credentialHeaders(identity.credential),
+	})
+	if (!response.ok) throw new Error(`Organization lookup failed: ${response.status}`)
+	return z
+		.array(organizationSchema)
+		.parse(await response.json())
+		.find((organization) => organization.slug === slug)
+}
