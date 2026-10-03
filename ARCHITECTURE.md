@@ -1,8 +1,8 @@
 # Architecture
 
-The repository contains seven private packages:
+The repository contains seven packages; `@usecontextlayer/cli` is public and the others are private:
 
-- `cli` — Commander-based `ctx` executable, bundled with tsdown; its version comes from its package manifest, and `init` delegates project creation to the official `create-cloudflare@latest` React Router scaffold.
+- `cli` — Published as `@usecontextlayer/cli`; Commander-based `ctx` executable, bundled with tsdown; its version comes from its package manifest, and `init` delegates project creation to the official `create-cloudflare@latest` React Router scaffold.
 - `db-infra` — Postgres/Kysely connections, migrations, and ephemeral database helpers.
 - `shared` — Authentication, token handling, test helpers, and Sentry event capping.
 - `twilio` — Twilio Functions for founder call routing and answer screening.
@@ -35,3 +35,23 @@ The deployment runner restores the successful build workspace and invokes Wrangl
 `packages/dispatcher` owns the wildcard Worker route `*.contextlayer.xyz/*`. It passes the incoming hostname to the platform's `/api/apps/resolve` endpoint, validates the returned UUID, and forwards the original request to `APPS.get(id).fetch(request)`. `APPS` binds the `contextlayer-dev` WfP dispatch namespace. The platform database is the source of the hostname mapping; the dispatcher has no database or mapping cache.
 
 The platform is deployed at `https://slate.usecontextlayer.com` with Neon Postgres configured through Doppler `platform/prod`. The dispatcher’s `CTX_PLATFORM_URL` points to that address; it no longer depends on a local server or tunnel. Existing local app records were intentionally not migrated. Wrangler builds and deploys the Workers.
+
+## App tool calls and local development — agreed contract
+
+This section is the source of truth for the tool-call contract and its ownership boundaries. Future authoring-agent skills should reference it. The local React Router/Composio read has been proven in a standalone trial; the reusable package and `ctx init` integration described here are agreed but not implemented yet.
+
+**The first argument to `tools.call(accountAlias, toolSlug, args)` must be Composio’s own account alias.** It is passed unchanged to Composio’s `account` field. It is not a toolkit name, a ContextLayer connection name, or a key into a ContextLayer mapping table. Composio owns account aliases, tool slugs, and tool argument schemas; authored code uses those existing identifiers and schemas directly.
+
+```ts
+await tools.call("learnwithcarl.com", "GMAIL_FETCH_EMAILS", {
+  max_results: 5,
+});
+```
+
+Here `learnwithcarl.com` is an example alias assigned to a Gmail account in Composio, not a domain that ContextLayer resolves. The alias selects the connected account; the tool slug selects the operation. Local configuration supplies only the developer’s Composio For You consumer key. Do not introduce `COMPOSIO_CONNECTIONS`, require account IDs in environment variables, or translate app-defined names to Composio accounts.
+
+The agreed `@usecontextlayer/tools` package owns the MCP client and response handling, the local Tools Worker, credential validation, and the Tools interface/React Router context through separate exports. The generated app owns the thin Worker entrypoint, standard Vite/Cloudflare configuration, context wiring, and local configuration example. Keep the Gmail page as an example rather than the default application.
+
+During local development, the existing Cloudflare Vite plugin runs the React Router app and a development-only auxiliary Tools Worker under `pnpm dev`. A native RPC service binding supplies the Tools handle, which the app entrypoint puts into React Router context. The Tools Worker reads the developer’s For You consumer key from ignored local configuration and calls Composio’s MCP endpoint; Composio executes the actual external tool. Developers connect their accounts directly on composio.dev. This path requires neither ContextLayer sign-in nor access to ContextLayer’s Cloudflare account.
+
+The planned hosted entrypoint receives its Tools handle through dispatcher-supplied `ctx.props` instead of the local service binding. That composition difference stays at the entrypoint; loaders and actions consume the same context contract. The local auxiliary Worker and its service binding are excluded from production builds. Hosted identity, authorization, and system/author/viewer authority resolution remain separate work; selecting an account alias does not grant permission to use it.

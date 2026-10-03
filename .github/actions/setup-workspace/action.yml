@@ -34,6 +34,9 @@ runs:
         key: turbo-${{ runner.os }}-${{ runner.arch }}-${{ github.sha }}
         restore-keys: |
           turbo-${{ runner.os }}-${{ runner.arch }}-
+    - name: Authenticate to Font Awesome
+      shell: bash
+      run: pnpm config set //npm.fontawesome.com/:_authToken "$FONTAWESOME_PACKAGE_TOKEN"
     - name: Install Node dependencies
       shell: bash
       run: pnpm install --frozen-lockfile

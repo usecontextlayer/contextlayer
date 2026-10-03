@@ -1,6 +1,6 @@
 # AGENTS
 
-This pnpm workspace contains seven private packages: cli, db-infra, shared, twilio, platform, build, and dispatcher. Platform proxies Git to Cloudflare Artifacts and serves OpenAPI endpoints and the React Router dashboard; its operation-ownership rules live in `packages/platform/AGENTS.md`. The old product stack and deployment images have been removed. Both GitHub workflows are manual-only.
+This pnpm workspace contains seven packages (cli is public; the others are private): cli, db-infra, shared, twilio, platform, build, and dispatcher. Platform proxies Git to Cloudflare Artifacts and serves OpenAPI endpoints and the React Router dashboard; its operation-ownership rules live in `packages/platform/AGENTS.md`. The old product stack and deployment images have been removed. Main pushes run checks; version-tag pushes publish public npm packages.
 
 ## Never Write to Customer Data Without Per-Write Permission
 
@@ -22,7 +22,7 @@ Customer data means anything that is theirs: records in their Planner, Dataverse
 
 - **`ARCHITECTURE.md`** — the package overview.
 - **`DEVELOPING.md`** — setup, workspace commands, test prerequisites, and operational conventions. Read it before running or debugging the local environment.
-- **`node --import tsx scripts/release.ts --help`** — the version helpers and automatic commit/push/check/tag/release ladder. Both workflows require explicit dispatch.
+- **`node --import tsx scripts/release.ts --help`** — the version helpers and automatic commit/push/check/tag/release ladder. Workflows start on main and version-tag pushes; manual dispatch is also available.
 
 ## How to Work
 

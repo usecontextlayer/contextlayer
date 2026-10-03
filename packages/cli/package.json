@@ -16,13 +16,12 @@
 	"files": [
 		"dist"
 	],
-	"name": "@usecontextlayer/ctx",
-	"private": true,
+	"name": "@usecontextlayer/cli",
 	"scripts": {
 		"build": "tsdown",
 		"dev:watch": "tsdown --watch",
 		"tsc": "tsc -b tsconfig.json"
 	},
 	"type": "module",
-	"version": "0.11.0"
+	"version": "0.11.1"
 }

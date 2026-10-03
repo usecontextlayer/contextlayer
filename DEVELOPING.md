@@ -1,6 +1,6 @@
 # Developing
 
-This workspace contains seven private packages, including the platform application. Use the root package scripts and Turbo for libraries and applications. Both GitHub workflows are manual-only.
+This workspace contains seven packages: the public `@usecontextlayer/cli` and six private packages, including the platform application. Use the root package scripts and Turbo for libraries and applications. Main pushes run checks; version-tag pushes publish npm packages.
 
 ## Setup
 
@@ -41,12 +41,12 @@ A library carries `dev:watch` for rebuilding its output. The general task conven
 Build the local `ctx` executable, then invoke the built executable from the repository root:
 
 ```sh
-pnpm exec turbo run build --filter=@usecontextlayer/ctx
+pnpm exec turbo run build --filter=@usecontextlayer/cli
 pnpm ctx --version
 pnpm ctx init my-react-router-app
 ```
 
-`ctx init <directory>` uses the official Cloudflare React Router scaffold through `pnpm create cloudflare@latest`, accepting defaults, initializing Git, and disabling deployment. The generated project owns its `pnpm dev` and `pnpm build` commands; its Cloudflare Vite plugin runs server code in the Workers runtime. After scaffolding, it creates an app through `POST /api/apps`, then sets `origin` to `<CTX_PLATFORM_URL>/git/<app-id>`. The platform assigns an immutable UUID and a friendly public hostname. `CTX_PLATFORM_URL` is read in the CLI's `env.ts` and defaults to `http://localhost:3010`. Initialization does not push. Relative directories resolve from the calling directory. The version comes from `packages/cli/package.json`. Run `pnpm exec turbo run dev:watch --filter=@usecontextlayer/ctx` to rebuild the CLI as its source changes.
+`ctx init <directory>` uses the official Cloudflare React Router scaffold through `pnpm create cloudflare@latest`, accepting defaults, initializing Git, and disabling deployment. The generated project owns its `pnpm dev` and `pnpm build` commands; its Cloudflare Vite plugin runs server code in the Workers runtime. After scaffolding, it creates an app through `POST /api/apps`, then sets `origin` to `<CTX_PLATFORM_URL>/git/<app-id>`. The platform assigns an immutable UUID and a friendly public hostname. `CTX_PLATFORM_URL` is read in the CLI's `env.ts` and defaults to `http://localhost:3010`. Initialization does not push. Relative directories resolve from the calling directory. The version comes from `packages/cli/package.json`. Run `pnpm exec turbo run dev:watch --filter=@usecontextlayer/cli` to rebuild the CLI as its source changes.
 
 ## Platform development
 
@@ -100,7 +100,7 @@ The root commands `test:integration:node`, `test:integration:browser`, and `test
 
 ## Releases and deployment
 
-The platform is deployed at `https://slate.usecontextlayer.com`. Cloudflare Workers Builds watches `main` in `usecontextlayer/contextlayer`, with repository root `/`, build command `bash packages/platform/scripts/build-cloudflare.sh`, and deploy command `bash packages/platform/scripts/deploy-cloudflare.sh`. This pipeline is separate from the manual GitHub workflows below. Build variables pin `NODE_VERSION=24.19.0`, `PNPM_VERSION=11.22.0`, and `SKIP_DEPENDENCY_INSTALL=true` so registry authentication is available before installation.
+The platform is deployed at `https://slate.usecontextlayer.com`. Cloudflare Workers Builds watches `main` in `usecontextlayer/contextlayer`, with repository root `/`, build command `bash packages/platform/scripts/build-cloudflare.sh`, and deploy command `bash packages/platform/scripts/deploy-cloudflare.sh`. This pipeline is separate from the GitHub package-release workflows below. Build variables pin `NODE_VERSION=24.19.0`, `PNPM_VERSION=11.22.0`, and `SKIP_DEPENDENCY_INSTALL=true` so registry authentication is available before installation.
 
 Set a read-only service token for Doppler `platform/prod` as the Cloudflare **build secret** `DOPPLER_TOKEN`. The build script installs the official Doppler CLI and fetches `FONTAWESOME_PACKAGE_TOKEN` for pnpm through its CI-only npm configuration. The deployment script fetches `CTX_PLATFORM_DATABASE_URL` into a temporary secrets file and passes it to Wrangler with the built Worker configuration. Only the database secret is uploaded to the runtime; the Doppler and registry credentials stay in the build environment. Doppler changes take effect on the next deployment, not immediately when edited. Production uses Neon's `platform` project and its `production` branch; existing local app records were intentionally not migrated.
 
@@ -112,7 +112,9 @@ node --import tsx scripts/release.ts audit
 node --import tsx scripts/release.ts verify
 ```
 
-The release ladder bumps package versions and the lockfile, commits and pushes, dispatches and watches `check.yml`, then pushes the version tag and dispatches `release.yml`. Its final rung watches the release run. Both workflows require explicit dispatch; pushes and tags alone start neither. All current packages are private, so the npm publish list is empty. The release workflow still includes the existing Twilio deployment job; a real release is an external action.
+The release ladder bumps package versions and the lockfile, commits with `gitc`, pushes main, waits for its `check.yml` run, and pushes a version tag. Pushing `vX.Y.Z` starts `release.yml`, which requires a successful check for that exact commit and verifies every package version against the tag before publishing. Its final rung watches the release run. Manual workflow dispatch remains available. Only packages without `private: true` publish; currently that is `@usecontextlayer/cli`. GitHub receives `NPM_TOKEN` and `FONTAWESOME_PACKAGE_TOKEN` through Doppler sync. The former publishes packages; the latter installs the dashboard's private icons during CI. Releases do not deploy Twilio.
+
+The CLI package exposes the `ctx` executable. Run it without a global installation using `npx @usecontextlayer/cli --version` or `npx @usecontextlayer/cli init my-app`.
 
 `packages/twilio/README.md` owns its service configuration and deployment details. The old product deployment stack is absent; do not recreate its images or services as part of routine setup.
 

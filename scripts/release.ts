@@ -15,10 +15,8 @@ import path from "node:path"
 //   <version|patch|minor|major> [--until=<rung>] [--dry-run]
 //                                        - bump, commit, push, check, tag and release
 //
-// Workflows stay manual-only. The ladder dispatches check.yml on main and
-// release.yml on the new version tag, watching the run IDs GitHub returns.
-// --until defaults to 5-push-tag, which also dispatches the release workflow;
-// 6-release waits for it to finish. Earlier rungs stop before later side effects.
+// Main pushes start check.yml; version-tag pushes start release.yml.
+// --until defaults to 5-push-tag; 6-release waits for publication to finish.
 // Resume with an explicit version: patch/minor/major resolve against the current
 // manifests, so repeating a bump word after the bump advances the version again.
 
@@ -379,25 +377,35 @@ function assertCleanTree(context: string): void {
 	}
 }
 
-// GitHub returns the dispatched run ID directly, so the ladder watches that
-// run rather than searching recent workflow runs for a matching commit.
-function dispatchWorkflow(workflow: string, ref: string): string {
-	return capture("gh", [
-		"api",
-		"--method",
-		"POST",
-		`repos/{owner}/{repo}/actions/workflows/${workflow}/dispatches`,
-		"-H",
-		"X-GitHub-Api-Version: 2026-03-10",
-		"-f",
-		`ref=${ref}`,
-		"--jq",
-		".workflow_run_id",
-	])
+function sleep(ms: number): Promise<void> {
+	return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-function watchWorkflowRun(runId: string): void {
-	run("gh", ["run", "watch", runId, "--exit-status"])
+// A workflow run registers on GitHub a few seconds after its triggering push
+// (for a tag-push event the run's branch field carries the tag name), so
+// finding it is a short bounded poll.
+async function findWorkflowRunId(workflow: string, filter: string[]): Promise<string> {
+	for (let attempt = 0; attempt < 24; attempt++) {
+		const runId = capture("gh", [
+			"run",
+			"list",
+			`--workflow=${workflow}`,
+			...filter,
+			"--json",
+			"databaseId",
+			"--jq",
+			".[0].databaseId",
+		])
+		if (runId.length > 0) return runId
+		await sleep(5_000)
+	}
+	throw new Error(`No ${workflow} run appeared (${filter.join(" ")}) within 2 minutes.`)
+}
+
+// Every CI wait in the cut is this one shape: find the run, follow it live,
+// and let --exit-status turn a red (or cancelled) run into a non-zero exit.
+async function watchWorkflowRun(workflow: string, filter: string[]): Promise<void> {
+	run("gh", ["run", "watch", await findWorkflowRunId(workflow, filter), "--exit-status"])
 }
 
 // The cut's rungs in execution order; --until names the one to stop after.
@@ -417,7 +425,7 @@ function isCutStage(value: string): value is CutStage {
 
 type CutTarget = { until: CutStage }
 
-function runCut(version: string, target: CutTarget): void {
+async function runCut(version: string, target: CutTarget): Promise<void> {
 	const tag = `v${version}`
 
 	step("preflight: on main, clean, fast-forwarded, tag free")
@@ -451,7 +459,7 @@ function runCut(version: string, target: CutTarget): void {
 	step(`2-commit: "chore: release ${version}"`)
 	if (capture("git", ["status", "--porcelain"]).length > 0) {
 		run("git", ["add", "-A"])
-		run("git", ["commit", "-m", `chore: release ${version}`])
+		run("gitc", [])
 	} else {
 		console.log("Nothing to commit — the tree was already at this version.")
 	}
@@ -467,16 +475,15 @@ function runCut(version: string, target: CutTarget): void {
 	run("git", ["push"])
 	if (target.until === "3-push") {
 		console.log(
-			"\nStopped after 3-push: main is pushed; no workflow has been dispatched yet. " +
+			"\nStopped after 3-push: main is pushed; check.yml is running. " +
 				"Re-run to gate and tag.",
 		)
 		return
 	}
 
-	step("4-check: dispatch check.yml and require it to pass before tagging")
+	step("4-check: require check.yml to pass before tagging")
 	const sha = capture("git", ["rev-parse", "HEAD"])
-	const checkRunId = dispatchWorkflow("check.yml", "main")
-	watchWorkflowRun(checkRunId)
+	await watchWorkflowRun("check.yml", ["--commit", sha, "--event", "push"])
 	if (target.until === "4-check") {
 		console.log(
 			`\nStopped after 4-check: check.yml is green for ${sha}; no tag pushed. ` +
@@ -485,20 +492,19 @@ function runCut(version: string, target: CutTarget): void {
 		return
 	}
 
-	step(`5-push-tag: ${tag} and dispatch release.yml`)
+	step(`5-push-tag: ${tag}`)
 	run("git", ["tag", tag])
 	run("git", ["push", "origin", tag])
-	const releaseRunId = dispatchWorkflow("release.yml", tag)
 	if (target.until === "5-push-tag") {
 		console.log(
-			`\n${tag} pushed; release.yml dispatched. Follow it with:\n` +
-				`  gh run watch ${releaseRunId}`,
+			`\n${tag} pushed; release.yml started. Follow it with:\n` +
+				`  gh run list --workflow=release.yml --branch ${tag}`,
 		)
 		return
 	}
 
 	step(`6-release: follow release.yml for ${tag}`)
-	watchWorkflowRun(releaseRunId)
+	await watchWorkflowRun("release.yml", ["--branch", tag, "--event", "push"])
 }
 
 const USAGE =
@@ -509,8 +515,8 @@ const USAGE =
 	"  node --import tsx scripts/release.ts bump <version|patch|minor|major> [--dry-run]\n" +
 	"  node --import tsx scripts/release.ts <version|patch|minor|major> [--until=<rung>] [--dry-run]\n" +
 	"    rungs: 1-bump, 2-commit, 3-push, 4-check, 5-push-tag (default), 6-release\n" +
-	"    4-check dispatches and watches check.yml; 5-push-tag dispatches release.yml;\n" +
-	"    6-release also watches release.yml. Workflows have manual triggers only."
+	"    4-check watches check.yml; 5-push-tag triggers release.yml;\n" +
+	"    6-release also watches release.yml. Main and version-tag pushes trigger the workflows."
 
 function resolveCutTarget(until: string | undefined): CutTarget {
 	const stage = until ?? "5-push-tag"
@@ -522,7 +528,7 @@ function resolveCutTarget(until: string | undefined): CutTarget {
 	return { until: stage }
 }
 
-function main(): void {
+async function main(): Promise<void> {
 	const args = process.argv.slice(2)
 	const first = args[0]
 	if (first === "audit") {
@@ -567,7 +573,7 @@ function main(): void {
 			runBump(version, true)
 			return
 		}
-		runCut(version, resolveCutTarget(until))
+		await runCut(version, resolveCutTarget(until))
 		return
 	}
 	console.error(USAGE)
@@ -575,7 +581,7 @@ function main(): void {
 }
 
 try {
-	main()
+	await main()
 } catch (error: unknown) {
 	console.error(error instanceof Error ? error.message : String(error))
 	process.exitCode = 1

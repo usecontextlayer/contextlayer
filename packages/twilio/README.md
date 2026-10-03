@@ -10,7 +10,7 @@ ContextLayer's Twilio-side functionality, deployed as ONE Serverless service by 
 
 ## Deploying
 
-The `deploy` script is the one canonical command — release CI runs it on every release (`deploy-twilio` in `.github/workflows/release.yml`), and locally it is:
+The `deploy` script is the canonical command. Twilio deployment is explicit and is not part of the npm release workflow:
 
 ```sh
 doppler run -p <project> -c <config> -- pnpm --filter @usecontextlayer/twilio run deploy
@@ -21,5 +21,5 @@ Replace `<project>` and `<config>` with the Doppler config holding the Twilio cr
 ## Environment variables (the deployed service's, not this repo's)
 
 - One service means ONE env namespace shared by every feature here; every deploy UPSERTS the service env from the local `.env` — absent keys survive; retiring one takes a Variables DELETE against the Serverless API, not just dropping the line.
-- `CTX_FOUNDER_CELL` (the number the gate dials) is the one variable today. Use the selected Doppler config locally and the corresponding GitHub Actions secret in CI; keep the resource name consistent across consumers.
+- `CTX_FOUNDER_CELL` (the number the gate dials) is the one variable today. Use the selected Doppler config for deployment; keep the resource name consistent across consumers.
 - The caller ID the founder's phone shows (the 831) is hardcoded in `functions/founder-call.protected.js`: a public infrastructure constant of the same class as the service-sid pin, and required because the customer leg is a browser client (`from = client:founder_call` is invalid for PSTN dialing).

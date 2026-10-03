@@ -1,9 +1,10 @@
 name: release
 
-# Run manually against an existing vX.Y.Z tag after a successful manual check run
-# for the same commit. Pushes and tags do not start this workflow.
+# Publish a version tag after check.yml passes for the same commit.
 # Ordering: publish packages -> create the GitHub release.
 on:
+  push:
+    tags: ["v*.*.*"]
   workflow_dispatch:
 
 permissions:
@@ -21,6 +22,7 @@ jobs:
       actions: read # read check.yml's workflow runs for the gate
     env:
       GH_TOKEN: ${{ github.token }}
+      FONTAWESOME_PACKAGE_TOKEN: ${{ secrets.FONTAWESOME_PACKAGE_TOKEN }}
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
@@ -35,7 +37,7 @@ jobs:
             *) echo "::error::release.yml must run on a vX.Y.Z tag, got '$GITHUB_REF'. Re-run with --ref vX.Y.Z." ; exit 1 ;;
           esac
       - name: Wait for check to pass for this commit
-        # Require a successful manual check run for this exact commit.
+        # Require a successful check run for this exact commit.
         run: |
           deadline=$(( $(date +%s) + 1800 ))
           while true; do
@@ -107,38 +109,6 @@ jobs:
               pnpm publish --access public --no-git-checks "$dir"
             fi
           done
-
-  # packages/twilio (see its README) redeploys the committed Function source to
-  # the sid-pinned Serverless service — the pin in the deploy script is what
-  # stops a credentialed run from creating a second service. `needs: publish`
-  # only: this ships checkout source, not a tagged image.
-  deploy-twilio:
-    name: Deploy Twilio serverless
-    needs: publish
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    # concurrent runs would race twilio-run against the same pinned service.
-    concurrency: twilio-deploy
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v6
-      - name: Deploy the Twilio service
-        working-directory: packages/twilio
-        env:
-          TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
-          TWILIO_API_KEY_SID: ${{ secrets.TWILIO_API_KEY_SID }}
-          TWILIO_API_KEY_SECRET: ${{ secrets.TWILIO_API_KEY_SECRET }}
-          CTX_FOUNDER_CELL: ${{ secrets.CTX_FOUNDER_CELL }}
-        # an unset secret arrives as "" and twilio-run drops empty values
-        # silently — fail loud instead.
-        run: |
-          if [ -z "$CTX_FOUNDER_CELL" ]; then
-            echo "CTX_FOUNDER_CELL secret is empty" >&2
-            exit 1
-          fi
-          printf 'CTX_FOUNDER_CELL=%s\n' "$CTX_FOUNDER_CELL" > .env
-          npm run deploy
 
   github-release:
     name: Create GitHub release

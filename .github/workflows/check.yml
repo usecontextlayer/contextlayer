@@ -1,16 +1,18 @@
 name: check
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
-# Run verification manually during setup. Pushes and pull requests do not start it.
+# Verify main pushes; manual runs remain available.
 concurrency:
-  # A new manual check cancels an older check for the same ref.
+  # A newer check cancels an older check for the same ref.
   group: check-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
-  # Read-only: check builds and tests but never touches a registry or a secret.
+  # Checks build and test but never publish or deploy.
   contents: read
 
 jobs:
@@ -18,6 +20,8 @@ jobs:
     name: Checks (versions, format, types, tests, build)
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      FONTAWESOME_PACKAGE_TOKEN: ${{ secrets.FONTAWESOME_PACKAGE_TOKEN }}
     steps:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-workspace

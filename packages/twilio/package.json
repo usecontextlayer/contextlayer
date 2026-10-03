@@ -5,5 +5,5 @@
 	"scripts": {
 		"deploy": "npx -y twilio-run@5 deploy --service-sid ZSc036d2115ee2fb63c6245fd545ea2900 --environment production --username \"$TWILIO_API_KEY_SID\" --password \"$TWILIO_API_KEY_SECRET\""
 	},
-	"version": "0.11.0"
+	"version": "0.11.1"
 }
