@@ -3,6 +3,7 @@ import { cp } from "node:fs/promises"
 import { Command } from "commander"
 import { execa } from "execa"
 import { z } from "zod"
+import { login, whoami } from "@/auth"
 import { env } from "@/env"
 import { version } from "@/package.json"
 
@@ -78,5 +79,14 @@ program
 		})
 		process.exitCode = git.exitCode
 	})
+
+program
+	.command("login")
+	.description("Sign in to ContextLayer by approving a code in your browser")
+	.action(login)
+program
+	.command("whoami")
+	.description("Show your ContextLayer user ID using the saved login")
+	.action(whoami)
 
 await program.parseAsync()

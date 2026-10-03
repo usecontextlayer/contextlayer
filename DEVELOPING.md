@@ -38,6 +38,9 @@ A library carries `dev:watch` for rebuilding its output. The general task conven
 
 ## CLI development
 
+The new `ctx login` / `ctx whoami` flow requires web with its OAuth device extension migrated and a public CLI client registered for the `urn:ctx:platform` resource. `CTX_AUTH_ISSUER` defaults to `https://www.usecontextlayer.com/api/auth` in CLI and platform; `CTX_AUTH_CLIENT_ID` defaults to the registered production public client ID in the CLI. Configure both CLI and platform with the same issuer for local testing, and point `CTX_PLATFORM_URL` at that platform. Only localhost/127.0.0.1 issuers permit HTTP in the CLI. Credentials are written to `~/.contextlayer/auth.json` with owner-only permissions on creation. Local and production end-to-end login and authenticated `whoami` passed. Production web is migrated, the public client is registered, and platform verifies its tokens. To target production, set `CTX_PLATFORM_URL=https://slate.usecontextlayer.com`; the platform URL default remains local. The new CLI authentication commands have not yet been published to npm.
+
+
 Build the local `ctx` executable, then invoke the built executable from the repository root:
 
 ```sh

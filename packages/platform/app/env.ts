@@ -10,6 +10,7 @@ export function parseDatabaseEnv(raw: Record<string, unknown>) {
 
 const schema = databaseSchema.extend({
 	CTX_APPS_DOMAIN: z.hostname().default("contextlayer.xyz"),
+	CTX_AUTH_ISSUER: z.url().default("https://www.usecontextlayer.com/api/auth"),
 })
 
 export function parsePlatformEnv(raw: Record<string, unknown>) {

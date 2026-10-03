@@ -1,10 +1,46 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi"
+import { errors } from "jose"
 import { appSchema, listedAppSchema } from "@/apps.schema"
 import { createApp, listApps, resolveApp } from "@/apps.server"
+import { authenticate, userSchema } from "@/auth.server"
 import type { PlatformEnv } from "@/context"
 
 export function createApi() {
 	const api = new OpenAPIHono<PlatformEnv>()
+	api.openAPIRegistry.registerComponent("securitySchemes", "bearerAuth", {
+		scheme: "bearer",
+		type: "http",
+	})
+	api.openapi(
+		createRoute({
+			method: "get",
+			operationId: "getCurrentUser",
+			path: "/me",
+			responses: {
+				200: {
+					content: { "application/json": { schema: userSchema } },
+					description: "Authenticated ContextLayer user",
+				},
+				401: { description: "A valid ContextLayer access token is required" },
+			},
+			security: [{ bearerAuth: [] }],
+		}),
+		async (c) => {
+			const token = c.req.header("authorization")?.match(/^Bearer (.+)$/i)?.[1]
+			let user = null
+			try {
+				if (token) user = await authenticate(token, c.var.config.CTX_AUTH_ISSUER)
+			} catch (error) {
+				if (!(error instanceof errors.JOSEError || error instanceof z.ZodError))
+					throw error
+			}
+			if (!user) {
+				c.header("WWW-Authenticate", 'Bearer realm="ContextLayer"')
+				return c.body(null, 401)
+			}
+			return c.json(user, 200)
+		},
+	)
 	api.openapi(
 		createRoute({
 			method: "get",

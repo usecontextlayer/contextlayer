@@ -6,6 +6,7 @@
 		"@types/node": "^24.13.3",
 		"commander": "^15.0.0",
 		"execa": "^10.0.1",
+		"openid-client": "^6.8.8",
 		"tsdown": "latest",
 		"typescript": "latest",
 		"zod": "^4.4.3"
