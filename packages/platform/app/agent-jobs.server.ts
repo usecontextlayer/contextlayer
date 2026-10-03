@@ -1,6 +1,7 @@
 import { z } from "zod"
 import { loadAgent } from "@/agents.server"
-import type { App } from "@/apps.schema"
+import { resolveFolder } from "@/app-folders.server"
+import type { AppAccess } from "@/apps.server"
 import {
 	boatClient,
 	commandResponseSchema,
@@ -10,29 +11,33 @@ import {
 	promptRunSchema,
 	sandboxResponseSchema,
 } from "@/boat.server"
+import type { PlatformDb } from "@/database"
+import type { AppUserUserId } from "@/database/models/public/AppUser"
 import type { PlatformConfig } from "@/env"
 
 const HOME = "/home/user"
 const RESULT = `${HOME}/result.json`
 
-// A job is one boat conversation running the agent with Claude Code in its own sandbox, so its id
-// is `<sandboxId>.<conversationId>`. It runs as one person, identified only by user id: their own
-// Claude subscription from the customer-credentials Doppler config, and their individual folders.
-// The sandbox receives none of the boat account's credentials.
+// A job is one prompt sent to an agent: one boat conversation running Claude Code in its own
+// sandbox, so its id is `<sandboxId>.<conversationId>`. It runs as one person: their own Claude
+// subscription from the customer-credentials Doppler config, the app's shared folders, and their
+// individual folders as an app user. The sandbox receives none of the boat account's credentials.
 export async function startAgentJob(
+	db: PlatformDb,
 	artifacts: Artifacts,
 	config: PlatformConfig,
-	app: App,
-	userId: string,
+	{ app, identity }: AppAccess,
 	agentName: string,
-	input: unknown,
+	prompt: string,
 ) {
 	const agent = await loadAgent(artifacts, app.id, agentName)
 	if (!agent) return null
+	const userId = identity.user.id
 	const remotes: Record<string, string> = {}
 	for (const [slug, { mode }] of Object.entries(agent.manifest.folders)) {
-		const name = mode === "shared" ? `${app.id}.${slug}` : `${app.id}.${userId}.${slug}`
-		remotes[slug] = await writableRemote(artifacts, name)
+		const appUser = mode === "shared" ? null : (userId as AppUserUserId)
+		const folder = await resolveFolder(db, artifacts, app.id, appUser, slug)
+		remotes[slug] = await writableRemote(artifacts, folder.id)
 	}
 
 	const boat = boatClient(config.BOAT_API_KEY)
@@ -67,10 +72,7 @@ export async function startAgentJob(
 	)
 	if (exitCode !== 0) throw new Error(`Folder checkout exited ${exitCode}: ${stderr}`)
 
-	const prompt = `Do the job described in your instructions. This is an autonomous job: nobody will answer questions, so make reasonable assumptions and finish.
-
-Input:
-${JSON.stringify(input, null, 2)}
+	const contract = `This is an autonomous job: nobody will answer questions, so make reasonable assumptions and finish.
 
 Your folders are Git checkouts under ${HOME}/folders/: ${Object.keys(remotes).join(", ")}. Anything you want to keep must be saved there. When you are done, commit your changes in each folder you changed and push them with \`git push origin HEAD:main\`.
 
@@ -80,7 +82,7 @@ ${agent.outputSchema}`
 		"POST",
 		`/sandboxes/${sandbox.id}/prompt`,
 		promptResponseSchema,
-		{ new: true, prompt, provider: "claude" },
+		{ new: true, prompt: `${prompt}\n\n${contract}`, provider: "claude" },
 	)
 	return { id: `${sandbox.id}.${conversationId}` }
 }
@@ -109,14 +111,7 @@ export async function getAgentJob(config: PlatformConfig, id: string) {
 	return { id, result: JSON.parse(content) as unknown, status: promptRun.status }
 }
 
-// A folder is an Artifacts repository named after its key, so the first job to use it creates it.
 async function writableRemote(artifacts: Artifacts, name: string) {
-	try {
-		const created = await artifacts.create(name, { setDefaultBranch: "main" })
-		return authenticatedRemote(created.remote, created.token)
-	} catch (error) {
-		if ((error as ArtifactsError).code !== "ALREADY_EXISTS") throw error
-	}
 	using repo = await artifacts.get(name)
 	const info = await repo.info()
 	const token = await repo.createToken("write", 3600)

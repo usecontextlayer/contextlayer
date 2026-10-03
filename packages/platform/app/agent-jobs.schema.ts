@@ -1,6 +1,6 @@
 import { z } from "@hono/zod-openapi"
 
-export const agentJobRequestSchema = z.object({ input: z.unknown() })
+export const agentJobRequestSchema = z.object({ prompt: z.string().min(1) })
 
 export const agentJobIdSchema = z.object({ id: z.string() })
 

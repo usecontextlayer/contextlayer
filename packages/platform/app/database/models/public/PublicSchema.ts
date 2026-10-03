@@ -3,15 +3,21 @@
 
 import type { default as AppTable } from "./App"
 import type { default as AppConnectionAssignmentTable } from "./AppConnectionAssignment"
+import type { default as AppFolderTable } from "./AppFolder"
+import type { default as AppUserTable } from "./AppUser"
 import type { default as KyselyMigrationTable } from "./KyselyMigration"
 import type { default as KyselyMigrationLockTable } from "./KyselyMigrationLock"
 
 export default interface PublicSchema {
 	kysely_migration_lock: KyselyMigrationLockTable
 
+	app_user: AppUserTable
+
 	app: AppTable
 
 	app_connection_assignment: AppConnectionAssignmentTable
+
+	app_folder: AppFolderTable
 
 	kysely_migration: KyselyMigrationTable
 }

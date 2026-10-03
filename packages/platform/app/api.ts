@@ -13,6 +13,8 @@ import {
 	assignmentSchema,
 } from "@/app-connections.schema"
 import { assignAppConnection, listAppConnections } from "@/app-connections.server"
+import { appUserSchema } from "@/app-users.schema"
+import { joinApp } from "@/app-users.server"
 import {
 	type AuthenticatedViewingEnv,
 	requireAppViewing,
@@ -212,6 +214,27 @@ export function createApi() {
 	appOperations.openapi(
 		createRoute({
 			method: "post",
+			operationId: "joinApp",
+			path: "/join",
+			request: { params: z.object({ target: appTargetSchema }) },
+			responses: {
+				200: {
+					content: { "application/json": { schema: appUserSchema } },
+					description: "The authenticated user is a user of this app",
+				},
+				401: {
+					description: "A valid ContextLayer access token or viewer session is required",
+				},
+				403: { description: "This user cannot view this private app" },
+				404: { description: "App not found" },
+			},
+			security,
+		}),
+		async (c) => c.json(await joinApp(c.var.db, c.var.appAccess), 200),
+	)
+	appOperations.openapi(
+		createRoute({
+			method: "post",
 			operationId: "listAppConnections",
 			path: "/connections/list",
 			request: {
@@ -376,12 +399,12 @@ export function createApi() {
 		}),
 		async (c) => {
 			const job = await startAgentJob(
+				c.var.db,
 				c.env.ARTIFACTS,
 				c.var.config,
-				c.var.appAccess.app,
-				c.var.appAccess.identity.user.id,
+				c.var.appAccess,
 				c.req.valid("param").name,
-				c.req.valid("json").input,
+				c.req.valid("json").prompt,
 			)
 			if (!job) return c.notFound()
 			return c.json(job, 202)
