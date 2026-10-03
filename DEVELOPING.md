@@ -50,7 +50,7 @@ pnpm ctx init my-react-router-app
 
 ## Local app tools
 
-In a generated app, copy `workers/local-tools/.dev.vars.example` to `workers/local-tools/.dev.vars` and supply your own `COMPOSIO_CONSUMER_KEY` from Composio For You. The upstream scaffold's Git rules ignore local credentials. `pnpm dev` starts both Workers through the Cloudflare Vite plugin; there is no separate tools server or `ctx dev` command.
+In a generated app, copy `workers/local-tools/.dev.vars.example` to `workers/local-tools/.dev.vars` and supply your own `COMPOSIO_CONSUMER_KEY` from Composio For You. The upstream scaffold's Git rules ignore local credentials. `pnpm dev` starts both Workers through the Cloudflare Vite plugin; there is no separate tools server or `ctx dev` command. `ctx init` exempts `@usecontextlayer/*` from pnpm's release-age policy so first-party releases can be used immediately; third-party dependencies retain the default policy.
 
 [The Tools package README](packages/tools/README.md) documents the loader API and Gmail example. [Architecture](ARCHITECTURE.md#app-tool-calls-and-local-development--agreed-contract) owns the account-alias contract and runtime boundaries. Hosted tool execution remains a later milestone.
 

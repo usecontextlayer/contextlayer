@@ -36,6 +36,21 @@ program
 		if (result.exitCode !== 0) return
 
 		await cp(new URL("./template/", import.meta.url), directory, { recursive: true })
+		const configure = await execa(
+			"pnpm",
+			[
+				"config",
+				"set",
+				"--location=project",
+				"--json",
+				"minimumReleaseAgeExclude",
+				'["@usecontextlayer/*"]',
+			],
+			{ cwd: directory, reject: false, stdio: "inherit" },
+		)
+		process.exitCode = configure.exitCode
+		if (configure.exitCode !== 0) return
+
 		const install = await execa(
 			"pnpm",
 			["add", `@usecontextlayer/tools@${version}`, "zod@^4.4.3"],
