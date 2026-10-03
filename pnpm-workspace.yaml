@@ -25,3 +25,5 @@ allowBuilds:
 
 minimumReleaseAgeExclude:
   - '@awesome.me/kit-b228b21a21@1.0.2'
+  - '@modelcontextprotocol/client@2.3.0'
+  - '@modelcontextprotocol/core@2.3.0'

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { cp } from "node:fs/promises"
 import { Command } from "commander"
 import { execa } from "execa"
 import { z } from "zod"
@@ -10,7 +11,7 @@ const program = new Command().name("ctx").description("ContextLayer CLI").versio
 program
 	.command("init <directory>")
 	.description(
-		"Create a Cloudflare React Router project, register an app, and set its immutable Git remote",
+		"Create a Cloudflare React Router project with local Composio tools, register an app, and set its immutable Git remote",
 	)
 	.action(async (directory: string) => {
 		const result = await execa(
@@ -33,6 +34,19 @@ program
 		)
 		process.exitCode = result.exitCode
 		if (result.exitCode !== 0) return
+
+		await cp(new URL("./template/", import.meta.url), directory, { recursive: true })
+		const install = await execa(
+			"pnpm",
+			["add", `@usecontextlayer/tools@${version}`, "zod@^4.4.3"],
+			{
+				cwd: directory,
+				reject: false,
+				stdio: "inherit",
+			},
+		)
+		process.exitCode = install.exitCode
+		if (install.exitCode !== 0) return
 
 		const response = await fetch(new URL("/api/apps", env.CTX_PLATFORM_URL), {
 			method: "POST",

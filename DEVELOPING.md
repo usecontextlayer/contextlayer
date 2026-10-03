@@ -1,6 +1,6 @@
 # Developing
 
-This workspace contains seven packages: the public `@usecontextlayer/cli` and six private packages, including the platform application. Use the root package scripts and Turbo for libraries and applications. Main pushes run checks; version-tag pushes publish npm packages.
+This workspace contains eight packages: the public `@usecontextlayer/cli` and `@usecontextlayer/tools` plus six private packages, including the platform application. Use the root package scripts and Turbo for libraries and applications. Main pushes run checks; version-tag pushes publish npm packages.
 
 ## Setup
 
@@ -46,7 +46,13 @@ pnpm ctx --version
 pnpm ctx init my-react-router-app
 ```
 
-`ctx init <directory>` uses the official Cloudflare React Router scaffold through `pnpm create cloudflare@latest`, accepting defaults, initializing Git, and disabling deployment. The generated project owns its `pnpm dev` and `pnpm build` commands; its Cloudflare Vite plugin runs server code in the Workers runtime. After scaffolding, it creates an app through `POST /api/apps`, then sets `origin` to `<CTX_PLATFORM_URL>/git/<app-id>`. The platform assigns an immutable UUID and a friendly public hostname. `CTX_PLATFORM_URL` is read in the CLI's `env.ts` and defaults to `http://localhost:3010`. Initialization does not push. Relative directories resolve from the calling directory. The version comes from `packages/cli/package.json`. Run `pnpm exec turbo run dev:watch --filter=@usecontextlayer/cli` to rebuild the CLI as its source changes.
+`ctx init <directory>` uses the official Cloudflare React Router scaffold through `pnpm create cloudflare@latest`, accepting defaults, initializing Git, and disabling deployment. The generated project owns its `pnpm dev` and `pnpm build` commands; its Cloudflare Vite plugin runs server code in the Workers runtime. After scaffolding, it installs the matching release of `@usecontextlayer/tools` and Zod, overlays the local Tools Worker and native Vite service-binding configuration, and creates an app through `POST /api/apps`, then sets `origin` to `<CTX_PLATFORM_URL>/git/<app-id>`. The platform assigns an immutable UUID and a friendly public hostname. `CTX_PLATFORM_URL` is read in the CLI's `env.ts` and defaults to `http://localhost:3010`. Initialization does not push. Relative directories resolve from the calling directory. The version comes from `packages/cli/package.json`. Run `pnpm exec turbo run dev:watch --filter=@usecontextlayer/cli` to rebuild the CLI as its source changes.
+
+## Local app tools
+
+In a generated app, copy `workers/local-tools/.dev.vars.example` to `workers/local-tools/.dev.vars` and supply your own `COMPOSIO_CONSUMER_KEY` from Composio For You. The upstream scaffold's Git rules ignore local credentials. `pnpm dev` starts both Workers through the Cloudflare Vite plugin; there is no separate tools server or `ctx dev` command.
+
+[The Tools package README](packages/tools/README.md) documents the loader API and Gmail example. [Architecture](ARCHITECTURE.md#app-tool-calls-and-local-development--agreed-contract) owns the account-alias contract and runtime boundaries. Hosted tool execution remains a later milestone.
 
 ## Platform development
 
@@ -112,7 +118,7 @@ node --import tsx scripts/release.ts audit
 node --import tsx scripts/release.ts verify
 ```
 
-The release ladder bumps package versions and the lockfile, commits with `gitc`, pushes main, waits for its `check.yml` run, and pushes a version tag. Pushing `vX.Y.Z` starts `release.yml`, which requires a successful check for that exact commit and verifies every package version against the tag before publishing. Its final rung watches the release run. Manual workflow dispatch remains available. Only packages without `private: true` publish; currently that is `@usecontextlayer/cli`. GitHub receives `NPM_TOKEN` and `FONTAWESOME_PACKAGE_TOKEN` through Doppler sync. The former publishes packages; the latter installs the dashboard's private icons during CI. Releases do not deploy Twilio.
+The release ladder bumps package versions and the lockfile, commits with `gitc`, pushes main, waits for its `check.yml` run, and pushes a version tag. Pushing `vX.Y.Z` starts `release.yml`, which requires a successful check for that exact commit and verifies every package version against the tag before publishing. Its final rung watches the release run. Manual workflow dispatch remains available. Only packages without `private: true` publish; currently these are `@usecontextlayer/cli` and `@usecontextlayer/tools`. GitHub receives `NPM_TOKEN` and `FONTAWESOME_PACKAGE_TOKEN` through Doppler sync. The former publishes packages; the latter installs the dashboard's private icons during CI. Releases do not deploy Twilio.
 
 The CLI package exposes the `ctx` executable. Run it without a global installation using `npx @usecontextlayer/cli --version` or `npx @usecontextlayer/cli init my-app`.
 
