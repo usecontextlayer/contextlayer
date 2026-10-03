@@ -10,12 +10,13 @@ import { provisionEphemeralDatabases } from "@usecontextlayer/db-infra/ephemeral
 import { expect, test } from "vitest"
 import { z } from "zod"
 import { appSchema, listedAppSchema } from "@/apps.schema"
+import { createPlatformDb } from "@/database"
 import { migrateToLatest } from "@/database/migrate"
 import { parsePlatformEnv } from "@/env"
 
 const execFile = promisify(execFileCallback)
 
-test("created app has a stable Git remote, repository, and dashboard entry", async () => {
+test("app ownership protects viewing, listing, and native Git source access", async () => {
 	const databases = await provisionEphemeralDatabases({
 		migrators: { ctx_platform_test: migrateToLatest },
 	})
@@ -24,6 +25,7 @@ test("created app has a stable Git remote, repository, and dashboard entry", asy
 		CTX_PLATFORM_DATABASE_URL: databases.urls.ctx_platform_test,
 	})
 	const accessToken = z.string().min(1).parse(process.env.CTX_TEST_ACCESS_TOKEN)
+	const db = createPlatformDb(databases.urls.ctx_platform_test)
 	const wranglerConfig = JSON.parse(
 		await readFile(join(import.meta.dirname, "wrangler.jsonc"), "utf8"),
 	)
@@ -77,13 +79,15 @@ test("created app has a stable Git remote, repository, and dashboard entry", asy
 			}
 		}
 		expect(origin).not.toBe("")
+		const headers = { authorization: `Bearer ${accessToken}` }
 		const getApps = async () => {
-			const response = await fetch(`${origin}/api/apps`)
+			const response = await fetch(`${origin}/api/apps`, { headers })
 			expect(response.status).toBe(200)
 			return z.object({ apps: z.array(listedAppSchema) }).parse(await response.json())
 		}
 		expect((await fetch(`${origin}/api/apps`, { method: "POST" })).status).toBe(401)
-		const headers = { authorization: `Bearer ${accessToken}` }
+		expect((await fetch(`${origin}/api/apps`)).status).toBe(401)
+		expect((await fetch(`${origin}/dashboard/apps`)).status).toBe(401)
 		const identity = await fetch(`${origin}/api/me`, { headers })
 		expect(identity.status).toBe(200)
 		const user = z.object({ id: z.string().min(1) }).parse(await identity.json())
@@ -93,11 +97,73 @@ test("created app has a stable Git remote, repository, and dashboard entry", asy
 		appId = app.id
 		expect(app.owner_user_id).toBe(user.id)
 		expect(app.owner_organization_id).toBeNull()
+		expect(app.visibility).toBe("private")
 		expect(app.id).toMatch(/^[0-9a-f-]{36}$/)
 		expect(app.public_hostname).toMatch(/^[a-z-]+\.contextlayer\.xyz$/)
 		expect((await getApps()).apps).toContainEqual({ ...app, latest_commit: null })
+		const gitUrl = `${origin}/git/${appId}`
+		const refs = `${gitUrl}/info/refs?service=git-upload-pack`
+		const resolveUrl = new URL(`${origin}/api/apps/resolve`)
+		resolveUrl.searchParams.set("hostname", app.public_hostname)
+		expect((await fetch(resolveUrl)).status).toBe(401)
+		expect((await fetch(resolveUrl, { headers })).status).toBe(200)
+		expect((await fetch(refs)).status).toBe(401)
+		expect((await fetch(refs)).headers.get("WWW-Authenticate")).toContain("Bearer")
+		const connectionList = `${origin}/api/apps/${app.id}/connections/list`
+		const listRequest = {
+			body: JSON.stringify({ manifest: { connections: {} } }),
+			headers: { ...headers, "content-type": "application/json" },
+			method: "POST",
+		}
+		expect((await fetch(connectionList, listRequest)).status).toBe(200)
+		const otherOwner = "different-user"
+		await db
+			.updateTable("app")
+			.set({ owner_user_id: otherOwner })
+			.where("id", "=", app.id)
+			.execute()
+		expect((await fetch(resolveUrl, { headers })).status).toBe(403)
+		expect((await fetch(refs, { headers })).status).toBe(403)
+		expect((await fetch(connectionList, listRequest)).status).toBe(403)
+		for (const operation of ["connections/assign", "tools/call"]) {
+			expect(
+				(
+					await fetch(`${origin}/api/apps/${app.id}/${operation}`, {
+						headers,
+						method: "POST",
+					})
+				).status,
+			).toBe(403)
+		}
+		expect((await getApps()).apps).toEqual([])
+		await db
+			.updateTable("app")
+			.set({ visibility: "public" })
+			.where("id", "=", app.id)
+			.execute()
+		expect((await fetch(resolveUrl)).status).toBe(200)
+		expect((await fetch(connectionList, listRequest)).status).toBe(200)
+		expect((await fetch(refs, { headers })).status).toBe(403)
+		expect((await getApps()).apps).toEqual([])
+		await db
+			.updateTable("app")
+			.set({ owner_user_id: user.id, visibility: "private" })
+			.where("id", "=", app.id)
+			.execute()
+		const cli = join(import.meta.dirname, "../cli/dist/cli.mjs")
+		const gitEnv = {
+			...process.env,
+			GIT_CONFIG_GLOBAL: join(dir, "gitconfig"),
+			GIT_TERMINAL_PROMPT: "0",
+		}
 		const git = async (...args: string[]) =>
-			(await execFile("git", args, { cwd: dir })).stdout.trim()
+			(await execFile("git", args, { cwd: dir, env: gitEnv })).stdout.trim()
+		await git(
+			"config",
+			"--global",
+			`credential.${origin}/git.helper`,
+			`${cli} git-credential`,
+		)
 		await git("init", "-b", "main")
 		await git("config", "user.name", "Platform Test")
 		await git("config", "user.email", "platform-test@example.com")
@@ -108,7 +174,7 @@ test("created app has a stable Git remote, repository, and dashboard entry", asy
 		const revision = await git("rev-parse", "HEAD")
 		await git("push", `${origin}/git/${appId}`, "main")
 		expect((await getApps()).apps).toContainEqual({ ...app, latest_commit: revision })
-		const page = await fetch(`${origin}/dashboard/apps`)
+		const page = await fetch(`${origin}/dashboard/apps`, { headers })
 		expect(page.status).toBe(200)
 		const html = await page.text()
 		expect(html).toContain(app.public_hostname)
@@ -124,7 +190,10 @@ test("created app has a stable Git remote, repository, and dashboard entry", asy
 		await git("clone", "--branch", "main", `${origin}/git/${appId}`, "cloned")
 		expect(
 			(
-				await execFile("git", ["rev-parse", "HEAD"], { cwd: join(dir, "cloned") })
+				await execFile("git", ["rev-parse", "HEAD"], {
+					cwd: join(dir, "cloned"),
+					env: gitEnv,
+				})
 			).stdout.trim(),
 		).toBe(revision)
 		expect(await readFile(join(dir, "cloned", "hello.txt"), "utf8")).toBe(
@@ -135,7 +204,10 @@ test("created app has a stable Git remote, repository, and dashboard entry", asy
 		await git("add", "hello.txt")
 		await git("-c", "commit.gpgsign=false", "commit", "-m", "Update app")
 		await git("push", `${origin}/git/${appId}`, "main")
-		await execFile("git", ["pull", "--ff-only"], { cwd: join(dir, "cloned") })
+		await execFile("git", ["pull", "--ff-only"], {
+			cwd: join(dir, "cloned"),
+			env: gitEnv,
+		})
 		expect(await readFile(join(dir, "cloned", "hello.txt"), "utf8")).toBe(
 			"Updated ContextLayer\n",
 		)
@@ -143,6 +215,7 @@ test("created app has a stable Git remote, repository, and dashboard entry", asy
 		server.kill("SIGTERM")
 		await exited
 		await rm(dir, { force: true, recursive: true })
+		await db.destroy()
 		await databases.dropAll()
 		if (appId) {
 			await execFile(

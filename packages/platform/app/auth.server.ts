@@ -5,6 +5,31 @@ export const userSchema = z.object({ id: z.string().min(1) })
 const claimsSchema = z.object({ scope: z.string(), sub: z.string().min(1) })
 const sessionSchema = z.object({ user: userSchema }).nullable()
 
+export type AuthIdentity = {
+	user: z.infer<typeof userSchema>
+	credential: { type: "access-token" | "session"; token: string }
+}
+
+export function credentialHeaders(credential: AuthIdentity["credential"]) {
+	const headers = new Headers()
+	if (credential.type === "access-token") {
+		headers.set("Authorization", `Bearer ${credential.token}`)
+	} else {
+		headers.set("Cookie", `__Secure-ctx_viewer=${encodeURIComponent(credential.token)}`)
+	}
+	return headers
+}
+
+export async function listOrganizationIds(identity: AuthIdentity, issuer: string) {
+	const url = new URL(issuer)
+	url.pathname = "/api/platform/organizations"
+	const response = await fetch(url, { headers: credentialHeaders(identity.credential) })
+	if (!response.ok) throw new Error(`Organization lookup failed: ${response.status}`)
+	return z
+		.object({ organization_ids: z.array(z.string().min(1)) })
+		.parse(await response.json()).organization_ids
+}
+
 export async function authenticateAccessToken(token: string, issuer: string) {
 	const keys = createRemoteJWKSet(new URL(`${issuer.replace(/\/$/, "")}/jwks`))
 	const { payload } = await jwtVerify(token, keys, {

@@ -11,6 +11,7 @@ import {
 	listConnections,
 } from "@/connections"
 import { env } from "@/env"
+import { gitCredential, setupGit } from "@/git-credential"
 import { version } from "@/package.json"
 
 const program = new Command().name("ctx").description("ContextLayer CLI").version(version)
@@ -90,8 +91,20 @@ program
 
 program
 	.command("login")
-	.description("Sign in to ContextLayer by approving a code in your browser")
-	.action(login)
+	.description(
+		"Sign in by approving a browser code and configure Git credentials for ContextLayer repositories",
+	)
+	.action(async () => {
+		await login()
+		await setupGit(new URL(import.meta.url))
+		console.log("Git credentials configured for ContextLayer.")
+	})
+program
+	.command("git-credential <operation>")
+	.description(
+		"Git credential helper using the saved login; invoked automatically by Git",
+	)
+	.action(gitCredential)
 program
 	.command("whoami")
 	.description("Show your ContextLayer user ID using the saved login")

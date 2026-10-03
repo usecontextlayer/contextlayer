@@ -1,54 +1,40 @@
 import { createRoute, OpenAPIHono, type RouteConfig, z } from "@hono/zod-openapi"
-import { getCookie } from "hono/cookie"
-import { createMiddleware } from "hono/factory"
-import { errors } from "jose"
 import {
 	appConnectionsRequestSchema,
 	appConnectionsSchema,
-	appTargetSchema,
 	assignmentSchema,
 } from "@/app-connections.schema"
 import { assignAppConnection, listAppConnections } from "@/app-connections.server"
-import { appSchema, listedAppSchema } from "@/apps.schema"
-import { createApp, listApps, resolveApp } from "@/apps.server"
-import { authenticateAccessToken, authenticateSession, userSchema } from "@/auth.server"
+import {
+	type AuthenticatedViewingEnv,
+	requireAppViewing,
+	type ViewingEnv,
+} from "@/apps.middleware"
+import {
+	appSchema,
+	appTargetSchema,
+	listedAppSchema,
+	resolveAppQuerySchema,
+} from "@/apps.schema"
+import { createApp, listApps } from "@/apps.server"
+import { type AuthenticatedEnv, type IdentityEnv, requireAuth } from "@/auth.middleware"
+import { userSchema } from "@/auth.server"
 import {
 	authorizeConnectionSchema,
 	connectionLinkSchema,
 	connectionsSchema,
 } from "@/connections.schema"
 import { authorizeConnection, listConnections } from "@/connections.server"
-import type { PlatformEnv } from "@/context"
 import { toolCallSchema, toolResultSchema } from "@/tools.schema"
 import { callTool } from "@/tools.server"
 
-const security: RouteConfig["security"] = [{ bearerAuth: [] }, { viewerCookie: [] }]
-
-const requireAuth = createMiddleware<
-	PlatformEnv & { Variables: { user: z.infer<typeof userSchema> } }
->(async (c, next) => {
-	const token = c.req.header("authorization")?.match(/^Bearer (.+)$/i)?.[1]
-	let user = null
-	if (token) {
-		try {
-			user = await authenticateAccessToken(token, c.var.config.CTX_AUTH_ISSUER)
-		} catch (error) {
-			if (!(error instanceof errors.JOSEError || error instanceof z.ZodError)) throw error
-		}
-	} else {
-		const session = getCookie(c, "__Secure-ctx_viewer")
-		if (session) user = await authenticateSession(session, c.var.config.CTX_AUTH_ISSUER)
-	}
-	if (!user) {
-		c.header("WWW-Authenticate", 'Bearer realm="ContextLayer"')
-		return c.body(null, 401)
-	}
-	c.set("user", user)
-	await next()
-})
+const security: NonNullable<RouteConfig["security"]> = [
+	{ bearerAuth: [] },
+	{ viewerCookie: [] },
+]
 
 export function createApi() {
-	const api = new OpenAPIHono<PlatformEnv>()
+	const api = new OpenAPIHono<IdentityEnv>()
 	api.openAPIRegistry.registerComponent("securitySchemes", "bearerAuth", {
 		scheme: "bearer",
 		type: "http",
@@ -75,50 +61,66 @@ export function createApi() {
 			},
 			security,
 		}),
-		async (c) => c.json(c.var.user, 200),
+		async (c) => c.json(c.var.identity.user, 200),
 	)
-	api.openapi(
+	const viewing = new OpenAPIHono<ViewingEnv>()
+	viewing.use("*", requireAppViewing)
+	viewing.openapi(
 		createRoute({
 			method: "get",
 			operationId: "resolveApp",
-			path: "/apps/resolve",
-			request: { query: z.object({ hostname: z.hostname().toLowerCase() }) },
+			path: "/",
+			request: { query: resolveAppQuerySchema },
 			responses: {
 				200: {
 					content: { "application/json": { schema: appSchema.pick({ id: true }) } },
-					description: "App ID assigned to the public hostname",
+					description: "App ID authorized for viewing by this caller",
 				},
+				401: { description: "Sign-in is required to view this private app" },
+				403: { description: "This user cannot view this private app" },
 				404: { description: "No app has this public hostname" },
 			},
+			security: [...security, {}],
 		}),
-		async (c) => {
-			const app = await resolveApp(c.var.db, c.req.valid("query").hostname)
-			if (!app) return c.notFound()
-			return c.json(app, 200)
-		},
+		async (c) => c.json({ id: c.var.appAccess.app.id }, 200),
 	)
-	api.openapi(
+	api.route("/apps/resolve", viewing)
+	const catalog = new OpenAPIHono<AuthenticatedEnv>()
+	catalog.use("*", requireAuth)
+	catalog.openapi(
 		createRoute({
 			method: "get",
 			operationId: "listApps",
-			path: "/apps",
+			path: "/",
 			responses: {
 				200: {
 					content: {
 						"application/json": { schema: z.object({ apps: z.array(listedAppSchema) }) },
 					},
-					description: "Platform apps",
+					description: "Apps owned by this user or their organizations",
 				},
+				401: { description: "A valid ContextLayer login is required" },
 			},
+			security,
 		}),
-		async (c) => c.json({ apps: await listApps(c.var.db, c.env.ARTIFACTS) }, 200),
+		async (c) =>
+			c.json(
+				{
+					apps: await listApps(
+						c.var.db,
+						c.env.ARTIFACTS,
+						c.var.identity,
+						c.var.config.CTX_AUTH_ISSUER,
+					),
+				},
+				200,
+			),
 	)
-	api.openapi(
+	catalog.openapi(
 		createRoute({
 			method: "post",
-			middleware: [requireAuth] as const,
 			operationId: "createApp",
-			path: "/apps",
+			path: "/",
 			responses: {
 				201: {
 					content: { "application/json": { schema: appSchema } },
@@ -134,12 +136,13 @@ export function createApi() {
 		async (c) =>
 			c.json(
 				await createApp(c.var.db, c.env.ARTIFACTS, c.var.config.CTX_APPS_DOMAIN, {
-					id: c.var.user.id,
+					id: c.var.identity.user.id,
 					type: "user",
 				}),
 				201,
 			),
 	)
+	api.route("/apps", catalog)
 	api.openapi(
 		createRoute({
 			method: "get",
@@ -158,7 +161,10 @@ export function createApi() {
 			security,
 		}),
 		async (c) =>
-			c.json(await listConnections(c.var.config.COMPOSIO_API_KEY, c.var.user.id), 200),
+			c.json(
+				await listConnections(c.var.config.COMPOSIO_API_KEY, c.var.identity.user.id),
+				200,
+			),
 	)
 	api.openapi(
 		createRoute({
@@ -187,18 +193,19 @@ export function createApi() {
 			c.json(
 				await authorizeConnection(
 					c.var.config.COMPOSIO_API_KEY,
-					c.var.user.id,
+					c.var.identity.user.id,
 					c.req.valid("json").toolkit,
 				),
 				200,
 			),
 	)
-	api.openapi(
+	const appOperations = new OpenAPIHono<AuthenticatedViewingEnv>()
+	appOperations.use("*", requireAuth, requireAppViewing)
+	appOperations.openapi(
 		createRoute({
 			method: "post",
-			middleware: [requireAuth] as const,
 			operationId: "listAppConnections",
-			path: "/apps/{target}/connections/list",
+			path: "/connections/list",
 			request: {
 				body: {
 					content: { "application/json": { schema: appConnectionsRequestSchema } },
@@ -214,6 +221,7 @@ export function createApi() {
 				401: {
 					description: "A valid ContextLayer access token or viewer session is required",
 				},
+				403: { description: "This user cannot view this private app" },
 				404: { description: "App not found" },
 			},
 			security,
@@ -221,20 +229,17 @@ export function createApi() {
 		async (c) => {
 			const result = await listAppConnections(
 				c.var.db,
-				c.req.valid("param").target,
-				c.var.user.id,
+				c.var.appAccess,
 				c.req.valid("json").manifest,
 			)
-			if (!result) return c.notFound()
 			return c.json(result, 200)
 		},
 	)
-	api.openapi(
+	appOperations.openapi(
 		createRoute({
 			method: "post",
-			middleware: [requireAuth] as const,
 			operationId: "assignAppConnection",
-			path: "/apps/{target}/connections/assign",
+			path: "/connections/assign",
 			request: {
 				body: {
 					content: { "application/json": { schema: assignmentSchema } },
@@ -250,6 +255,7 @@ export function createApi() {
 				401: {
 					description: "A valid ContextLayer access token or viewer session is required",
 				},
+				403: { description: "This user cannot view this private app" },
 				404: { description: "App not found" },
 			},
 			security,
@@ -257,26 +263,23 @@ export function createApi() {
 		async (c) => {
 			const result = await assignAppConnection(
 				c.var.db,
-				c.req.valid("param").target,
-				c.var.user.id,
+				c.var.appAccess,
 				c.req.valid("json"),
 			)
-			if (!result) return c.notFound()
 			return c.json(result, 200)
 		},
 	)
-	api.openapi(
+	appOperations.openapi(
 		createRoute({
 			method: "post",
-			middleware: [requireAuth] as const,
 			operationId: "callTool",
-			path: "/apps/{id}/tools/call",
+			path: "/tools/call",
 			request: {
 				body: {
 					content: { "application/json": { schema: toolCallSchema } },
 					required: true,
 				},
-				params: appSchema.pick({ id: true }),
+				params: z.object({ target: appTargetSchema }),
 			},
 			responses: {
 				200: {
@@ -286,7 +289,8 @@ export function createApi() {
 				401: {
 					description: "A valid ContextLayer access token or viewer session is required",
 				},
-				404: { description: "No connection assignment for this app, user, and slug" },
+				403: { description: "This user cannot view this private app" },
+				404: { description: "App or connection assignment not found" },
 			},
 			security,
 		}),
@@ -294,14 +298,14 @@ export function createApi() {
 			const result = await callTool(
 				c.var.db,
 				c.var.config.COMPOSIO_API_KEY,
-				c.req.valid("param").id,
-				c.var.user.id,
+				c.var.appAccess,
 				c.req.valid("json"),
 			)
 			if (!result) return c.notFound()
 			return c.json(result, 200)
 		},
 	)
+	api.route("/apps/:target", appOperations)
 	api.doc31("/openapi.json", {
 		info: { title: "ContextLayer Platform", version: "0.1.0" },
 		openapi: "3.1.0",

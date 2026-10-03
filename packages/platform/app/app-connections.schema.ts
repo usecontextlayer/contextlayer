@@ -11,11 +11,6 @@ export const slateSchema = z.object({
 	connections: z.record(z.string().min(1), requirementSchema),
 })
 
-export const appTargetSchema = z.union([
-	appSchema.shape.id.transform((id) => ({ id })),
-	appSchema.shape.public_hostname.transform((public_hostname) => ({ public_hostname })),
-])
-
 export const appConnectionsRequestSchema = z.object({ manifest: slateSchema.optional() })
 export const assignmentSchema = z.object({
 	connection_id: z.string().min(1),

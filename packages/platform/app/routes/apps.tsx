@@ -19,7 +19,12 @@ import {
 	ItemTitle,
 } from "@/components/ui/item"
 import { Separator } from "@/components/ui/separator"
-import { artifactsContext, databaseContext } from "@/context"
+import {
+	artifactsContext,
+	configContext,
+	databaseContext,
+	identityContext,
+} from "@/context"
 import type { Route } from "@/routes/+types/apps"
 
 export function meta() {
@@ -28,7 +33,12 @@ export function meta() {
 
 export async function loader({ context }: Route.LoaderArgs) {
 	return {
-		apps: await listApps(context.get(databaseContext), context.get(artifactsContext)),
+		apps: await listApps(
+			context.get(databaseContext),
+			context.get(artifactsContext),
+			context.get(identityContext),
+			context.get(configContext).CTX_AUTH_ISSUER,
+		),
 	}
 }
 

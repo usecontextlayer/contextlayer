@@ -3,13 +3,14 @@ import { proxy } from "hono/proxy"
 import { z } from "zod"
 import { appSchema } from "@/apps.schema"
 import { getGitAccess } from "@/apps.server"
-import type { PlatformEnv } from "@/context"
+import { type AuthenticatedEnv, requireAuth } from "@/auth.middleware"
 
 const serviceSchema = z.enum(["git-upload-pack", "git-receive-pack"])
 
 export function createGitApp() {
-	const app = new Hono<PlatformEnv>()
-	const handle: Handler<PlatformEnv> = async (c) => {
+	const app = new Hono<AuthenticatedEnv>()
+	app.use("*", requireAuth)
+	const handle: Handler<AuthenticatedEnv> = async (c) => {
 		const id = appSchema.shape.id.parse(c.req.param("id"))
 		const service = serviceSchema.parse(
 			c.req.method === "GET" ? c.req.query("service") : c.req.param("service"),
@@ -20,8 +21,17 @@ export function createGitApp() {
 			c.env.ARTIFACTS,
 			id,
 			service === "git-receive-pack",
+			c.var.identity,
+			c.var.config.CTX_AUTH_ISSUER,
 		)
-		if (!access) return c.notFound()
+		if (!access.allowed) {
+			const status = {
+				forbidden: 403,
+				"not-found": 404,
+				"sign-in-required": 401,
+			} as const
+			return c.body(null, status[access.reason])
+		}
 		const url = new URL(access.remote)
 		url.pathname += path
 		url.search = new URL(c.req.url).search

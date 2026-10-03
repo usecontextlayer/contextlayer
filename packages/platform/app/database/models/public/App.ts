@@ -15,6 +15,8 @@ export default interface AppTable {
 	owner_user_id: ColumnType<string | null, string | null, string | null>
 
 	owner_organization_id: ColumnType<string | null, string | null, string | null>
+
+	visibility: ColumnType<string, string, string>
 }
 
 export type App = Selectable<AppTable>

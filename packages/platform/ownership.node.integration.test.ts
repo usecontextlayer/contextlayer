@@ -1,5 +1,6 @@
 import { provisionEphemeralDatabases } from "@usecontextlayer/db-infra/ephemeral"
 import { expect, test } from "vitest"
+import { DEFAULT_APP_VISIBILITY } from "@/apps.schema"
 import { createPlatformDb } from "@/database"
 import { migrateToLatest } from "@/database/migrate"
 
@@ -15,6 +16,7 @@ test("Postgres requires exactly one user or organization owner for each app", as
 				owner_organization_id: null,
 				owner_user_id: "user-1",
 				public_hostname: "personal.example.com",
+				visibility: DEFAULT_APP_VISIBILITY,
 			})
 			.returningAll()
 			.executeTakeFirstOrThrow()
@@ -27,6 +29,7 @@ test("Postgres requires exactly one user or organization owner for each app", as
 				owner_organization_id: "org-1",
 				owner_user_id: null,
 				public_hostname: "organization.example.com",
+				visibility: DEFAULT_APP_VISIBILITY,
 			})
 			.returningAll()
 			.executeTakeFirstOrThrow()
@@ -40,6 +43,7 @@ test("Postgres requires exactly one user or organization owner for each app", as
 					owner_organization_id: null,
 					owner_user_id: null,
 					public_hostname: "unowned.example.com",
+					visibility: DEFAULT_APP_VISIBILITY,
 				})
 				.execute(),
 		).rejects.toMatchObject({ code: "23514" })
@@ -50,6 +54,7 @@ test("Postgres requires exactly one user or organization owner for each app", as
 					owner_organization_id: "org-1",
 					owner_user_id: "user-1",
 					public_hostname: "two-owners.example.com",
+					visibility: DEFAULT_APP_VISIBILITY,
 				})
 				.execute(),
 		).rejects.toMatchObject({ code: "23514" })
