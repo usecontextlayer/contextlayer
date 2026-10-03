@@ -51,7 +51,7 @@ program
 				"--location=project",
 				"--json",
 				"minimumReleaseAgeExclude",
-				'["@usecontextlayer/*", "@contextlayer/*"]',
+				'["@usecontextlayer/*"]',
 			],
 			{ cwd: directory, reject: false, stdio: "inherit" },
 		)
@@ -60,7 +60,7 @@ program
 
 		const install = await execa(
 			"pnpm",
-			["add", `@contextlayer/sdk@${version}`, "zod@^4.4.3"],
+			["add", `@usecontextlayer/sdk@${version}`, "zod@^4.4.3"],
 			{
 				cwd: directory,
 				reject: false,

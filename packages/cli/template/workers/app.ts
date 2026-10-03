@@ -1,4 +1,4 @@
-import { createApp } from "@contextlayer/sdk/worker"
+import { createApp } from "@usecontextlayer/sdk/worker"
 
 export default createApp({
 	build: () => import("virtual:react-router/server-build"),

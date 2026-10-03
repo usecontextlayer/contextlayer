@@ -35,7 +35,7 @@
 		"dist",
 		"examples"
 	],
-	"name": "@contextlayer/sdk",
+	"name": "@usecontextlayer/sdk",
 	"peerDependencies": {
 		"@cloudflare/vite-plugin": "^1.62.4",
 		"react-router": "^8.4.0",
