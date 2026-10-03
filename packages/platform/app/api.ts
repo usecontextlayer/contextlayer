@@ -1,4 +1,6 @@
 import { createRoute, OpenAPIHono, type RouteConfig, z } from "@hono/zod-openapi"
+import { agentSchema } from "@/agents.schema"
+import { loadAgent } from "@/agents.server"
 import {
 	appConnectionsRequestSchema,
 	appConnectionsSchema,
@@ -303,6 +305,42 @@ export function createApi() {
 			)
 			if (!result) return c.notFound()
 			return c.json(result, 200)
+		},
+	)
+	appOperations.openapi(
+		createRoute({
+			method: "get",
+			operationId: "getAgent",
+			path: "/agents/{name}",
+			request: { params: z.object({ name: z.string().min(1), target: appTargetSchema }) },
+			responses: {
+				200: {
+					content: { "application/json": { schema: agentSchema } },
+					description: "The agent compiled from the latest commit on main",
+				},
+				401: {
+					description: "A valid ContextLayer access token or viewer session is required",
+				},
+				403: { description: "This user cannot view this private app" },
+				404: { description: "App or agent not found" },
+			},
+			security,
+		}),
+		async (c) => {
+			const agent = await loadAgent(
+				c.env.ARTIFACTS,
+				c.var.appAccess.app.id,
+				c.req.valid("param").name,
+			)
+			if (!agent) return c.notFound()
+			return c.json(
+				{
+					commit: agent.commit,
+					files: Object.keys(agent.files),
+					manifest: agent.manifest,
+				},
+				200,
+			)
 		},
 	)
 	api.route("/apps/:target", appOperations)
