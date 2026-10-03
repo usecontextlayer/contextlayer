@@ -9,4 +9,4 @@ FONTAWESOME_PACKAGE_TOKEN=$(bin/doppler secrets get FONTAWESOME_PACKAGE_TOKEN --
 NPM_CONFIG_USERCONFIG="$PWD/packages/platform/scripts/ci.npmrc" pnpm install --frozen-lockfile
 unset FONTAWESOME_PACKAGE_TOKEN
 
-pnpm exec turbo run build --filter=@usecontextlayer/platform
+pnpm exec turbo run build --filter="${1:-@usecontextlayer/platform}"

@@ -8,10 +8,11 @@
 		"typescript": "latest",
 		"wrangler": "^4.146.0"
 	},
-	"name": "@usecontextlayer/dispatcher",
+	"name": "@usecontextlayer/auth",
 	"private": true,
 	"scripts": {
 		"build": "wrangler deploy --dry-run --outdir dist",
+		"dev": "wrangler dev",
 		"tsc": "tsc --noEmit"
 	},
 	"type": "module",

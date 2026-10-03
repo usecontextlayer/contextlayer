@@ -1,6 +1,6 @@
 # Developing
 
-This workspace contains eight packages: the public `@usecontextlayer/cli` and `@usecontextlayer/tools` plus six private packages, including the platform application. Use the root package scripts and Turbo for libraries and applications. Main pushes run checks; version-tag pushes publish npm packages.
+This workspace contains nine packages: the public `@usecontextlayer/cli` and `@usecontextlayer/tools` plus seven private packages, including the platform application and viewer auth Worker. Use the root package scripts and Turbo for libraries and applications. Main pushes run checks; version-tag pushes publish npm packages.
 
 ## Setup
 
@@ -91,6 +91,14 @@ Build and typecheck with `pnpm exec turbo run build tsc --filter=@usecontextlaye
 
 The wildcard DNS record for `*.contextlayer.xyz` is proxied. Wrangler attaches that route to `contextlayer-dispatcher`. The dispatcher’s `CTX_PLATFORM_URL` is `https://slate.usecontextlayer.com`. Public app routing uses the deployed platform and Neon database; no local server or tunnel is required. Existing local app records were intentionally not migrated.
 
+## Viewer auth Worker
+
+Build and typecheck with `pnpm exec turbo run build tsc --filter=@usecontextlayer/auth --filter=@usecontextlayer/dispatcher`. Auth uses Wrangler on `auth.contextlayer.xyz/*`, more specific than dispatcher's wildcard. Web must expose `/viewer/sign-in` and enable Better Auth's one-time-token and bearer plugins before deploying these Workers.
+
+Neither Worker requires viewer secrets. `CTX_AUTH_ISSUER` defaults to `https://www.usecontextlayer.com/api/auth`; dispatcher uses `CTX_VIEWER_AUTH_URL`, defaulting to `https://auth.contextlayer.xyz`, and auth uses `CTX_APPS_DOMAIN`, defaulting to `contextlayer.xyz`. Web's `CTX_VIEWER_AUTH_URL` fixes the allowed callback destination. Configure these through package-local `env.ts` schemas. GET/HEAD `/slate.json` stays public; other app requests resolve the viewer session through web. Logging out on web must make the next protected request require sign-in.
+
+Web's handoff support and the shared-session auth/dispatcher Workers are deployed. The user verified production sign-in and logout. The obsolete viewer credentials have been removed from Doppler and both Workers; each Worker now has an empty secret list. The obsolete viewer OAuth registration has been deleted. Web commit `276b9d3` is deployed, removing the unused openid scope and OIDC-specific test. The CLI OAuth client remains in use.
+
 ## Tests and local Postgres
 
 `pnpm test` runs the unit tier. `AGENTS.md` and `vitest.shared.ts` define the Node/browser runtimes and node/browser/Claude integration tiers. CI runs unit tests; integration tests are opt-in. The current packages have Node unit tests in shared and Node integration tests in db-infra (Postgres) and platform (Cloudflare Artifacts); browser and Claude tasks remain available for future package tests.
@@ -115,7 +123,9 @@ The root commands `test:integration:node`, `test:integration:browser`, and `test
 
 The platform is deployed at `https://slate.usecontextlayer.com`. Cloudflare Workers Builds watches `main` in `usecontextlayer/contextlayer`, with repository root `/`, build command `bash packages/platform/scripts/build-cloudflare.sh`, and deploy command `bash packages/platform/scripts/deploy-cloudflare.sh`. This pipeline is separate from the GitHub package-release workflows below. Build variables pin `NODE_VERSION=24.19.0`, `PNPM_VERSION=11.22.0`, and `SKIP_DEPENDENCY_INSTALL=true` so registry authentication is available before installation.
 
-Set a read-only service token for Doppler `platform/prod` as the Cloudflare **build secret** `DOPPLER_TOKEN`. The build script installs the official Doppler CLI and fetches `FONTAWESOME_PACKAGE_TOKEN` for pnpm through its CI-only npm configuration. The deployment script fetches `CTX_PLATFORM_DATABASE_URL` and `COMPOSIO_API_KEY` into a temporary secrets file and passes it to Wrangler with the built Worker configuration. Only the database and Composio secrets are uploaded to the runtime; the Doppler and registry credentials stay in the build environment. Doppler changes take effect on the next deployment, not immediately when edited. Production uses Neon's `platform` project and its `production` branch; existing local app records were intentionally not migrated.
+Auth and dispatcher also have native Cloudflare Workers Builds connections to the same GitHub repository on `main`, root `/`. They use `bash packages/platform/scripts/build-cloudflare.sh` with `@usecontextlayer/auth` or `@usecontextlayer/dispatcher` as its argument, then `pnpm --dir packages/<package> exec wrangler deploy`. They use the same build-time Node/pnpm settings as platform and need no runtime secrets. The shared script defaults to platform when no package argument is supplied. The connections and build settings are configured; their first automatic deployments await the source commit and push.
+
+All three build configurations share the read-only `Cloudflare Workers Builds` service token from Doppler `platform/prod` as the Cloudflare **build secret** `DOPPLER_TOKEN`. The build script installs the official Doppler CLI and fetches `FONTAWESOME_PACKAGE_TOKEN` for pnpm through its CI-only npm configuration. Platform's deployment script fetches `CTX_PLATFORM_DATABASE_URL` and `COMPOSIO_API_KEY` into a temporary secrets file and passes it to Wrangler with the built Worker configuration. Only the database and Composio secrets are uploaded to platform's runtime; the Doppler and registry credentials stay in the build environment. Doppler changes take effect on the next deployment, not immediately when edited. Production uses Neon's `platform` project and its `production` branch; existing local app records were intentionally not migrated.
 
 Use the release tool's help for its commands, options, and stopping points:
 

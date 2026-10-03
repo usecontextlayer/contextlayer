@@ -1,6 +1,6 @@
 # AGENTS
 
-This pnpm workspace contains eight packages (cli and tools are public; the others are private): cli, tools, db-infra, shared, twilio, platform, build, and dispatcher. Platform proxies Git to Cloudflare Artifacts and serves OpenAPI endpoints and the React Router dashboard; its operation-ownership rules live in `packages/platform/AGENTS.md`. The old product stack and deployment images have been removed. Main pushes run checks; version-tag pushes publish public npm packages.
+This pnpm workspace contains nine packages (cli and tools are public; the others are private): cli, tools, db-infra, shared, twilio, platform, build, dispatcher, and auth. Platform proxies Git to Cloudflare Artifacts and serves OpenAPI endpoints and the React Router dashboard; its operation-ownership rules live in `packages/platform/AGENTS.md`. Auth reuses web's Better Auth session on the user-code domain through a one-time-token exchange. The old product stack and deployment images have been removed. Main pushes run checks; version-tag pushes publish public npm packages.
 
 ## Never Write to Customer Data Without Per-Write Permission
 

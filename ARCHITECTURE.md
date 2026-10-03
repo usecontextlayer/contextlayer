@@ -1,6 +1,6 @@
 # Architecture
 
-The repository contains eight packages; `@usecontextlayer/cli` and `@usecontextlayer/tools` are public and the others are private:
+The repository contains nine packages; `@usecontextlayer/cli` and `@usecontextlayer/tools` are public and the others are private:
 
 - `cli` — Published as `@usecontextlayer/cli`; Commander-based `ctx` executable, bundled with tsdown; its version comes from its package manifest, and `init` delegates project creation to the official `create-cloudflare@latest` React Router scaffold.
 - `tools` — Local Tools Worker forwarding to the platform execution API, and the shared Tools interface/React Router context.
@@ -13,6 +13,8 @@ The repository contains eight packages; `@usecontextlayer/cli` and `@usecontextl
 
 - `dispatcher` — Cloudflare Worker that resolves public hostnames through the platform API and invokes the WfP Worker named by AppID.
 
+- `auth` — Worker that exchanges a Better Auth one-time token and reuses the web session on the user-code domain.
+
 ## Platform storage and request flow
 
 The dashboard uses shadcn/ui with the `base-nova` preset and standard Tailwind layout utilities.
@@ -23,7 +25,7 @@ Hono middleware creates a request-scoped Postgres.js/Kysely connection from vali
 
 `GET /api/apps/resolve?hostname=<public-hostname>` validates the hostname with Zod and calls `resolveApp()`, which looks up the unique `app.public_hostname` and returns `{ "id": "<app-id>" }`. An unassigned hostname returns HTTP 404. The dispatcher uses this lookup contract; the platform owns the mapping.
 
-Public hostname assignment rejects subdomains in the hardcoded reserved list in `packages/platform/app/apps.schema.ts`. `local` is reserved because it selects the current checkout in the CLI; it cannot be an app subdomain.
+Public hostname assignment rejects subdomains in the hardcoded reserved list in `packages/platform/app/apps.schema.ts`. `local` is reserved because it selects the current checkout in the CLI. `auth` is reserved for the auth-forwarding worker at `auth.contextlayer.xyz`. Neither can be an app subdomain.
 
 Git clients use the immutable `/git/<app-id>` endpoint. Git routes validate the ID, check the platform app record, obtain repository-scoped Artifacts credentials, and use Hono's proxy helper to forward protocol traffic. Pushes do not create app records. Credentials stay server-side. Authentication is not implemented yet.
 
@@ -35,11 +37,19 @@ The deployment runner restores the successful build workspace and invokes Wrangl
 
 ## Hosted-app routing
 
-`packages/dispatcher` owns the wildcard Worker route `*.contextlayer.xyz/*`. It passes the incoming hostname to the platform's `/api/apps/resolve` endpoint, validates the returned UUID, and forwards the original request to `APPS.get(id).fetch(request)`. `APPS` binds the `contextlayer-dev` WfP dispatch namespace. The platform database is the source of the hostname mapping; the dispatcher has no database or mapping cache.
+`packages/dispatcher` owns the wildcard Worker route `*.contextlayer.xyz/*`. It allows unauthenticated GET/HEAD requests to `/slate.json` and verifies the viewer session for every other request, passes the incoming hostname to the platform's `/api/apps/resolve` endpoint, validates the returned UUID, and forwards the request with the viewer cookie removed to `APPS.get(id).fetch(request)`. `APPS` binds the `contextlayer-dev` WfP dispatch namespace. The platform database is the source of the hostname mapping; the dispatcher has no database or mapping cache. The shared Better Auth session flow is deployed in web, auth, and dispatcher. Anonymous redirect and public manifest checks passed, and the user verified production browser sign-in and logout.
 
 The platform is deployed at `https://slate.usecontextlayer.com` with Neon Postgres configured through Doppler `platform/prod`. The dispatcher’s `CTX_PLATFORM_URL` points to that address; it no longer depends on a local server or tunnel. Existing local app records were intentionally not migrated. Wrangler builds and deploys the Workers.
 
 ## App tool calls and local development — agreed contract
+
+### Viewer sign-in boundary
+
+`packages/auth` owns `auth.contextlayer.xyz/start` and `/callback`, using Hono for HTTP and cookies. `/start` keeps random state and the validated app return URL in a ten-minute host-only HttpOnly `__Host-ctx_handoff` cookie, then redirects to web's `/viewer/sign-in`. Web uses the existing Better Auth sign-in page if necessary and generates a native one-time token tied to the current session. It redirects only to the configured auth callback. Auth verifies the browser's state and exchanges the token server-side through `/api/auth/one-time-token/verify`. It stores the returned session token in `__Secure-ctx_viewer`, with `Domain=contextlayer.xyz`, HttpOnly, Secure, SameSite=Lax, and the session's expiry. These are two domain-specific cookies referring to one Better Auth session, not two independently managed sessions.
+
+Dispatcher checks the viewer credential through web's `/api/auth/get-session` using the existing bearer plugin on every protected request. Web owns session validation and renewal; no session cache, database, JWT signing secret, or viewer OAuth client is needed in auth or dispatcher. Logging out on web invalidates this same session, so the next protected app request redirects to sign-in. The credential is stripped before any request reaches user code. GET/HEAD `/slate.json` remains public and also strips the cookie. This establishes identity only; organization access checks, shared credentials, and deployed request-scoped Tools handles remain unimplemented.
+
+### Local tools
 
 This section is the source of truth for the tool-call contract and its ownership boundaries. Future authoring-agent skills should reference it. The reusable package and `ctx init` integration implement the local React Router/Composio path described here.
 

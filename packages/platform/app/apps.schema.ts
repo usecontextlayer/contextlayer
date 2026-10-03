@@ -1,7 +1,7 @@
 import { z } from "@hono/zod-openapi"
 import type { AppId } from "@/database/models/public/App"
 
-const reservedSubdomains = ["local"]
+const reservedSubdomains = ["local", "auth"]
 
 export const publicHostnameSchema = z
 	.hostname()
