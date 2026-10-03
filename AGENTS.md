@@ -128,6 +128,10 @@ Env vars for deployed surfaces live in Doppler, workplace **ContextLayer** — r
 
 ## Code Standards
 
+### Design for Multiple Consumers
+
+**Almost every capability exposed through the platform web UI must have an OpenAPI operation that also powers the CLI and can later power MCP. Design product operations for multiple consumers from the start.** Zod defines the request and response contracts; one shared domain function owns business logic, authorization, and database calls. API handlers expose that function over HTTP, while React Router loaders/actions call it directly in-process. Keep browser rendering and interaction at the UI boundary. Native authentication protocols remain owned by Better Auth. The detailed platform conventions live in `packages/platform/AGENTS.md`.
+
 ### Libraries First
 
 Prefer existing libraries over writing custom code. The best code is code we did not have to write.

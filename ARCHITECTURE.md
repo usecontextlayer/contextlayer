@@ -15,6 +15,10 @@ The repository contains nine packages; `@usecontextlayer/cli` and `@usecontextla
 
 - `auth` — Worker that exchanges a Better Auth one-time token and reuses the web session on the user-code domain.
 
+## Multiple consumers
+
+Almost every user-facing platform capability is exposed through OpenAPI so the web dashboard, CLI, and a future MCP consumer share the same product operations. Zod owns their input and output contracts. A shared domain function owns each operation’s business logic, authorization, and database calls; API handlers adapt it to HTTP and React Router loaders/actions invoke it directly in-process. UI components own presentation and interaction. This is a standing design rule, not a claim that every future CLI command or MCP surface exists today. Better Auth owns its native authentication protocols; product APIs consume the resulting verified identity.
+
 ## Platform storage and request flow
 
 The dashboard uses shadcn/ui with the `base-nova` preset and standard Tailwind layout utilities.

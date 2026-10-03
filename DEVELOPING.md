@@ -36,6 +36,10 @@ pnpm exec turbo run dev:watch --filter=@usecontextlayer/db-infra...
 
 A library carries `dev:watch` for rebuilding its output. The general task convention remains: a server's `dev` starts it, `dev:watch` adds watching, and a package defines only the forms it actually uses. Turbo owns dependency builds through `^build`.
 
+## Building platform capabilities
+
+Design almost every capability offered by the web dashboard as an OpenAPI operation usable by the CLI and a future MCP consumer. Define its Zod input/output contract and shared domain function, including authorization and database calls; connect the API handler and React Router loader/action to that same function. Loaders/actions call it in-process. Verify the product operation through its existing API or CLI path and verify the browser interaction where needed. Browser presentation belongs in the UI; authentication protocol handling belongs to Better Auth.
+
 ## CLI development
 
 The new `ctx login` / `ctx whoami` flow requires web with its OAuth device extension migrated and a public CLI client registered for the `urn:ctx:platform` resource. `CTX_AUTH_ISSUER` defaults to `https://www.usecontextlayer.com/api/auth` in CLI and platform; `CTX_AUTH_CLIENT_ID` defaults to the registered production public client ID in the CLI. Configure both CLI and platform with the same issuer for local testing, and point `CTX_PLATFORM_URL` at that platform. Only localhost/127.0.0.1 issuers permit HTTP in the CLI. Credentials are written to `~/.contextlayer/auth.json` with owner-only permissions on creation. Local and production end-to-end login and authenticated `whoami` passed. Production web is migrated, the public client is registered, and platform verifies its tokens. The CLI targets production by default; set `CTX_PLATFORM_URL=http://localhost:3010` to use the local platform. CLI authentication is included in npm releases starting with 0.12.0.
