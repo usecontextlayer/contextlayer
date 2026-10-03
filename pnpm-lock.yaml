@@ -275,6 +275,40 @@ importers:
         specifier: ^4.146.0
         version: 4.146.0(@cloudflare/workers-types@5.20261001.1)(@types/node@24.13.3)
 
+  packages/sdk:
+    dependencies:
+      '@usecontextlayer/cli':
+        specifier: workspace:*
+        version: link:../cli
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@cloudflare/vite-plugin':
+        specifier: ^1.62.4
+        version: 1.62.4(@types/node@24.13.3)(vite@8.3.2(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(wrangler@4.146.0(@cloudflare/workers-types@5.20261001.1)(@types/node@24.13.3))
+      '@cloudflare/workers-types':
+        specifier: ^5.20261001.1
+        version: 5.20261001.1
+      '@types/node':
+        specifier: ^24.13.3
+        version: 24.13.3
+      '@types/react':
+        specifier: ^19.0.0
+        version: 19.3.0
+      react-router:
+        specifier: ^8.4.0
+        version: 8.4.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      tsdown:
+        specifier: latest
+        version: 0.23.0(tsx@4.23.15)(typescript@7.0.2)
+      typescript:
+        specifier: latest
+        version: 7.0.2
+      vite:
+        specifier: ^8.3.2
+        version: 8.3.2(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0)
+
   packages/shared:
     dependencies:
       hono:
@@ -296,28 +330,6 @@ importers:
       vitest:
         specifier: ^4.1.11
         version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(@vitest/browser-playwright@4.1.11)(msw@2.14.6(@types/node@24.13.3)(typescript@7.0.2))(vite@8.3.2(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))
-
-  packages/tools:
-    dependencies:
-      zod:
-        specifier: ^4.4.3
-        version: 4.4.3
-    devDependencies:
-      '@cloudflare/workers-types':
-        specifier: ^5.20261001.1
-        version: 5.20261001.1
-      '@types/react':
-        specifier: ^19.0.0
-        version: 19.3.0
-      react-router:
-        specifier: ^8.4.0
-        version: 8.4.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      tsdown:
-        specifier: latest
-        version: 0.23.0(tsx@4.23.15)(typescript@7.0.2)
-      typescript:
-        specifier: latest
-        version: 7.0.2
 
   packages/twilio: {}
 

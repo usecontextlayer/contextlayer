@@ -51,7 +51,7 @@ program
 				"--location=project",
 				"--json",
 				"minimumReleaseAgeExclude",
-				'["@usecontextlayer/*"]',
+				'["@usecontextlayer/*", "@contextlayer/*"]',
 			],
 			{ cwd: directory, reject: false, stdio: "inherit" },
 		)
@@ -60,7 +60,7 @@ program
 
 		const install = await execa(
 			"pnpm",
-			["add", `@usecontextlayer/tools@${version}`, "zod@^4.4.3"],
+			["add", `@contextlayer/sdk@${version}`, "zod@^4.4.3"],
 			{
 				cwd: directory,
 				reject: false,
@@ -69,18 +69,6 @@ program
 		)
 		process.exitCode = install.exitCode
 		if (install.exitCode !== 0) return
-
-		const installCli = await execa(
-			"pnpm",
-			["add", "-D", `@usecontextlayer/cli@${version}`],
-			{
-				cwd: directory,
-				reject: false,
-				stdio: "inherit",
-			},
-		)
-		process.exitCode = installCli.exitCode
-		if (installCli.exitCode !== 0) return
 
 		const response = await fetch(new URL("/api/apps", env.CTX_PLATFORM_URL), {
 			method: "POST",

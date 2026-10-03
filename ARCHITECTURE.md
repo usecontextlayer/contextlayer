@@ -1,9 +1,9 @@
 # Architecture
 
-The repository contains nine packages; `@usecontextlayer/cli` and `@usecontextlayer/tools` are public and the others are private:
+The repository contains nine packages; `@usecontextlayer/cli` and `@contextlayer/sdk` are public and the others are private:
 
 - `cli` — Published as `@usecontextlayer/cli`; Commander-based `ctx` executable, bundled with tsdown; its version comes from its package manifest, and `init` delegates project creation to the official `create-cloudflare@latest` React Router scaffold.
-- `tools` — Local Tools Worker forwarding to the platform execution API, and the shared Tools interface/React Router context.
+- `sdk` — Public `@contextlayer/sdk` integration: Tools interface and React Router context, app request handling, local Tools Worker, and Vite integration. Subpath exports keep Vite/Node imports separate from Worker runtime imports.
 - `db-infra` — Postgres/Kysely connections, migrations, and ephemeral database helpers.
 - `shared` — Authentication, token handling, test helpers, and Sentry event capping.
 - `twilio` — Twilio Functions for founder call routing and answer screening.
@@ -59,9 +59,9 @@ Apps declare connection requirements in `public/slate.json`, keyed by slug, and 
 await tools.call("work-email", "GMAIL_FETCH_EMAILS", { max_results: 5 });
 ```
 
-`@usecontextlayer/cli/vite` exports `getLocalToolsBindings`. The generated async Vite configuration calls it only during development: Node reads the AppID from Git origin and obtains a current access token through the same saved-login implementation used by CLI commands. It returns `CTX_APP_ID`, `CTX_PLATFORM_URL`, and `CTX_ACCESS_TOKEN` for the auxiliary Worker's programmatic bindings. It does not copy the refresh token into the Worker. Restart `pnpm dev` when the access token expires. Generated apps install the CLI as a development dependency; no separate auth package or middleware is involved.
+`@contextlayer/sdk/vite` exports the `contextlayer` Vite integration. It configures the Cloudflare plugin and calls the CLI-owned `getLocalToolsBindings` from `@usecontextlayer/cli/vite` only during development: Node reads the AppID from Git origin and obtains a current access token through the same saved-login implementation used by CLI commands. It returns `CTX_APP_ID`, `CTX_PLATFORM_URL`, and `CTX_ACCESS_TOKEN` for the auxiliary Worker's programmatic bindings. It does not copy the refresh token into the Worker. Restart `pnpm dev` when the access token expires. Generated apps install `@contextlayer/sdk`; no separate auth package or middleware is involved.
 
-The `@usecontextlayer/tools` package owns the local Tools Worker, binding and response validation, and Tools interface/React Router context. The generated app owns thin Worker entrypoints and standard Vite/Cloudflare configuration. The Gmail page remains an example, not the default application. The former For You adapter and consumer-key configuration have been removed from source; published v0.11.3 still has the old behavior until the next release.
+The `@contextlayer/sdk` package owns the local Tools Worker, binding and response validation, and Tools interface/React Router context. `@contextlayer/sdk/worker` exports `createApp`, which owns the React Router request handler and selects the local Tools binding or production `ctx.props.tools`. The app supplies its virtual server-build import and Vite mode/development values. Generated files contain thin wiring; ContextLayer runtime and Vite behavior live in packages. The Gmail page remains an example, not the default application. The former For You adapter and consumer-key configuration have been removed from source; published v0.11.3 still has the old behavior until the next release.
 
 During local development, the Cloudflare Vite plugin runs the React Router app and a development-only auxiliary Tools Worker under `pnpm dev`. A native RPC service binding supplies the Tools handle, which the app entrypoint puts into React Router context. The Tools Worker calls the platform's authenticated execution endpoint with the connection slug, tool name, and arguments. The platform resolves the assigned connection and executes through Composio. The loader receives `{data, logId}`; a reported Composio error throws with its log ID.
 

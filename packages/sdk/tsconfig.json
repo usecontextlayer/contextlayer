@@ -7,10 +7,14 @@
 		"paths": {
 			"@/*": ["./*"]
 		},
-		"types": ["@cloudflare/workers-types"]
+		"types": ["@cloudflare/workers-types", "node"]
 	},
 	"exclude": ["dist", "dist-types"],
 	"extends": "../../tsconfig.base.json",
 	"include": ["*.ts", "package.json"],
-	"references": []
+	"references": [
+		{
+			"path": "../cli"
+		}
+	]
 }
