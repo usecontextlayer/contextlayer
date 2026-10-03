@@ -1,4 +1,10 @@
 import { createRoute, OpenAPIHono, type RouteConfig, z } from "@hono/zod-openapi"
+import {
+	agentJobIdSchema,
+	agentJobRequestSchema,
+	agentJobSchema,
+} from "@/agent-jobs.schema"
+import { getAgentJob, startAgentJob } from "@/agent-jobs.server"
 import { agentSchema } from "@/agents.schema"
 import { loadAgent } from "@/agents.server"
 import {
@@ -342,6 +348,64 @@ export function createApi() {
 				200,
 			)
 		},
+	)
+	appOperations.openapi(
+		createRoute({
+			method: "post",
+			operationId: "startAgentJob",
+			path: "/agents/{name}/jobs",
+			request: {
+				body: {
+					content: { "application/json": { schema: agentJobRequestSchema } },
+					required: true,
+				},
+				params: z.object({ name: z.string().min(1), target: appTargetSchema }),
+			},
+			responses: {
+				202: {
+					content: { "application/json": { schema: agentJobIdSchema } },
+					description: "Job started as the authenticated user",
+				},
+				401: {
+					description: "A valid ContextLayer access token or viewer session is required",
+				},
+				403: { description: "This user cannot view this private app" },
+				404: { description: "App or agent not found" },
+			},
+			security,
+		}),
+		async (c) => {
+			const job = await startAgentJob(
+				c.env.ARTIFACTS,
+				c.var.config,
+				c.var.appAccess.app,
+				c.var.appAccess.identity.user.id,
+				c.req.valid("param").name,
+				c.req.valid("json").input,
+			)
+			if (!job) return c.notFound()
+			return c.json(job, 202)
+		},
+	)
+	appOperations.openapi(
+		createRoute({
+			method: "get",
+			operationId: "getAgentJob",
+			path: "/agent-jobs/{job}",
+			request: { params: z.object({ job: z.string().min(1), target: appTargetSchema }) },
+			responses: {
+				200: {
+					content: { "application/json": { schema: agentJobSchema } },
+					description: "The job's status, and its result once finished",
+				},
+				401: {
+					description: "A valid ContextLayer access token or viewer session is required",
+				},
+				403: { description: "This user cannot view this private app" },
+			},
+			security,
+		}),
+		async (c) => c.json(await getAgentJob(c.var.config, c.req.valid("param").job), 200),
 	)
 	api.route("/apps/:target", appOperations)
 	api.doc31("/openapi.json", {

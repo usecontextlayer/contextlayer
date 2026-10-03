@@ -23,7 +23,12 @@
 		"test:integration:node": {
 			"cache": false,
 			"dependsOn": ["build"],
-			"passThroughEnv": ["CLOUDFLARE_*", "COMPOSIO_API_KEY"]
+			"passThroughEnv": [
+				"CLOUDFLARE_*",
+				"BOAT_API_KEY",
+				"COMPOSIO_API_KEY",
+				"CTX_CUSTOMER_CREDENTIALS_DOPPLER_TOKEN"
+			]
 		}
 	}
 }

@@ -9,9 +9,11 @@ export function parseDatabaseEnv(raw: Record<string, unknown>) {
 }
 
 const schema = databaseSchema.extend({
+	BOAT_API_KEY: z.string().min(1),
 	COMPOSIO_API_KEY: z.string().min(1),
 	CTX_APPS_DOMAIN: z.hostname().default("contextlayer.xyz"),
 	CTX_AUTH_ISSUER: z.url().default("https://www.usecontextlayer.com/api/auth"),
+	CTX_CUSTOMER_CREDENTIALS_DOPPLER_TOKEN: z.string().min(1),
 })
 
 export function parsePlatformEnv(raw: Record<string, unknown>) {
