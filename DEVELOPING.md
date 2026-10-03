@@ -65,7 +65,7 @@ The generated app installs `@usecontextlayer/sdk`; it depends on the CLI for sav
 
 `pnpm dev` starts both Workers through the Cloudflare Vite plugin; there is no separate tools server or `ctx dev` command. The local Worker calls `POST /api/apps/{id}/tools/call`, and the platform resolves the signed-in user's assignment before executing through Composio. Local credentials and the auxiliary Worker are excluded from production builds. The CLI installs matching first-party package versions and exempts `@usecontextlayer/*` from pnpm's release-age policy.
 
-[The SDK README](packages/sdk/README.md) documents the loader API and Gmail example. [Architecture](ARCHITECTURE.md) owns the connection-slug contract and runtime boundaries. The dispatcher supplies hosted Tools through native request-scoped RPC; the current implementation still awaits deployment and the hosted Gmail acceptance check. When verifying unpublished source, install locally packed CLI and SDK packages in the generated app.
+[The SDK README](packages/sdk/README.md) documents the loader API and Gmail example. [Architecture](ARCHITECTURE.md) owns the connection-slug contract and runtime boundaries. The deployed dispatcher supplies hosted Tools through native request-scoped RPC. When verifying unpublished source, install locally packed CLI and SDK packages in the generated app.
 
 ## Platform development
 
