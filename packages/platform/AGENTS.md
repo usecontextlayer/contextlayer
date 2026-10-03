@@ -31,3 +31,7 @@ The package sets `verbatimModuleSyntax: false`, matching old-v2’s Kanel-backed
 Platform runs on Cloudflare Workers through `react-router-hono-server/cloudflare` and the Cloudflare Vite plugin. Use workerd for local development and Wrangler for local production verification. Configuration comes from Worker bindings, validated in `env.ts`. Hono middleware owns each request's Postgres.js/Kysely connection, shares it with API handlers and React Router loaders, and closes it through `waitUntil`. Keep migrations and Kanel generation in the Node CLI; do not run them inside the Worker.
 
 Use the native `ARTIFACTS` Worker binding directly in domain functions. Repository handles implement `Disposable`: acquire them with `using`. The namespace belongs in Wrangler configuration; runtime Artifacts REST clients and API-token secrets are unnecessary.
+
+## API authentication
+
+Protected APIs share the `requireAuth` middleware. CLI access tokens are verified against web’s JWKS; the existing `__Secure-ctx_viewer` cookie is verified through Better Auth’s `/get-session` endpoint using its bearer plugin. Both produce the same `{id}` user for domain functions. An explicit bearer token takes precedence. Keep session ownership in web; do not add a platform session store or expose the viewer credential to authored app code.

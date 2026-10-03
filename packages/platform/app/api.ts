@@ -1,4 +1,5 @@
-import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi"
+import { createRoute, OpenAPIHono, type RouteConfig, z } from "@hono/zod-openapi"
+import { getCookie } from "hono/cookie"
 import { createMiddleware } from "hono/factory"
 import { errors } from "jose"
 import {
@@ -10,7 +11,7 @@ import {
 import { assignAppConnection, listAppConnections } from "@/app-connections.server"
 import { appSchema, listedAppSchema } from "@/apps.schema"
 import { createApp, listApps, resolveApp } from "@/apps.server"
-import { authenticate, userSchema } from "@/auth.server"
+import { authenticateAccessToken, authenticateSession, userSchema } from "@/auth.server"
 import {
 	authorizeConnectionSchema,
 	connectionLinkSchema,
@@ -21,15 +22,22 @@ import type { PlatformEnv } from "@/context"
 import { toolCallSchema, toolResultSchema } from "@/tools.schema"
 import { callTool } from "@/tools.server"
 
+const security: RouteConfig["security"] = [{ bearerAuth: [] }, { viewerCookie: [] }]
+
 const requireAuth = createMiddleware<
 	PlatformEnv & { Variables: { user: z.infer<typeof userSchema> } }
 >(async (c, next) => {
 	const token = c.req.header("authorization")?.match(/^Bearer (.+)$/i)?.[1]
 	let user = null
-	try {
-		if (token) user = await authenticate(token, c.var.config.CTX_AUTH_ISSUER)
-	} catch (error) {
-		if (!(error instanceof errors.JOSEError || error instanceof z.ZodError)) throw error
+	if (token) {
+		try {
+			user = await authenticateAccessToken(token, c.var.config.CTX_AUTH_ISSUER)
+		} catch (error) {
+			if (!(error instanceof errors.JOSEError || error instanceof z.ZodError)) throw error
+		}
+	} else {
+		const session = getCookie(c, "__Secure-ctx_viewer")
+		if (session) user = await authenticateSession(session, c.var.config.CTX_AUTH_ISSUER)
 	}
 	if (!user) {
 		c.header("WWW-Authenticate", 'Bearer realm="ContextLayer"')
@@ -45,6 +53,11 @@ export function createApi() {
 		scheme: "bearer",
 		type: "http",
 	})
+	api.openAPIRegistry.registerComponent("securitySchemes", "viewerCookie", {
+		in: "cookie",
+		name: "__Secure-ctx_viewer",
+		type: "apiKey",
+	})
 	api.openapi(
 		createRoute({
 			method: "get",
@@ -56,9 +69,11 @@ export function createApi() {
 					content: { "application/json": { schema: userSchema } },
 					description: "Authenticated ContextLayer user",
 				},
-				401: { description: "A valid ContextLayer access token is required" },
+				401: {
+					description: "A valid ContextLayer access token or viewer session is required",
+				},
 			},
-			security: [{ bearerAuth: [] }],
+			security,
 		}),
 		async (c) => c.json(c.var.user, 200),
 	)
@@ -127,9 +142,11 @@ export function createApi() {
 					content: { "application/json": { schema: connectionsSchema } },
 					description: "Connected accounts owned by the authenticated user",
 				},
-				401: { description: "A valid ContextLayer access token is required" },
+				401: {
+					description: "A valid ContextLayer access token or viewer session is required",
+				},
 			},
-			security: [{ bearerAuth: [] }],
+			security,
 		}),
 		async (c) =>
 			c.json(await listConnections(c.var.config.COMPOSIO_API_KEY, c.var.user.id), 200),
@@ -151,9 +168,11 @@ export function createApi() {
 					content: { "application/json": { schema: connectionLinkSchema } },
 					description: "Composio authorization link for a new private connection",
 				},
-				401: { description: "A valid ContextLayer access token is required" },
+				401: {
+					description: "A valid ContextLayer access token or viewer session is required",
+				},
 			},
-			security: [{ bearerAuth: [] }],
+			security,
 		}),
 		async (c) =>
 			c.json(
@@ -183,10 +202,12 @@ export function createApi() {
 					content: { "application/json": { schema: appConnectionsSchema } },
 					description: "App requirements and connection assignments",
 				},
-				401: { description: "A valid ContextLayer access token is required" },
+				401: {
+					description: "A valid ContextLayer access token or viewer session is required",
+				},
 				404: { description: "App not found" },
 			},
-			security: [{ bearerAuth: [] }],
+			security,
 		}),
 		async (c) => {
 			const result = await listAppConnections(
@@ -217,10 +238,12 @@ export function createApi() {
 					content: { "application/json": { schema: assignmentSchema } },
 					description: "Saved individual connection assignment",
 				},
-				401: { description: "A valid ContextLayer access token is required" },
+				401: {
+					description: "A valid ContextLayer access token or viewer session is required",
+				},
 				404: { description: "App not found" },
 			},
-			security: [{ bearerAuth: [] }],
+			security,
 		}),
 		async (c) => {
 			const result = await assignAppConnection(
@@ -251,10 +274,12 @@ export function createApi() {
 					content: { "application/json": { schema: toolResultSchema } },
 					description: "Composio tool result, error, and log ID",
 				},
-				401: { description: "A valid ContextLayer access token is required" },
+				401: {
+					description: "A valid ContextLayer access token or viewer session is required",
+				},
 				404: { description: "No connection assignment for this app, user, and slug" },
 			},
-			security: [{ bearerAuth: [] }],
+			security,
 		}),
 		async (c) => {
 			const result = await callTool(
