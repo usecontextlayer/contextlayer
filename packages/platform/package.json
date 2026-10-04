@@ -10,6 +10,7 @@
 		"@fortawesome/fontawesome-svg-core": "^7.3.1",
 		"@fortawesome/react-fontawesome": "^3.5.0",
 		"@hono/zod-openapi": "^1.6.3",
+		"@polar-sh/sdk": "1.0.1",
 		"@tanstack/react-query": "5.104.1",
 		"@usecontextlayer/db-infra": "workspace:*",
 		"better-auth": "1.7.7",

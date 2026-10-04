@@ -1,4 +1,5 @@
 import { createRoute, OpenAPIHono, type RouteConfig, z } from "@hono/zod-openapi"
+import { webhooks } from "@polar-sh/sdk/2026-10"
 import {
 	appConnectionsRequestSchema,
 	appConnectionsSchema,
@@ -22,6 +23,8 @@ import {
 import { createApp, listApps } from "@/apps.server"
 import { type AuthenticatedEnv, type IdentityEnv, requireAuth } from "@/auth.middleware"
 import { userSchema } from "@/auth.server"
+import { requireAppSubscription } from "@/billing.middleware"
+import { saveCustomerState } from "@/billing.server"
 import {
 	authorizeConnectionSchema,
 	connectionLinkSchema,
@@ -40,6 +43,24 @@ const security: NonNullable<RouteConfig["security"]> = [
 
 export function createApi() {
 	const api = new OpenAPIHono<IdentityEnv>()
+	api.post("/polar/webhooks", async (c) => {
+		let payload: webhooks.WebhookPayload
+		try {
+			payload = await webhooks.validateEvent(
+				await c.req.text(),
+				c.req.header(),
+				c.var.config.POLAR_WEBHOOK_SECRET,
+			)
+		} catch (error) {
+			if (error instanceof webhooks.PolarWebhookVerificationError)
+				return c.body(null, 403)
+			throw error
+		}
+		if (payload.type === "customer.state_changed") {
+			await saveCustomerState(c.var.db, payload.data, payload.timestamp)
+		}
+		return c.body(null, 204)
+	})
 	api.openAPIRegistry.registerComponent("securitySchemes", "bearerAuth", {
 		scheme: "bearer",
 		type: "http",
@@ -79,7 +100,7 @@ export function createApi() {
 		async (c) => c.json(c.var.identity.user, 200),
 	)
 	const viewing = new OpenAPIHono<ViewingEnv>()
-	viewing.use("*", requireAppViewing)
+	viewing.use("*", requireAppViewing, requireAppSubscription)
 	viewing.openapi(
 		createRoute({
 			method: "get",
@@ -92,6 +113,7 @@ export function createApi() {
 					description: "App ID authorized for viewing by this caller",
 				},
 				401: { description: "Sign-in is required to view this private app" },
+				402: { description: "The app owner needs an active subscription" },
 				403: { description: "This user cannot view this private app" },
 				404: { description: "No app has this public hostname" },
 			},
@@ -241,6 +263,7 @@ export function createApi() {
 	)
 	const appOperations = new OpenAPIHono<AuthenticatedViewingEnv>()
 	appOperations.use("*", requireAuth, requireAppViewing)
+	appOperations.use("/tools/*", requireAppSubscription)
 	appOperations.openapi(
 		createRoute({
 			method: "post",
@@ -329,6 +352,7 @@ export function createApi() {
 				401: {
 					description: "A valid ContextLayer access token or viewer session is required",
 				},
+				402: { description: "The app owner needs an active subscription" },
 				403: { description: "This user cannot view this private app" },
 				404: { description: "App or connection assignment not found" },
 			},

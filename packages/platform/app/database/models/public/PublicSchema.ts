@@ -5,8 +5,11 @@ import type { default as AppTable } from "./App"
 import type { default as AppConnectionAssignmentTable } from "./AppConnectionAssignment"
 import type { default as KyselyMigrationTable } from "./KyselyMigration"
 import type { default as KyselyMigrationLockTable } from "./KyselyMigrationLock"
+import type { default as PolarCustomerStateTable } from "./PolarCustomerState"
 
 export default interface PublicSchema {
+	polar_customer_state: PolarCustomerStateTable
+
 	kysely_migration_lock: KyselyMigrationLockTable
 
 	app: AppTable

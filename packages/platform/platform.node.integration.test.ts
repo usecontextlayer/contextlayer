@@ -105,6 +105,7 @@ test("app ownership protects viewing, listing, and native Git source access", as
 		const refs = `${gitUrl}/info/refs?service=git-upload-pack`
 		const resolveUrl = new URL(`${origin}/api/apps/resolve`)
 		resolveUrl.searchParams.set("hostname", app.public_hostname)
+		resolveUrl.searchParams.set("pathname", "/slate.json")
 		expect((await fetch(resolveUrl)).status).toBe(401)
 		expect((await fetch(resolveUrl, { headers })).status).toBe(200)
 		expect((await fetch(refs)).status).toBe(401)

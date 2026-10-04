@@ -23,7 +23,7 @@
 		"test:integration:node": {
 			"cache": false,
 			"dependsOn": ["build"],
-			"passThroughEnv": ["CLOUDFLARE_*", "COMPOSIO_API_KEY"]
+			"passThroughEnv": ["CLOUDFLARE_*", "COMPOSIO_API_KEY", "POLAR_*"]
 		}
 	}
 }

@@ -18,7 +18,9 @@ app.all("*", async (c) => {
 	if (authorization) headers.set("Authorization", authorization)
 	if (session) headers.set("Cookie", `__Secure-ctx_viewer=${encodeURIComponent(session)}`)
 	const lookup = new URL("/api/apps/resolve", env.CTX_PLATFORM_URL)
-	lookup.searchParams.set("hostname", new URL(c.req.url).hostname)
+	const incomingUrl = new URL(c.req.url)
+	lookup.searchParams.set("hostname", incomingUrl.hostname)
+	lookup.searchParams.set("pathname", incomingUrl.pathname)
 	const response = await fetch(lookup, { headers })
 	if (response.status === 401) {
 		const signIn = new URL("/start", env.CTX_VIEWER_AUTH_URL)

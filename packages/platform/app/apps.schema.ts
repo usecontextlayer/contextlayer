@@ -39,7 +39,13 @@ export const appTargetSchema = z.union([
 	appSchema.shape.public_hostname.transform((public_hostname) => ({ public_hostname })),
 ])
 export type AppTarget = z.infer<typeof appTargetSchema>
-export const resolveAppQuerySchema = z.object({ hostname: z.hostname().toLowerCase() })
+export const resolveAppQuerySchema = z.object({
+	hostname: z.hostname().toLowerCase(),
+	pathname: z
+		.string()
+		.startsWith("/")
+		.openapi({ description: "Incoming app URL pathname" }),
+})
 
 export const listAppsQuerySchema = z
 	.strictObject({
