@@ -34,6 +34,10 @@ export const createAppRequestSchema = z.strictObject({
 	organization_slug: z.string().min(1).optional(),
 })
 export type CreateAppRequest = z.infer<typeof createAppRequestSchema>
+export const updateAppVisibilityRequestSchema = z.strictObject({
+	visibility: appVisibilitySchema,
+})
+export type UpdateAppVisibilityRequest = z.infer<typeof updateAppVisibilityRequestSchema>
 export const appTargetSchema = z.union([
 	appSchema.shape.id.transform((id) => ({ id })),
 	appSchema.shape.public_hostname.transform((public_hostname) => ({ public_hostname })),

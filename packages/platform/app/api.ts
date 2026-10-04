@@ -19,8 +19,9 @@ import {
 	listAppsQuerySchema,
 	listedAppSchema,
 	resolveAppQuerySchema,
+	updateAppVisibilityRequestSchema,
 } from "@/apps.schema"
-import { createApp, listApps } from "@/apps.server"
+import { createApp, listApps, updateAppVisibility } from "@/apps.server"
 import { type AuthenticatedEnv, type IdentityEnv, requireAuth } from "@/auth.middleware"
 import { userSchema } from "@/auth.server"
 import { requireAppSubscription } from "@/billing.middleware"
@@ -264,6 +265,44 @@ export function createApi() {
 	const appOperations = new OpenAPIHono<AuthenticatedViewingEnv>()
 	appOperations.use("*", requireAuth, requireAppViewing)
 	appOperations.use("/tools/*", requireAppSubscription)
+	appOperations.openapi(
+		createRoute({
+			method: "patch",
+			operationId: "updateAppVisibility",
+			path: "/",
+			request: {
+				body: {
+					content: { "application/json": { schema: updateAppVisibilityRequestSchema } },
+					required: true,
+				},
+				params: z.object({ target: appTargetSchema }),
+			},
+			responses: {
+				200: {
+					content: { "application/json": { schema: appSchema } },
+					description: "App with its saved visibility",
+				},
+				400: { description: "Invalid app target or visibility" },
+				401: { description: "A valid ContextLayer login is required" },
+				403: {
+					description:
+						"Only the owner or owning organization members may update this app",
+				},
+				404: { description: "App not found" },
+			},
+			security,
+		}),
+		async (c) => {
+			const result = await updateAppVisibility(
+				c.var.db,
+				c.var.appAccess,
+				c.var.config.CTX_AUTH_ISSUER,
+				c.req.valid("json"),
+			)
+			if (!result.allowed) return c.body(null, 403)
+			return c.json(result.app, 200)
+		},
+	)
 	appOperations.openapi(
 		createRoute({
 			method: "post",

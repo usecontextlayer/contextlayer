@@ -1,10 +1,24 @@
-import { faBox, faCode } from "@awesome.me/kit-b228b21a21/icons/slab/regular"
+import { faAngleDown, faBox, faCode } from "@awesome.me/kit-b228b21a21/icons/slab/regular"
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome"
-import { listApps } from "@/apps.server"
+import { useFetcher } from "react-router"
+import {
+	type App,
+	appTargetSchema,
+	updateAppVisibilityRequestSchema,
+} from "@/apps.schema"
+import { listApps, resolveAppForViewing, updateAppVisibility } from "@/apps.server"
 import { findOrganizationBySlug } from "@/auth.server"
 import { AuthProvider } from "@/components/auth-provider"
 import { OrganizationSwitcher } from "@/components/organization-switcher"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuRadioGroup,
+	DropdownMenuRadioItem,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import {
 	Empty,
 	EmptyContent,
@@ -15,6 +29,7 @@ import {
 } from "@/components/ui/empty"
 import {
 	Item,
+	ItemActions,
 	ItemContent,
 	ItemDescription,
 	ItemGroup,
@@ -66,6 +81,68 @@ export async function loader({ context, request, params }: Route.LoaderArgs) {
 		owner,
 		signInUrl: signIn.href,
 	}
+}
+
+const visibilityFormSchema = updateAppVisibilityRequestSchema.extend({
+	target: appTargetSchema,
+})
+
+export async function action({ context, request }: Route.ActionArgs) {
+	const input = visibilityFormSchema.safeParse(
+		Object.fromEntries(await request.formData()),
+	)
+	if (!input.success) throw new Response("Invalid app visibility", { status: 400 })
+	const db = context.get(databaseContext)
+	const identity = context.get(identityContext)
+	const issuer = context.get(configContext).CTX_AUTH_ISSUER
+	const access = await resolveAppForViewing(db, input.data.target, identity, issuer)
+	if (!access.allowed) {
+		const status = { forbidden: 403, "not-found": 404, "sign-in-required": 401 } as const
+		throw new Response(null, { status: status[access.reason] })
+	}
+	const result = await updateAppVisibility(
+		db,
+		{ app: access.app, identity },
+		issuer,
+		input.data,
+	)
+	if (!result.allowed) throw new Response(null, { status: 403 })
+	return result.app
+}
+
+function AppVisibility({ app }: { app: App }) {
+	const fetcher = useFetcher<typeof action>()
+	return (
+		<DropdownMenu>
+			<DropdownMenuTrigger
+				render={
+					<Button
+						variant="outline"
+						size="sm"
+					/>
+				}
+				aria-label={`Visibility for ${app.public_hostname}`}
+				disabled={fetcher.state !== "idle"}
+			>
+				{app.visibility === "public" ? "Public" : "Private"}
+				<FontAwesomeIcon
+					icon={faAngleDown}
+					aria-hidden="true"
+				/>
+			</DropdownMenuTrigger>
+			<DropdownMenuContent align="end">
+				<DropdownMenuRadioGroup
+					value={app.visibility}
+					onValueChange={(visibility) => {
+						fetcher.submit({ target: app.id, visibility }, { method: "post" })
+					}}
+				>
+					<DropdownMenuRadioItem value="public">Public</DropdownMenuRadioItem>
+					<DropdownMenuRadioItem value="private">Private</DropdownMenuRadioItem>
+				</DropdownMenuRadioGroup>
+			</DropdownMenuContent>
+		</DropdownMenu>
+	)
 }
 
 export default function Apps({
@@ -141,6 +218,9 @@ export default function Apps({
 										)}
 									</ItemDescription>
 								</ItemContent>
+								<ItemActions>
+									<AppVisibility app={app} />
+								</ItemActions>
 							</Item>
 						))}
 					</ItemGroup>

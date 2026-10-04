@@ -108,6 +108,51 @@ test("app ownership protects viewing, listing, and native Git source access", as
 		resolveUrl.searchParams.set("pathname", "/slate.json")
 		expect((await fetch(resolveUrl)).status).toBe(401)
 		expect((await fetch(resolveUrl, { headers })).status).toBe(200)
+		const visibilityUrl = `${origin}/api/apps/${app.id}`
+		const visibilityRequest = {
+			body: JSON.stringify({ visibility: "public" }),
+			headers: { ...headers, "content-type": "application/json" },
+			method: "PATCH",
+		}
+		expect(
+			(await fetch(visibilityUrl, { ...visibilityRequest, headers: {} })).status,
+		).toBe(401)
+		for (const visibility of ["public", "private"] as const) {
+			const updated = await fetch(visibilityUrl, {
+				...visibilityRequest,
+				body: JSON.stringify({ visibility }),
+			})
+			expect(updated.status).toBe(200)
+			expect(await updated.json()).toEqual({ ...app, visibility })
+			expect(
+				await db
+					.selectFrom("app")
+					.select("visibility")
+					.where("id", "=", app.id)
+					.executeTakeFirstOrThrow(),
+			).toEqual({ visibility })
+			expect((await fetch(resolveUrl)).status).toBe(visibility === "public" ? 200 : 401)
+		}
+		const dashboardUrl = `${origin}/dashboard/personal/apps`
+		const dashboardRequest = {
+			body: new URLSearchParams({ target: app.id, visibility: "public" }),
+			headers,
+			method: "POST",
+		}
+		for (const visibility of ["public", "private"] as const) {
+			const updated = await fetch(dashboardUrl, {
+				...dashboardRequest,
+				body: new URLSearchParams({ target: app.id, visibility }),
+			})
+			expect(updated.status).toBe(200)
+			expect(await updated.text()).toContain(`Visibility for ${app.public_hostname}`)
+			expect((await getApps()).apps).toContainEqual({
+				...app,
+				latest_commit: null,
+				visibility,
+			})
+			expect((await fetch(resolveUrl)).status).toBe(visibility === "public" ? 200 : 401)
+		}
 		expect((await fetch(refs)).status).toBe(401)
 		expect((await fetch(refs)).headers.get("WWW-Authenticate")).toContain("Bearer")
 		const connectionList = `${origin}/api/apps/${app.id}/connections/list`
@@ -125,6 +170,7 @@ test("app ownership protects viewing, listing, and native Git source access", as
 			.execute()
 		expect((await fetch(resolveUrl, { headers })).status).toBe(403)
 		expect((await fetch(refs, { headers })).status).toBe(403)
+		expect((await fetch(visibilityUrl, visibilityRequest)).status).toBe(403)
 		expect((await fetch(connectionList, listRequest)).status).toBe(403)
 		for (const operation of ["connections/assign", "tools/call"]) {
 			expect(
@@ -144,6 +190,22 @@ test("app ownership protects viewing, listing, and native Git source access", as
 			.execute()
 		expect((await fetch(resolveUrl)).status).toBe(200)
 		expect((await fetch(connectionList, listRequest)).status).toBe(200)
+		expect(
+			(
+				await fetch(visibilityUrl, {
+					...visibilityRequest,
+					body: JSON.stringify({ visibility: "private" }),
+				})
+			).status,
+		).toBe(403)
+		expect((await fetch(dashboardUrl, dashboardRequest)).status).toBe(403)
+		expect(
+			await db
+				.selectFrom("app")
+				.select("visibility")
+				.where("id", "=", app.id)
+				.executeTakeFirstOrThrow(),
+		).toEqual({ visibility: "public" })
 		expect((await fetch(refs, { headers })).status).toBe(403)
 		expect((await getApps()).apps).toEqual([])
 		await db

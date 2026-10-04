@@ -7,6 +7,7 @@ import {
 	type CreateAppRequest,
 	DEFAULT_APP_VISIBILITY,
 	publicHostnameSchema,
+	type UpdateAppVisibilityRequest,
 } from "@/apps.schema"
 import {
 	type AuthIdentity,
@@ -129,6 +130,26 @@ export async function createApp(
 		await artifacts.create(app.id, { setDefaultBranch: "main" })
 		return appSchema.parse(app)
 	})
+}
+
+export async function updateAppVisibility(
+	db: PlatformDb,
+	{ app, identity }: AppAccess,
+	issuer: string,
+	input: UpdateAppVisibilityRequest,
+) {
+	const organizations = app.owner_organization_id
+		? await listOrganizations(identity, issuer)
+		: []
+	const authorization = authorizeAppManagement(app, identity, organizations)
+	if (!authorization.allowed) return authorization
+	const saved = await db
+		.updateTable("app")
+		.set({ visibility: input.visibility })
+		.where("id", "=", app.id)
+		.returningAll()
+		.executeTakeFirstOrThrow()
+	return { allowed: true, app: appSchema.parse(saved) } as const
 }
 
 export async function getGitAccess(
