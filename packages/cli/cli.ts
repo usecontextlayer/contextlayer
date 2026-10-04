@@ -19,9 +19,13 @@ const program = new Command().name("ctx").description("ContextLayer CLI").versio
 program
 	.command("init <directory>")
 	.description(
-		"Create a Cloudflare React Router project, register an app owned by your signed-in account (ctx login), and set its immutable Git remote",
+		"Create a Cloudflare React Router project, register an app owned by you or an organization (ctx login), and set its immutable Git remote",
 	)
-	.action(async (directory: string) => {
+	.option("--org <slug>", "Create the app under an organization you belong to")
+	.action(async (directory: string, options: { org?: string }) => {
+		const input = z
+			.object({ organization_slug: z.string().min(1).optional() })
+			.parse({ organization_slug: options.org })
 		const accessToken = await getAccessToken()
 		const result = await execa(
 			"pnpm",
@@ -73,7 +77,11 @@ program
 		if (install.exitCode !== 0) return
 
 		const response = await fetch(new URL("/api/apps", env.CTX_PLATFORM_URL), {
-			headers: { authorization: `Bearer ${accessToken}` },
+			body: JSON.stringify(input),
+			headers: {
+				authorization: `Bearer ${accessToken}`,
+				"content-type": "application/json",
+			},
 			method: "POST",
 		})
 		if (!response.ok) throw new Error(`App creation failed: HTTP ${response.status}`)

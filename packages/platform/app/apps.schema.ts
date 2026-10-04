@@ -30,6 +30,10 @@ export const appSchema = z
 export const listedAppSchema = appSchema.extend({ latest_commit: z.string().nullable() })
 
 export type App = z.infer<typeof appSchema>
+export const createAppRequestSchema = z.strictObject({
+	organization_slug: z.string().min(1).optional(),
+})
+export type CreateAppRequest = z.infer<typeof createAppRequestSchema>
 export const appTargetSchema = z.union([
 	appSchema.shape.id.transform((id) => ({ id })),
 	appSchema.shape.public_hostname.transform((public_hostname) => ({ public_hostname })),

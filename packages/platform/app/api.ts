@@ -14,6 +14,7 @@ import {
 	type AppOwnerFilter,
 	appSchema,
 	appTargetSchema,
+	createAppRequestSchema,
 	listAppsQuerySchema,
 	listedAppSchema,
 	resolveAppQuerySchema,
@@ -148,26 +149,38 @@ export function createApi() {
 			method: "post",
 			operationId: "createApp",
 			path: "/",
+			request: {
+				body: {
+					content: { "application/json": { schema: createAppRequestSchema } },
+					required: false,
+				},
+			},
 			responses: {
 				201: {
 					content: { "application/json": { schema: appSchema } },
 					description:
-						"App owned by the authenticated user with an immutable ID and public hostname",
+						"App owned by the authenticated user or selected organization, with an immutable ID and public hostname",
 				},
+				400: { description: "Invalid app creation input" },
 				401: {
 					description: "A valid ContextLayer access token or viewer session is required",
 				},
+				404: { description: "The organization slug is not in this user's memberships" },
 			},
 			security,
 		}),
-		async (c) =>
-			c.json(
-				await createApp(c.var.db, c.env.ARTIFACTS, c.var.config.CTX_APPS_DOMAIN, {
-					id: c.var.identity.user.id,
-					type: "user",
-				}),
-				201,
-			),
+		async (c) => {
+			const app = await createApp(
+				c.var.db,
+				c.env.ARTIFACTS,
+				c.var.config.CTX_APPS_DOMAIN,
+				c.var.identity,
+				c.var.config.CTX_AUTH_ISSUER,
+				c.req.valid("json"),
+			)
+			if (!app) return c.body(null, 404)
+			return c.json(app, 201)
+		},
 	)
 	api.route("/apps", catalog)
 	api.openapi(

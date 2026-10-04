@@ -4,10 +4,16 @@ import {
 	type AppOwnerFilter,
 	type AppTarget,
 	appSchema,
+	type CreateAppRequest,
 	DEFAULT_APP_VISIBILITY,
 	publicHostnameSchema,
 } from "@/apps.schema"
-import { type AuthIdentity, listOrganizationIds } from "@/auth.server"
+import {
+	type AuthIdentity,
+	findOrganizationBySlug,
+	listOrganizations,
+	type Organization,
+} from "@/auth.server"
 import type { PlatformDb } from "@/database"
 import type { AppId } from "@/database/models/public/App"
 import type { Owner } from "@/owner"
@@ -27,12 +33,12 @@ export async function listApps(
 		query = query.where("owner_organization_id", "=", filter.id)
 	const rows = await query.execute()
 	const storedApps = rows.map((row) => appSchema.parse(row))
-	const organizationIds = storedApps.some((app) => app.owner_organization_id !== null)
-		? await listOrganizationIds(identity, issuer)
+	const organizations = storedApps.some((app) => app.owner_organization_id !== null)
+		? await listOrganizations(identity, issuer)
 		: []
 	const apps = []
 	for (const app of storedApps) {
-		if (!authorizeAppManagement(app, identity, organizationIds).allowed) continue
+		if (!authorizeAppManagement(app, identity, organizations).allowed) continue
 		using repo = await artifacts.get(app.id)
 		const commits = await repo.log({ limit: 1, ref: "main" })
 		apps.push({ ...app, latest_commit: commits[0]?.hash ?? null })
@@ -48,11 +54,11 @@ export async function resolveAppForViewing(
 ) {
 	const app = await resolveApp(db, target)
 	if (!app) return { allowed: false, reason: "not-found" } as const
-	const organizationIds =
+	const organizations =
 		identity && app.visibility === "private" && app.owner_organization_id
-			? await listOrganizationIds(identity, issuer)
+			? await listOrganizations(identity, issuer)
 			: []
-	return authorizeAppViewing(app, identity, organizationIds)
+	return authorizeAppViewing(app, identity, organizations)
 }
 
 async function resolveApp(db: PlatformDb, target: AppTarget) {
@@ -67,32 +73,43 @@ async function resolveApp(db: PlatformDb, target: AppTarget) {
 export function authorizeAppViewing(
 	app: App,
 	identity: AuthIdentity | null,
-	organizationIds: readonly string[],
+	organizations: readonly Organization[],
 ) {
 	if (app.visibility === "public") return { allowed: true, app, identity } as const
-	return authorizeAppManagement(app, identity, organizationIds)
+	return authorizeAppManagement(app, identity, organizations)
 }
 
 export function authorizeAppManagement(
 	app: App,
 	identity: AuthIdentity | null,
-	organizationIds: readonly string[],
+	organizations: readonly Organization[],
 ) {
 	if (!identity) return { allowed: false, reason: "sign-in-required" } as const
 	if (app.owner_user_id === identity.user.id)
 		return { allowed: true, app, identity } as const
-	if (app.owner_organization_id && organizationIds.includes(app.owner_organization_id)) {
+	if (
+		organizations.some((organization) => organization.id === app.owner_organization_id)
+	) {
 		return { allowed: true, app, identity } as const
 	}
 	return { allowed: false, reason: "forbidden" } as const
 }
 
-export function createApp(
+export async function createApp(
 	db: PlatformDb,
 	artifacts: Artifacts,
 	appsDomain: string,
-	owner: Owner,
+	identity: AuthIdentity,
+	issuer: string,
+	input: CreateAppRequest,
 ) {
+	const organization = input.organization_slug
+		? await findOrganizationBySlug(identity, issuer, input.organization_slug)
+		: undefined
+	if (input.organization_slug && !organization) return null
+	const owner: Owner = organization
+		? { id: organization.id, type: "organization" }
+		: { id: identity.user.id, type: "user" }
 	const name = uniqueNamesGenerator({
 		dictionaries: [adjectives, colors, animals],
 		separator: "-",
@@ -124,10 +141,10 @@ export async function getGitAccess(
 ) {
 	const app = await resolveApp(db, { id })
 	if (!app) return { allowed: false, reason: "not-found" } as const
-	const organizationIds = app.owner_organization_id
-		? await listOrganizationIds(identity, issuer)
+	const organizations = app.owner_organization_id
+		? await listOrganizations(identity, issuer)
 		: []
-	const authorization = authorizeAppManagement(app, identity, organizationIds)
+	const authorization = authorizeAppManagement(app, identity, organizations)
 	if (!authorization.allowed) return authorization
 	using repo = await artifacts.get(id)
 	const info = await repo.info()

@@ -25,14 +25,21 @@ export function credentialHeaders(credential: AuthIdentity["credential"]) {
 	return headers
 }
 
-export async function listOrganizationIds(identity: AuthIdentity, issuer: string) {
+export const organizationSchema = z.object({
+	id: z.string().min(1),
+	name: z.string(),
+	slug: z.string().min(1),
+})
+export type Organization = z.infer<typeof organizationSchema>
+
+export async function listOrganizations(identity: AuthIdentity, issuer: string) {
 	const url = new URL(issuer)
 	url.pathname = "/api/platform/organizations"
 	const response = await fetch(url, { headers: credentialHeaders(identity.credential) })
 	if (!response.ok) throw new Error(`Organization lookup failed: ${response.status}`)
 	return z
-		.object({ organization_ids: z.array(z.string().min(1)) })
-		.parse(await response.json()).organization_ids
+		.object({ organizations: z.array(organizationSchema) })
+		.parse(await response.json()).organizations
 }
 
 export async function authenticateAccessToken(token: string, issuer: string) {
@@ -62,24 +69,11 @@ export async function authenticateSession(
 	return sessionSchema.parse(await response.json())?.user ?? null
 }
 
-export const organizationSchema = z.object({
-	id: z.string().min(1),
-	logo: z.string().nullish(),
-	name: z.string(),
-	slug: z.string().min(1),
-})
-
 export async function findOrganizationBySlug(
 	identity: AuthIdentity,
 	issuer: string,
 	slug: string,
 ) {
-	const response = await fetch(`${issuer.replace(/\/$/, "")}/organization/list`, {
-		headers: credentialHeaders(identity.credential),
-	})
-	if (!response.ok) throw new Error(`Organization lookup failed: ${response.status}`)
-	return z
-		.array(organizationSchema)
-		.parse(await response.json())
-		.find((organization) => organization.slug === slug)
+	const organizations = await listOrganizations(identity, issuer)
+	return organizations.find((organization) => organization.slug === slug)
 }
