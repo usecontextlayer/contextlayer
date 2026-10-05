@@ -32,7 +32,15 @@ async function resolveConnectionRequirement(
 		const organizations = access.app.owner_organization_id
 			? await listOrganizations(access.identity, issuer)
 			: []
-		if (!authorizeAppManagement(access.app, access.identity, organizations).allowed)
+		if (
+			!authorizeAppManagement(
+				access.app,
+				access.identity,
+				organizations.some(
+					(organization) => organization.id === access.app.owner_organization_id,
+				),
+			).allowed
+		)
 			return { allowed: false, reason: "forbidden" } as const
 	}
 	return {

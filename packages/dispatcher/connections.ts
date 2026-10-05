@@ -17,7 +17,7 @@ export class Connections extends WorkerEntrypoint<Bindings, ConnectionsProps> {
 				body: JSON.stringify({}),
 				headers: {
 					"content-type": "application/json",
-					cookie: `__Secure-ctx_viewer=${encodeURIComponent(sessionToken)}`,
+					cookie: `ctx-viewer-auth=${encodeURIComponent(sessionToken)}`,
 				},
 				method: "POST",
 			},

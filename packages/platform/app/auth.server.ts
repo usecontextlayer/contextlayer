@@ -18,7 +18,7 @@ export function credentialHeaders(credential: AuthIdentity["credential"]) {
 	if (credential.type === "access-token") {
 		headers.set("Authorization", `Bearer ${credential.token}`)
 	} else if (credential.type === "session") {
-		headers.set("Cookie", `__Secure-ctx_viewer=${encodeURIComponent(credential.token)}`)
+		headers.set("Cookie", `ctx-viewer-auth=${encodeURIComponent(credential.token)}`)
 	} else {
 		headers.set("Cookie", credential.cookie)
 	}
@@ -40,6 +40,20 @@ export async function listOrganizations(identity: AuthIdentity, issuer: string) 
 	return z
 		.object({ organizations: z.array(organizationSchema) })
 		.parse(await response.json()).organizations
+}
+
+export async function checkViewerOrganizationMembership(
+	credential: Extract<AuthIdentity["credential"], { type: "session" }>,
+	organizationId: string,
+	issuer: string,
+) {
+	const url = new URL(
+		`/api/viewer/organizations/${encodeURIComponent(organizationId)}/membership`,
+		issuer,
+	)
+	const response = await fetch(url, { headers: credentialHeaders(credential) })
+	if (!response.ok) throw new Error(`Membership lookup failed: ${response.status}`)
+	return z.object({ isMember: z.boolean() }).parse(await response.json()).isMember
 }
 
 export async function authenticateAccessToken(token: string, issuer: string) {

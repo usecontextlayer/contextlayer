@@ -25,9 +25,9 @@ export default await createHonoServer<IdentityEnv>({
 				c.executionCtx.waitUntil(db.destroy())
 			}
 		})
+		app.route("/api", createApi())
 		app.use("*", identifyUser)
 		app.route("/git", createGitApp())
-		app.route("/api", createApi())
 		app.use("/dashboard/*", requireDashboardAuth)
 		app.get("/", (c) => c.redirect("/dashboard"))
 	},

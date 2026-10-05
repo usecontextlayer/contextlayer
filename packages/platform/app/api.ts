@@ -26,7 +26,13 @@ import {
 	updateAppVisibilityRequestSchema,
 } from "@/apps.schema"
 import { createApp, listApps, updateAppVisibility } from "@/apps.server"
-import { type AuthenticatedEnv, type IdentityEnv, requireAuth } from "@/auth.middleware"
+import {
+	type AuthenticatedEnv,
+	type IdentityEnv,
+	identifyUser,
+	identifyViewer,
+	requireAuth,
+} from "@/auth.middleware"
 import { requireAppSubscription } from "@/billing.middleware"
 import { saveCustomerState } from "@/billing.server"
 import {
@@ -49,7 +55,6 @@ import { callTool } from "@/tools.server"
 
 const security: NonNullable<RouteConfig["security"]> = [
 	{ bearerAuth: [] },
-	{ viewerCookie: [] },
 	{ webCookie: [] },
 	{ localWebCookie: [] },
 ]
@@ -80,7 +85,7 @@ export function createApi() {
 	})
 	api.openAPIRegistry.registerComponent("securitySchemes", "viewerCookie", {
 		in: "cookie",
-		name: "__Secure-ctx_viewer",
+		name: "ctx-viewer-auth",
 		type: "apiKey",
 	})
 	api.openAPIRegistry.registerComponent("securitySchemes", "webCookie", {
@@ -94,7 +99,7 @@ export function createApi() {
 		type: "apiKey",
 	})
 	const viewing = new OpenAPIHono<ViewingEnv>()
-	viewing.use("*", requireAppViewing, requireAppSubscription)
+	viewing.use("*", identifyViewer, requireAppViewing, requireAppSubscription)
 	viewing.openapi(
 		createRoute({
 			method: "get",
@@ -111,7 +116,7 @@ export function createApi() {
 				403: { description: "This user cannot view this private app" },
 				404: { description: "No app has this public hostname" },
 			},
-			security: [...security, {}],
+			security: [...security, { viewerCookie: [] }, {}],
 		}),
 		async (c) =>
 			c.json(
@@ -120,6 +125,59 @@ export function createApi() {
 			),
 	)
 	api.route("/apps/resolve", viewing)
+	const tools = new OpenAPIHono<AuthenticatedViewingEnv>()
+	tools.use("*", identifyViewer, requireAuth, requireAppViewing, requireAppSubscription)
+	tools.openapi(
+		createRoute({
+			method: "post",
+			operationId: "callTool",
+			path: "/call",
+			request: {
+				body: {
+					content: { "application/json": { schema: toolCallSchema } },
+					required: true,
+				},
+				params: z.object({ target: appTargetSchema }),
+			},
+			responses: {
+				200: {
+					content: { "application/json": { schema: toolResultSchema } },
+					description: "Composio tool result, error, and log ID",
+				},
+				401: {
+					description: "A valid ContextLayer access token or viewer session is required",
+				},
+				402: { description: "The app owner needs an active subscription" },
+				403: { description: "App viewing or local manifest access is forbidden" },
+				404: { description: "App or connection assignment not found" },
+			},
+			security: [...security, { viewerCookie: [] }],
+		}),
+		async (c) => {
+			const { manifest, ...call } = c.req.valid("json")
+			const snapshot = await getAppManifest(c.var.appAccess.app, c.env.APPS, manifest)
+			const result = await callTool(
+				c.var.db,
+				c.var.config.COMPOSIO_API_KEY,
+				c.var.appAccess,
+				c.var.config.CTX_AUTH_ISSUER,
+				call,
+				snapshot,
+			)
+			if (!result.allowed) return c.body(null, result.reason === "forbidden" ? 403 : 404)
+			const polar = createPolarCore({
+				accessToken: c.var.config.POLAR_ACCESS_TOKEN,
+				environment: c.var.config.POLAR_ENVIRONMENT,
+			})
+			const app = c.var.appAccess.app
+			c.executionCtx.waitUntil(
+				recordAppUsage(polar, { id: app.id, owner: getAppOwner(app) }, "tool_call"),
+			)
+			return c.json(result.result, 200)
+		},
+	)
+	api.route("/apps/:target/tools", tools)
+	api.use("*", identifyUser)
 	const catalog = new OpenAPIHono<AuthenticatedEnv>()
 	catalog.use("*", requireAuth)
 	catalog.openapi(
@@ -183,7 +241,7 @@ export function createApi() {
 				},
 				400: { description: "Invalid app creation input" },
 				401: {
-					description: "A valid ContextLayer access token or viewer session is required",
+					description: "A valid ContextLayer login is required",
 				},
 				404: { description: "The organization slug is not in this user's memberships" },
 			},
@@ -284,7 +342,7 @@ export function createApi() {
 					description: "Connected accounts belonging to the selected Owner",
 				},
 				401: {
-					description: "A valid ContextLayer access token or viewer session is required",
+					description: "A valid ContextLayer login is required",
 				},
 				403: { description: "This user cannot manage this Owner's connections" },
 			},
@@ -320,7 +378,7 @@ export function createApi() {
 						"Composio authorization link for the selected Owner's private connection",
 				},
 				401: {
-					description: "A valid ContextLayer access token or viewer session is required",
+					description: "A valid ContextLayer login is required",
 				},
 				403: { description: "This user cannot manage this Owner's connections" },
 			},
@@ -340,7 +398,6 @@ export function createApi() {
 	)
 	const appOperations = new OpenAPIHono<AuthenticatedViewingEnv>()
 	appOperations.use("*", requireAuth, requireAppViewing)
-	appOperations.use("/tools/*", requireAppSubscription)
 	appOperations.openapi(
 		createRoute({
 			method: "get",
@@ -438,7 +495,7 @@ export function createApi() {
 					description: "App requirements and connection assignments",
 				},
 				401: {
-					description: "A valid ContextLayer access token or viewer session is required",
+					description: "A valid ContextLayer login is required",
 				},
 				403: { description: "This user cannot view this private app" },
 				404: { description: "App not found" },
@@ -473,7 +530,7 @@ export function createApi() {
 					description: "Saved viewer or owner connection assignment",
 				},
 				401: {
-					description: "A valid ContextLayer access token or viewer session is required",
+					description: "A valid ContextLayer login is required",
 				},
 				403: { description: "App viewing or owner connection management is forbidden" },
 				404: { description: "App or connection requirement not found" },
@@ -492,55 +549,6 @@ export function createApi() {
 			)
 			if (!result.allowed) return c.body(null, result.reason === "forbidden" ? 403 : 404)
 			return c.json(result.assignment, 200)
-		},
-	)
-	appOperations.openapi(
-		createRoute({
-			method: "post",
-			operationId: "callTool",
-			path: "/tools/call",
-			request: {
-				body: {
-					content: { "application/json": { schema: toolCallSchema } },
-					required: true,
-				},
-				params: z.object({ target: appTargetSchema }),
-			},
-			responses: {
-				200: {
-					content: { "application/json": { schema: toolResultSchema } },
-					description: "Composio tool result, error, and log ID",
-				},
-				401: {
-					description: "A valid ContextLayer access token or viewer session is required",
-				},
-				402: { description: "The app owner needs an active subscription" },
-				403: { description: "App viewing or local manifest access is forbidden" },
-				404: { description: "App or connection assignment not found" },
-			},
-			security,
-		}),
-		async (c) => {
-			const { manifest, ...call } = c.req.valid("json")
-			const snapshot = await getAppManifest(c.var.appAccess.app, c.env.APPS, manifest)
-			const result = await callTool(
-				c.var.db,
-				c.var.config.COMPOSIO_API_KEY,
-				c.var.appAccess,
-				c.var.config.CTX_AUTH_ISSUER,
-				call,
-				snapshot,
-			)
-			if (!result.allowed) return c.body(null, result.reason === "forbidden" ? 403 : 404)
-			const polar = createPolarCore({
-				accessToken: c.var.config.POLAR_ACCESS_TOKEN,
-				environment: c.var.config.POLAR_ENVIRONMENT,
-			})
-			const app = c.var.appAccess.app
-			c.executionCtx.waitUntil(
-				recordAppUsage(polar, { id: app.id, owner: getAppOwner(app) }, "tool_call"),
-			)
-			return c.json(result.result, 200)
 		},
 	)
 	api.route("/apps/:target", appOperations)

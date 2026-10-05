@@ -41,27 +41,36 @@ function createRequireAuth({ signInRedirect = false } = {}) {
 export const requireAuth = createRequireAuth()
 export const requireDashboardAuth = createRequireAuth({ signInRedirect: true })
 
-export const identifyUser = createMiddleware<IdentityEnv>(async (c, next) => {
-	const token = c.req.header("authorization")?.match(/^Bearer (.+)$/i)?.[1]
-	const session = getCookie(c, "__Secure-ctx_viewer")
-	const cookie = c.req.header("cookie")
-	const credential = token
-		? ({ token, type: "access-token" } as const)
-		: session
-			? ({ token: session, type: "session" } as const)
-			: cookie
-				? ({ cookie, type: "cookie" } as const)
-				: null
-	let user = null
-	if (credential?.type === "access-token") {
-		try {
-			user = await authenticateAccessToken(credential.token, c.var.config.CTX_AUTH_ISSUER)
-		} catch (error) {
-			if (!(error instanceof errors.JOSEError || error instanceof z.ZodError)) throw error
+function createIdentifyUser({ viewerCookie = false } = {}) {
+	return createMiddleware<IdentityEnv>(async (c, next) => {
+		const token = c.req.header("authorization")?.match(/^Bearer (.+)$/i)?.[1]
+		const session = viewerCookie ? getCookie(c, "ctx-viewer-auth") : undefined
+		const cookie = c.req.header("cookie")
+		const credential = token
+			? ({ token, type: "access-token" } as const)
+			: session
+				? ({ token: session, type: "session" } as const)
+				: cookie
+					? ({ cookie, type: "cookie" } as const)
+					: null
+		let user = null
+		if (credential?.type === "access-token") {
+			try {
+				user = await authenticateAccessToken(
+					credential.token,
+					c.var.config.CTX_AUTH_ISSUER,
+				)
+			} catch (error) {
+				if (!(error instanceof errors.JOSEError || error instanceof z.ZodError))
+					throw error
+			}
+		} else if (credential) {
+			user = await authenticateSession(credential, c.var.config.CTX_AUTH_ISSUER)
 		}
-	} else if (credential) {
-		user = await authenticateSession(credential, c.var.config.CTX_AUTH_ISSUER)
-	}
-	c.set("identity", user && credential ? { credential, user } : null)
-	await next()
-})
+		c.set("identity", user && credential ? { credential, user } : null)
+		await next()
+	})
+}
+
+export const identifyUser = createIdentifyUser()
+export const identifyViewer = createIdentifyUser({ viewerCookie: true })

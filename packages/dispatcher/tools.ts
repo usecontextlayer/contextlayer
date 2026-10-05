@@ -23,7 +23,7 @@ export class Tools extends WorkerEntrypoint<Bindings, ToolsProps> {
 				body: JSON.stringify({ arguments: args, slug, tool: toolSlug }),
 				headers: {
 					"content-type": "application/json",
-					cookie: `__Secure-ctx_viewer=${sessionToken}`,
+					cookie: `ctx-viewer-auth=${sessionToken}`,
 				},
 				method: "POST",
 			},

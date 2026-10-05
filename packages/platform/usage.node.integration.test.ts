@@ -33,6 +33,7 @@ test("personal and organization usage reaches Polar at 1/3/1 clips, without bloc
 		})
 		.parse(process.env)
 	const env = parsePlatformEnv(process.env)
+	const accessToken = z.string().min(1).parse(process.env.CTX_TEST_ACCESS_TOKEN)
 	const polar = createPolarCore({
 		accessToken: env.POLAR_ACCESS_TOKEN,
 		environment: config.POLAR_ENVIRONMENT,
@@ -53,10 +54,6 @@ test("personal and organization usage reaches Polar at 1/3/1 clips, without bloc
 	api.use("*", async (c, next) => {
 		c.set("db", db)
 		c.set("config", env)
-		c.set("identity", {
-			credential: { token: "unused-for-public-apps", type: "access-token" },
-			user: { id: config.CTX_TEST_USER_ID },
-		})
 		await next()
 	})
 	api.route("/api", createApi())
@@ -116,7 +113,10 @@ test("personal and organization usage reaches Polar at 1/3/1 clips, without bloc
 						slug: "mail",
 						tool: "READ",
 					}),
-					headers: { "content-type": "application/json" },
+					headers: {
+						authorization: `Bearer ${accessToken}`,
+						"content-type": "application/json",
+					},
 					method: "POST",
 				},
 				undefined,
@@ -164,7 +164,10 @@ test("personal and organization usage reaches Polar at 1/3/1 clips, without bloc
 					`/api/apps/${app.id}/tools/call`,
 					{
 						body: JSON.stringify({ arguments: {}, slug: "mail", tool: "READ" }),
-						headers: { "content-type": "application/json" },
+						headers: {
+							authorization: `Bearer ${accessToken}`,
+							"content-type": "application/json",
+						},
 						method: "POST",
 					},
 					undefined,

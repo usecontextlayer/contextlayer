@@ -61,7 +61,7 @@ app.get("/callback", async (c) => {
 	if (!response.ok) throw new Error(`Session exchange failed: ${response.status}`)
 	const { session } = sessionSchema.parse(await response.json())
 	deleteCookie(c, transactionCookie, cookieOptions)
-	setCookie(c, "__Secure-ctx_viewer", session.token, {
+	setCookie(c, "ctx-viewer-auth", session.token, {
 		...cookieOptions,
 		domain: env.CTX_APPS_DOMAIN,
 		expires: session.expiresAt,

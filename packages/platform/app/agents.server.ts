@@ -17,7 +17,11 @@ export async function getAgent(
 		? await listOrganizations(identity, issuer)
 		: []
 	// Public viewing does not grant access to authored source.
-	const authorization = authorizeAppManagement(app, identity, organizations)
+	const authorization = authorizeAppManagement(
+		app,
+		identity,
+		organizations.some((organization) => organization.id === app.owner_organization_id),
+	)
 	if (!authorization.allowed) return authorization
 	return readAgent(artifacts, app.id, name)
 }
