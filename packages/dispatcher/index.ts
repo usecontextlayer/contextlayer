@@ -10,6 +10,7 @@ import { getCookie } from "hono/cookie"
 import { type Bindings, parseEnv } from "@/env"
 
 export { Tools } from "@/tools"
+export { Viewer } from "@/viewer"
 
 const app = new Hono<{ Bindings: Bindings }>()
 
@@ -42,7 +43,10 @@ app.all("*", async (c) => {
 	if (cookies) request.headers.set("cookie", cookies)
 	else request.headers.delete("cookie")
 	const props = session
-		? { tools: entrypoints.Tools({ props: { appId: id, sessionToken: session } }) }
+		? {
+				tools: entrypoints.Tools({ props: { appId: id, sessionToken: session } }),
+				viewer: entrypoints.Viewer({ props: { sessionToken: session } }),
+			}
 		: {}
 	const result = await c.env.APPS.get(id, { props }).fetch(request)
 	const usage = appRequestUsage(request, result)

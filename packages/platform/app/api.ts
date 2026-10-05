@@ -26,7 +26,6 @@ import {
 } from "@/apps.schema"
 import { createApp, listApps, updateAppVisibility } from "@/apps.server"
 import { type AuthenticatedEnv, type IdentityEnv, requireAuth } from "@/auth.middleware"
-import { userSchema } from "@/auth.server"
 import { requireAppSubscription } from "@/billing.middleware"
 import { saveCustomerState } from "@/billing.server"
 import {
@@ -91,25 +90,6 @@ export function createApi() {
 		name: "better-auth.session_token",
 		type: "apiKey",
 	})
-	api.openapi(
-		createRoute({
-			method: "get",
-			middleware: [requireAuth] as const,
-			operationId: "getCurrentUser",
-			path: "/me",
-			responses: {
-				200: {
-					content: { "application/json": { schema: userSchema } },
-					description: "Authenticated ContextLayer user",
-				},
-				401: {
-					description: "A valid ContextLayer access token or viewer session is required",
-				},
-			},
-			security,
-		}),
-		async (c) => c.json(c.var.identity.user, 200),
-	)
 	const viewing = new OpenAPIHono<ViewingEnv>()
 	viewing.use("*", requireAppViewing, requireAppSubscription)
 	viewing.openapi(

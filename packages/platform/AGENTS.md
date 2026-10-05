@@ -44,6 +44,8 @@ Use the native `ARTIFACTS` Worker binding directly in domain functions. Reposito
 
 Web owns users, Better Auth sessions, organizations, and memberships; platform owns apps and app authorization. Forward the caller's native browser Cookie header to web's `/api/auth/get-session` for verification. Treat it as an opaque credential, never as a source of unverified user fields. Retain CLI bearer authentication. Keep the verified identity and its credential together in the existing request boundary so shared domain functions and loaders use the same caller.
 
+Web's `/api/me` owns the safe current-user profile (`id`, `name`, nullable `image`) for CLI and viewer credentials. Identity consumers call web directly; do not add a platform profile proxy. Platform's request-scoped verified `{id}` still authenticates its own app operations.
+
 For user-scoped web reads, forward that caller's cookie or access token to web's authenticated endpoint. Web verifies identity and supplies authoritative membership facts; platform decides access to its apps. Do not introduce machine-to-machine authentication for these reads, another session store, or copied identity/membership records.
 
 ## API authentication

@@ -1,4 +1,7 @@
 import { createContext } from "react-router"
+import type { Viewer } from "@/viewer"
+
+export type { User, Viewer } from "@/viewer"
 
 export interface Tools {
 	call(
@@ -9,3 +12,4 @@ export interface Tools {
 }
 
 export const toolsContext = createContext<Tools>()
+export const viewerContext = createContext<Viewer>({ getCurrentUser: async () => null })

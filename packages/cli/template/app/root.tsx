@@ -2,7 +2,7 @@ import { isRouteErrorResponse, Outlet } from "react-router"
 import type { Route } from "./+types/root"
 import "~/app.css"
 
-export { Layout } from "@usecontextlayer/sdk/react"
+export { Layout, loader } from "@usecontextlayer/sdk/react"
 
 export default function App() {
 	return <Outlet />

@@ -16,6 +16,7 @@ export async function contextlayer({ command }: ConfigEnv) {
 				? {
 						services: [
 							{ binding: "TOOLS", entrypoint: "Tools", service: "ctx-local-tools" },
+							{ binding: "VIEWER", entrypoint: "Viewer", service: "ctx-local-tools" },
 						],
 					}
 				: {},

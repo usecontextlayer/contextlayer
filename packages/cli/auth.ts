@@ -76,7 +76,7 @@ export async function getAccessToken() {
 }
 
 export async function getCurrentUser(headers: HeadersInit) {
-	const response = await fetch(new URL("/api/me", env.CTX_PLATFORM_URL), { headers })
+	const response = await fetch(new URL("/api/me", env.CTX_AUTH_ISSUER), { headers })
 	if (!response.ok) throw new Error(`Identity request failed: HTTP ${response.status}`)
 	return z.object({ id: z.string().min(1) }).parse(await response.json())
 }

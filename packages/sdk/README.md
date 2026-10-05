@@ -1,6 +1,6 @@
 # @usecontextlayer/sdk
 
-ContextLayer integration for React Router apps: the shared document Layout and Tools capability. In local development, tool calls execute through the ContextLayer platform using your assigned Composio Platform connections.
+ContextLayer integration for React Router apps: the shared document Layout and Tools/Viewer capabilities. In local development, tool calls execute through the ContextLayer platform using your assigned Composio Platform connections.
 
 Create an app with `npx @usecontextlayer/cli init my-app`. The CLI installs this package and configures a development-only Cloudflare Worker and native service binding. Use the generated app's normal `pnpm dev` command. First-party `@usecontextlayer/*` packages are exempt from pnpm's release-age policy in generated projects.
 
@@ -8,14 +8,14 @@ Create an app with `npx @usecontextlayer/cli init my-app`. The CLI installs this
 
 Run `ctx login` to save your ContextLayer login. Declare `work-email` as an individual Gmail requirement in `public/slate.json`, then use `ctx connections list` to find your connection and `ctx connection local assign work-email <connection_id>` to assign it. Run local commands from the app root.
 
-When `pnpm dev` starts, `contextlayer(env)` from `@usecontextlayer/sdk/vite` configures the Cloudflare Vite plugin and calls the CLI-owned `getLocalToolsBindings` helper. This Node helper reads the AppID from Git origin and obtains a current access token using the same saved login as the CLI. Only the AppID, platform URL, and access token enter the local Tools Worker. The refresh token stays in `~/.contextlayer/auth.json`; the Composio project key stays on the platform. Restart `pnpm dev` when the access token expires.
+When `pnpm dev` starts, `contextlayer(env)` from `@usecontextlayer/sdk/vite` configures the Cloudflare Vite plugin and calls the CLI-owned `getLocalToolsBindings` helper. This Node helper reads the AppID from Git origin and obtains a current access token using the same saved login as the CLI. The AppID, platform URL, auth issuer, and access token enter the existing local auxiliary Worker, which exports Tools and Viewer entrypoints. The refresh token stays in `~/.contextlayer/auth.json`; the Composio project key stays on the platform. Restart `pnpm dev` when the access token expires.
 
 ## App Layout
 
-The generated `app/root.tsx` re-exports the SDK's document Layout:
+The generated `app/root.tsx` re-exports the SDK's document Layout and root loader:
 
 ```tsx
-export { Layout } from "@usecontextlayer/sdk/react"
+export { Layout, loader } from "@usecontextlayer/sdk/react"
 ```
 
 The Layout owns the HTML document, React Router's metadata, links, scripts, scroll restoration, and the shared ContextLayer header. The app owns its routes, root component, error boundary, stylesheet, and font links. The thin, full-width header expands an inline settings panel, moving the app content down. Connection controls are not implemented yet.
@@ -42,9 +42,24 @@ export async function loader({ context }: LoaderFunctionArgs) {
 
 Calls return `{ data, logId }`. Validate the tool-specific `data` in your loader. The complete [Gmail example](examples/gmail.tsx) validates the response with Zod and renders a message list. Copy it to `app/routes/home.tsx` in a generated app and assign your Gmail connection to `work-email`.
 
+## Current viewer
+
+Read the safe profile in a loader through the request-scoped Viewer capability:
+
+```ts
+import { viewerContext } from "@usecontextlayer/sdk"
+import type { LoaderFunctionArgs } from "react-router"
+
+export async function loader({ context }: LoaderFunctionArgs) {
+  return context.get(viewerContext).getCurrentUser()
+}
+```
+
+The result is `{ id, name, image }` with nullable image, or `null` for an anonymous viewer. Local Viewer sends the saved CLI access token directly to web's `/api/me`; hosted Viewer sends the existing viewer cookie to that same endpoint. `CTX_AUTH_ISSUER` determines web's origin. Web verifies identity; the capability validates its response with Zod. The app receives only profile data through RPC. No access token, session cookie, refresh token, or platform profile proxy is exposed. The SDK root loader reads this profile once and Layout consumes the root route data to show the avatar and name in the always-visible header. Anonymous viewers see “Not signed in”. The installed local loader has been verified through the native development Worker. Hosted WfP verification remains pending.
+
 ## Runtime ownership
 
-The package root exports the `Tools` interface and `toolsContext`. `@usecontextlayer/sdk/react` exports the shared React Router document `Layout`; `@usecontextlayer/sdk/styles.css` exports the chrome stylesheet for Vite to process and render inside the ShadowRoot. `@usecontextlayer/sdk/local` exports the local `Tools` Worker entrypoint. `@usecontextlayer/sdk/worker` exports `createApp`, which creates the React Router request handler and supplies `toolsContext` from the local binding or production request props. `@usecontextlayer/sdk/vite` owns the `contextlayer` integration. The CLI package owns the Node startup helper and saved-login handling. The generated application supplies its virtual server-build import, mode, and development flag through thin Worker wiring, and composes Vite plugins. The Cloudflare Vite plugin runs the auxiliary Worker only in development; production bundles exclude it and its service binding.
+The package root exports the `Tools` and `Viewer` interfaces, `User` profile type, and `toolsContext`/`viewerContext`. `@usecontextlayer/sdk/react` exports the shared React Router document `Layout` and profile `loader`; `@usecontextlayer/sdk/styles.css` exports the chrome stylesheet for Vite to process and render inside the ShadowRoot. `@usecontextlayer/sdk/local` exports the local `Tools` and `Viewer` Worker entrypoints. `@usecontextlayer/sdk/worker` exports `createApp`, which creates the React Router request handler and supplies `toolsContext` and `viewerContext` from local bindings or production request props. The native default `viewerContext` returns null for anonymous viewers. `@usecontextlayer/sdk/vite` owns the `contextlayer` integration. The CLI package owns the Node startup helper and saved-login handling. The generated application supplies its virtual server-build import, mode, and development flag through thin Worker wiring, and composes Vite plugins. The Cloudflare Vite plugin runs the auxiliary Worker only in development; production bundles exclude it and its service binding.
 
 In hosted apps, the dispatcher supplies `ctx.props.tools` as a request-scoped RPC handle. Its methods call the same platform execution API using the viewer session; the app cannot read the underlying viewer credential. The platform resolves the signed-in viewer’s assignment for the app and slug, so a viewer using the same account as the CLI uses the same saved assignment. Local access-token bindings are not included in production builds.
 
@@ -64,6 +79,6 @@ export default defineConfig((env) => ({
 }))
 ```
 
-This integration supplies the Cloudflare plugin; do not add a second instance. It uses the generated `workers/local-tools/wrangler.jsonc` to start the local Tools Worker and provides its development-only service binding. At development startup, the CLI reads the app's Git origin and saved ContextLayer login. Production builds exclude local credentials and the auxiliary Worker.
+This integration supplies the Cloudflare plugin; do not add a second instance. It uses the generated `workers/local-tools/wrangler.jsonc` to start the local Tools Worker and provides its development-only Tools and Viewer service bindings. At development startup, the CLI reads the app's Git origin and saved ContextLayer login. Production builds exclude local credentials and the auxiliary Worker.
 
-The app retains its routes, `public/slate.json`, and thin Worker/configuration files. `@usecontextlayer/sdk/worker` owns the React Router request handler and Tools context setup.
+The app retains its routes, `public/slate.json`, and thin Worker/configuration files. `@usecontextlayer/sdk/worker` owns the React Router request handler and Tools/Viewer context setup.

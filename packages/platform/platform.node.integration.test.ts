@@ -46,7 +46,7 @@ test("app ownership protects viewing, listing, and native Git source access", as
 		expect((await fetch(`${origin}/api/apps`, { method: "POST" })).status).toBe(401)
 		expect((await fetch(`${origin}/api/apps`)).status).toBe(401)
 		expect((await fetch(`${origin}/dashboard/personal/apps`)).status).toBe(401)
-		const identity = await fetch(`${origin}/api/me`, { headers })
+		const identity = await fetch(new URL("/api/me", env.CTX_AUTH_ISSUER), { headers })
 		expect(identity.status).toBe(200)
 		const user = z.object({ id: z.string().min(1) }).parse(await identity.json())
 		const created = await fetch(`${origin}/api/apps`, { headers, method: "POST" })
