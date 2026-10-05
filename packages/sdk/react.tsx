@@ -31,7 +31,14 @@ function Chrome() {
 			ref={frame}
 			src={src}
 			title="ContextLayer"
-			style={{ border: 0, display: "block", height, width: "100%" }}
+			style={{
+				backgroundColor: "oklch(96.8% 0.007 247.896)",
+				border: 0,
+				borderBottom: "1px solid oklch(92.9% 0.013 255.508)",
+				display: "block",
+				height,
+				width: "100%",
+			}}
 		/>
 	)
 }
