@@ -1,5 +1,7 @@
+import { faAngleDown } from "@awesome.me/kit-e146ba5a27/icons/slab/regular"
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome"
 import { slateSchema } from "@usecontextlayer/shared/slate"
-import { useCallback } from "react"
+import { Fragment, useCallback } from "react"
 import { data } from "react-router"
 import { z } from "zod"
 import { listAppConnections } from "@/app-connections.server"
@@ -13,8 +15,20 @@ import {
 	CollapsibleContent,
 	CollapsibleTrigger,
 } from "@/components/ui/collapsible"
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuGroup,
+	DropdownMenuItem,
+	DropdownMenuLabel,
+	DropdownMenuRadioGroup,
+	DropdownMenuRadioItem,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { listConnections } from "@/connections.server"
 import { appsContext, configContext, databaseContext, identityContext } from "@/context"
 import { getAppManifest } from "@/manifest.server"
+import { getCredentialOwner, type Owner } from "@/owner"
 import type { Route } from "@/routes/+types/chrome"
 
 export const headers: Route.HeadersFunction = () => ({ "Cache-Control": "no-store" })
@@ -22,11 +36,12 @@ export const headers: Route.HeadersFunction = () => ({ "Cache-Control": "no-stor
 export async function loader({ request, params, context }: Route.LoaderArgs) {
 	const url = new URL(request.url)
 	const parentOrigin = new URL(z.url().parse(url.searchParams.get("parentOrigin"))).origin
-	const issuer = context.get(configContext).CTX_AUTH_ISSUER
+	const config = context.get(configContext)
+	const issuer = config.CTX_AUTH_ISSUER
 	const identity = context.get(identityContext)
 	if (!identity)
 		return data(
-			{ connections: [], parentOrigin, user: null },
+			{ accountLists: [], connections: [], parentOrigin, user: null },
 			{ headers: { "Cache-Control": "no-store" } },
 		)
 	const db = context.get(databaseContext)
@@ -53,15 +68,41 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
 		{ app: access.app, identity },
 		snapshot,
 	)
+	const requirements = connections.map((requirement) => ({
+		...requirement,
+		owner: getCredentialOwner(requirement.mode, access.app, identity.user),
+	}))
+	const owners: Owner[] = []
+	for (const { owner } of requirements) {
+		if (
+			!owners.some((existing) => existing.type === owner.type && existing.id === owner.id)
+		)
+			owners.push(owner)
+	}
+	const accountLists = await Promise.all(
+		owners.map(async (owner) => {
+			const result = await listConnections(config, identity, owner)
+			return {
+				accounts: result.allowed
+					? result.connections.map((account) => ({
+							id: account.id,
+							label: account.display_name ?? account.alias ?? account.id,
+							toolkit: account.toolkit,
+						}))
+					: null,
+				owner,
+			}
+		}),
+	)
 	const user = await getCurrentUser(identity, issuer)
 	return data(
-		{ connections, parentOrigin, user },
+		{ accountLists, connections: requirements, parentOrigin, user },
 		{ headers: { "Cache-Control": "no-store" } },
 	)
 }
 
 export default function Chrome({
-	loaderData: { user, connections, parentOrigin },
+	loaderData: { user, connections, accountLists, parentOrigin },
 }: Route.ComponentProps) {
 	const requirements = connections
 	const connected = requirements.filter(
@@ -134,9 +175,88 @@ export default function Chrome({
 					</span>
 				</div>
 				<CollapsibleContent className="h-(--collapsible-panel-height) overflow-hidden bg-slate-100 transition-[height] duration-200 ease-out data-ending-style:h-0 data-starting-style:h-0 motion-reduce:transition-none">
-					<pre className="overflow-x-auto border-b border-slate-200 p-4 text-xs text-slate-600">
-						{JSON.stringify(requirements, null, 2)}
-					</pre>
+					<div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-center gap-x-4 gap-y-3 border-b border-slate-200 p-4 text-slate-600">
+						{requirements.map((requirement) => {
+							const accounts = accountLists.find(
+								(list) =>
+									list.owner.type === requirement.owner.type &&
+									list.owner.id === requirement.owner.id,
+							)?.accounts
+							const selected = accounts?.find(
+								(account) => account.id === requirement.connection_id,
+							)
+							const choices = accounts?.filter(
+								(account) => account.toolkit === requirement.toolkit,
+							)
+							const label =
+								accounts === null
+									? "Managed by app owner"
+									: (selected?.label ?? requirement.connection_id ?? "Not assigned")
+							return (
+								<Fragment key={requirement.slug}>
+									<div className="min-w-0">
+										<p
+											className="truncate text-sm font-medium"
+											title={requirement.slug}
+										>
+											{requirement.slug}
+										</p>
+										<p className="text-xs text-muted-foreground">
+											{requirement.toolkit} ·{" "}
+											{requirement.mode === "viewer" ? "your account" : "shared"}
+										</p>
+									</div>
+									<DropdownMenu>
+										<DropdownMenuTrigger
+											render={
+												<Button
+													variant="outline"
+													className="w-full min-w-0 justify-between"
+												/>
+											}
+											disabled={accounts === null}
+											aria-label={`Account for ${requirement.slug}`}
+											title={label}
+										>
+											<span className="truncate">{label}</span>
+											<FontAwesomeIcon
+												icon={faAngleDown}
+												aria-hidden="true"
+											/>
+										</DropdownMenuTrigger>
+										<DropdownMenuContent align="end">
+											<DropdownMenuGroup>
+												<DropdownMenuLabel>Connected accounts</DropdownMenuLabel>
+												{choices?.length ? (
+													<DropdownMenuRadioGroup
+														value={requirement.connection_id ?? ""}
+														disabled
+													>
+														{choices.map((account) => (
+															<DropdownMenuRadioItem
+																key={account.id}
+																value={account.id}
+																title={account.label}
+															>
+																<span className="truncate">{account.label}</span>
+															</DropdownMenuRadioItem>
+														))}
+													</DropdownMenuRadioGroup>
+												) : (
+													<DropdownMenuItem disabled>
+														No connected accounts
+													</DropdownMenuItem>
+												)}
+											</DropdownMenuGroup>
+										</DropdownMenuContent>
+									</DropdownMenu>
+								</Fragment>
+							)
+						})}
+						{requirements.length === 0 && (
+							<p className="col-span-2 text-sm">No required services.</p>
+						)}
+					</div>
 				</CollapsibleContent>
 			</Collapsible>
 		</header>
