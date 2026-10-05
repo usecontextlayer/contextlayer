@@ -17,10 +17,9 @@ export async function callTool(
 	const resolved = await resolveAppConnection(db, access, issuer, call.slug, snapshot)
 	if (!resolved.allowed) return resolved
 	const composio = new Composio({ apiKey })
-	const account = await composio.connectedAccounts.get(resolved.connection_id)
 	const session = await composio.create(resolved.owner.id, {
-		connectedAccounts: { [account.toolkit.slug]: [resolved.connection_id] },
-		toolkits: [account.toolkit.slug],
+		connectedAccounts: { [resolved.requirement.toolkit]: [resolved.connection_id] },
+		toolkits: [resolved.requirement.toolkit],
 	})
 	return {
 		allowed: true,
