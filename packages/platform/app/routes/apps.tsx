@@ -54,6 +54,7 @@ export function meta() {
 export async function loader({ context, request, params }: Route.LoaderArgs) {
 	const issuer = context.get(configContext).CTX_AUTH_ISSUER
 	const identity = context.get(identityContext)
+	if (!identity) throw new Response(null, { status: 401 })
 	const organization = params.organizationSlug
 		? await findOrganizationBySlug(identity, issuer, params.organizationSlug)
 		: undefined
@@ -94,6 +95,7 @@ export async function action({ context, request }: Route.ActionArgs) {
 	if (!input.success) throw new Response("Invalid app visibility", { status: 400 })
 	const db = context.get(databaseContext)
 	const identity = context.get(identityContext)
+	if (!identity) throw new Response(null, { status: 401 })
 	const issuer = context.get(configContext).CTX_AUTH_ISSUER
 	const access = await resolveAppForViewing(db, input.data.target, identity, issuer)
 	if (!access.allowed) {

@@ -1,14 +1,11 @@
-import { chromePath } from "@usecontextlayer/shared/chrome"
 import { slateSchema } from "@usecontextlayer/shared/slate"
-import { useCallback, useEffect, useRef } from "react"
-import { data, useFetcher } from "react-router"
+import { useCallback } from "react"
+import { data } from "react-router"
 import { z } from "zod"
 import { listAppConnections } from "@/app-connections.server"
 import { appTargetSchema } from "@/apps.schema"
 import { resolveAppForViewing } from "@/apps.server"
 import { getCurrentUser } from "@/auth.server"
-import { chromeSignInSchema } from "@/chrome.schema"
-import { exchangeChromeSession, getChromeIdentity } from "@/chrome-session.server"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
@@ -16,31 +13,17 @@ import {
 	CollapsibleContent,
 	CollapsibleTrigger,
 } from "@/components/ui/collapsible"
-import { appsContext, configContext, databaseContext } from "@/context"
+import { appsContext, configContext, databaseContext, identityContext } from "@/context"
 import { getAppManifest } from "@/manifest.server"
 import type { Route } from "@/routes/+types/chrome"
 
 export const headers: Route.HeadersFunction = () => ({ "Cache-Control": "no-store" })
 
-export async function action({ request, context }: Route.ActionArgs) {
-	if (request.headers.get("Origin") !== new URL(request.url).origin)
-		throw new Response(null, { status: 403 })
-	const { token } = z.object({ token: z.string().min(1) }).parse(await request.json())
-	const cookie = await exchangeChromeSession(
-		token,
-		context.get(configContext).CTX_AUTH_ISSUER,
-	)
-	return new Response(null, {
-		headers: { "Cache-Control": "no-store", "Set-Cookie": cookie },
-		status: 204,
-	})
-}
-
 export async function loader({ request, params, context }: Route.LoaderArgs) {
 	const url = new URL(request.url)
 	const parentOrigin = new URL(z.url().parse(url.searchParams.get("parentOrigin"))).origin
 	const issuer = context.get(configContext).CTX_AUTH_ISSUER
-	const identity = await getChromeIdentity(request, issuer)
+	const identity = context.get(identityContext)
 	if (!identity)
 		return data(
 			{ connections: [], parentOrigin, user: null },
@@ -84,9 +67,6 @@ export default function Chrome({
 	const connected = requirements.filter(
 		(requirement) => requirement.connection_id !== null,
 	).length
-	const popup = useRef<Window | null>(null)
-	const state = useRef<string>(undefined)
-	const fetcher = useFetcher()
 	const observeHeader = useCallback(
 		(element: HTMLElement | null) => {
 			if (!element) return
@@ -101,34 +81,6 @@ export default function Chrome({
 		},
 		[parentOrigin],
 	)
-	useEffect(() => {
-		function receive(event: MessageEvent) {
-			if (
-				event.origin !== window.location.origin ||
-				!popup.current ||
-				event.source !== popup.current
-			)
-				return
-			const message = chromeSignInSchema.safeParse(event.data)
-			if (!message.success || message.data.state !== state.current) return
-			popup.current = null
-			state.current = undefined
-			fetcher.submit(
-				{ token: message.data.token },
-				{ encType: "application/json", method: "post" },
-			)
-		}
-		window.addEventListener("message", receive)
-		return () => window.removeEventListener("message", receive)
-	}, [fetcher])
-	function signIn() {
-		state.current = crypto.randomUUID()
-		popup.current = window.open(
-			`${chromePath}/sign-in?state=${state.current}`,
-			"_blank",
-			"popup,width=500,height=650",
-		)
-	}
 	return (
 		<header
 			ref={observeHeader}
@@ -176,14 +128,7 @@ export default function Chrome({
 									</span>
 								</>
 							) : (
-								<button
-									type="button"
-									className="truncate pl-[9px]"
-									onClick={signIn}
-									title="Sign in to ContextLayer"
-								>
-									Not signed in
-								</button>
+								<span className="truncate pl-[9px]">Not signed in</span>
 							)}
 						</span>
 					</span>
