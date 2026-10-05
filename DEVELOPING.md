@@ -101,6 +101,8 @@ Migration 006 preserves existing connection assignments as user Owners and enabl
 pnpm exec turbo run test:integration:node --filter=@usecontextlayer/platform -- connection-owner.node.integration.test.ts
 ```
 
+Agent-run preparation is internal to `packages/platform/app/agents.server.ts`: `getAgentRun` loads published instructions and deployed requirements for authorized app access, while pure `prepareAgentRun` builds the serializable instructions/task/Owner-reference description. `agents.test.ts` verifies the preparation contract for personal and organization app Owners and a distinct acting user; it does not fake Artifacts, web, or Doppler. Run with `pnpm exec turbo run test --filter=@usecontextlayer/platform`. The existing `platform.node.integration.test.ts` verifies the shared source reader and preparation using a real built Worker, native Git publication/clone, and the published fixture's instructions and manifest. That case does not exercise the composed `getAgentRun` deployed-manifest HTTP read. It needs the normal platform configuration and `CTX_TEST_ACCESS_TOKEN` issued by the matching auth server/client; run `pnpm exec turbo run test:integration:node --filter=@usecontextlayer/platform -- platform.node.integration.test.ts`. Hosted execution remains unimplemented.
+
 ## Platform development
 
 Platform runs in Cloudflare Workers. Local tooling needs Node 24.19+, a migrated Postgres database, and Wrangler authentication for the Cloudflare Artifacts namespace. Put `CTX_PLATFORM_DATABASE_URL`, the Polar endpoint signing secret `POLAR_WEBHOOK_SECRET`, the sandbox `POLAR_ACCESS_TOKEN` and `POLAR_ENVIRONMENT=sandbox`, and the Composio Platform project key `COMPOSIO_API_KEY` in Doppler `platform/dev`. Set `CTX_AUTH_ISSUER` there to the auth server used for local verification. Wrangler’s native `secrets.required` declaration imports the selected Doppler-injected process variables into Worker bindings; do not maintain a `.dev.vars` copy. `CTX_APPS_DOMAIN` defaults to `contextlayer.xyz`. The native `ARTIFACTS` binding in `wrangler.jsonc` selects `contextlayer-dev` and uses the remote namespace during local development. The Worker needs no Cloudflare API token at runtime. Production database configuration lives in Doppler `platform/prod`; Neon’s `platform` project owns the production database.
@@ -178,7 +180,7 @@ Web's handoff support and the shared-session auth/dispatcher Workers are deploye
 
 ## Tests and local Postgres
 
-`pnpm test` runs the unit tier. `AGENTS.md` and `vitest.shared.ts` define the Node/browser runtimes and node/browser/Claude integration tiers. CI runs unit tests; integration tests are opt-in. The current packages have Node unit tests in shared and dispatcher and Node integration tests in db-infra (Postgres) and platform (Cloudflare Artifacts, Polar sandbox and Postgres); browser and Claude tasks remain available for future package tests.
+`pnpm test` runs the unit tier. `AGENTS.md` and `vitest.shared.ts` define the Node/browser runtimes and node/browser/Claude integration tiers. CI runs unit tests; integration tests are opt-in. The current packages have Node unit tests in shared, dispatcher, and platform and Node integration tests in db-infra (Postgres) and platform (Cloudflare Artifacts, Polar sandbox and Postgres); browser and Claude tasks remain available for future package tests.
 
 The db-infra integration suite needs the shared local Postgres instance on `127.0.0.1:6489`. If it is not running, start it once:
 

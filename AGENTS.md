@@ -246,7 +246,7 @@ Tests are sorted by a **filename suffix** along two orthogonal axes defined in `
 
 A package carries a tier's config and script only when it uses that tier. Unit configs exclude the integration markers through `unitTestExclude`; only a package that actually runs browser tests may exclude that runtime's marker from its Node unit project. Misplaced tests therefore run in Node and fail instead of silently disappearing. When adding the first test of a tier, add the matching per-package config and task using the includes exported by `vitest.shared.ts`.
 
-`DEVELOPING.md` owns the run commands and prerequisites. The remaining suite has Node unit tests in shared and dispatcher, and Node integration tests in db-infra and platform. Browser and Claude tasks and taxonomy are retained.
+`DEVELOPING.md` owns the run commands and prerequisites. The remaining suite has Node unit tests in shared, dispatcher, and platform, and Node integration tests in db-infra and platform. Browser and Claude tasks and taxonomy are retained.
 
 #### Assert on the Contract, Not the Inside
 

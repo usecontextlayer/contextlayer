@@ -4,9 +4,11 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { promisify } from "node:util"
 import { provisionEphemeralDatabases } from "@usecontextlayer/db-infra/ephemeral"
+import { slateSchema } from "@usecontextlayer/shared/slate"
 import { expect, test } from "vitest"
 import { z } from "zod"
-import { agentSchema } from "@/agents.schema"
+import { agentRunRequestSchema, agentRunSchema, agentSchema } from "@/agents.schema"
+import { prepareAgentRun } from "@/agents.server"
 import { appSchema, listedAppSchema } from "@/apps.schema"
 import { createPlatformDb } from "@/database"
 import { migrateToLatest } from "@/database/migrate"
@@ -199,13 +201,22 @@ test("app ownership protects viewing, listing, and native Git source access", as
 		let instructions = "You research companies and write concise briefs.\n"
 		await mkdir(join(dir, "agents/company-brief"), { recursive: true })
 		await writeFile(instructionsPath, instructions)
-		await git("add", "README.md", "hello.txt", "agents")
+		await mkdir(join(dir, "public"))
+		await writeFile(
+			join(dir, "public/slate.json"),
+			JSON.stringify({
+				connections: {},
+				secrets: { CLAUDE_CODE_OAUTH_TOKEN: { mode: "owner" } },
+			}),
+		)
+		await git("add", "README.md", "hello.txt", "agents", "public/slate.json")
 		await git("-c", "commit.gpgsign=false", "commit", "-m", "First app")
 		const revision = await git("rev-parse", "HEAD")
 		await git("push", `${origin}/git/${appId}`, "main")
 		const agent = await fetch(agentUrl, { headers })
 		expect(agent.status).toBe(200)
-		expect(agentSchema.parse(await agent.json())).toEqual({
+		const publishedAgent = agentSchema.parse(await agent.json())
+		expect(publishedAgent).toEqual({
 			commit: revision,
 			instructions,
 		})
@@ -240,6 +251,25 @@ test("app ownership protects viewing, listing, and native Git source access", as
 			"Hello ContextLayer\n",
 		)
 		expect(await readFile(join(dir, "cloned", "README.md"), "utf8")).toBe("# My app\n")
+		const manifest = slateSchema.parse(
+			JSON.parse(await readFile(join(dir, "cloned/public/slate.json"), "utf8")),
+		)
+		const run = prepareAgentRun(
+			{
+				app,
+				identity: { credential: { token: accessToken, type: "access-token" }, user },
+			},
+			publishedAgent,
+			manifest,
+			agentRunRequestSchema.parse({ name: "company-brief", prompt: "Research Acme." }),
+		)
+		expect(agentRunSchema.parse(JSON.parse(JSON.stringify(run)))).toEqual({
+			agent: { commit: revision, instructions, name: "company-brief" },
+			appId: app.id,
+			prompt: "Research Acme.",
+			secrets: { CLAUDE_CODE_OAUTH_TOKEN: { id: user.id, type: "user" } },
+			viewerId: user.id,
+		})
 		await writeFile(join(dir, "hello.txt"), "Updated ContextLayer\n")
 		instructions = "You research companies and write concise briefs with sources.\n"
 		await writeFile(instructionsPath, instructions)

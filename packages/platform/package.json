@@ -61,6 +61,7 @@
 		"dev": "vite preview --host 127.0.0.1",
 		"dev:watch": "vite dev --host 127.0.0.1",
 		"start": "vite preview --host 127.0.0.1",
+		"test": "vitest run --config vitest.config.ts",
 		"test:integration:node": "vitest run --config vitest.integration.node.config.ts",
 		"tsc": "react-router typegen && tsc --noEmit"
 	},
