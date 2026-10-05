@@ -1,7 +1,8 @@
 import { WorkerEntrypoint } from "cloudflare:workers"
+import { appConnectionsSchema } from "@usecontextlayer/shared/app-connections"
 import { z } from "zod"
 import { type Bindings, parseEnv } from "@/env"
-import type { Tools as ToolsContract } from "@/index"
+import type { Connections as ConnectionsContract, Tools as ToolsContract } from "@/index"
 import { userSchema, type Viewer as ViewerContract } from "@/viewer"
 
 const execution = z.object({
@@ -45,5 +46,28 @@ export class Viewer extends WorkerEntrypoint<Bindings> implements ViewerContract
 		if (response.status === 401) return null
 		if (!response.ok) throw new Error(`Identity request failed: HTTP ${response.status}`)
 		return userSchema.parse(await response.json())
+	}
+}
+
+export class Connections
+	extends WorkerEntrypoint<Bindings>
+	implements ConnectionsContract
+{
+	async list() {
+		const env = parseEnv(this.env)
+		const response = await fetch(
+			new URL(`/api/apps/${env.CTX_APP_ID}/connections/list`, env.CTX_PLATFORM_URL),
+			{
+				body: JSON.stringify({ manifest: env.CTX_APP_MANIFEST }),
+				headers: {
+					authorization: `Bearer ${env.CTX_ACCESS_TOKEN}`,
+					"content-type": "application/json",
+				},
+				method: "POST",
+			},
+		)
+		if (!response.ok)
+			throw new Error(`App connections request failed: HTTP ${response.status}`)
+		return appConnectionsSchema.parse(await response.json()).connections
 	}
 }

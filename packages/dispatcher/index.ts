@@ -9,6 +9,7 @@ import { Hono } from "hono"
 import { getCookie } from "hono/cookie"
 import { type Bindings, parseEnv } from "@/env"
 
+export { Connections } from "@/connections"
 export { Tools } from "@/tools"
 export { Viewer } from "@/viewer"
 
@@ -44,6 +45,9 @@ app.all("*", async (c) => {
 	else request.headers.delete("cookie")
 	const props = session
 		? {
+				connections: entrypoints.Connections({
+					props: { appId: id, sessionToken: session },
+				}),
 				tools: entrypoints.Tools({ props: { appId: id, sessionToken: session } }),
 				viewer: entrypoints.Viewer({ props: { sessionToken: session } }),
 			}

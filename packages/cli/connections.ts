@@ -1,4 +1,4 @@
-import { credentialModeSchema } from "@usecontextlayer/shared/slate"
+import { appConnectionsSchema } from "@usecontextlayer/shared/app-connections"
 import { z } from "zod"
 import { getLocalAppId, readLocalManifest } from "@/app"
 import { getAccessToken } from "@/auth"
@@ -65,18 +65,7 @@ export async function listAppConnections(target: string) {
 	)
 	if (!response.ok)
 		throw new Error(`App connections request failed: HTTP ${response.status}`)
-	const { connections } = z
-		.object({
-			connections: z.array(
-				z.object({
-					connection_id: z.string().nullable(),
-					mode: credentialModeSchema,
-					slug: z.string(),
-					toolkit: z.string(),
-				}),
-			),
-		})
-		.parse(await response.json())
+	const { connections } = appConnectionsSchema.parse(await response.json())
 	if (!connections.length) {
 		console.log("No connection requirements.")
 		return

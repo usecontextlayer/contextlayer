@@ -15,6 +15,10 @@
 			"import": "./dist/index.mjs",
 			"types": "./dist/index.d.mts"
 		},
+		"./app-connections": {
+			"import": "./dist/app-connections.mjs",
+			"types": "./dist/app-connections.d.mts"
+		},
 		"./app-usage": {
 			"import": "./dist/app-usage.mjs",
 			"types": "./dist/app-usage.d.mts"

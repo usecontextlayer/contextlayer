@@ -1,1 +1,1 @@
-export { Tools, Viewer } from "@usecontextlayer/sdk/local"
+export { Connections, Tools, Viewer } from "@usecontextlayer/sdk/local"

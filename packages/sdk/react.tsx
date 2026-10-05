@@ -17,14 +17,28 @@ import {
 	CollapsibleContent,
 	CollapsibleTrigger,
 } from "@/components/ui/collapsible"
-import { viewerContext } from "@/index"
+import { type AppConnection, connectionsContext, viewerContext } from "@/index"
 import type { User } from "@/viewer"
 
 export async function loader({ context }: LoaderFunctionArgs) {
-	return { user: await context.get(viewerContext).getCurrentUser() }
+	const user = await context.get(viewerContext).getCurrentUser()
+	return {
+		connections: user ? await context.get(connectionsContext).list() : null,
+		user,
+	}
 }
 
-function Chrome({ user }: { user: User | null }) {
+function Chrome({
+	user,
+	connections,
+}: {
+	user: User | null
+	connections: AppConnection[] | null
+}) {
+	const requirements = connections ?? []
+	const connected = requirements.filter(
+		(requirement) => requirement.connection_id !== null,
+	).length
 	const [shadowRoot, setShadowRoot] = useState<ShadowRoot | null>(null)
 	const attach = useCallback((host: HTMLElement | null) => {
 		if (host) setShadowRoot(host.shadowRoot ?? host.attachShadow({ mode: "open" }))
@@ -48,30 +62,22 @@ function Chrome({ user }: { user: User | null }) {
 				createPortal(
 					<>
 						<style>{chromeStyles}</style>
-						<Collapsible className="group/chrome">
-							<CollapsibleTrigger
-								aria-label={
-									user
-										? `Toggle ContextLayer settings for ${user.name}`
-										: "Toggle ContextLayer settings"
-								}
-								render={
-									<Button
-										variant="ghost"
-										className="h-auto w-full justify-between gap-0 rounded-none border-x-0 border-t-0 border-b-slate-200 bg-slate-100 p-0 text-slate-600 hover:bg-slate-200 hover:text-slate-600 aria-expanded:bg-slate-100 aria-expanded:hover:bg-slate-200"
-									/>
-								}
-							>
+						<Collapsible>
+							<div className="flex justify-between border-b border-slate-200 bg-slate-100 text-slate-600">
 								<span className="shrink-0 px-4 py-[6.5px] font-logo text-[13px]/4 font-normal text-slate-500">
 									contextlayer
 								</span>
 								<span className="flex min-w-0 self-stretch">
-									<span className="flex shrink-0 items-center px-3 text-[13px]/4 font-normal text-slate-400">
-										<span className="group-data-open/chrome:hidden">click to open</span>
-										<span className="hidden group-data-open/chrome:inline">
-											click to close
-										</span>
-									</span>
+									<CollapsibleTrigger
+										render={
+											<Button
+												variant="ghost"
+												className="h-auto self-stretch rounded-none border-0 border-l border-slate-200 bg-slate-100 px-3 py-[6.5px] text-[13px]/4 font-normal text-slate-600 hover:bg-slate-200 hover:text-slate-600 aria-expanded:bg-slate-100 aria-expanded:text-slate-600 aria-expanded:hover:bg-slate-200"
+											/>
+										}
+									>
+										{connected}/{requirements.length} connected services
+									</CollapsibleTrigger>
 									<span className="flex min-w-0 items-center gap-2 border-l border-slate-200 py-[3px] pr-3 pl-[3px] text-[13px]/4 font-normal">
 										{user ? (
 											<>
@@ -97,9 +103,11 @@ function Chrome({ user }: { user: User | null }) {
 										)}
 									</span>
 								</span>
-							</CollapsibleTrigger>
+							</div>
 							<CollapsibleContent className="h-(--collapsible-panel-height) overflow-hidden bg-slate-100 transition-[height] duration-200 ease-out data-ending-style:h-0 data-starting-style:h-0 motion-reduce:transition-none">
-								<div className="min-h-40 border-b border-slate-200" />
+								<pre className="overflow-x-auto border-b border-slate-200 p-4 text-xs text-slate-600">
+									{JSON.stringify(requirements, null, 2)}
+								</pre>
 							</CollapsibleContent>
 						</Collapsible>
 					</>,
@@ -123,7 +131,10 @@ export function Layout({ children }: { children: ReactNode }) {
 				<Links />
 			</head>
 			<body>
-				<Chrome user={data?.user ?? null} />
+				<Chrome
+					user={data?.user ?? null}
+					connections={data?.connections ?? null}
+				/>
 				{children}
 				<ScrollRestoration />
 				<Scripts />

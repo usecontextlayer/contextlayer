@@ -1,4 +1,5 @@
-import { connectionRequirementSchema, slateSchema } from "@usecontextlayer/shared/slate"
+import { appConnectionsSchema as requirementsResponseSchema } from "@usecontextlayer/shared/app-connections"
+import { slateSchema } from "@usecontextlayer/shared/slate"
 import { z } from "zod"
 import { appSchema } from "@/apps.schema"
 import type { AppConnectionAssignmentSlug } from "@/database/models/public/AppConnectionAssignment"
@@ -15,12 +16,6 @@ export const assignAppConnectionRequestSchema = assignmentSchema.extend({
 	manifest: slateSchema.optional(),
 })
 
-export const appConnectionsSchema = z.object({
+export const appConnectionsSchema = requirementsResponseSchema.extend({
 	app: appSchema,
-	connections: z.array(
-		connectionRequirementSchema.extend({
-			connection_id: z.string().nullable(),
-			slug: z.string(),
-		}),
-	),
 })

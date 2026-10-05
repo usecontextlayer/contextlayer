@@ -16,6 +16,7 @@ export default defineConfig({
 	// Object form → deterministic output
 	// basenames (`dist/<key>.mjs`).
 	entry: {
+		"app-connections": "lib/app-connections.ts",
 		"app-usage": "lib/app-usage.ts",
 		"ctx-machine-token": "lib/ctx-machine-token.ts",
 		"ctx-token-provider": "lib/ctx-token-provider.ts",

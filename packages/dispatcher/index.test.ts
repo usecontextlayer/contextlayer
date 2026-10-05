@@ -6,6 +6,7 @@ import dispatcher from "@/index"
 vi.mock("cloudflare:workers", () => ({ exports: {} }))
 vi.mock("@/tools", () => ({ Tools: class {} }))
 vi.mock("@/viewer", () => ({ Viewer: class {} }))
+vi.mock("@/connections", () => ({ Connections: class {} }))
 afterEach(() => {
 	vi.restoreAllMocks()
 	vi.unstubAllGlobals()
