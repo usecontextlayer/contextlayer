@@ -79,6 +79,8 @@ Migration 004 adds non-null text `app.visibility` and backfills existing apps to
 
 ## Local app tools
 
+App membership uses platform's `app_member` relationship, keyed by `(app_id, user_id)`. Apply migration `007_app_member` before using it against an existing database. App creation automatically joins the individual creator in its existing transaction, including for organization-owned apps; other organization members join explicitly. The authenticated `POST /api/apps/{target}/join` operation allows private-app viewers to join and rejects public apps. Sign in with `ctx login` before explicit joining; the built CLI's `join --help` owns target syntax. Joining enables unattended participation without starting a job. The chrome button is deferred.
+
 The root Tailwind deprecation checker owns its compiler and scanner as development dependencies. It checks package-owned stylesheets; SDK chrome now uses platform styles instead of shipping a separate stylesheet. React Router app templates retain native generated `./+types/...` imports and use `~` for ordinary app imports.
 
 New apps re-export only Layout from `@usecontextlayer/sdk/react`; remove the old SDK loader re-export when upgrading. Layout embeds platform's chrome page, which owns its styles, font, profile, and connection reads. The generated app retains its Tailwind and shadcn nova/Base UI setup. Verify unpublished changes with locally packed CLI and SDK packages and the generated app's own typecheck/build. The SDK has no stylesheet export or inline/font asset imports for the app to compile. In development the existing Vite integration exposes only AppID, platform URL, and manifest snapshot through native defines; it does not expose CLI credentials. Chrome uses a browser session, independently of local Tools using the saved CLI login.
@@ -127,6 +129,8 @@ Build platform and CLI before running the platform integration suite. It uses th
 ```sh
 doppler run -p platform -c dev -- pnpm exec turbo run test:integration:node --filter=@usecontextlayer/platform
 ```
+
+The platform integration case also checks creator membership for personal and organization-owned apps, authenticated private joining, public and unauthorized denial, OpenAPI discovery, and repeated joining through the built CLI's AppID, hostname, and local targets. Supply `CTX_TEST_ORGANIZATION_SLUG` for an organization the real caller belongs to and a saved CLI login matching `CTX_AUTH_ISSUER` and `CTX_AUTH_CLIENT_ID`. It creates and deletes its own app repositories and database.
 
 The dashboard uses the private Font Awesome npm kit described in [`.font-awesome.md`](.font-awesome.md). The repository maps its npm scopes in `.npmrc`; configure the Font Awesome package token in your user npm configuration before installing dependencies. Never commit that token.
 

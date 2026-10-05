@@ -3,6 +3,7 @@
 
 import type { default as AppTable } from "./App"
 import type { default as AppConnectionAssignmentTable } from "./AppConnectionAssignment"
+import type { default as AppMemberTable } from "./AppMember"
 import type { default as KyselyMigrationTable } from "./KyselyMigration"
 import type { default as KyselyMigrationLockTable } from "./KyselyMigrationLock"
 import type { default as PolarCustomerStateTable } from "./PolarCustomerState"
@@ -15,6 +16,8 @@ export default interface PublicSchema {
 	app: AppTable
 
 	app_connection_assignment: AppConnectionAssignmentTable
+
+	app_member: AppMemberTable
 
 	kysely_migration: KyselyMigrationTable
 }

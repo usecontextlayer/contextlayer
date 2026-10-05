@@ -30,6 +30,12 @@ Use existing `db-infra` helpers, package-owned Kysely migrations, and Kanel-gene
 
 Store `app.visibility` as non-null text, validate `public`/`private` through `appVisibilitySchema`, and use `DEFAULT_APP_VISIBILITY = "private"` for creation. Parse app rows through `appSchema` before returning app-bearing results. Public viewing should allow anybody; private personal viewing must require the owning user, and private organization viewing must require membership in the app's owning organization. The session's selected workspace must not determine membership. All viewing consumers should share `authorizeAppViewing`; source access and management must use the owner/member rule regardless of visibility.
 
+## App membership
+
+Platform must own `app_member` as the existing user's relationship to an app, keyed by `(app_id, user_id)`, without copying web's identities or organization memberships. Explicit joining must enable member-scoped unattended participation; viewing must not create membership. Creation must automatically join the individual creator through the same `joinApp` operation inside the existing app-creation transaction, including for organization-owned apps. Other organization members must join explicitly.
+
+Expose `POST /api/apps/{target}/join` with Zod/OpenAPI and the existing authenticated viewing boundary. Exclude public apps at the join route; private viewing permission grants joining permission. Derive the member's user ID from verified `AppAccess`, never caller input. Shared `joinApp` must own insertion using the composite key's native conflict handling and return `{ app_id, user_id }`. Membership must not grant viewing or source-management access, change job permissions, or start a job. Keep the CLI on the authenticated API path and defer chrome controls until separately requested. Apply migration `007_app_member` before using this code against an existing database.
+
 ## Workers runtime
 
 Use Cloudflare Workers through `react-router-hono-server/cloudflare` and the Cloudflare Vite plugin. Use workerd for local development and Wrangler for local production verification. Validate Worker bindings in `env.ts`. Follow [README.md](README.md) for Doppler `platform/dev`; use Wrangler's native `secrets.required` to load declared environment variables instead of maintaining `.dev.vars`. Hono middleware should own each request's Postgres.js/Kysely connection, share it with API handlers and React Router loaders, and close it through `waitUntil`. Do not run migrations or Kanel generation inside the Worker.

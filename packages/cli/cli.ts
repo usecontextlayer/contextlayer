@@ -5,6 +5,7 @@ import { Argument, Command } from "commander"
 import { execa } from "execa"
 import { z } from "zod"
 import { runLocalAgent } from "@/agents"
+import { joinApp } from "@/app"
 import { getAccessToken, login, whoami } from "@/auth"
 import {
 	addConnection,
@@ -23,7 +24,7 @@ const program = new Command().name("ctx").description("ContextLayer CLI").versio
 program
 	.command("init <directory>")
 	.description(
-		"Create a Cloudflare React Router project with Tailwind and shadcn Base UI, register an app owned by you or an organization (ctx login), and set its immutable Git remote",
+		"Create a Cloudflare React Router project with Tailwind and shadcn Base UI, register and join a private app owned by you or an organization (ctx login), and set its immutable Git remote",
 	)
 	.option("--org <slug>", "Create the app under an organization you belong to")
 	.action(async (directory: string, options: { org?: string }) => {
@@ -146,6 +147,16 @@ program
 	.command("whoami")
 	.description("Show your ContextLayer user ID using the saved login")
 	.action(whoami)
+
+program
+	.command("join")
+	.argument("<target>", "AppID, public hostname, or local (run from the app root)")
+	.description(
+		"Join a private app you can view using ctx login, enabling member-scoped unattended work; returns app and user IDs",
+	)
+	.action(async (target) => {
+		await joinApp(z.union([z.literal("local"), z.uuid(), z.hostname()]).parse(target))
+	})
 
 const connections = program
 	.command("connections")

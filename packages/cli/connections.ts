@@ -1,17 +1,12 @@
 import { appConnectionsSchema } from "@usecontextlayer/shared/app-connections"
 import { z } from "zod"
-import { getLocalAppId, readLocalManifest } from "@/app"
+import { readLocalManifest, resolveAppTarget } from "@/app"
 import { getAccessToken } from "@/auth"
 import { env } from "@/env"
 import { ownerPath, resolveOwner } from "@/owner"
 
 async function getLocalManifest(target: string) {
 	return target === "local" ? readLocalManifest() : undefined
-}
-
-async function resolveAppTarget(target: string) {
-	if (target !== "local") return target
-	return getLocalAppId()
 }
 
 export async function assignAppConnection(

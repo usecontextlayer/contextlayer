@@ -17,7 +17,7 @@ import { startPlatformWorker } from "@/testing"
 
 const execFile = promisify(execFileCallback)
 
-test("app ownership protects viewing, listing, and native Git source access", async () => {
+test("app ownership protects viewing, joining, listing, and native Git source access", async () => {
 	const databases = await provisionEphemeralDatabases({
 		migrators: { ctx_platform_test: migrateToLatest },
 	})
@@ -32,6 +32,7 @@ test("app ownership protects viewing, listing, and native Git source access", as
 	)
 	const namespace = z.string().parse(wranglerConfig.artifacts[0].namespace)
 	let appId: string | undefined
+	let organizationAppId: string | undefined
 	const dir = await mkdtemp(join(tmpdir(), "platform-story-"))
 	const worker = await startPlatformWorker(env, {
 		...process.env,
@@ -58,6 +59,54 @@ test("app ownership protects viewing, listing, and native Git source access", as
 		expect(app.owner_user_id).toBe(user.id)
 		expect(app.owner_organization_id).toBeNull()
 		expect(app.visibility).toBe("private")
+		const member = { app_id: app.id, user_id: user.id }
+		expect(
+			await db
+				.selectFrom("app_member")
+				.selectAll()
+				.where("app_id", "=", app.id)
+				.execute(),
+		).toEqual([member])
+		const organizationCreated = await fetch(`${origin}/api/apps`, {
+			body: JSON.stringify({
+				organization_slug: z
+					.string()
+					.min(1)
+					.parse(process.env.CTX_TEST_ORGANIZATION_SLUG),
+			}),
+			headers: { ...headers, "content-type": "application/json" },
+			method: "POST",
+		})
+		expect(organizationCreated.status).toBe(201)
+		const organizationApp = appSchema.parse(await organizationCreated.json())
+		organizationAppId = organizationApp.id
+		expect(organizationApp.owner_user_id).toBeNull()
+		expect(organizationApp.owner_organization_id).not.toBeNull()
+		expect(
+			await db
+				.selectFrom("app_member")
+				.selectAll()
+				.where("app_id", "=", organizationApp.id)
+				.execute(),
+		).toEqual([{ app_id: organizationApp.id, user_id: user.id }])
+		const organizationJoin = await fetch(
+			`${origin}/api/apps/${organizationApp.id}/join`,
+			{
+				headers,
+				method: "POST",
+			},
+		)
+		expect(organizationJoin.status).toBe(200)
+		expect(await organizationJoin.json()).toEqual({
+			app_id: organizationApp.id,
+			user_id: user.id,
+		})
+		const joinUrl = `${origin}/api/apps/${app.id}/join`
+		expect((await fetch(joinUrl, { method: "POST" })).status).toBe(401)
+		await db.deleteFrom("app_member").where("app_id", "=", app.id).execute()
+		const joined = await fetch(joinUrl, { headers, method: "POST" })
+		expect(joined.status).toBe(200)
+		expect(await joined.json()).toEqual(member)
 		expect(app.id).toMatch(/^[0-9a-f-]{36}$/)
 		expect(app.public_hostname).toMatch(/^[a-z-]+\.contextlayer\.xyz$/)
 		expect((await getApps()).apps).toContainEqual({ ...app, latest_commit: null })
@@ -92,6 +141,9 @@ test("app ownership protects viewing, listing, and native Git source access", as
 					.executeTakeFirstOrThrow(),
 			).toEqual({ visibility })
 			expect((await fetch(resolveUrl)).status).toBe(visibility === "public" ? 200 : 401)
+			expect((await fetch(joinUrl, { headers, method: "POST" })).status).toBe(
+				visibility === "public" ? 403 : 200,
+			)
 		}
 		const dashboardUrl = `${origin}/dashboard/personal/apps`
 		const dashboardRequest = {
@@ -136,7 +188,7 @@ test("app ownership protects viewing, listing, and native Git source access", as
 		expect((await fetch(visibilityUrl, visibilityRequest)).status).toBe(403)
 		expect((await fetch(connectionList, listRequest)).status).toBe(403)
 		expect((await fetch(agentUrl, { headers })).status).toBe(403)
-		for (const operation of ["connections/assign", "tools/call"]) {
+		for (const operation of ["connections/assign", "tools/call", "join"]) {
 			expect(
 				(
 					await fetch(`${origin}/api/apps/${app.id}/${operation}`, {
@@ -146,13 +198,14 @@ test("app ownership protects viewing, listing, and native Git source access", as
 				).status,
 			).toBe(403)
 		}
-		expect((await getApps()).apps).toEqual([])
+		expect((await getApps()).apps).toEqual([{ ...organizationApp, latest_commit: null }])
 		await db
 			.updateTable("app")
 			.set({ visibility: "public" })
 			.where("id", "=", app.id)
 			.execute()
 		expect((await fetch(resolveUrl)).status).toBe(200)
+		expect((await fetch(joinUrl, { headers, method: "POST" })).status).toBe(403)
 		expect((await fetch(connectionList, listRequest)).status).toBe(200)
 		expect((await fetch(agentUrl, { headers })).status).toBe(403)
 		expect(
@@ -172,7 +225,7 @@ test("app ownership protects viewing, listing, and native Git source access", as
 				.executeTakeFirstOrThrow(),
 		).toEqual({ visibility: "public" })
 		expect((await fetch(refs, { headers })).status).toBe(403)
-		expect((await getApps()).apps).toEqual([])
+		expect((await getApps()).apps).toEqual([{ ...organizationApp, latest_commit: null }])
 		await db
 			.updateTable("app")
 			.set({ owner_user_id: user.id, visibility: "private" })
@@ -193,6 +246,26 @@ test("app ownership protects viewing, listing, and native Git source access", as
 			`${cli} git-credential`,
 		)
 		await git("init", "-b", "main")
+		await git("remote", "add", "origin", gitUrl)
+		await db.deleteFrom("app_member").where("app_id", "=", app.id).execute()
+		for (const target of [app.id, app.public_hostname, "local"]) {
+			const joined = await execFile(process.execPath, [cli, "join", target], {
+				cwd: dir,
+				env: {
+					...process.env,
+					CTX_AUTH_ISSUER: env.CTX_AUTH_ISSUER,
+					CTX_PLATFORM_URL: origin,
+				},
+			})
+			expect(JSON.parse(joined.stdout)).toEqual(member)
+		}
+		expect(
+			await db
+				.selectFrom("app_member")
+				.selectAll()
+				.where("app_id", "=", app.id)
+				.execute(),
+		).toEqual([member])
 		await git("config", "user.name", "Platform Test")
 		await git("config", "user.email", "platform-test@example.com")
 		await writeFile(join(dir, "README.md"), "# My app\n")
@@ -233,11 +306,15 @@ test("app ownership protects viewing, listing, and native Git source access", as
 					"/apps/{target}/agents/{name}": z.object({
 						get: z.object({ operationId: z.string() }),
 					}),
+					"/apps/{target}/join": z.object({
+						post: z.object({ operationId: z.string() }),
+					}),
 				}),
 			})
 			.parse(await (await fetch(`${origin}/api/openapi.json`)).json())
 		expect(schema.paths["/apps"].get.operationId).toBe("listApps")
 		expect(schema.paths["/apps/{target}/agents/{name}"].get.operationId).toBe("getAgent")
+		expect(schema.paths["/apps/{target}/join"].post.operationId).toBe("joinApp")
 		await git("clone", "--branch", "main", `${origin}/git/${appId}`, "cloned")
 		expect(
 			(
@@ -266,6 +343,7 @@ test("app ownership protects viewing, listing, and native Git source access", as
 		expect(agentRunSchema.parse(JSON.parse(JSON.stringify(run)))).toEqual({
 			agent: { commit: revision, instructions, name: "company-brief" },
 			appId: app.id,
+			connections: {},
 			prompt: "Research Acme.",
 			secrets: { CLAUDE_CODE_OAUTH_TOKEN: { id: user.id, type: "user" } },
 			viewerId: user.id,
@@ -295,7 +373,8 @@ test("app ownership protects viewing, listing, and native Git source access", as
 		await rm(dir, { force: true, recursive: true })
 		await db.destroy()
 		await databases.dropAll()
-		if (appId) {
+		for (const id of [appId, organizationAppId]) {
+			if (!id) continue
 			await execFile(
 				process.execPath,
 				[
@@ -303,7 +382,7 @@ test("app ownership protects viewing, listing, and native Git source access", as
 					"artifacts",
 					"repos",
 					"delete",
-					appId,
+					id,
 					"--namespace",
 					namespace,
 					"--force",

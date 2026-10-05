@@ -16,6 +16,8 @@ import {
 	assignmentSchema,
 } from "@/app-connections.schema"
 import { assignAppConnection, listAppConnections } from "@/app-connections.server"
+import { appMemberSchema } from "@/app-members.schema"
+import { joinApp } from "@/app-members.server"
 import {
 	type AuthenticatedViewingEnv,
 	requireAppViewing,
@@ -404,6 +406,33 @@ export function createApi() {
 	)
 	const appOperations = new OpenAPIHono<AuthenticatedViewingEnv>()
 	appOperations.use("*", requireAuth, requireAppViewing)
+	appOperations.openapi(
+		createRoute({
+			method: "post",
+			operationId: "joinApp",
+			path: "/join",
+			request: { params: z.object({ target: appTargetSchema }) },
+			responses: {
+				200: {
+					content: { "application/json": { schema: appMemberSchema } },
+					description:
+						"The authenticated user's app membership, enabling unattended participation",
+				},
+				400: { description: "Invalid app target" },
+				401: { description: "A valid ContextLayer login is required" },
+				403: {
+					description:
+						"Public apps cannot be joined, or private app viewing is forbidden",
+				},
+				404: { description: "App not found" },
+			},
+			security,
+		}),
+		async (c) => {
+			if (c.var.appAccess.app.visibility === "public") return c.body(null, 403)
+			return c.json(await joinApp(c.var.db, c.var.appAccess), 200)
+		},
+	)
 	appOperations.openapi(
 		createRoute({
 			method: "get",

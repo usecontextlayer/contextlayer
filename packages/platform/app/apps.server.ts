@@ -1,4 +1,5 @@
 import { adjectives, animals, colors, uniqueNamesGenerator } from "unique-names-generator"
+import { joinApp } from "@/app-members.server"
 import {
 	type App,
 	type AppOwnerFilter,
@@ -144,7 +145,9 @@ export async function createApp(
 			.returningAll()
 			.executeTakeFirstOrThrow()
 		await artifacts.create(app.id, { setDefaultBranch: "main" })
-		return appSchema.parse(app)
+		const saved = appSchema.parse(app)
+		await joinApp(trx, { app: saved, identity })
+		return saved
 	})
 }
 
