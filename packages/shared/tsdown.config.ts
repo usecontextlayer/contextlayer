@@ -3,7 +3,7 @@ import { defineConfig } from "tsdown"
 export default defineConfig({
 	clean: true,
 	dts: true,
-	// Five entries, five package subpaths. `index` is the barrel (drags `hono` via
+	// Explicit entries own their package subpaths. `index` is the barrel (drags `hono` via
 	// the auth middleware); `ctx-machine-token` is a deliberately barrel-free entry
 	// (the machine-token mint primitive) exported at
 	// `@usecontextlayer/shared/ctx-machine-token` so the CLIs can value-import the
@@ -16,6 +16,7 @@ export default defineConfig({
 	// Object form → deterministic output
 	// basenames (`dist/<key>.mjs`).
 	entry: {
+		"app-usage": "lib/app-usage.ts",
 		"ctx-machine-token": "lib/ctx-machine-token.ts",
 		"ctx-token-provider": "lib/ctx-token-provider.ts",
 		index: "index.ts",

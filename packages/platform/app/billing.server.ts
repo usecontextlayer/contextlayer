@@ -2,6 +2,7 @@ import type { models } from "@polar-sh/sdk/2026-10"
 import type { App } from "@/apps.schema"
 import type { PlatformDb } from "@/database"
 import type { PolarCustomerStateCustomerId } from "@/database/models/public/PolarCustomerState"
+import { getAppOwner } from "@/owner"
 
 export async function saveCustomerState(
 	db: PlatformDb,
@@ -30,7 +31,7 @@ export async function checkAppSubscription(db: PlatformDb, app: App) {
 	const customer = await db
 		.selectFrom("polar_customer_state")
 		.select("state")
-		.where("external_id", "=", app.owner_user_id ?? app.owner_organization_id)
+		.where("external_id", "=", getAppOwner(app).id)
 		.executeTakeFirst()
 	return (customer?.state.active_subscriptions.length ?? 0) > 0
 }

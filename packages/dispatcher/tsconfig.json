@@ -6,7 +6,12 @@
 		},
 		"types": ["@cloudflare/workers-types"]
 	},
+	"exclude": ["dist", "vitest.config.ts"],
 	"extends": "../../tsconfig.base.json",
 	"include": ["*.ts"],
-	"references": []
+	"references": [
+		{
+			"path": "../shared"
+		}
+	]
 }

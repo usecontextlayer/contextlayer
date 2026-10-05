@@ -1,5 +1,6 @@
 import { createRoute, OpenAPIHono, type RouteConfig, z } from "@hono/zod-openapi"
-import { webhooks } from "@polar-sh/sdk/2026-10"
+import { createPolarCore, webhooks } from "@polar-sh/sdk/2026-10"
+import { recordAppUsage, resolvedAppSchema } from "@usecontextlayer/shared/app-usage"
 import {
 	appConnectionsRequestSchema,
 	appConnectionsSchema,
@@ -32,6 +33,7 @@ import {
 	connectionsSchema,
 } from "@/connections.schema"
 import { authorizeConnection, listConnections } from "@/connections.server"
+import { getAppOwner } from "@/owner"
 import { toolCallSchema, toolResultSchema } from "@/tools.schema"
 import { callTool } from "@/tools.server"
 
@@ -110,7 +112,7 @@ export function createApi() {
 			request: { query: resolveAppQuerySchema },
 			responses: {
 				200: {
-					content: { "application/json": { schema: appSchema.pick({ id: true }) } },
+					content: { "application/json": { schema: resolvedAppSchema } },
 					description: "App ID authorized for viewing by this caller",
 				},
 				401: { description: "Sign-in is required to view this private app" },
@@ -120,7 +122,11 @@ export function createApi() {
 			},
 			security: [...security, {}],
 		}),
-		async (c) => c.json({ id: c.var.appAccess.app.id }, 200),
+		async (c) =>
+			c.json(
+				{ id: c.var.appAccess.app.id, owner: getAppOwner(c.var.appAccess.app) },
+				200,
+			),
 	)
 	api.route("/apps/resolve", viewing)
 	const catalog = new OpenAPIHono<AuthenticatedEnv>()
@@ -405,6 +411,14 @@ export function createApi() {
 				c.req.valid("json"),
 			)
 			if (!result) return c.notFound()
+			const polar = createPolarCore({
+				accessToken: c.var.config.POLAR_ACCESS_TOKEN,
+				environment: c.var.config.POLAR_ENVIRONMENT,
+			})
+			const app = c.var.appAccess.app
+			c.executionCtx.waitUntil(
+				recordAppUsage(polar, { id: app.id, owner: getAppOwner(app) }, "tool_call"),
+			)
 			return c.json(result, 200)
 		},
 	)

@@ -1,12 +1,15 @@
 import { exports as entrypoints } from "cloudflare:workers"
+import { createPolarCore } from "@polar-sh/sdk/2026-10"
+import {
+	appRequestUsage,
+	recordAppUsage,
+	resolvedAppSchema,
+} from "@usecontextlayer/shared/app-usage"
 import { Hono } from "hono"
 import { getCookie } from "hono/cookie"
-import { z } from "zod"
 import { type Bindings, parseEnv } from "@/env"
 
 export { Tools } from "@/tools"
-
-const resolvedApp = z.object({ id: z.uuid() })
 
 const app = new Hono<{ Bindings: Bindings }>()
 
@@ -28,7 +31,8 @@ app.all("*", async (c) => {
 		return c.redirect(signIn.href)
 	}
 	if (!response.ok) return response
-	const { id } = resolvedApp.parse(await response.json())
+	const resolved = resolvedAppSchema.parse(await response.json())
+	const { id } = resolved
 	const request = new Request(c.req.raw)
 	request.headers.delete("authorization")
 	const cookies = (request.headers.get("cookie") ?? "")
@@ -40,7 +44,16 @@ app.all("*", async (c) => {
 	const props = session
 		? { tools: entrypoints.Tools({ props: { appId: id, sessionToken: session } }) }
 		: {}
-	return c.env.APPS.get(id, { props }).fetch(request)
+	const result = await c.env.APPS.get(id, { props }).fetch(request)
+	const usage = appRequestUsage(request, result)
+	if (usage) {
+		const polar = createPolarCore({
+			accessToken: env.POLAR_ACCESS_TOKEN,
+			environment: env.POLAR_ENVIRONMENT,
+		})
+		c.executionCtx.waitUntil(recordAppUsage(polar, resolved, usage))
+	}
+	return result
 })
 
 export default app

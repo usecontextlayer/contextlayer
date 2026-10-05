@@ -15,6 +15,9 @@
 	"references": [
 		{
 			"path": "../db-infra"
+		},
+		{
+			"path": "../shared"
 		}
 	]
 }

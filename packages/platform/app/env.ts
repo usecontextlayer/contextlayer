@@ -12,6 +12,8 @@ const schema = databaseSchema.extend({
 	COMPOSIO_API_KEY: z.string().min(1),
 	CTX_APPS_DOMAIN: z.hostname().default("contextlayer.xyz"),
 	CTX_AUTH_ISSUER: z.url().default("https://www.usecontextlayer.com/api/auth"),
+	POLAR_ACCESS_TOKEN: z.string().min(1),
+	POLAR_ENVIRONMENT: z.enum(["sandbox", "production"]),
 	POLAR_WEBHOOK_SECRET: z.string().min(1),
 })
 
