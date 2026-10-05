@@ -1,6 +1,5 @@
 import { spawn } from "node:child_process"
 import { once } from "node:events"
-import { writeFile } from "node:fs/promises"
 import { createServer } from "node:net"
 import { join } from "node:path"
 import { createInterface } from "node:readline"
@@ -8,7 +7,6 @@ import type { PlatformConfig } from "@/env"
 
 export async function startPlatformWorker(
 	config: PlatformConfig,
-	dir: string,
 	env: NodeJS.ProcessEnv,
 ) {
 	const socket = createServer()
@@ -17,29 +15,25 @@ export async function startPlatformWorker(
 	const address = socket.address()
 	if (!address || typeof address === "string") throw new Error("Expected TCP address")
 	await new Promise<void>((resolve) => socket.close(() => resolve()))
-	const envFile = join(dir, ".env")
-	await writeFile(
-		envFile,
-		Object.entries(config)
-			.map(([key, value]) => `${key}=${JSON.stringify(value)}`)
-			.join("\n"),
-		{ mode: 0o600 },
-	)
 	const server = spawn(
 		process.execPath,
 		[
 			"node_modules/wrangler/bin/wrangler.js",
 			"dev",
+			"build/server/index.js",
 			"--config",
-			"build/server/wrangler.json",
-			"--env-file",
-			envFile,
+			"wrangler.jsonc",
+			"--no-bundle",
 			"--ip",
 			"127.0.0.1",
 			"--port",
 			String(address.port),
 		],
-		{ cwd: join(import.meta.dirname, ".."), env, stdio: ["ignore", "pipe", "pipe"] },
+		{
+			cwd: join(import.meta.dirname, ".."),
+			env: { ...env, ...config },
+			stdio: ["ignore", "pipe", "pipe"],
+		},
 	)
 	const exited = once(server, "exit")
 	let output = ""

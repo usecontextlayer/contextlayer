@@ -1,7 +1,5 @@
 import { spawn } from "node:child_process"
 import { once } from "node:events"
-import { mkdtemp, rm } from "node:fs/promises"
-import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { provisionEphemeralDatabases } from "@usecontextlayer/db-infra/ephemeral"
 import { afterAll, beforeAll, expect, test } from "vitest"
@@ -19,7 +17,6 @@ let userId: string
 let headers: { authorization: string }
 let config: ReturnType<typeof parsePlatformEnv>
 let databases: Awaited<ReturnType<typeof provisionEphemeralDatabases>>
-let dir: string
 let worker: Awaited<ReturnType<typeof startPlatformWorker>>
 
 beforeAll(async () => {
@@ -33,10 +30,9 @@ beforeAll(async () => {
 	headers = {
 		authorization: `Bearer ${z.string().min(1).parse(process.env.CTX_TEST_ACCESS_TOKEN)}`,
 	}
-	dir = await mkdtemp(join(tmpdir(), "ctx-secrets-"))
-	worker = await startPlatformWorker(config, dir, process.env)
+	worker = await startPlatformWorker(config, process.env)
 	origin = await worker.ready
-	const response = await fetch(`${origin}/api/me`, { headers })
+	const response = await fetch(new URL("/api/me", config.CTX_AUTH_ISSUER), { headers })
 	expect(response.status).toBe(200)
 	userId = z.object({ id: z.string() }).parse(await response.json()).id
 })
@@ -44,7 +40,6 @@ beforeAll(async () => {
 afterAll(async () => {
 	worker?.server.kill("SIGTERM")
 	if (worker) await worker.exited
-	if (dir) await rm(dir, { force: true, recursive: true })
 	if (databases) await databases.dropAll()
 })
 

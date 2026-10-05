@@ -31,7 +31,7 @@ test("app ownership protects viewing, listing, and native Git source access", as
 	const namespace = z.string().parse(wranglerConfig.artifacts[0].namespace)
 	let appId: string | undefined
 	const dir = await mkdtemp(join(tmpdir(), "platform-story-"))
-	const worker = await startPlatformWorker(env, dir, {
+	const worker = await startPlatformWorker(env, {
 		...process.env,
 		WRANGLER_SEND_METRICS: "false",
 	})
