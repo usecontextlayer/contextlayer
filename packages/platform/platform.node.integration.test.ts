@@ -1,18 +1,17 @@
-import { execFile as execFileCallback, spawn } from "node:child_process"
-import { once } from "node:events"
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
-import { createServer } from "node:net"
+import { execFile as execFileCallback } from "node:child_process"
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { createInterface } from "node:readline"
 import { promisify } from "node:util"
 import { provisionEphemeralDatabases } from "@usecontextlayer/db-infra/ephemeral"
 import { expect, test } from "vitest"
 import { z } from "zod"
+import { agentSchema } from "@/agents.schema"
 import { appSchema, listedAppSchema } from "@/apps.schema"
 import { createPlatformDb } from "@/database"
 import { migrateToLatest } from "@/database/migrate"
 import { parsePlatformEnv } from "@/env"
+import { startPlatformWorker } from "@/testing"
 
 const execFile = promisify(execFileCallback)
 
@@ -32,53 +31,12 @@ test("app ownership protects viewing, listing, and native Git source access", as
 	const namespace = z.string().parse(wranglerConfig.artifacts[0].namespace)
 	let appId: string | undefined
 	const dir = await mkdtemp(join(tmpdir(), "platform-story-"))
-	const socket = createServer()
-	socket.listen(0, "127.0.0.1")
-	await once(socket, "listening")
-	const address = socket.address()
-	if (!address || typeof address === "string") throw new Error("Expected TCP address")
-	const port = address.port
-	await new Promise<void>((resolve) => socket.close(() => resolve()))
-	const envFile = join(dir, ".env")
-	await writeFile(
-		envFile,
-		Object.entries(env)
-			.map(([key, value]) => `${key}=${JSON.stringify(value)}`)
-			.join("\n"),
-		{ mode: 0o600 },
-	)
-	const server = spawn(
-		process.execPath,
-		[
-			"node_modules/wrangler/bin/wrangler.js",
-			"dev",
-			"--config",
-			"build/server/wrangler.json",
-			"--env-file",
-			envFile,
-			"--ip",
-			"127.0.0.1",
-			"--port",
-			String(port),
-		],
-		{
-			cwd: import.meta.dirname,
-			env: { ...process.env, WRANGLER_SEND_METRICS: "false" },
-			stdio: ["ignore", "pipe", "inherit"],
-		},
-	)
-	server.stdout.on("data", (chunk) => process.stdout.write(chunk))
-	const exited = once(server, "exit")
+	const worker = await startPlatformWorker(env, dir, {
+		...process.env,
+		WRANGLER_SEND_METRICS: "false",
+	})
 	try {
-		let origin = ""
-		for await (const line of createInterface({ input: server.stdout })) {
-			const match = line.match(/http:\/\/127\.0\.0\.1:\d+/)
-			if (match) {
-				origin = match[0]
-				break
-			}
-		}
-		expect(origin).not.toBe("")
+		const origin = await worker.ready
 		const headers = { authorization: `Bearer ${accessToken}` }
 		const getApps = async () => {
 			const response = await fetch(`${origin}/api/apps`, { headers })
@@ -156,6 +114,9 @@ test("app ownership protects viewing, listing, and native Git source access", as
 		expect((await fetch(refs)).status).toBe(401)
 		expect((await fetch(refs)).headers.get("WWW-Authenticate")).toContain("Bearer")
 		const connectionList = `${origin}/api/apps/${app.id}/connections/list`
+		const agentUrl = `${origin}/api/apps/${app.id}/agents/company-brief`
+		expect((await fetch(agentUrl)).status).toBe(401)
+		expect((await fetch(agentUrl, { headers })).status).toBe(404)
 		const listRequest = {
 			body: JSON.stringify({ manifest: { connections: {} } }),
 			headers: { ...headers, "content-type": "application/json" },
@@ -172,6 +133,7 @@ test("app ownership protects viewing, listing, and native Git source access", as
 		expect((await fetch(refs, { headers })).status).toBe(403)
 		expect((await fetch(visibilityUrl, visibilityRequest)).status).toBe(403)
 		expect((await fetch(connectionList, listRequest)).status).toBe(403)
+		expect((await fetch(agentUrl, { headers })).status).toBe(403)
 		for (const operation of ["connections/assign", "tools/call"]) {
 			expect(
 				(
@@ -190,6 +152,7 @@ test("app ownership protects viewing, listing, and native Git source access", as
 			.execute()
 		expect((await fetch(resolveUrl)).status).toBe(200)
 		expect((await fetch(connectionList, listRequest)).status).toBe(200)
+		expect((await fetch(agentUrl, { headers })).status).toBe(403)
 		expect(
 			(
 				await fetch(visibilityUrl, {
@@ -232,10 +195,20 @@ test("app ownership protects viewing, listing, and native Git source access", as
 		await git("config", "user.email", "platform-test@example.com")
 		await writeFile(join(dir, "README.md"), "# My app\n")
 		await writeFile(join(dir, "hello.txt"), "Hello ContextLayer\n")
-		await git("add", "README.md", "hello.txt")
+		const instructionsPath = join(dir, "agents/company-brief/instructions.md")
+		let instructions = "You research companies and write concise briefs.\n"
+		await mkdir(join(dir, "agents/company-brief"), { recursive: true })
+		await writeFile(instructionsPath, instructions)
+		await git("add", "README.md", "hello.txt", "agents")
 		await git("-c", "commit.gpgsign=false", "commit", "-m", "First app")
 		const revision = await git("rev-parse", "HEAD")
 		await git("push", `${origin}/git/${appId}`, "main")
+		const agent = await fetch(agentUrl, { headers })
+		expect(agent.status).toBe(200)
+		expect(agentSchema.parse(await agent.json())).toEqual({
+			commit: revision,
+			instructions,
+		})
 		expect((await getApps()).apps).toContainEqual({ ...app, latest_commit: revision })
 		const page = await fetch(`${origin}/dashboard/personal/apps`, { headers })
 		expect(page.status).toBe(200)
@@ -246,10 +219,14 @@ test("app ownership protects viewing, listing, and native Git source access", as
 			.object({
 				paths: z.object({
 					"/apps": z.object({ get: z.object({ operationId: z.string() }) }),
+					"/apps/{target}/agents/{name}": z.object({
+						get: z.object({ operationId: z.string() }),
+					}),
 				}),
 			})
 			.parse(await (await fetch(`${origin}/api/openapi.json`)).json())
 		expect(schema.paths["/apps"].get.operationId).toBe("listApps")
+		expect(schema.paths["/apps/{target}/agents/{name}"].get.operationId).toBe("getAgent")
 		await git("clone", "--branch", "main", `${origin}/git/${appId}`, "cloned")
 		expect(
 			(
@@ -264,9 +241,17 @@ test("app ownership protects viewing, listing, and native Git source access", as
 		)
 		expect(await readFile(join(dir, "cloned", "README.md"), "utf8")).toBe("# My app\n")
 		await writeFile(join(dir, "hello.txt"), "Updated ContextLayer\n")
-		await git("add", "hello.txt")
+		instructions = "You research companies and write concise briefs with sources.\n"
+		await writeFile(instructionsPath, instructions)
+		await git("add", "hello.txt", "agents")
 		await git("-c", "commit.gpgsign=false", "commit", "-m", "Update app")
 		await git("push", `${origin}/git/${appId}`, "main")
+		const updatedAgent = await fetch(agentUrl, { headers })
+		expect(updatedAgent.status).toBe(200)
+		expect(agentSchema.parse(await updatedAgent.json())).toEqual({
+			commit: await git("rev-parse", "HEAD"),
+			instructions,
+		})
 		await execFile("git", ["pull", "--ff-only"], {
 			cwd: join(dir, "cloned"),
 			env: gitEnv,
@@ -275,8 +260,8 @@ test("app ownership protects viewing, listing, and native Git source access", as
 			"Updated ContextLayer\n",
 		)
 	} finally {
-		server.kill("SIGTERM")
-		await exited
+		worker.server.kill("SIGTERM")
+		await worker.exited
 		await rm(dir, { force: true, recursive: true })
 		await db.destroy()
 		await databases.dropAll()

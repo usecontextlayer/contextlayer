@@ -3,6 +3,7 @@ import { cp } from "node:fs/promises"
 import { Argument, Command } from "commander"
 import { execa } from "execa"
 import { z } from "zod"
+import { runLocalAgent } from "@/agents"
 import { getAccessToken, login, whoami } from "@/auth"
 import {
 	addConnection,
@@ -13,6 +14,7 @@ import {
 import { env } from "@/env"
 import { gitCredential, setupGit } from "@/git-credential"
 import { version } from "@/package.json"
+import { dropSecret, secretNameSchema, secretOptionsSchema, setSecret } from "@/secrets"
 
 const program = new Command().name("ctx").description("ContextLayer CLI").version(version)
 
@@ -150,6 +152,65 @@ program
 	.argument("<connection_id>", "Composio connected-account ID")
 	.action(async (target, _operation, slug, connectionId) => {
 		await assignAppConnection(target, slug, connectionId)
+	})
+
+program
+	.command("agent")
+	.addArgument(new Argument("<target>", "Run from the app root").choices(["local"]))
+	.addArgument(new Argument("<operation>").choices(["run"]))
+	.argument("<name>", "Agent directory under agents/")
+	.argument("<prompt>", "Task to send as the user message")
+	.description(
+		"Run agents/<name>/instructions.md locally with Claude Agent SDK and native Claude authentication; no platform server or ctx login required",
+	)
+	.action(async (_target, _operation, name, prompt) => {
+		const input = z
+			.object({
+				name: z.string().min(1),
+				prompt: z.string().min(1),
+			})
+			.parse({ name, prompt })
+		console.log(await runLocalAgent(input.name, input.prompt))
+	})
+
+const secrets = program
+	.command("secrets")
+	.description(
+		"Save or drop Owner-owned shared secrets through the authenticated platform",
+	)
+	.option(
+		"--org <org_slug>",
+		"Use this organization's Owner; defaults to the signed-in user",
+	)
+
+secrets
+	.command("set")
+	.argument(
+		"<name>",
+		"Secret name: uppercase letters, digits, and underscores; cannot start with a digit",
+	)
+	.description("Save a secret with a masked password prompt; returns only Owner and name")
+	.option(
+		"--stdin",
+		"Read the exact UTF-8 value from stdin instead of prompting; preserves whitespace and newlines",
+	)
+	.action(async (name, _options, command: Command) => {
+		const input = secretNameSchema.parse(name)
+		const options = secretOptionsSchema.parse(command.optsWithGlobals())
+		await setSecret(input, options)
+	})
+
+secrets
+	.command("drop")
+	.argument(
+		"<name>",
+		"Secret name: uppercase letters, digits, and underscores; cannot start with a digit",
+	)
+	.description("Delete the selected Owner's shared secret; returns only Owner and name")
+	.action(async (name, _options, command: Command) => {
+		const input = secretNameSchema.parse(name)
+		const options = secretOptionsSchema.parse(command.optsWithGlobals())
+		await dropSecret(input, options.org)
 	})
 
 await program.parseAsync()

@@ -2,7 +2,11 @@
 	"bin": {
 		"ctx": "./dist/cli.mjs"
 	},
+	"dependencies": {
+		"@anthropic-ai/claude-agent-sdk": "0.3.289"
+	},
 	"devDependencies": {
+		"@clack/prompts": "^1.8.1",
 		"@types/node": "^24.13.3",
 		"commander": "^15.0.0",
 		"execa": "^10.0.1",

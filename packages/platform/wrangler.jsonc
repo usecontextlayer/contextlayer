@@ -22,5 +22,18 @@
 			"custom_domain": true,
 			"pattern": "slate.usecontextlayer.com"
 		}
-	]
+	],
+	"secrets": {
+		"required": [
+			"CTX_PLATFORM_DATABASE_URL",
+			"CTX_AUTH_ISSUER",
+			"CTX_CUSTOMER_CREDENTIALS_DOPPLER_PROJECT",
+			"CTX_CUSTOMER_CREDENTIALS_DOPPLER_CONFIG",
+			"CTX_CUSTOMER_CREDENTIALS_DOPPLER_TOKEN",
+			"COMPOSIO_API_KEY",
+			"POLAR_WEBHOOK_SECRET",
+			"POLAR_ACCESS_TOKEN",
+			"POLAR_ENVIRONMENT"
+		]
+	}
 }

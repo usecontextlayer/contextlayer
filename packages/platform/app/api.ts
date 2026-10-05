@@ -1,6 +1,8 @@
 import { createRoute, OpenAPIHono, type RouteConfig, z } from "@hono/zod-openapi"
 import { createPolarCore, webhooks } from "@polar-sh/sdk/2026-10"
 import { recordAppUsage, resolvedAppSchema } from "@usecontextlayer/shared/app-usage"
+import { agentSchema } from "@/agents.schema"
+import { getAgent } from "@/agents.server"
 import {
 	appConnectionsRequestSchema,
 	appConnectionsSchema,
@@ -34,6 +36,12 @@ import {
 } from "@/connections.schema"
 import { authorizeConnection, listConnections } from "@/connections.server"
 import { getAppOwner } from "@/owner"
+import {
+	secretParamsSchema,
+	secretSchema,
+	setSecretRequestSchema,
+} from "@/secrets.schema"
+import { dropSharedSecret, setSharedSecret } from "@/secrets.server"
 import { toolCallSchema, toolResultSchema } from "@/tools.schema"
 import { callTool } from "@/tools.server"
 
@@ -212,6 +220,74 @@ export function createApi() {
 		},
 	)
 	api.route("/apps", catalog)
+	const secrets = new OpenAPIHono<AuthenticatedEnv>()
+	secrets.use("*", requireAuth)
+	secrets.openapi(
+		createRoute({
+			method: "put",
+			operationId: "setSharedSecret",
+			path: "/{type}/{owner_id}/{name}",
+			request: {
+				body: {
+					content: { "application/json": { schema: setSecretRequestSchema } },
+					required: true,
+				},
+				params: secretParamsSchema,
+			},
+			responses: {
+				200: {
+					content: { "application/json": { schema: secretSchema } },
+					description: "Saved secret's Owner and name; never its value",
+				},
+				400: { description: "Invalid Owner, secret name, or value" },
+				401: { description: "A valid ContextLayer login is required" },
+				403: { description: "This user cannot manage this Owner's secrets" },
+			},
+			security,
+		}),
+		async (c) => {
+			const { name, owner_id, type } = c.req.valid("param")
+			const result = await setSharedSecret(
+				c.var.config,
+				c.var.identity,
+				{ id: owner_id, type: type === "org" ? "organization" : "user" },
+				name,
+				c.req.valid("json"),
+			)
+			if (!result.allowed) return c.body(null, 403)
+			return c.json(result.secret, 200)
+		},
+	)
+	secrets.openapi(
+		createRoute({
+			method: "delete",
+			operationId: "dropSharedSecret",
+			path: "/{type}/{owner_id}/{name}",
+			request: { params: secretParamsSchema },
+			responses: {
+				200: {
+					content: { "application/json": { schema: secretSchema } },
+					description: "Dropped secret's Owner and name; never its value",
+				},
+				400: { description: "Invalid Owner or secret name" },
+				401: { description: "A valid ContextLayer login is required" },
+				403: { description: "This user cannot manage this Owner's secrets" },
+			},
+			security,
+		}),
+		async (c) => {
+			const { name, owner_id, type } = c.req.valid("param")
+			const result = await dropSharedSecret(
+				c.var.config,
+				c.var.identity,
+				{ id: owner_id, type: type === "org" ? "organization" : "user" },
+				name,
+			)
+			if (!result.allowed) return c.body(null, 403)
+			return c.json(result.secret, 200)
+		},
+	)
+	api.route("/secrets", secrets)
 	api.openapi(
 		createRoute({
 			method: "get",
@@ -271,6 +347,47 @@ export function createApi() {
 	const appOperations = new OpenAPIHono<AuthenticatedViewingEnv>()
 	appOperations.use("*", requireAuth, requireAppViewing)
 	appOperations.use("/tools/*", requireAppSubscription)
+	appOperations.openapi(
+		createRoute({
+			method: "get",
+			operationId: "getAgent",
+			path: "/agents/{name}",
+			request: {
+				params: z.object({ name: z.string().min(1), target: appTargetSchema }),
+			},
+			responses: {
+				200: {
+					content: { "application/json": { schema: agentSchema } },
+					description: "The agent's instructions at the latest commit on main",
+				},
+				400: { description: "Invalid app target or agent name" },
+				401: { description: "A valid ContextLayer login is required" },
+				403: {
+					description:
+						"Only the owner or owning organization members may inspect agent source",
+				},
+				404: { description: "App or agent instructions not found" },
+			},
+			security,
+		}),
+		async (c) => {
+			const result = await getAgent(
+				c.env.ARTIFACTS,
+				c.var.appAccess,
+				c.var.config.CTX_AUTH_ISSUER,
+				c.req.valid("param").name,
+			)
+			if (!result.allowed) {
+				const status = {
+					forbidden: 403,
+					"not-found": 404,
+					"sign-in-required": 401,
+				} as const
+				return c.body(null, status[result.reason])
+			}
+			return c.json(result.agent, 200)
+		},
+	)
 	appOperations.openapi(
 		createRoute({
 			method: "patch",

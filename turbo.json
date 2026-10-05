@@ -2,7 +2,7 @@
 	"$schema": "https://turbo.build/schema.json",
 	// Pass runtime configuration through without adding it to cache keys.
 	// TMPDIR preserves the caller's temporary-directory location.
-	"globalPassThroughEnv": ["CTX*", "TWILIO*", "TMPDIR"],
+	"globalPassThroughEnv": ["CTX*", "TWILIO*", "COMPOSIO_API_KEY", "POLAR_*", "TMPDIR"],
 	"tasks": {
 		"//#format.verify": {
 			"cache": false
