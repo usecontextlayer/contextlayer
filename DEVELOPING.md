@@ -121,7 +121,7 @@ Build platform and CLI before running the platform integration suite. It uses th
 doppler run -p platform -c dev -- pnpm exec turbo run test:integration:node --filter=@usecontextlayer/platform
 ```
 
-The dashboard uses the private Font Awesome npm kit described in `packages/platform/.font-awesome.md`. The repository maps its npm scopes in `.npmrc`; configure the Font Awesome package token in your user npm configuration before installing dependencies. Never commit that token.
+The dashboard uses the private Font Awesome npm kit described in [`.font-awesome.md`](.font-awesome.md). The repository maps its npm scopes in `.npmrc`; configure the Font Awesome package token in your user npm configuration before installing dependencies. Never commit that token.
 
 ## Shared secret management verification
 

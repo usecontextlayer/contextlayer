@@ -21,6 +21,7 @@ Customer data means anything that is theirs: records in their Planner, Dataverse
 **Read the companion documents when their domain comes up:**
 
 - **`ARCHITECTURE.md`** — the package overview.
+- **[`.font-awesome.md`](.font-awesome.md)** — the shared Font Awesome kit, default family/style, and import conventions for all packages.
 - **`DEVELOPING.md`** — setup, workspace commands, test prerequisites, and operational conventions. Read it before running or debugging the local environment.
 - **`node --import tsx scripts/release.ts --help`** — the version helpers and automatic commit/push/check/tag/release ladder. Workflows start on main and version-tag pushes; manual dispatch is also available.
 
