@@ -1,23 +1,12 @@
 import { createRequestHandler, RouterContextProvider } from "react-router"
-import {
-	type Connections,
-	connectionsContext,
-	type Tools,
-	toolsContext,
-	type Viewer,
-	viewerContext,
-} from "@/index"
+import { type Tools, toolsContext } from "@/index"
 
 interface LocalBindings {
 	TOOLS: Tools
-	VIEWER: Viewer
-	CONNECTIONS: Connections
 }
 
 interface AppProps {
 	tools: Tools
-	viewer?: Viewer
-	connections?: Connections
 }
 
 export type App = Required<
@@ -38,10 +27,6 @@ export function createApp({
 		async fetch(request, env, ctx) {
 			const context = new RouterContextProvider()
 			context.set(toolsContext, development ? env.TOOLS : ctx.props.tools)
-			const viewer = development ? env.VIEWER : ctx.props.viewer
-			if (viewer) context.set(viewerContext, viewer)
-			const connections = development ? env.CONNECTIONS : ctx.props.connections
-			if (connections) context.set(connectionsContext, connections)
 			return requestHandler(request, context)
 		},
 	}

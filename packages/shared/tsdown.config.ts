@@ -2,6 +2,7 @@ import { defineConfig } from "tsdown"
 
 export default defineConfig({
 	clean: true,
+	deps: { neverBundle: ["cloudflare:workers"] },
 	dts: true,
 	// Explicit entries own their package subpaths. `index` is the barrel (drags `hono` via
 	// the auth middleware); `ctx-machine-token` is a deliberately barrel-free entry
@@ -18,12 +19,14 @@ export default defineConfig({
 	entry: {
 		"app-connections": "lib/app-connections.ts",
 		"app-usage": "lib/app-usage.ts",
+		chrome: "lib/chrome.ts",
 		"ctx-machine-token": "lib/ctx-machine-token.ts",
 		"ctx-token-provider": "lib/ctx-token-provider.ts",
 		index: "index.ts",
 		"sentry-event-cap": "lib/sentry-event-cap.ts",
 		slate: "lib/slate.ts",
 		testing: "testing.ts",
+		"tools-worker": "lib/tools-worker.ts",
 	},
 	format: ["esm"],
 	minify: false,

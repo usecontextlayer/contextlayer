@@ -8,7 +8,7 @@
 		"paths": {
 			"@/*": ["./*"]
 		},
-		"types": ["node"]
+		"types": ["@cloudflare/workers-types", "node"]
 	},
 	"exclude": ["dist-types", "vitest.config.ts"],
 	"extends": "../../tsconfig.base.json",

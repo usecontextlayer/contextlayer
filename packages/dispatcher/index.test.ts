@@ -3,10 +3,7 @@ import { afterEach, expect, test, vi } from "vitest"
 import type { Bindings } from "@/env"
 import dispatcher from "@/index"
 
-vi.mock("cloudflare:workers", () => ({ exports: {} }))
-vi.mock("@/tools", () => ({ Tools: class {} }))
-vi.mock("@/viewer", () => ({ Viewer: class {} }))
-vi.mock("@/connections", () => ({ Connections: class {} }))
+vi.mock("cloudflare:workers", () => ({ exports: {}, WorkerEntrypoint: class {} }))
 afterEach(() => {
 	vi.restoreAllMocks()
 	vi.unstubAllGlobals()

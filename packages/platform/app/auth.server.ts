@@ -91,3 +91,13 @@ export async function findOrganizationBySlug(
 	const organizations = await listOrganizations(identity, issuer)
 	return organizations.find((organization) => organization.slug === slug)
 }
+
+export async function getCurrentUser(identity: AuthIdentity, issuer: string) {
+	const response = await fetch(new URL("/api/me", issuer), {
+		headers: credentialHeaders(identity.credential),
+	})
+	if (!response.ok) throw new Error(`Profile lookup failed: ${response.status}`)
+	return userSchema
+		.extend({ image: z.string().nullable(), name: z.string() })
+		.parse(await response.json())
+}

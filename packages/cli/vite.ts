@@ -4,10 +4,11 @@ import { env } from "@/env"
 
 export async function getLocalToolsBindings() {
 	return {
-		CTX_ACCESS_TOKEN: await getAccessToken(),
-		CTX_APP_ID: await getLocalAppId(),
-		CTX_APP_MANIFEST: JSON.stringify(await readLocalManifest()),
-		CTX_AUTH_ISSUER: env.CTX_AUTH_ISSUER,
-		CTX_PLATFORM_URL: env.CTX_PLATFORM_URL,
+		props: {
+			appId: await getLocalAppId(),
+			credential: { token: await getAccessToken(), type: "access-token" as const },
+			manifest: await readLocalManifest(),
+		},
+		vars: { CTX_PLATFORM_URL: env.CTX_PLATFORM_URL },
 	}
 }

@@ -1,6 +1,12 @@
 import { WorkerEntrypoint } from "cloudflare:workers"
 import { z } from "zod"
-import { type Bindings, parseEnv } from "@/env"
+import type { Slate } from "@/lib/slate"
+
+export interface ToolsProps {
+	appId: string
+	credential: { token: string; type: "access-token" | "session" }
+	manifest?: Slate
+}
 
 const execution = z.object({
 	data: z.record(z.string(), z.unknown()),
@@ -8,22 +14,18 @@ const execution = z.object({
 	logId: z.string(),
 })
 
-interface ToolsProps {
-	appId: string
-	sessionToken: string
-}
-
-export class Tools extends WorkerEntrypoint<Bindings, ToolsProps> {
+export class Tools extends WorkerEntrypoint<{ CTX_PLATFORM_URL: string }, ToolsProps> {
 	async call(slug: string, toolSlug: string, args: Record<string, unknown>) {
-		const env = parseEnv(this.env)
-		const { appId, sessionToken } = this.ctx.props
+		const { appId, credential, manifest } = this.ctx.props
 		const response = await fetch(
-			new URL(`/api/apps/${appId}/tools/call`, env.CTX_PLATFORM_URL),
+			new URL(`/api/apps/${appId}/tools/call`, this.env.CTX_PLATFORM_URL),
 			{
-				body: JSON.stringify({ arguments: args, slug, tool: toolSlug }),
+				body: JSON.stringify({ arguments: args, manifest, slug, tool: toolSlug }),
 				headers: {
 					"content-type": "application/json",
-					cookie: `ctx-viewer-auth=${sessionToken}`,
+					...(credential.type === "access-token"
+						? { authorization: `Bearer ${credential.token}` }
+						: { cookie: `ctx-viewer-auth=${credential.token}` }),
 				},
 				method: "POST",
 			},

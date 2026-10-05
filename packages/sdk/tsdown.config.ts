@@ -4,7 +4,7 @@ export default defineConfig({
 	clean: true,
 	deps: {
 		alwaysBundle: ["@usecontextlayer/shared"],
-		neverBundle: ["cloudflare:workers", /\?(inline|url)$/],
+		neverBundle: ["cloudflare:workers"],
 	},
 	dts: true,
 	entry: {
