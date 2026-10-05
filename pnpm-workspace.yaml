@@ -16,6 +16,9 @@ verifyDepsBeforeRun: false
 # Each dependency with an install script needs an explicit verdict: true runs it, false keeps it unrun. esbuild installs its platform binary; msw installs its test worker. The parser packages use their packaged binaries.
 # Enable a disabled script only with evidence that its build is required.
 allowBuilds:
+  '@mongodb-js/zstd': false
+  core-js-pure: false
+  node-liblzma: false
   workerd: false
   esbuild: true
   msw: true

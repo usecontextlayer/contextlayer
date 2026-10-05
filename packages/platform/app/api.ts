@@ -1,8 +1,14 @@
 import { createRoute, OpenAPIHono, type RouteConfig, z } from "@hono/zod-openapi"
 import { createPolarCore, webhooks } from "@polar-sh/sdk/2026-10"
 import { recordAppUsage, resolvedAppSchema } from "@usecontextlayer/shared/app-usage"
-import { agentSchema } from "@/agents.schema"
-import { getAgent } from "@/agents.server"
+import {
+	agentJobParamsSchema,
+	agentJobRequestSchema,
+	agentJobSchema,
+	agentParamsSchema,
+	agentSchema,
+} from "@/agents.schema"
+import { getAgent, getAgentJob, startAgentJob } from "@/agents.server"
 import {
 	appConnectionsRequestSchema,
 	appConnectionsSchema,
@@ -404,7 +410,7 @@ export function createApi() {
 			operationId: "getAgent",
 			path: "/agents/{name}",
 			request: {
-				params: z.object({ name: z.string().min(1), target: appTargetSchema }),
+				params: agentParamsSchema,
 			},
 			responses: {
 				200: {
@@ -439,6 +445,74 @@ export function createApi() {
 			return c.json(result.agent, 200)
 		},
 	)
+	const jobs = new OpenAPIHono<AuthenticatedViewingEnv>()
+	jobs.use("*", async (c, next) => {
+		// Public apps are temporarily excluded from jobs.
+		if (c.var.appAccess.app.visibility === "public") return c.body(null, 403)
+		await next()
+	})
+	jobs.openapi(
+		createRoute({
+			method: "post",
+			operationId: "startAgentJob",
+			path: "/",
+			request: {
+				body: {
+					content: { "application/json": { schema: agentJobRequestSchema } },
+					required: true,
+				},
+				params: agentParamsSchema,
+			},
+			responses: {
+				202: {
+					content: { "application/json": { schema: agentJobSchema } },
+					description: "Accepted agent job with its ID and native Think status",
+				},
+				400: { description: "Invalid app target, agent name, or prompt" },
+				401: { description: "A valid ContextLayer login is required" },
+				403: { description: "App viewing is forbidden or the app is public" },
+				404: { description: "App or published agent not found" },
+			},
+			security,
+		}),
+		async (c) => {
+			const result = await startAgentJob(
+				c.env.ARTIFACTS,
+				c.env.APPS,
+				c.env.AGENTS,
+				c.var.appAccess,
+				{ ...c.req.valid("json"), name: c.req.valid("param").name },
+			)
+			if (!result.allowed) return c.body(null, 404)
+			return c.json(result.job, 202)
+		},
+	)
+	jobs.openapi(
+		createRoute({
+			method: "get",
+			operationId: "getAgentJob",
+			path: "/{id}",
+			request: { params: agentJobParamsSchema },
+			responses: {
+				200: {
+					content: { "application/json": { schema: agentJobSchema } },
+					description: "Native Think job status and saved assistant text result",
+				},
+				400: { description: "Invalid app target, agent name, or job ID" },
+				401: { description: "A valid ContextLayer login is required" },
+				403: { description: "App viewing is forbidden or the app is public" },
+				404: { description: "App or agent job not found" },
+			},
+			security,
+		}),
+		async (c) => {
+			const { id, name } = c.req.valid("param")
+			const job = await getAgentJob(c.env.AGENTS, c.var.appAccess.app, name, id)
+			if (!job) return c.body(null, 404)
+			return c.json(job, 200)
+		},
+	)
+	appOperations.route("/agents/:name/jobs", jobs)
 	appOperations.openapi(
 		createRoute({
 			method: "patch",

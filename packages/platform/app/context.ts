@@ -1,4 +1,5 @@
 import { createContext } from "react-router"
+import type { AppAgent } from "@/agent-runtime"
 import type { AuthIdentity } from "@/auth.server"
 import type { PlatformDb } from "@/database"
 import type { PlatformBindings, PlatformConfig } from "@/env"
@@ -11,6 +12,7 @@ export const configContext = createContext<PlatformConfig>()
 
 export type PlatformEnv = {
 	Bindings: PlatformBindings & {
+		AGENTS: DurableObjectNamespace<AppAgent>
 		APPS: DispatchNamespace
 		ASSETS: Fetcher
 		ARTIFACTS: Artifacts

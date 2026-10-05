@@ -14,6 +14,8 @@ import { createPlatformDb } from "@/database"
 import { parsePlatformEnv } from "@/env"
 import { createGitApp } from "@/git.server"
 
+export { AppAgent } from "@/agent-runtime"
+
 const publicDashboardPaths = ["/dashboard/chrome/apps/*", "/dashboard/__manifest"]
 
 export default await createHonoServer<IdentityEnv>({

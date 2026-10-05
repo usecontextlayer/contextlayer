@@ -15,6 +15,13 @@
 	},
 	"compatibility_date": "2026-10-02",
 	"compatibility_flags": ["nodejs_compat"],
+	"containers": [
+		{
+			"class_name": "AppAgent",
+			"images": { "base": { "dockerfile": "./container/Dockerfile" } },
+			"scheduling_policy": "durable_object"
+		}
+	],
 	"dispatch_namespaces": [
 		{
 			"binding": "APPS",
@@ -22,7 +29,11 @@
 			"remote": true
 		}
 	],
+	"durable_objects": {
+		"bindings": [{ "class_name": "AppAgent", "name": "AGENTS" }]
+	},
 	"main": "app/server.ts",
+	"migrations": [{ "new_sqlite_classes": ["AppAgent"], "tag": "v1" }],
 	"name": "contextlayer-platform",
 	"routes": [
 		{

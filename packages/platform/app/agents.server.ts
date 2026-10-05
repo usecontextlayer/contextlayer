@@ -1,6 +1,9 @@
 import type { Slate } from "@usecontextlayer/shared/slate"
+import { getAgentByName } from "agents/routing"
 import type { z } from "zod"
+import type { AppAgent } from "@/agent-runtime"
 import type { AgentRun, AgentRunRequest, agentSchema } from "@/agents.schema"
+import type { App } from "@/apps.schema"
 import { type AppAccess, authorizeAppManagement } from "@/apps.server"
 import { listOrganizations } from "@/auth.server"
 import type { AppId } from "@/database/models/public/App"
@@ -74,4 +77,35 @@ export async function getAgentRun(
 		allowed: true,
 		run: prepareAgentRun(access, result.agent, manifest, input),
 	} as const
+}
+
+export async function startAgentRun(
+	agents: DurableObjectNamespace<AppAgent>,
+	run: AgentRun,
+) {
+	const agent = await getAgentByName(agents, crypto.randomUUID())
+	return agent.start(run)
+}
+
+export async function getAgentJob(
+	agents: DurableObjectNamespace<AppAgent>,
+	app: App,
+	name: string,
+	id: string,
+) {
+	const agent = await getAgentByName(agents, id)
+	return agent.inspect(app.id, name)
+}
+
+export async function startAgentJob(
+	artifacts: Artifacts,
+	apps: DispatchNamespace,
+	agents: DurableObjectNamespace<AppAgent>,
+	access: AppAccess,
+	input: AgentRunRequest,
+) {
+	const prepared = await getAgentRun(artifacts, apps, access, input)
+	if (!prepared.allowed) return prepared
+	const job = await startAgentRun(agents, prepared.run)
+	return { allowed: true, job } as const
 }
