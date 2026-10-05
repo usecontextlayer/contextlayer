@@ -43,7 +43,7 @@ import { CONNECTION_MODE_LABELS } from "@/connection-labels"
 import { authorizeConnection, listConnections, listToolkits } from "@/connections.server"
 import { appsContext, configContext, databaseContext, identityContext } from "@/context"
 import { getAppManifest } from "@/manifest.server"
-import { getCredentialOwner, type Owner } from "@/owner"
+import { getCredentialOwner } from "@/owner"
 import type { Route } from "@/routes/+types/chrome"
 
 export const headers: Route.HeadersFunction = ({ actionHeaders }) => {
@@ -118,28 +118,25 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
 	const identity = context.get(identityContext)
 	if (!identity)
 		return data(
-			{ accountLists: [], connections: [], parentOrigin, toolkits: [], user: null },
+			{ connections: [], parentOrigin, toolkits: [], user: null },
 			{ headers: { "Cache-Control": "no-store" } },
 		)
 	const db = context.get(databaseContext)
 	const { access, snapshot } = await getChromeApp({ context, params, request }, identity)
 	const { connections } = await listAppConnections(db, access, snapshot)
-	const requirements = connections.map((requirement) => ({
-		...requirement,
-		owner: getCredentialOwner(requirement.mode, access.app, identity.user),
-	}))
-	const owners: Owner[] = []
-	for (const { owner } of requirements) {
-		if (
-			!owners.some((existing) => existing.type === owner.type && existing.id === owner.id)
-		)
-			owners.push(owner)
-	}
-	const accountLists = await Promise.all(
-		owners.map(async (owner) => {
-			const result = await listConnections(config, identity, owner)
+	const accountReads = new Map<string, ReturnType<typeof listConnections>>()
+	const requirements = await Promise.all(
+		connections.map(async (requirement) => {
+			const owner = getCredentialOwner(requirement.mode, access.app, identity.user)
+			const key = `${owner.type}:${owner.id}`
+			let accountAccess = accountReads.get(key)
+			if (!accountAccess) {
+				accountAccess = listConnections(config, identity, owner)
+				accountReads.set(key, accountAccess)
+			}
 			return {
-				accounts: result.allowed ? result.connections : null,
+				...requirement,
+				accountAccess: await accountAccess,
 				owner,
 			}
 		}),
@@ -151,13 +148,13 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
 			: [],
 	])
 	return data(
-		{ accountLists, connections: requirements, parentOrigin, toolkits, user },
+		{ connections: requirements, parentOrigin, toolkits, user },
 		{ headers: { "Cache-Control": "no-store" } },
 	)
 }
 
 export default function Chrome({
-	loaderData: { user, connections, accountLists, parentOrigin, toolkits },
+	loaderData: { user, connections, parentOrigin, toolkits },
 }: Route.ComponentProps) {
 	const needed = connections.filter(
 		(requirement) => requirement.connection_id === null,
@@ -184,23 +181,25 @@ export default function Chrome({
 						contextlayer
 					</span>
 					<span className="flex min-w-0 self-stretch">
-						<CollapsibleTrigger
-							render={
-								<Button
-									variant="ghost"
-									className="h-auto self-stretch rounded-none border-0 border-l border-slate-200 bg-slate-100 px-3 py-[6.5px] text-[13px]/4 font-normal text-slate-600 hover:bg-slate-200 hover:text-slate-600 aria-expanded:bg-slate-100 aria-expanded:text-slate-600 aria-expanded:hover:bg-slate-200"
+						{user && (
+							<CollapsibleTrigger
+								render={
+									<Button
+										variant="ghost"
+										className="h-auto self-stretch rounded-none border-0 border-l border-slate-200 bg-slate-100 px-3 py-[6.5px] text-[13px]/4 font-normal text-slate-600 hover:bg-slate-200 hover:text-slate-600 aria-expanded:bg-slate-100 aria-expanded:text-slate-600 aria-expanded:hover:bg-slate-200"
+									/>
+								}
+							>
+								<FontAwesomeIcon
+									icon={needed === 0 ? faCheck : faTriangleExclamation}
+									className={needed === 0 ? "text-green-600" : "text-orange-600"}
+									aria-hidden="true"
 								/>
-							}
-						>
-							<FontAwesomeIcon
-								icon={needed === 0 ? faCheck : faTriangleExclamation}
-								className={needed === 0 ? "text-green-600" : "text-orange-600"}
-								aria-hidden="true"
-							/>
-							{needed === 0
-								? "all services connected"
-								: `${needed} connection${needed === 1 ? "" : "s"} needed`}
-						</CollapsibleTrigger>
+								{needed === 0
+									? "all services connected"
+									: `${needed} connection${needed === 1 ? "" : "s"} needed`}
+							</CollapsibleTrigger>
+						)}
 						<span className="flex min-w-0 items-center gap-2 border-l border-slate-200 py-[3px] pr-3 pl-[3px] text-[13px]/4 font-normal">
 							{user ? (
 								<>
@@ -227,36 +226,31 @@ export default function Chrome({
 						</span>
 					</span>
 				</div>
-				<CollapsibleContent
-					keepMounted
-					className="h-(--collapsible-panel-height) overflow-hidden bg-slate-100 transition-[height] duration-200 ease-out data-ending-style:h-0 data-starting-style:h-0 motion-reduce:transition-none"
-				>
-					<ItemGroup className="gap-0 border-b border-slate-200 px-2 py-2">
-						{connections.map((requirement, index) => (
-							<Fragment key={requirement.slug}>
-								{index > 0 && <ItemSeparator />}
-								<ConnectionRow
-									requirement={requirement}
-									accounts={
-										accountLists.find(
-											({ owner }) =>
-												owner.type === requirement.owner.type &&
-												owner.id === requirement.owner.id,
-										)?.accounts ?? null
-									}
-									logo={toolkits.find(({ slug }) => slug === requirement.toolkit)?.logo}
-								/>
-							</Fragment>
-						))}
-						{connections.length === 0 && (
-							<Item>
-								<ItemContent>
-									<ItemDescription>No required services.</ItemDescription>
-								</ItemContent>
-							</Item>
-						)}
-					</ItemGroup>
-				</CollapsibleContent>
+				{user && (
+					<CollapsibleContent
+						keepMounted
+						className="h-(--collapsible-panel-height) overflow-hidden bg-slate-100 transition-[height] duration-200 ease-out data-ending-style:h-0 data-starting-style:h-0 motion-reduce:transition-none"
+					>
+						<ItemGroup className="gap-0 border-b border-slate-200 px-2 py-2">
+							{connections.map((requirement, index) => (
+								<Fragment key={requirement.slug}>
+									{index > 0 && <ItemSeparator />}
+									<ConnectionRow
+										requirement={requirement}
+										logo={toolkits.find(({ slug }) => slug === requirement.toolkit)?.logo}
+									/>
+								</Fragment>
+							))}
+							{connections.length === 0 && (
+								<Item>
+									<ItemContent>
+										<ItemDescription>No required services.</ItemDescription>
+									</ItemContent>
+								</Item>
+							)}
+						</ItemGroup>
+					</CollapsibleContent>
+				)}
 			</Collapsible>
 		</header>
 	)
@@ -264,23 +258,26 @@ export default function Chrome({
 
 function ConnectionRow({
 	requirement,
-	accounts,
 	logo,
 }: {
 	requirement: Route.ComponentProps["loaderData"]["connections"][number]
-	accounts: Route.ComponentProps["loaderData"]["accountLists"][number]["accounts"]
 	logo: string | undefined
 }) {
 	const fetcher = useFetcher<typeof action>()
 	const pending = fetcher.state !== "idle"
 	const [open, setOpen] = useState(false)
 	const [selection, setSelection] = useState<"saved" | "connect">("saved")
-	const selected = accounts?.find(({ id }) => id === requirement.connection_id)
-	const choices = accounts?.filter(({ toolkit }) => toolkit === requirement.toolkit)
+	const { accountAccess } = requirement
+	const selected = accountAccess.allowed
+		? accountAccess.connections.find(({ id }) => id === requirement.connection_id)
+		: undefined
+	const choices = accountAccess.allowed
+		? accountAccess.connections.filter(({ toolkit }) => toolkit === requirement.toolkit)
+		: []
 	const title =
 		selection === "connect"
 			? "Once you’ve connected your account, refresh this page to select it."
-			: accounts === null
+			: !accountAccess.allowed
 				? "Managed by app owner"
 				: (selected?.display_name ??
 					selected?.alias ??
@@ -335,7 +332,7 @@ function ConnectionRow({
 									size="icon"
 								/>
 							}
-							disabled={accounts === null || pending}
+							disabled={!accountAccess.allowed || pending}
 							aria-label={`Configure accounts for ${requirement.slug}`}
 						>
 							<FontAwesomeIcon
@@ -349,7 +346,7 @@ function ConnectionRow({
 			</Item>
 			<CollapsibleContent keepMounted>
 				<div className="flex flex-col gap-4 px-3 pb-4">
-					{choices?.length ? (
+					{choices.length ? (
 						<RadioGroup
 							aria-label={`Accounts for ${requirement.slug}`}
 							value={selection === "saved" ? (requirement.connection_id ?? "") : ""}
