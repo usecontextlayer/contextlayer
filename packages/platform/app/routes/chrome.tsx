@@ -1,13 +1,18 @@
-import { faAngleDown } from "@awesome.me/kit-e146ba5a27/icons/slab/regular"
+import {
+	faAngleDown,
+	faCheck,
+	faTriangleExclamation,
+} from "@awesome.me/kit-e146ba5a27/icons/slab/regular"
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome"
 import { slateSchema } from "@usecontextlayer/shared/slate"
 import { Fragment, useCallback } from "react"
-import { data } from "react-router"
+import { data, useFetcher } from "react-router"
 import { z } from "zod"
-import { listAppConnections } from "@/app-connections.server"
+import { assignmentSchema } from "@/app-connections.schema"
+import { assignAppConnection, listAppConnections } from "@/app-connections.server"
 import { appTargetSchema } from "@/apps.schema"
 import { resolveAppForViewing } from "@/apps.server"
-import { getCurrentUser } from "@/auth.server"
+import { type AuthIdentity, getCurrentUser } from "@/auth.server"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
@@ -33,6 +38,48 @@ import type { Route } from "@/routes/+types/chrome"
 
 export const headers: Route.HeadersFunction = () => ({ "Cache-Control": "no-store" })
 
+async function getChromeApp(
+	{ request, params, context }: Pick<Route.LoaderArgs, "request" | "params" | "context">,
+	identity: AuthIdentity,
+) {
+	const access = await resolveAppForViewing(
+		context.get(databaseContext),
+		appTargetSchema.parse(params.target),
+		identity,
+		context.get(configContext).CTX_AUTH_ISSUER,
+	)
+	if (!access.allowed)
+		throw new Response(null, { status: access.reason === "not-found" ? 404 : 403 })
+	const manifestInput = new URL(request.url).searchParams.get("manifest")
+	const localManifest = manifestInput
+		? slateSchema.parse(JSON.parse(manifestInput))
+		: undefined
+	const snapshot = await getAppManifest(
+		access.app,
+		context.get(appsContext),
+		localManifest,
+	)
+	return { access: { app: access.app, identity }, snapshot }
+}
+
+export async function action({ request, params, context }: Route.ActionArgs) {
+	const identity = context.get(identityContext)
+	if (!identity) throw new Response(null, { status: 401 })
+	const input = assignmentSchema.safeParse(Object.fromEntries(await request.formData()))
+	if (!input.success) throw new Response("Invalid connection assignment", { status: 400 })
+	const { access, snapshot } = await getChromeApp({ context, params, request }, identity)
+	const result = await assignAppConnection(
+		context.get(databaseContext),
+		access,
+		context.get(configContext).CTX_AUTH_ISSUER,
+		input.data,
+		snapshot,
+	)
+	if (!result.allowed)
+		throw new Response(null, { status: result.reason === "not-found" ? 404 : 403 })
+	return result.assignment
+}
+
 export async function loader({ request, params, context }: Route.LoaderArgs) {
 	const url = new URL(request.url)
 	const parentOrigin = new URL(z.url().parse(url.searchParams.get("parentOrigin"))).origin
@@ -45,29 +92,8 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
 			{ headers: { "Cache-Control": "no-store" } },
 		)
 	const db = context.get(databaseContext)
-	const access = await resolveAppForViewing(
-		db,
-		appTargetSchema.parse(params.target),
-		identity,
-		issuer,
-	)
-	if (!access.allowed)
-		throw new Response(null, { status: access.reason === "not-found" ? 404 : 403 })
-	const manifestInput = url.searchParams.get("manifest")
-	const localManifest = manifestInput
-		? slateSchema.parse(JSON.parse(manifestInput))
-		: undefined
-
-	const snapshot = await getAppManifest(
-		access.app,
-		context.get(appsContext),
-		localManifest,
-	)
-	const { connections } = await listAppConnections(
-		db,
-		{ app: access.app, identity },
-		snapshot,
-	)
+	const { access, snapshot } = await getChromeApp({ context, params, request }, identity)
+	const { connections } = await listAppConnections(db, access, snapshot)
 	const requirements = connections.map((requirement) => ({
 		...requirement,
 		owner: getCredentialOwner(requirement.mode, access.app, identity.user),
@@ -104,9 +130,10 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
 export default function Chrome({
 	loaderData: { user, connections, accountLists, parentOrigin },
 }: Route.ComponentProps) {
+	const fetcher = useFetcher<typeof action>()
 	const requirements = connections
-	const connected = requirements.filter(
-		(requirement) => requirement.connection_id !== null,
+	const needed = requirements.filter(
+		(requirement) => requirement.connection_id === null,
 	).length
 	const observeHeader = useCallback(
 		(element: HTMLElement | null) => {
@@ -146,7 +173,14 @@ export default function Chrome({
 								/>
 							}
 						>
-							{connected}/{requirements.length} connected services
+							<FontAwesomeIcon
+								icon={needed === 0 ? faCheck : faTriangleExclamation}
+								className={needed === 0 ? "text-green-600" : "text-orange-600"}
+								aria-hidden="true"
+							/>
+							{needed === 0
+								? "all services connected"
+								: `${needed} connection${needed === 1 ? "" : "s"} needed`}
 						</CollapsibleTrigger>
 						<span className="flex min-w-0 items-center gap-2 border-l border-slate-200 py-[3px] pr-3 pl-[3px] text-[13px]/4 font-normal">
 							{user ? (
@@ -214,7 +248,7 @@ export default function Chrome({
 													className="w-full min-w-0 justify-between"
 												/>
 											}
-											disabled={accounts === null}
+											disabled={accounts === null || fetcher.state !== "idle"}
 											aria-label={`Account for ${requirement.slug}`}
 											title={label}
 										>
@@ -230,7 +264,13 @@ export default function Chrome({
 												{choices?.length ? (
 													<DropdownMenuRadioGroup
 														value={requirement.connection_id ?? ""}
-														disabled
+														onValueChange={(connection_id) => {
+															if (connection_id === requirement.connection_id) return
+															fetcher.submit(
+																{ connection_id, slug: requirement.slug },
+																{ method: "post" },
+															)
+														}}
 													>
 														{choices.map((account) => (
 															<DropdownMenuRadioItem
