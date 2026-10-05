@@ -2,7 +2,10 @@ import { defineConfig } from "tsdown"
 
 export default defineConfig({
 	clean: true,
-	deps: { neverBundle: ["cloudflare:workers", /\?(inline|url)$/] },
+	deps: {
+		alwaysBundle: ["@usecontextlayer/shared"],
+		neverBundle: ["cloudflare:workers", /\?(inline|url)$/],
+	},
 	dts: true,
 	entry: {
 		index: "index.ts",

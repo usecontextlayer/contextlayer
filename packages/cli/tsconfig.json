@@ -12,5 +12,9 @@
 	"exclude": ["dist", "template", "dist-types"],
 	"extends": "../../tsconfig.base.json",
 	"include": ["**/*.ts", "package.json"],
-	"references": []
+	"references": [
+		{
+			"path": "../shared"
+		}
+	]
 }

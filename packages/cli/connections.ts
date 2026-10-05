@@ -1,8 +1,13 @@
-import { readFile } from "node:fs/promises"
+import { credentialModeSchema } from "@usecontextlayer/shared/slate"
 import { z } from "zod"
-import { getLocalAppId } from "@/app"
+import { getLocalAppId, readLocalManifest } from "@/app"
 import { getAccessToken } from "@/auth"
 import { env } from "@/env"
+import { ownerPath, resolveOwner } from "@/owner"
+
+async function getLocalManifest(target: string) {
+	return target === "local" ? readLocalManifest() : undefined
+}
 
 async function resolveAppTarget(target: string) {
 	if (target !== "local") return target
@@ -21,7 +26,11 @@ export async function assignAppConnection(
 			env.CTX_PLATFORM_URL,
 		),
 		{
-			body: JSON.stringify({ connection_id: connectionId, slug }),
+			body: JSON.stringify({
+				connection_id: connectionId,
+				manifest: await getLocalManifest(target),
+				slug,
+			}),
 			headers: {
 				authorization: `Bearer ${await getAccessToken()}`,
 				"content-type": "application/json",
@@ -39,10 +48,7 @@ export async function assignAppConnection(
 
 export async function listAppConnections(target: string) {
 	const appTarget = await resolveAppTarget(target)
-	const manifest: unknown =
-		target === "local"
-			? JSON.parse(await readFile("public/slate.json", "utf8"))
-			: undefined
+	const manifest = await getLocalManifest(target)
 	const response = await fetch(
 		new URL(
 			`/api/apps/${encodeURIComponent(appTarget)}/connections/list`,
@@ -64,7 +70,7 @@ export async function listAppConnections(target: string) {
 			connections: z.array(
 				z.object({
 					connection_id: z.string().nullable(),
-					mode: z.enum(["individual", "shared"]),
+					mode: credentialModeSchema,
 					slug: z.string(),
 					toolkit: z.string(),
 				}),
@@ -83,28 +89,40 @@ export async function listAppConnections(target: string) {
 	)
 }
 
-export async function addConnection(toolkit: string) {
-	const response = await fetch(new URL("/api/connections", env.CTX_PLATFORM_URL), {
-		body: JSON.stringify({ toolkit }),
-		headers: {
-			authorization: `Bearer ${await getAccessToken()}`,
-			"content-type": "application/json",
+export async function addConnection(toolkit: string, org: string | undefined) {
+	const headers = { authorization: `Bearer ${await getAccessToken()}` }
+	const owner = await resolveOwner(org, headers)
+	const response = await fetch(
+		new URL(`/api/connections/${ownerPath(owner)}`, env.CTX_PLATFORM_URL),
+		{
+			body: JSON.stringify({ toolkit }),
+			headers: {
+				...headers,
+				"content-type": "application/json",
+			},
+			method: "POST",
 		},
-		method: "POST",
-	})
+	)
 	if (!response.ok)
 		throw new Error(`Connection authorization failed: HTTP ${response.status}`)
 	const { redirect_url } = z
 		.object({ redirect_url: z.url() })
 		.parse(await response.json())
-	console.log(`Open this link to connect your account:\n${redirect_url}`)
-	console.log("After authorization, run ctx connections list to see your account.")
+	console.log(`Open this link to authorize the Owner's account:\n${redirect_url}`)
+	console.log(
+		`After authorization, run ctx connections${org ? ` --org ${org}` : ""} list to see the Owner's account.`,
+	)
 }
 
-export async function listConnections() {
-	const response = await fetch(new URL("/api/connections", env.CTX_PLATFORM_URL), {
-		headers: { authorization: `Bearer ${await getAccessToken()}` },
-	})
+export async function listConnections(org: string | undefined) {
+	const headers = { authorization: `Bearer ${await getAccessToken()}` }
+	const owner = await resolveOwner(org, headers)
+	const response = await fetch(
+		new URL(`/api/connections/${ownerPath(owner)}`, env.CTX_PLATFORM_URL),
+		{
+			headers,
+		},
+	)
 	if (!response.ok) throw new Error(`Connection list failed: HTTP ${response.status}`)
 	const { connections } = z
 		.object({

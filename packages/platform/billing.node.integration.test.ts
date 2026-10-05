@@ -1,21 +1,19 @@
-import { OpenAPIHono } from "@hono/zod-openapi"
 import { createPolarCore } from "@polar-sh/sdk/2026-10"
 import { getStateExternalCustomers } from "@polar-sh/sdk/2026-10/services/customers"
 import { provisionEphemeralDatabases } from "@usecontextlayer/db-infra/ephemeral"
 import { expect, test } from "vitest"
 import { z } from "zod"
-import { createApi } from "@/api"
 import { appSchema } from "@/apps.schema"
-import type { IdentityEnv } from "@/auth.middleware"
-import type { AuthIdentity } from "@/auth.server"
 import { saveCustomerState } from "@/billing.server"
 import { createPlatformDb } from "@/database"
 import { migrateToLatest } from "@/database/migrate"
 import { parsePlatformEnv } from "@/env"
+import { startPlatformWorker } from "@/testing"
 
 test("owner subscriptions gate execution while manifests and configuration stay available", async () => {
 	const config = z
 		.object({
+			CTX_TEST_ACCESS_TOKEN: z.string().min(1),
 			CTX_TEST_ORGANIZATION_ID: z.string().min(1),
 			CTX_TEST_USER_ID: z.string().min(1),
 			POLAR_ACCESS_TOKEN: z.string().min(1),
@@ -42,30 +40,19 @@ test("owner subscriptions gate execution while manifests and configuration stay 
 		...process.env,
 		CTX_PLATFORM_DATABASE_URL: databases.urls.ctx_billing_test,
 	})
-	// Identity is our domain input; provider state and PostgreSQL are real dependencies.
-	const identity: AuthIdentity = {
-		credential: { token: "unused-by-public-apps", type: "access-token" },
-		user: { id: config.CTX_TEST_USER_ID },
-	}
-	const api = (viewer: AuthIdentity | null) => {
-		const app = new OpenAPIHono<IdentityEnv>()
-		app.use("*", async (c, next) => {
-			c.set("db", db)
-			c.set("config", env)
-			c.set("identity", viewer)
-			await next()
-		})
-		app.route("/api", createApi())
-		return app
-	}
-	const anonymous = api(null)
-	const signedIn = api(identity)
+	const headers = { authorization: `Bearer ${config.CTX_TEST_ACCESS_TOKEN}` }
 	const post = (body: unknown) => ({
 		body: JSON.stringify(body),
-		headers: { "content-type": "application/json" },
+		headers: { ...headers, "content-type": "application/json" },
 		method: "POST",
 	})
+	const manifest = { connections: { mail: { mode: "viewer", toolkit: "gmail" } } }
+	let worker: Awaited<ReturnType<typeof startPlatformWorker>> | undefined
 	try {
+		worker = await startPlatformWorker(env, process.env)
+		const origin = await worker.ready
+		const request = (path: string, init?: RequestInit) =>
+			fetch(new URL(path, origin), init)
 		const [personalApp, organizationApp] = (
 			await db
 				.insertInto("app")
@@ -90,15 +77,13 @@ test("owner subscriptions gate execution while manifests and configuration stay 
 		const resolve = (hostname: string, pathname: string) =>
 			`/api/apps/resolve?${new URLSearchParams({ hostname, pathname })}`
 		for (const app of [personalApp, organizationApp]) {
-			expect((await anonymous.request(resolve(app.public_hostname, "/"))).status).toBe(
-				402,
+			expect((await request(resolve(app.public_hostname, "/"))).status).toBe(402)
+			expect((await request(resolve(app.public_hostname, "/slate.json"))).status).toBe(
+				200,
 			)
 			expect(
-				(await anonymous.request(resolve(app.public_hostname, "/slate.json"))).status,
-			).toBe(200)
-			expect(
 				(
-					await signedIn.request(
+					await request(
 						`/api/apps/${app.id}/connections/list`,
 						post({ manifest: { connections: {} } }),
 					)
@@ -106,15 +91,15 @@ test("owner subscriptions gate execution while manifests and configuration stay 
 			).toBe(200)
 			expect(
 				(
-					await signedIn.request(
+					await request(
 						`/api/apps/${app.id}/connections/assign`,
-						post({ connection_id: "test-connection", slug: "mail" }),
+						post({ connection_id: "test-connection", manifest, slug: "mail" }),
 					)
 				).status,
 			).toBe(200)
 			expect(
 				(
-					await signedIn.request(
+					await request(
 						`/api/apps/${app.id}/tools/call`,
 						post({ arguments: {}, slug: "unassigned", tool: "EXAMPLE" }),
 					)
@@ -122,21 +107,19 @@ test("owner subscriptions gate execution while manifests and configuration stay 
 			).toBe(402)
 		}
 		await saveCustomerState(db, personal, null)
+		expect((await request(resolve(personalApp.public_hostname, "/"))).status).toBe(200)
 		expect(
-			(await anonymous.request(resolve(personalApp.public_hostname, "/"))).status,
-		).toBe(200)
-		expect(
-			(await signedIn.request(resolve(organizationApp.public_hostname, "/"))).status,
+			(await request(resolve(organizationApp.public_hostname, "/"), { headers })).status,
 		).toBe(402)
 		await saveCustomerState(db, organization, null)
-		expect(
-			(await anonymous.request(resolve(organizationApp.public_hostname, "/"))).status,
-		).toBe(200)
+		expect((await request(resolve(organizationApp.public_hostname, "/"))).status).toBe(
+			200,
+		)
 		expect(
 			(
-				await signedIn.request(
+				await request(
 					`/api/apps/${organizationApp.id}/tools/call`,
-					post({ arguments: {}, slug: "unassigned", tool: "EXAMPLE" }),
+					post({ arguments: {}, manifest, slug: "unassigned", tool: "EXAMPLE" }),
 				)
 			).status,
 		).toBe(404)
@@ -146,15 +129,16 @@ test("owner subscriptions gate execution while manifests and configuration stay 
 			.where("id", "=", personalApp.id)
 			.execute()
 		expect(
-			(await anonymous.request(resolve(personalApp.public_hostname, "/slate.json")))
-				.status,
+			(await request(resolve(personalApp.public_hostname, "/slate.json"))).status,
 		).toBe(401)
 		expect(
-			(await signedIn.request(resolve(personalApp.public_hostname, "/slate.json")))
+			(await request(resolve(personalApp.public_hostname, "/slate.json"), { headers }))
 				.status,
 		).toBe(200)
-		expect((await anonymous.request("/api/polar/webhooks", post({}))).status).toBe(403)
+		expect((await request("/api/polar/webhooks", post({}))).status).toBe(403)
 	} finally {
+		worker?.server.kill("SIGTERM")
+		if (worker) await worker.exited
 		await db.destroy()
 		await databases.dropAll()
 	}

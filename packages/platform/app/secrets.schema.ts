@@ -1,10 +1,10 @@
 import { z } from "@hono/zod-openapi"
 import { ownerSchema } from "@usecontextlayer/shared/app-usage"
+import { secretNameSchema } from "@usecontextlayer/shared/slate"
+import { ownerParamsSchema } from "@/owner.schema"
 
-export const secretParamsSchema = z.object({
-	name: z.string().regex(/^[A-Z_][A-Z0-9_]*$/),
-	owner_id: z.string().min(1),
-	type: z.enum(["org", "user"]),
+export const secretParamsSchema = ownerParamsSchema.extend({
+	name: secretNameSchema,
 })
 
 export const setSecretRequestSchema = z.object({ value: z.string().min(1) })

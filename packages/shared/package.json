@@ -31,6 +31,10 @@
 			"import": "./dist/sentry-event-cap.mjs",
 			"types": "./dist/sentry-event-cap.d.mts"
 		},
+		"./slate": {
+			"import": "./dist/slate.mjs",
+			"types": "./dist/slate.d.mts"
+		},
 		"./testing": {
 			"import": "./dist/testing.mjs",
 			"types": "./dist/testing.d.mts"

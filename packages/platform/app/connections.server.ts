@@ -1,24 +1,40 @@
 import { Composio } from "@composio/core"
 import type { z } from "zod"
+import type { AuthIdentity } from "@/auth.server"
 import { connectionLinkSchema, connectionSchema } from "@/connections.schema"
+import type { PlatformConfig } from "@/env"
+import type { Owner } from "@/owner"
+import { authorizeOwner } from "@/owner.server"
 
 export async function authorizeConnection(
-	apiKey: string,
-	userId: string,
+	config: PlatformConfig,
+	identity: AuthIdentity,
+	owner: Owner,
 	toolkit: string,
 ) {
-	const composio = new Composio({ apiKey })
-	const session = await composio.create(userId)
+	if (!(await authorizeOwner(identity, config.CTX_AUTH_ISSUER, owner)))
+		return { allowed: false } as const
+	const composio = new Composio({ apiKey: config.COMPOSIO_API_KEY })
+	const session = await composio.create(owner.id)
 	const request = await session.authorize(toolkit)
-	return connectionLinkSchema.parse({ redirect_url: request.redirectUrl })
+	return {
+		allowed: true,
+		link: connectionLinkSchema.parse({ redirect_url: request.redirectUrl }),
+	} as const
 }
 
-export async function listConnections(apiKey: string, userId: string) {
-	const composio = new Composio({ apiKey })
+export async function listConnections(
+	config: PlatformConfig,
+	identity: AuthIdentity,
+	owner: Owner,
+) {
+	if (!(await authorizeOwner(identity, config.CTX_AUTH_ISSUER, owner)))
+		return { allowed: false } as const
+	const composio = new Composio({ apiKey: config.COMPOSIO_API_KEY })
 	const connections: z.infer<typeof connectionSchema>[] = []
 	let cursor: string | undefined
 	do {
-		const page = await composio.connectedAccounts.list({ cursor, userIds: [userId] })
+		const page = await composio.connectedAccounts.list({ cursor, userIds: [owner.id] })
 		for (const account of page.items) {
 			connections.push(
 				connectionSchema.parse({
@@ -32,5 +48,5 @@ export async function listConnections(apiKey: string, userId: string) {
 		}
 		cursor = page.nextCursor ?? undefined
 	} while (cursor)
-	return { connections }
+	return { allowed: true, connections } as const
 }

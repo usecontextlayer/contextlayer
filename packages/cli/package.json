@@ -8,6 +8,7 @@
 	"devDependencies": {
 		"@clack/prompts": "^1.8.1",
 		"@types/node": "^24.13.3",
+		"@usecontextlayer/shared": "workspace:*",
 		"commander": "^15.0.0",
 		"execa": "^10.0.1",
 		"openid-client": "^6.8.8",

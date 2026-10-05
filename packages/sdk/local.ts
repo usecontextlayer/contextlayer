@@ -16,7 +16,12 @@ export class Tools extends WorkerEntrypoint<Bindings> implements ToolsContract {
 		const response = await fetch(
 			new URL(`/api/apps/${env.CTX_APP_ID}/tools/call`, env.CTX_PLATFORM_URL),
 			{
-				body: JSON.stringify({ arguments: args, slug, tool: toolSlug }),
+				body: JSON.stringify({
+					arguments: args,
+					manifest: env.CTX_APP_MANIFEST,
+					slug,
+					tool: toolSlug,
+				}),
 				headers: {
 					authorization: `Bearer ${env.CTX_ACCESS_TOKEN}`,
 					"content-type": "application/json",

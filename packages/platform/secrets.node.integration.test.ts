@@ -5,6 +5,7 @@ import { provisionEphemeralDatabases } from "@usecontextlayer/db-infra/ephemeral
 import { afterAll, beforeAll, expect, test } from "vitest"
 import { z } from "zod"
 import { organizationSchema } from "@/auth.server"
+import { connectionsSchema } from "@/connections.schema"
 import { migrateToLatest } from "@/database/migrate"
 import { parsePlatformEnv, parseSharedSecretsEnv } from "@/env"
 import type { Owner } from "@/owner"
@@ -119,6 +120,76 @@ test("non-writing: CLI requires explicit stdin input and resolves organization m
 	])
 	expect(unknownOrg.code).toBe(1)
 	expect(unknownOrg.output).toContain("Organization is not in your memberships")
+})
+
+test("non-writing: Owner connections enforce access and list through the real API and CLI", async () => {
+	const personalUrl = `${origin}/api/connections/user/${encodeURIComponent(userId)}`
+	for (const method of ["GET", "POST"]) {
+		const request =
+			method === "POST"
+				? {
+						body: JSON.stringify({ toolkit: "gmail" }),
+						headers: { "content-type": "application/json" },
+						method,
+					}
+				: { method }
+		expect((await fetch(personalUrl, request)).status).toBe(401)
+		for (const type of ["user", "org"]) {
+			expect(
+				(
+					await fetch(`${origin}/api/connections/${type}/not-this-owner`, {
+						...request,
+						headers: { ...request.headers, ...headers },
+					})
+				).status,
+			).toBe(403)
+		}
+	}
+	const slug = z.string().min(1).parse(process.env.CTX_TEST_ORGANIZATION_SLUG)
+	const membership = await fetch(
+		new URL("/api/platform/organizations", config.CTX_AUTH_ISSUER),
+		{ headers },
+	)
+	expect(membership.status).toBe(200)
+	const { organizations } = z
+		.object({ organizations: z.array(organizationSchema) })
+		.parse(await membership.json())
+	const organization = organizationSchema.parse(
+		organizations.find((organization) => organization.slug === slug),
+	)
+	for (const [url, args] of [
+		[personalUrl, ["connections", "list"]],
+		[
+			`${origin}/api/connections/org/${encodeURIComponent(organization.id)}`,
+			["connections", "--org", slug, "list"],
+		],
+	] as const) {
+		const response = await fetch(url, { headers })
+		expect(response.status).toBe(200)
+		const { connections } = connectionsSchema.parse(await response.json())
+		const cli = await runCli([...args])
+		expect(cli.code).toBe(0)
+		if (connections.length === 0) expect(cli.output).toContain("No connected accounts.")
+		for (const account of connections) expect(cli.output).toContain(account.id)
+	}
+	const unknownOrg = await runCli(["connections", "--org", "not-a-member", "list"])
+	expect(unknownOrg.code).toBe(1)
+	expect(unknownOrg.output).toContain("Organization is not in your memberships")
+	const { paths } = z
+		.object({
+			paths: z.record(
+				z.string(),
+				z.object({ get: z.unknown().optional(), post: z.unknown().optional() }),
+			),
+		})
+		.parse(await (await fetch(`${origin}/api/openapi.json`)).json())
+	expect(paths["/connections/{type}/{owner_id}"]).toEqual(
+		expect.objectContaining({
+			get: expect.objectContaining({ operationId: "listConnections" }),
+			post: expect.objectContaining({ operationId: "authorizeConnection" }),
+		}),
+	)
+	expect(paths["/connections"]).toBeUndefined()
 })
 
 test("live Doppler: CLI/API save, replace, isolate Owners, and drop with no values in output", async () => {

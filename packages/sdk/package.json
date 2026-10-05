@@ -16,6 +16,7 @@
 		"@types/node": "^24.13.3",
 		"@types/react": "^19.0.0",
 		"@types/react-dom": "^19.0.0",
+		"@usecontextlayer/shared": "workspace:*",
 		"react": "^19.3.0",
 		"react-dom": "^19.3.0",
 		"react-router": "^8.4.0",

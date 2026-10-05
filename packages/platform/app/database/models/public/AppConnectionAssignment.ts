@@ -5,7 +5,7 @@ import type { ColumnType, Insertable, Selectable, Updateable } from "kysely"
 import type { AppId } from "./App"
 
 /** Identifier type for public.app_connection_assignment */
-export type AppConnectionAssignmentUserId = string & {
+export type AppConnectionAssignmentOwnerId = string & {
 	__brand: "public.app_connection_assignment"
 }
 
@@ -14,20 +14,31 @@ export type AppConnectionAssignmentSlug = string & {
 	__brand: "public.app_connection_assignment"
 }
 
+/** Identifier type for public.app_connection_assignment */
+export type AppConnectionAssignmentOwnerType = string & {
+	__brand: "public.app_connection_assignment"
+}
+
 /** Represents the table public.app_connection_assignment */
 export default interface AppConnectionAssignmentTable {
 	app_id: ColumnType<AppId, AppId, AppId>
 
-	user_id: ColumnType<
-		AppConnectionAssignmentUserId,
-		AppConnectionAssignmentUserId,
-		AppConnectionAssignmentUserId
+	owner_id: ColumnType<
+		AppConnectionAssignmentOwnerId,
+		AppConnectionAssignmentOwnerId,
+		AppConnectionAssignmentOwnerId
 	>
 
 	slug: ColumnType<
 		AppConnectionAssignmentSlug,
 		AppConnectionAssignmentSlug,
 		AppConnectionAssignmentSlug
+	>
+
+	owner_type: ColumnType<
+		AppConnectionAssignmentOwnerType,
+		AppConnectionAssignmentOwnerType,
+		AppConnectionAssignmentOwnerType
 	>
 
 	connection_id: ColumnType<string, string, string>

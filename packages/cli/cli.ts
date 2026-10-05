@@ -14,6 +14,7 @@ import {
 } from "@/connections"
 import { env } from "@/env"
 import { gitCredential, setupGit } from "@/git-credential"
+import { ownerOptionsSchema } from "@/owner"
 import { version } from "@/package.json"
 import { dropSecret, secretNameSchema, secretOptionsSchema, setSecret } from "@/secrets"
 
@@ -148,7 +149,11 @@ program
 
 const connections = program
 	.command("connections")
-	.description("Manage your connected accounts")
+	.description("Manage Owner-owned connected accounts or list an app's requirements")
+	.option(
+		"--org <org_slug>",
+		"Manage this organization's connections; defaults to the signed-in user",
+	)
 	.argument("[target]", "AppID, public hostname, or local (run from the app root)")
 	.addArgument(new Argument("[operation]", "App connection operation").choices(["list"]))
 	.action(async (target, operation) => {
@@ -159,19 +164,29 @@ const connections = program
 
 connections
 	.command("list")
-	.description("List your Composio accounts with their toolkit, identity, and status")
-	.action(listConnections)
+	.description(
+		"List the selected Owner's Composio accounts with their toolkit, identity, and status",
+	)
+	.action(async (_options, command: Command) => {
+		const options = ownerOptionsSchema.parse(command.optsWithGlobals())
+		await listConnections(options.org)
+	})
 
 connections
-	.command("add <toolset>")
+	.command("add <toolkit>")
 	.description(
-		"Print a Composio authorization link to connect an account (for example, gmail)",
+		"Print a Composio authorization link for the selected Owner's account (for example, gmail)",
 	)
-	.action(addConnection)
+	.action(async (toolkit, _options, command: Command) => {
+		const options = ownerOptionsSchema.parse(command.optsWithGlobals())
+		await addConnection(z.string().min(1).parse(toolkit), options.org)
+	})
 
 program
 	.command("connection")
-	.description("Assign a connection to an app requirement")
+	.description(
+		"Assign a connection using the requirement’s viewer or owner mode; owner mode requires app management",
+	)
 	.argument("<target>", "AppID, public hostname, or local (run from the app root)")
 	.addArgument(new Argument("<operation>").choices(["assign"]))
 	.argument("<slug>", "Connection requirement slug")

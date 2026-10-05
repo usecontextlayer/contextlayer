@@ -1,8 +1,10 @@
 import { z } from "@hono/zod-openapi"
+import { slateSchema } from "@usecontextlayer/shared/slate"
 import { assignmentSchema } from "@/app-connections.schema"
 
 export const toolCallSchema = z.object({
 	arguments: z.record(z.string(), z.unknown()),
+	manifest: slateSchema.optional(),
 	slug: assignmentSchema.shape.slug,
 	tool: z.string().min(1),
 })

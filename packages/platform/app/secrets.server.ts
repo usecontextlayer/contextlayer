@@ -1,17 +1,12 @@
 import { Buffer } from "node:buffer"
-import { type AuthIdentity, listOrganizations } from "@/auth.server"
+import type { AuthIdentity } from "@/auth.server"
 import { type PlatformConfig, parseSharedSecretsEnv } from "@/env"
 import type { Owner } from "@/owner"
+import { authorizeOwner } from "@/owner.server"
 import type { SetSecretRequest } from "@/secrets.schema"
 
-async function authorizeOwner(identity: AuthIdentity, issuer: string, owner: Owner) {
-	// The vault token spans every Owner in its config; key prefixes cannot authorize access.
-	if (owner.type === "user") return owner.id === identity.user.id
-	const organizations = await listOrganizations(identity, issuer)
-	return organizations.some((organization) => organization.id === owner.id)
-}
-
 export function secretKey(owner: Owner, name: string) {
+	// The config token spans Owners; these prefixes identify secrets, not access rights.
 	const id = Buffer.from(owner.id, "utf8").toString("hex").toUpperCase()
 	return `OWNER_${owner.type.toUpperCase()}_${id}_${name}`
 }

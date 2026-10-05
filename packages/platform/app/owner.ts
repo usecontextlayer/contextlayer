@@ -1,4 +1,5 @@
 import { type Owner, ownerSchema } from "@usecontextlayer/shared/app-usage"
+import type { CredentialMode } from "@usecontextlayer/shared/slate"
 import type { z } from "zod"
 import type { App } from "@/apps.schema"
 import type { organizationSchema } from "@/auth.server"
@@ -17,3 +18,11 @@ export type OwnerDetails =
 	| Extract<Owner, { type: "user" }>
 	| (Extract<Owner, { type: "organization" }> &
 			Pick<z.infer<typeof organizationSchema>, "name" | "slug">)
+
+export function getCredentialOwner(
+	mode: CredentialMode,
+	app: App,
+	viewer: { id: string },
+): Owner {
+	return mode === "owner" ? getAppOwner(app) : { id: viewer.id, type: "user" }
+}

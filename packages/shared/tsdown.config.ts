@@ -21,6 +21,7 @@ export default defineConfig({
 		"ctx-token-provider": "lib/ctx-token-provider.ts",
 		index: "index.ts",
 		"sentry-event-cap": "lib/sentry-event-cap.ts",
+		slate: "lib/slate.ts",
 		testing: "testing.ts",
 	},
 	format: ["esm"],

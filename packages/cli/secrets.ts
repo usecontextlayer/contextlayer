@@ -1,17 +1,19 @@
 import { isCancel, password } from "@clack/prompts"
+import { ownerSchema } from "@usecontextlayer/shared/app-usage"
+import { secretNameSchema } from "@usecontextlayer/shared/slate"
 import { z } from "zod"
-import { getAccessToken, getCurrentUser } from "@/auth"
+import { getAccessToken } from "@/auth"
 import { env } from "@/env"
+import { ownerOptionsSchema, ownerPath, resolveOwner } from "@/owner"
 
-export const secretNameSchema = z.string().regex(/^[A-Z_][A-Z0-9_]*$/)
-export const secretOptionsSchema = z.object({
-	org: z.string().min(1).optional(),
+export { secretNameSchema }
+export const secretOptionsSchema = ownerOptionsSchema.extend({
 	stdin: z.boolean().default(false),
 })
 const valueSchema = z.string().min(1)
 const confirmationSchema = z.object({
 	name: secretNameSchema,
-	owner: z.object({ id: z.string().min(1), type: z.enum(["organization", "user"]) }),
+	owner: ownerSchema,
 })
 
 async function resolveSecretUrl(
@@ -19,28 +21,9 @@ async function resolveSecretUrl(
 	org: string | undefined,
 	headers: HeadersInit,
 ) {
-	let type: "org" | "user"
-	let id: string
-	if (org) {
-		const url = new URL("/api/platform/organizations", env.CTX_AUTH_ISSUER)
-		const response = await fetch(url, { headers })
-		if (!response.ok)
-			throw new Error(`Organization lookup failed: HTTP ${response.status}`)
-		const { organizations } = z
-			.object({
-				organizations: z.array(z.object({ id: z.string().min(1), slug: z.string() })),
-			})
-			.parse(await response.json())
-		const organization = organizations.find((organization) => organization.slug === org)
-		if (!organization) throw new Error("Organization is not in your memberships")
-		type = "org"
-		id = organization.id
-	} else {
-		id = (await getCurrentUser(headers)).id
-		type = "user"
-	}
+	const owner = await resolveOwner(org, headers)
 	return new URL(
-		`/api/secrets/${type}/${encodeURIComponent(id)}/${encodeURIComponent(name)}`,
+		`/api/secrets/${ownerPath(owner)}/${encodeURIComponent(name)}`,
 		env.CTX_PLATFORM_URL,
 	)
 }

@@ -1,61 +1,144 @@
+import type { Slate } from "@usecontextlayer/shared/slate"
 import type { z } from "zod"
-import { type assignmentSchema, slateSchema } from "@/app-connections.schema"
-import type { AppAccess } from "@/apps.server"
-import { credentialHeaders } from "@/auth.server"
+import type { assignAppConnectionRequestSchema } from "@/app-connections.schema"
+import { type AppAccess, authorizeAppManagement } from "@/apps.server"
+import { listOrganizations } from "@/auth.server"
 import type { PlatformDb } from "@/database"
-import type { AppConnectionAssignmentUserId } from "@/database/models/public/AppConnectionAssignment"
+import type {
+	AppConnectionAssignmentOwnerId,
+	AppConnectionAssignmentOwnerType,
+	AppConnectionAssignmentSlug,
+} from "@/database/models/public/AppConnectionAssignment"
+import { getAppManifest } from "@/manifest.server"
+import { getAppOwner, getCredentialOwner, type Owner } from "@/owner"
+
+function assignmentOwner(owner: Owner) {
+	return {
+		owner_id: owner.id as AppConnectionAssignmentOwnerId,
+		owner_type: owner.type as AppConnectionAssignmentOwnerType,
+	}
+}
+
+async function resolveConnectionRequirement(
+	access: AppAccess,
+	issuer: string,
+	slug: string,
+	operation: "configure" | "execute",
+	localManifest?: Slate,
+) {
+	const manifest = await getAppManifest(access, localManifest)
+	const requirement = manifest.connections[slug]
+	if (!requirement) return { allowed: false, reason: "not-found" } as const
+	// Only app managers may substitute authored requirements or configure owner accounts.
+	if (localManifest || (operation === "configure" && requirement.mode === "owner")) {
+		const organizations = access.app.owner_organization_id
+			? await listOrganizations(access.identity, issuer)
+			: []
+		if (!authorizeAppManagement(access.app, access.identity, organizations).allowed)
+			return { allowed: false, reason: "forbidden" } as const
+	}
+	return {
+		allowed: true,
+		owner: getCredentialOwner(requirement.mode, access.app, access.identity.user),
+		requirement,
+	} as const
+}
 
 export async function assignAppConnection(
 	db: PlatformDb,
-	{ app, identity }: AppAccess,
-	assignment: z.infer<typeof assignmentSchema>,
+	access: AppAccess,
+	issuer: string,
+	{ manifest, ...assignment }: z.infer<typeof assignAppConnectionRequestSchema>,
 ) {
-	return db
+	const resolved = await resolveConnectionRequirement(
+		access,
+		issuer,
+		assignment.slug,
+		"configure",
+		manifest,
+	)
+	if (!resolved.allowed) return resolved
+	const saved = await db
 		.insertInto("app_connection_assignment")
-		.values({
-			app_id: app.id,
-			user_id: identity.user.id as AppConnectionAssignmentUserId,
-			...assignment,
-		})
+		.values({ app_id: access.app.id, ...assignmentOwner(resolved.owner), ...assignment })
 		.onConflict((conflict) =>
 			conflict
-				.columns(["app_id", "user_id", "slug"])
+				.columns(["app_id", "owner_type", "owner_id", "slug"])
 				.doUpdateSet({ connection_id: assignment.connection_id }),
 		)
 		.returning(["slug", "connection_id"])
 		.executeTakeFirstOrThrow()
+	return { allowed: true, assignment: saved } as const
+}
+
+export async function resolveAppConnection(
+	db: PlatformDb,
+	access: AppAccess,
+	issuer: string,
+	slug: AppConnectionAssignmentSlug,
+	localManifest?: Slate,
+) {
+	const resolved = await resolveConnectionRequirement(
+		access,
+		issuer,
+		slug,
+		"execute",
+		localManifest,
+	)
+	if (!resolved.allowed) return resolved
+	const owner = assignmentOwner(resolved.owner)
+	const assignment = await db
+		.selectFrom("app_connection_assignment")
+		.select("connection_id")
+		.where("app_id", "=", access.app.id)
+		.where("owner_type", "=", owner.owner_type)
+		.where("owner_id", "=", owner.owner_id)
+		.where("slug", "=", slug)
+		.executeTakeFirst()
+	if (!assignment) return { allowed: false, reason: "not-found" } as const
+	return {
+		allowed: true,
+		...assignment,
+		owner: resolved.owner,
+		requirement: resolved.requirement,
+	} as const
 }
 
 export async function listAppConnections(
 	db: PlatformDb,
-	{ app, identity }: AppAccess,
-	localManifest?: z.infer<typeof slateSchema>,
+	access: AppAccess,
+	localManifest?: Slate,
 ) {
-	let manifest = localManifest
-	if (!manifest) {
-		const response = await fetch(`https://${app.public_hostname}/slate.json`, {
-			headers: credentialHeaders(identity.credential),
-		})
-		if (!response.ok)
-			throw new Error(`App manifest request failed: HTTP ${response.status}`)
-		manifest = slateSchema.parse(await response.json())
-	}
+	const manifest = await getAppManifest(access, localManifest)
+	const owners = [
+		getAppOwner(access.app),
+		{ id: access.identity.user.id, type: "user" } as const,
+	]
 	const rows = await db
 		.selectFrom("app_connection_assignment")
-		.select(["slug", "connection_id"])
-		.where("app_id", "=", app.id)
-		.where("user_id", "=", identity.user.id as AppConnectionAssignmentUserId)
+		.select(["slug", "connection_id", "owner_type", "owner_id"])
+		.where("app_id", "=", access.app.id)
+		.where((eb) =>
+			eb.or(
+				owners.map((owner) => {
+					const stored = assignmentOwner(owner)
+					return eb.and([
+						eb("owner_type", "=", stored.owner_type),
+						eb("owner_id", "=", stored.owner_id),
+					])
+				}),
+			),
+		)
 		.execute()
-	const assignments = new Map<string, string>(
-		rows.map((row) => [row.slug, row.connection_id]),
-	)
 	return {
-		app,
-		connections: Object.entries(manifest.connections).map(([slug, requirement]) => ({
-			slug,
-			...requirement,
-			connection_id:
-				requirement.mode === "individual" ? (assignments.get(slug) ?? null) : null,
-		})),
+		app: access.app,
+		connections: Object.entries(manifest.connections).map(([slug, requirement]) => {
+			const owner = getCredentialOwner(requirement.mode, access.app, access.identity.user)
+			const assignment = rows.find(
+				(row) =>
+					row.slug === slug && row.owner_type === owner.type && row.owner_id === owner.id,
+			)
+			return { slug, ...requirement, connection_id: assignment?.connection_id ?? null }
+		}),
 	}
 }

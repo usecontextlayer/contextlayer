@@ -73,7 +73,7 @@ test("personal and organization usage reaches Polar at 1/3/1 clips, without bloc
 		error: null,
 		logId: "our-execution-result",
 	})
-	vi.mocked(callTool).mockResolvedValue(result)
+	vi.mocked(callTool).mockResolvedValue({ allowed: true, result })
 	try {
 		for (const state of states) {
 			expect(state.active_subscriptions.length).toBeGreaterThan(0)

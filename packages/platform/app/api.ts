@@ -6,6 +6,7 @@ import { getAgent } from "@/agents.server"
 import {
 	appConnectionsRequestSchema,
 	appConnectionsSchema,
+	assignAppConnectionRequestSchema,
 	assignmentSchema,
 } from "@/app-connections.schema"
 import { assignAppConnection, listAppConnections } from "@/app-connections.server"
@@ -35,6 +36,7 @@ import {
 } from "@/connections.schema"
 import { authorizeConnection, listConnections } from "@/connections.server"
 import { getAppOwner } from "@/owner"
+import { ownerParamsSchema } from "@/owner.schema"
 import {
 	secretParamsSchema,
 	secretSchema,
@@ -230,7 +232,7 @@ export function createApi() {
 			const result = await setSharedSecret(
 				c.var.config,
 				c.var.identity,
-				{ id: owner_id, type: type === "org" ? "organization" : "user" },
+				{ id: owner_id, type },
 				name,
 				c.req.valid("json"),
 			)
@@ -260,7 +262,7 @@ export function createApi() {
 			const result = await dropSharedSecret(
 				c.var.config,
 				c.var.identity,
-				{ id: owner_id, type: type === "org" ? "organization" : "user" },
+				{ id: owner_id, type },
 				name,
 			)
 			if (!result.allowed) return c.body(null, 403)
@@ -273,56 +275,67 @@ export function createApi() {
 			method: "get",
 			middleware: [requireAuth] as const,
 			operationId: "listConnections",
-			path: "/connections",
+			path: "/connections/{type}/{owner_id}",
+			request: { params: ownerParamsSchema },
 			responses: {
 				200: {
 					content: { "application/json": { schema: connectionsSchema } },
-					description: "Connected accounts owned by the authenticated user",
+					description: "Connected accounts belonging to the selected Owner",
 				},
 				401: {
 					description: "A valid ContextLayer access token or viewer session is required",
 				},
+				403: { description: "This user cannot manage this Owner's connections" },
 			},
 			security,
 		}),
-		async (c) =>
-			c.json(
-				await listConnections(c.var.config.COMPOSIO_API_KEY, c.var.identity.user.id),
-				200,
-			),
+		async (c) => {
+			const { owner_id, type } = c.req.valid("param")
+			const result = await listConnections(c.var.config, c.var.identity, {
+				id: owner_id,
+				type,
+			})
+			if (!result.allowed) return c.body(null, 403)
+			return c.json({ connections: result.connections }, 200)
+		},
 	)
 	api.openapi(
 		createRoute({
 			method: "post",
 			middleware: [requireAuth] as const,
 			operationId: "authorizeConnection",
-			path: "/connections",
+			path: "/connections/{type}/{owner_id}",
 			request: {
 				body: {
 					content: { "application/json": { schema: authorizeConnectionSchema } },
 					required: true,
 				},
+				params: ownerParamsSchema,
 			},
 			responses: {
 				200: {
 					content: { "application/json": { schema: connectionLinkSchema } },
-					description: "Composio authorization link for a new private connection",
+					description:
+						"Composio authorization link for the selected Owner's private connection",
 				},
 				401: {
 					description: "A valid ContextLayer access token or viewer session is required",
 				},
+				403: { description: "This user cannot manage this Owner's connections" },
 			},
 			security,
 		}),
-		async (c) =>
-			c.json(
-				await authorizeConnection(
-					c.var.config.COMPOSIO_API_KEY,
-					c.var.identity.user.id,
-					c.req.valid("json").toolkit,
-				),
-				200,
-			),
+		async (c) => {
+			const { owner_id, type } = c.req.valid("param")
+			const result = await authorizeConnection(
+				c.var.config,
+				c.var.identity,
+				{ id: owner_id, type },
+				c.req.valid("json").toolkit,
+			)
+			if (!result.allowed) return c.body(null, 403)
+			return c.json(result.link, 200)
+		},
 	)
 	const appOperations = new OpenAPIHono<AuthenticatedViewingEnv>()
 	appOperations.use("*", requireAuth, requireAppViewing)
@@ -447,7 +460,7 @@ export function createApi() {
 			path: "/connections/assign",
 			request: {
 				body: {
-					content: { "application/json": { schema: assignmentSchema } },
+					content: { "application/json": { schema: assignAppConnectionRequestSchema } },
 					required: true,
 				},
 				params: z.object({ target: appTargetSchema }),
@@ -455,13 +468,13 @@ export function createApi() {
 			responses: {
 				200: {
 					content: { "application/json": { schema: assignmentSchema } },
-					description: "Saved individual connection assignment",
+					description: "Saved viewer or owner connection assignment",
 				},
 				401: {
 					description: "A valid ContextLayer access token or viewer session is required",
 				},
-				403: { description: "This user cannot view this private app" },
-				404: { description: "App not found" },
+				403: { description: "App viewing or owner connection management is forbidden" },
+				404: { description: "App or connection requirement not found" },
 			},
 			security,
 		}),
@@ -469,9 +482,11 @@ export function createApi() {
 			const result = await assignAppConnection(
 				c.var.db,
 				c.var.appAccess,
+				c.var.config.CTX_AUTH_ISSUER,
 				c.req.valid("json"),
 			)
-			return c.json(result, 200)
+			if (!result.allowed) return c.body(null, result.reason === "forbidden" ? 403 : 404)
+			return c.json(result.assignment, 200)
 		},
 	)
 	appOperations.openapi(
@@ -495,7 +510,7 @@ export function createApi() {
 					description: "A valid ContextLayer access token or viewer session is required",
 				},
 				402: { description: "The app owner needs an active subscription" },
-				403: { description: "This user cannot view this private app" },
+				403: { description: "App viewing or local manifest access is forbidden" },
 				404: { description: "App or connection assignment not found" },
 			},
 			security,
@@ -505,9 +520,10 @@ export function createApi() {
 				c.var.db,
 				c.var.config.COMPOSIO_API_KEY,
 				c.var.appAccess,
+				c.var.config.CTX_AUTH_ISSUER,
 				c.req.valid("json"),
 			)
-			if (!result) return c.notFound()
+			if (!result.allowed) return c.body(null, result.reason === "forbidden" ? 403 : 404)
 			const polar = createPolarCore({
 				accessToken: c.var.config.POLAR_ACCESS_TOKEN,
 				environment: c.var.config.POLAR_ENVIRONMENT,
@@ -516,7 +532,7 @@ export function createApi() {
 			c.executionCtx.waitUntil(
 				recordAppUsage(polar, { id: app.id, owner: getAppOwner(app) }, "tool_call"),
 			)
-			return c.json(result, 200)
+			return c.json(result.result, 200)
 		},
 	)
 	api.route("/apps/:target", appOperations)
