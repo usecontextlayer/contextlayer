@@ -1,5 +1,6 @@
 import type { z } from "zod"
 import type { assignmentSchema } from "@/app-connections.schema"
+import type { App } from "@/apps.schema"
 import { type AppAccess, authorizeAppManagement } from "@/apps.server"
 import { listOrganizations } from "@/auth.server"
 import type { PlatformDb } from "@/database"
@@ -93,15 +94,12 @@ export async function resolveAppConnection(
 		snapshot,
 	)
 	if (!resolved.allowed) return resolved
-	const owner = assignmentOwner(resolved.owner)
-	const assignment = await db
-		.selectFrom("app_connection_assignment")
-		.select("connection_id")
-		.where("app_id", "=", access.app.id)
-		.where("owner_type", "=", owner.owner_type)
-		.where("owner_id", "=", owner.owner_id)
-		.where("slug", "=", slug)
-		.executeTakeFirst()
+	const assignment = await getAppConnectionAssignment(
+		db,
+		access.app.id,
+		resolved.owner,
+		slug,
+	)
 	if (!assignment) return { allowed: false, reason: "not-found" } as const
 	return {
 		allowed: true,
@@ -109,6 +107,23 @@ export async function resolveAppConnection(
 		owner: resolved.owner,
 		requirement: resolved.requirement,
 	} as const
+}
+
+export function getAppConnectionAssignment(
+	db: PlatformDb,
+	appId: App["id"],
+	credentialOwner: Owner,
+	slug: AppConnectionAssignmentSlug,
+) {
+	const owner = assignmentOwner(credentialOwner)
+	return db
+		.selectFrom("app_connection_assignment")
+		.select("connection_id")
+		.where("app_id", "=", appId)
+		.where("owner_type", "=", owner.owner_type)
+		.where("owner_id", "=", owner.owner_id)
+		.where("slug", "=", slug)
+		.executeTakeFirst()
 }
 
 export async function listAppConnections(

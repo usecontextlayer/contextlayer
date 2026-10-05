@@ -2,8 +2,8 @@ import type { Slate } from "@usecontextlayer/shared/slate"
 import { getAgentByName } from "agents/routing"
 import type { z } from "zod"
 import type { AppAgent } from "@/agent-runtime"
-import type { AgentRun, AgentRunRequest, agentSchema } from "@/agents.schema"
-import { resolveAppConnection } from "@/app-connections.server"
+import type { AgentActor, AgentRun, AgentRunRequest, agentSchema } from "@/agents.schema"
+import { getAppConnectionAssignment } from "@/app-connections.server"
 import type { App } from "@/apps.schema"
 import { type AppAccess, authorizeAppManagement } from "@/apps.server"
 import { listOrganizations } from "@/auth.server"
@@ -32,9 +32,14 @@ export async function getAgent(
 	return readAgent(artifacts, app.id, name)
 }
 
-async function readAgent(artifacts: Artifacts, appId: AppId, name: string) {
+async function readAgent(
+	artifacts: Artifacts,
+	appId: AppId,
+	name: string,
+	revision = "main",
+) {
 	using repo = await artifacts.get(appId)
-	const [commit] = await repo.log({ limit: 1, ref: "main" })
+	const [commit] = await repo.log({ limit: 1, ref: revision })
 	if (!commit) return { allowed: false, reason: "not-found" } as const
 	const instructions = await repo.readFile({
 		path: `agents/${name}/instructions.md`,
@@ -48,12 +53,14 @@ async function readAgent(artifacts: Artifacts, appId: AppId, name: string) {
 }
 
 export function prepareAgentRun(
-	{ app, identity }: AppAccess,
+	app: App,
+	actor: AgentActor,
 	agent: z.infer<typeof agentSchema>,
 	manifest: Slate,
 	{ name, prompt }: AgentRunRequest,
 ): AgentRun {
 	return {
+		actor,
 		agent: { commit: agent.commit, instructions: agent.instructions, name },
 		appId: app.id,
 		connections: {},
@@ -61,10 +68,9 @@ export function prepareAgentRun(
 		secrets: Object.fromEntries(
 			Object.entries(manifest.secrets).map(([secretName, requirement]) => [
 				secretName,
-				getCredentialOwner(requirement.mode, app, identity.user),
+				getCredentialOwner(requirement.mode, app, actor.type === "user" ? actor : null),
 			]),
 		),
-		viewerId: identity.user.id,
 	}
 }
 
@@ -72,26 +78,31 @@ export async function getAgentRun(
 	db: PlatformDb,
 	artifacts: Artifacts,
 	apps: DispatchNamespace,
-	access: AppAccess,
-	issuer: string,
+	app: App,
+	actor: AgentActor,
 	input: AgentRunRequest,
+	revision = "main",
 ) {
-	const result = await readAgent(artifacts, access.app.id, input.name)
+	const result = await readAgent(artifacts, app.id, input.name, revision)
 	if (!result.allowed) return result
-	const snapshot = await getAppManifest(access.app, apps)
-	const run = prepareAgentRun(access, result.agent, snapshot.manifest, input)
-	for (const slug of Object.keys(snapshot.manifest.connections)) {
-		const resolved = await resolveAppConnection(
-			db,
-			access,
-			issuer,
-			slug as AppConnectionAssignmentSlug,
-			snapshot,
+	const snapshot = await getAppManifest(app, apps)
+	const run = prepareAgentRun(app, actor, result.agent, snapshot.manifest, input)
+	for (const [slug, requirement] of Object.entries(snapshot.manifest.connections)) {
+		const owner = getCredentialOwner(
+			requirement.mode,
+			app,
+			actor.type === "user" ? actor : null,
 		)
-		if (!resolved.allowed) return resolved
+		const assignment = await getAppConnectionAssignment(
+			db,
+			app.id,
+			owner,
+			slug as AppConnectionAssignmentSlug,
+		)
+		if (!assignment) return { allowed: false, reason: "not-found" } as const
 		run.connections[slug] = {
-			connection_id: resolved.connection_id,
-			owner: resolved.owner,
+			connection_id: assignment.connection_id,
+			owner,
 		}
 	}
 	return {
@@ -104,8 +115,20 @@ export async function startAgentRun(
 	agents: DurableObjectNamespace<AppAgent>,
 	run: AgentRun,
 ) {
-	const agent = await getAgentByName(agents, crypto.randomUUID())
-	return agent.start(run)
+	const agent = await getAgentByName(
+		agents,
+		getAgentInstanceName(run.appId, run.agent.name, run.actor),
+	)
+	return agent.start(run, "api")
+}
+
+export function getAgentInstanceName(appId: AppId, name: string, actor: AgentActor) {
+	return JSON.stringify([
+		appId,
+		name,
+		actor.type,
+		actor.type === "user" ? actor.id : null,
+	])
 }
 
 export async function getAgentJob(
@@ -113,9 +136,22 @@ export async function getAgentJob(
 	app: App,
 	name: string,
 	id: string,
+	instanceName: string,
 ) {
-	const agent = await getAgentByName(agents, id)
-	return agent.inspect(app.id, name)
+	const agent = await getAgentByName(agents, instanceName)
+	return agent.inspect(app.id, name, id)
+}
+
+export async function listAgentJobs(
+	agents: DurableObjectNamespace<AppAgent>,
+	app: App,
+	name: string,
+) {
+	const agent = await getAgentByName(
+		agents,
+		getAgentInstanceName(app.id, name, { type: "app" }),
+	)
+	return agent.listJobs(app.id, name)
 }
 
 export async function startAgentJob(
@@ -124,10 +160,16 @@ export async function startAgentJob(
 	apps: DispatchNamespace,
 	agents: DurableObjectNamespace<AppAgent>,
 	access: AppAccess,
-	issuer: string,
 	input: AgentRunRequest,
 ) {
-	const prepared = await getAgentRun(db, artifacts, apps, access, issuer, input)
+	const prepared = await getAgentRun(
+		db,
+		artifacts,
+		apps,
+		access.app,
+		{ id: access.identity.user.id, type: "user" },
+		input,
+	)
 	if (!prepared.allowed) return prepared
 	const job = await startAgentRun(agents, prepared.run)
 	return { allowed: true, job } as const

@@ -332,21 +332,19 @@ test("app ownership protects viewing, joining, listing, and native Git source ac
 			JSON.parse(await readFile(join(dir, "cloned/public/slate.json"), "utf8")),
 		)
 		const run = prepareAgentRun(
-			{
-				app,
-				identity: { credential: { token: accessToken, type: "access-token" }, user },
-			},
+			app,
+			{ id: user.id, type: "user" },
 			publishedAgent,
 			manifest,
 			agentRunRequestSchema.parse({ name: "company-brief", prompt: "Research Acme." }),
 		)
 		expect(agentRunSchema.parse(JSON.parse(JSON.stringify(run)))).toEqual({
+			actor: { id: user.id, type: "user" },
 			agent: { commit: revision, instructions, name: "company-brief" },
 			appId: app.id,
 			connections: {},
 			prompt: "Research Acme.",
 			secrets: { CLAUDE_CODE_OAUTH_TOKEN: { id: user.id, type: "user" } },
-			viewerId: user.id,
 		})
 		await writeFile(join(dir, "hello.txt"), "Updated ContextLayer\n")
 		instructions = "You research companies and write concise briefs with sources.\n"

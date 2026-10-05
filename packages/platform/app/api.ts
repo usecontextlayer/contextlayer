@@ -3,12 +3,13 @@ import { createPolarCore, webhooks } from "@polar-sh/sdk/2026-10"
 import { recordAppUsage, resolvedAppSchema } from "@usecontextlayer/shared/app-usage"
 import {
 	agentJobParamsSchema,
+	agentJobQuerySchema,
 	agentJobRequestSchema,
 	agentJobSchema,
 	agentParamsSchema,
 	agentSchema,
 } from "@/agents.schema"
-import { getAgent, getAgentJob, startAgentJob } from "@/agents.server"
+import { getAgent, getAgentJob, listAgentJobs, startAgentJob } from "@/agents.server"
 import {
 	appConnectionsRequestSchema,
 	appConnectionsSchema,
@@ -511,7 +512,6 @@ export function createApi() {
 				c.env.APPS,
 				c.env.AGENTS,
 				c.var.appAccess,
-				c.var.config.CTX_AUTH_ISSUER,
 				{ ...c.req.valid("json"), name: c.req.valid("param").name },
 			)
 			if (!result.allowed) return c.body(null, 404)
@@ -523,7 +523,7 @@ export function createApi() {
 			method: "get",
 			operationId: "getAgentJob",
 			path: "/{id}",
-			request: { params: agentJobParamsSchema },
+			request: { params: agentJobParamsSchema, query: agentJobQuerySchema },
 			responses: {
 				200: {
 					content: { "application/json": { schema: agentJobSchema } },
@@ -538,10 +538,48 @@ export function createApi() {
 		}),
 		async (c) => {
 			const { id, name } = c.req.valid("param")
-			const job = await getAgentJob(c.env.AGENTS, c.var.appAccess.app, name, id)
+			const job = await getAgentJob(
+				c.env.AGENTS,
+				c.var.appAccess.app,
+				name,
+				id,
+				c.req.valid("query").instance_name,
+			)
 			if (!job) return c.body(null, 404)
 			return c.json(job, 200)
 		},
+	)
+	jobs.openapi(
+		createRoute({
+			method: "get",
+			operationId: "listAgentJobs",
+			path: "/",
+			request: { params: agentParamsSchema },
+			responses: {
+				200: {
+					content: {
+						"application/json": { schema: z.object({ jobs: z.array(agentJobSchema) }) },
+					},
+					description: "App-scoped agent jobs, including clock-triggered executions",
+				},
+				400: { description: "Invalid app target or agent name" },
+				401: { description: "A valid ContextLayer login is required" },
+				403: { description: "App viewing is forbidden or the app is public" },
+				404: { description: "App not found" },
+			},
+			security,
+		}),
+		async (c) =>
+			c.json(
+				{
+					jobs: await listAgentJobs(
+						c.env.AGENTS,
+						c.var.appAccess.app,
+						c.req.valid("param").name,
+					),
+				},
+				200,
+			),
 	)
 	appOperations.route("/agents/:name/jobs", jobs)
 	appOperations.openapi(

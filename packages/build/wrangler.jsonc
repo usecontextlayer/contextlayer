@@ -42,6 +42,13 @@
 			"bucket_name": "contextlayer-build-backups"
 		}
 	],
+	"services": [
+		{
+			"binding": "PUBLICATION",
+			"entrypoint": "Publication",
+			"service": "contextlayer-platform"
+		}
+	],
 	"triggers": {
 		"events": [
 			{

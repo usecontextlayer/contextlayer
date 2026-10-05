@@ -22,7 +22,9 @@ export type OwnerDetails =
 export function getCredentialOwner(
 	mode: CredentialMode,
 	app: App,
-	viewer: { id: string },
+	viewer: { id: string } | null,
 ): Owner {
-	return mode === "owner" ? getAppOwner(app) : { id: viewer.id, type: "user" }
+	if (mode === "owner") return getAppOwner(app)
+	if (!viewer) throw new Error("Viewer-scoped resources require a user run actor")
+	return { id: viewer.id, type: "user" }
 }

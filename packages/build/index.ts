@@ -8,10 +8,16 @@ import {
 
 export { CiSandbox } from "@cloudflare/ci/worker"
 
-export class Build extends CIWorkflow {
+type BuildBindings = ConstructorParameters<typeof CIWorkflow>[1] & {
+	PUBLICATION: { publish(appId: string, commit: string): Promise<void> }
+}
+
+export default {} satisfies ExportedHandler<BuildBindings>
+
+export class Build extends CIWorkflow<CloudflareArtifacts, BuildBindings> {
 	protected async pipeline(
 		event: WorkflowEvent<CiParams<CloudflareArtifacts>>,
-		_step: WorkflowStep,
+		step: WorkflowStep,
 		ci: CiContext,
 	): Promise<void> {
 		const build = await ci.runner({
@@ -24,6 +30,9 @@ export class Build extends CIWorkflow {
 				'pnpm exec wrangler deploy --name "$CTX_APP_ID" --dispatch-namespace contextlayer-dev',
 			env: { CTX_APP_ID: event.payload.repo },
 			name: "deploy",
+		})
+		await step.do("publish agent schedules", async () => {
+			await this.env.PUBLICATION.publish(event.payload.repo, event.payload.sha)
 		})
 	}
 }

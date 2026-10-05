@@ -15,6 +15,7 @@ import { parsePlatformEnv } from "@/env"
 import { createGitApp } from "@/git.server"
 
 export { AppAgent } from "@/agent-runtime"
+export { Publication } from "@/publication.server"
 
 const publicDashboardPaths = ["/dashboard/chrome/apps/*", "/dashboard/__manifest"]
 

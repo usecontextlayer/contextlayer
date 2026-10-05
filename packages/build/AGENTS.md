@@ -1,6 +1,6 @@
 # Build Worker
 
-This package runs the Artifacts push-to-build pipeline on Cloudflare. Extend `CIWorkflow` from `@cloudflare/ci` and use its native runners, checkout, snapshots, and reporting. The pipeline chains an install/build runner to a deploy runner using the SDK snapshot. The deploy runner invokes Wrangler for both server code and static assets, using the repository AppID as the Worker name in the contextlayer-dev dispatch namespace. There is no ContextLayer build UI.
+This package runs the Artifacts push-to-build pipeline on Cloudflare. Extend `CIWorkflow` from `@cloudflare/ci` and use its native runners, checkout, snapshots, and reporting. The pipeline chains an install/build runner to a deploy runner using the SDK snapshot. The deploy runner invokes Wrangler for both server code and static assets, using the repository AppID as the Worker name in the contextlayer-dev dispatch namespace. After deployment succeeds, a native Workflow step calls the platform's named `Publication` WorkerEntrypoint through `PUBLICATION`, passing the repository AppID and the CI event's exact commit to register authored agent schedules. Keep this trusted native service binding separate from user-authenticated HTTP APIs. There is no ContextLayer build UI.
 
 Use Wrangler for this package’s build and deployment. This is an explicitly approved exception to the workspace’s `cf` convention because `cloudflare.config.ts` does not yet support Artifacts event triggers. Keep the trigger and resource declarations together in `wrangler.jsonc`.
 

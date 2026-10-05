@@ -3,10 +3,22 @@ import { Think, type TurnConfig } from "@cloudflare/think"
 import { ownerSchema } from "@usecontextlayer/shared/app-usage"
 import { type ToolSet, tool } from "ai"
 import { z } from "zod"
-import { type AgentJob, type AgentRun, agentRunSchema } from "@/agents.schema"
+import {
+	type AgentJob,
+	type AgentRun,
+	type AgentSchedule,
+	agentJobSchema,
+	agentRunSchema,
+	type ScheduledAgentRun,
+	scheduledAgentRunSchema,
+} from "@/agents.schema"
+import { getAgentRun } from "@/agents.server"
+import { appSchema } from "@/apps.schema"
 import { createConnectionSession } from "@/connections.server"
 import type { PlatformEnv } from "@/context"
+import { createPlatformDb } from "@/database"
 import type { AppId } from "@/database/models/public/App"
+import { parseDatabaseEnv } from "@/env"
 import { loadSharedSecret } from "@/secrets.server"
 
 export const SHARED_ARTIFACTS_REPO = "agent-shared-2026-10-05-91fc24d8"
@@ -96,7 +108,7 @@ export class AppAgent extends Think<PlatformEnv["Bindings"]> {
 		await container.setInactivityTimeout(10 * 60 * 1000)
 	}
 
-	async start(input: AgentRun): Promise<AgentJob> {
+	async start(input: AgentRun, source: AgentJob["source"]): Promise<AgentJob> {
 		const run = agentRunSchema.parse(input)
 		await this.configure(run)
 		for (const [slug, connection] of Object.entries(run.connections)) {
@@ -117,28 +129,94 @@ export class AppAgent extends Think<PlatformEnv["Bindings"]> {
 					role: "user",
 				},
 			],
-			{ submissionId: this.name },
+			{ metadata: { source }, submissionId: crypto.randomUUID() },
 		)
-		return { id: submission.submissionId, result: null, status: submission.status }
+		return {
+			id: submission.submissionId,
+			instance_name: this.name,
+			result: null,
+			source,
+			status: submission.status,
+		}
 	}
 
-	async inspect(appId: AppId, name: string): Promise<AgentJob | null> {
-		const submission = await this.inspectSubmission(this.name)
+	async registerSchedules(
+		appId: AppId,
+		name: string,
+		commit: string,
+		schedules: AgentSchedule[],
+	) {
+		for (const schedule of await this.listSchedules()) {
+			if (schedule.callback === "runScheduled") await this.cancelSchedule(schedule.id)
+		}
+		for (const schedule of schedules) {
+			await this.schedule(schedule.cron, "runScheduled", {
+				appId,
+				commit,
+				name,
+				prompt: schedule.prompt,
+				schedule: schedule.name,
+			})
+		}
+	}
+
+	async runScheduled(input: ScheduledAgentRun) {
+		const scheduled = scheduledAgentRunSchema.parse(input)
+		const config = parseDatabaseEnv(this.env)
+		const db = createPlatformDb(config.CTX_PLATFORM_DATABASE_URL)
+		try {
+			const app = appSchema.parse(
+				await db
+					.selectFrom("app")
+					.selectAll()
+					.where("id", "=", scheduled.appId)
+					.executeTakeFirstOrThrow(),
+			)
+			const prepared = await getAgentRun(
+				db,
+				this.env.ARTIFACTS,
+				this.env.APPS,
+				app,
+				{ type: "app" },
+				scheduled,
+				scheduled.commit,
+			)
+			if (!prepared.allowed)
+				throw new Error("Published scheduled agent or connection assignment not found")
+			await this.start(prepared.run, "schedule")
+		} finally {
+			await db.destroy()
+		}
+	}
+
+	async listJobs(appId: AppId, name: string): Promise<AgentJob[]> {
+		const submissions = await this.listSubmissions()
+		const jobs: AgentJob[] = []
+		for (const submission of submissions) {
+			const job = await this.inspect(appId, name, submission.submissionId)
+			if (job) jobs.push(job)
+		}
+		return jobs
+	}
+
+	async inspect(appId: AppId, name: string, id: string): Promise<AgentJob | null> {
+		const submission = await this.inspectSubmission(id)
 		if (!submission) return null
 		const run = agentRunSchema.parse(this.getConfig())
 		if (run.appId !== appId || run.agent.name !== name) return null
-		const message =
-			(await this.getMessages()).find(
-				(message) => message.id === submission?.messageId,
-			) ?? null
+		const message = submission.messageId
+			? await this.session.getMessage(submission.messageId)
+			: null
 		return {
 			error: submission.error,
 			id: submission.submissionId,
+			instance_name: this.name,
 			result:
 				message?.parts
 					.filter((part) => part.type === "text")
 					.map((part) => part.text)
 					.join("\n") ?? null,
+			source: agentJobSchema.shape.source.parse(submission.metadata?.source),
 			status: submission.status,
 		}
 	}

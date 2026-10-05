@@ -16,13 +16,8 @@ test.each([
 		visibility: "public",
 	})
 	const run = prepareAgentRun(
-		{
-			app,
-			identity: {
-				credential: { token: "caller-token", type: "access-token" },
-				user: { id: "bob" },
-			},
-		},
+		app,
+		{ id: "bob", type: "user" },
 		{ commit: "published-revision", instructions: "Return a company brief.\n" },
 		slateSchema.parse({
 			connections: {},
@@ -34,6 +29,7 @@ test.each([
 		agentRunRequestSchema.parse({ name: "brief", prompt: "Research Acme." }),
 	)
 	expect(run).toEqual({
+		actor: { id: "bob", type: "user" },
 		agent: {
 			commit: "published-revision",
 			instructions: "Return a company brief.\n",
@@ -46,7 +42,20 @@ test.each([
 			CLAUDE_CODE_OAUTH_TOKEN: owner,
 			PERSONAL_API_KEY: { id: "bob", type: "user" },
 		},
-		viewerId: "bob",
 	})
 	expect(agentRunSchema.parse(JSON.parse(JSON.stringify(run)))).toEqual(run)
+	const unattended = prepareAgentRun(
+		app,
+		{ type: "app" },
+		{ commit: "published-revision", instructions: "Return a company brief.\n" },
+		slateSchema.parse({
+			connections: {},
+			secrets: { ANTHROPIC_API_KEY: { mode: "owner" } },
+		}),
+		{ name: "brief", prompt: "Scheduled research." },
+	)
+	expect(unattended.actor).toEqual({ type: "app" })
+	expect(unattended.secrets).toEqual({ ANTHROPIC_API_KEY: owner })
+	expect(unattended.prompt).toBe("Scheduled research.")
+	expect(agentRunSchema.parse(JSON.parse(JSON.stringify(unattended)))).toEqual(unattended)
 })
