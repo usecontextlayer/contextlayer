@@ -53,7 +53,6 @@ export const agentScheduleSchema = z.object({
 
 export const scheduledAgentRunSchema = agentRunRequestSchema.extend({
 	appId: appSchema.shape.id,
-	commit: z.string().regex(/^[a-f0-9]{40}$/),
 	schedule: agentScheduleSchema.shape.name,
 })
 

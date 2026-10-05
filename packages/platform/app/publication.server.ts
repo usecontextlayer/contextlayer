@@ -1,9 +1,10 @@
 import { WorkerEntrypoint } from "cloudflare:workers"
 import { getAgentByName } from "agents/routing"
 import { parseSkillFrontmatter } from "agents/skills"
-import { z } from "zod"
+import type { z } from "zod"
 import { agentScheduleSchema } from "@/agents.schema"
 import { getAgentInstanceName } from "@/agents.server"
+import { readAppDeclarations } from "@/app-declarations.server"
 import { appSchema } from "@/apps.schema"
 import type { PlatformEnv } from "@/context"
 import { createPlatformDb } from "@/database"
@@ -13,18 +14,10 @@ export async function publishAgentSchedules(
 	artifacts: Artifacts,
 	agents: PlatformEnv["Bindings"]["AGENTS"],
 	appId: z.infer<typeof appSchema>["id"],
-	revision: string,
 ) {
+	const snapshot = await readAppDeclarations(artifacts, appId)
 	using repo = await artifacts.get(appId)
-	const commit = await repo.readCommit(revision)
-	if (!commit) throw new Error("Published app commit not found")
-	const root = (await repo.readTree(commit.treeHash)) as ArtifactsTreeEntry[]
-	const agentsDirectory = root.find(
-		(entry) => entry.name === "agents" && entry.type === "tree",
-	)
-	if (!agentsDirectory) return
-	const definitions = (await repo.readTree(agentsDirectory.hash)) as ArtifactsTreeEntry[]
-	for (const definition of definitions.filter((entry) => entry.type === "tree")) {
+	for (const definition of snapshot.agentTrees) {
 		const files = (await repo.readTree(definition.hash)) as ArtifactsTreeEntry[]
 		if (!files.some((entry) => entry.name === "instructions.md" && entry.type === "blob"))
 			continue
@@ -52,17 +45,13 @@ export async function publishAgentSchedules(
 			agents,
 			getAgentInstanceName(appId, definition.name, { type: "app" }),
 		)
-		await instance.registerSchedules(appId, definition.name, revision, schedules)
+		await instance.registerSchedules(appId, definition.name, schedules)
 	}
 }
 
 export class Publication extends WorkerEntrypoint<PlatformEnv["Bindings"]> {
-	async publish(appId: string, commit: string) {
+	async publish(appId: string) {
 		const id = appSchema.shape.id.parse(appId)
-		const revision = z
-			.string()
-			.regex(/^[a-f0-9]{40}$/)
-			.parse(commit)
 		const config = parseDatabaseEnv(this.env)
 		const db = createPlatformDb(config.CTX_PLATFORM_DATABASE_URL)
 		try {
@@ -71,7 +60,7 @@ export class Publication extends WorkerEntrypoint<PlatformEnv["Bindings"]> {
 				.select("id")
 				.where("id", "=", id)
 				.executeTakeFirstOrThrow()
-			await publishAgentSchedules(this.env.ARTIFACTS, this.env.AGENTS, id, revision)
+			await publishAgentSchedules(this.env.ARTIFACTS, this.env.AGENTS, id)
 		} finally {
 			await db.destroy()
 		}

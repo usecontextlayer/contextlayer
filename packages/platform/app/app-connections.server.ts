@@ -1,5 +1,7 @@
+import { resourcesForConsumer } from "@usecontextlayer/shared/slate"
 import type { z } from "zod"
 import type { assignmentSchema } from "@/app-connections.schema"
+import type { ResourcesSnapshot } from "@/app-resources.server"
 import type { App } from "@/apps.schema"
 import { type AppAccess, authorizeAppManagement } from "@/apps.server"
 import { listOrganizations } from "@/auth.server"
@@ -9,7 +11,6 @@ import type {
 	AppConnectionAssignmentOwnerType,
 	AppConnectionAssignmentSlug,
 } from "@/database/models/public/AppConnectionAssignment"
-import type { ManifestSnapshot } from "@/manifest.server"
 import { getAppOwner, getCredentialOwner, type Owner } from "@/owner"
 
 function assignmentOwner(owner: Owner) {
@@ -24,9 +25,11 @@ async function resolveConnectionRequirement(
 	issuer: string,
 	slug: string,
 	operation: "configure" | "execute",
-	{ manifest, source }: ManifestSnapshot,
+	{ resources, source }: ResourcesSnapshot,
 ) {
-	const requirement = manifest.connections[slug]
+	const requirements =
+		operation === "execute" ? resourcesForConsumer(resources, { type: "app" }) : resources
+	const requirement = requirements.connections[slug]
 	if (!requirement) return { allowed: false, reason: "not-found" } as const
 	// Only app managers may substitute authored requirements or configure owner accounts.
 	if (source === "local" || (operation === "configure" && requirement.mode === "owner")) {
@@ -56,7 +59,7 @@ export async function assignAppConnection(
 	access: AppAccess,
 	issuer: string,
 	assignment: z.infer<typeof assignmentSchema>,
-	snapshot: ManifestSnapshot,
+	snapshot: ResourcesSnapshot,
 ) {
 	const resolved = await resolveConnectionRequirement(
 		access,
@@ -84,7 +87,7 @@ export async function resolveAppConnection(
 	access: AppAccess,
 	issuer: string,
 	slug: AppConnectionAssignmentSlug,
-	snapshot: ManifestSnapshot,
+	snapshot: ResourcesSnapshot,
 ) {
 	const resolved = await resolveConnectionRequirement(
 		access,
@@ -129,7 +132,7 @@ export function getAppConnectionAssignment(
 export async function listAppConnections(
 	db: PlatformDb,
 	access: AppAccess,
-	{ manifest }: ManifestSnapshot,
+	{ resources }: ResourcesSnapshot,
 ) {
 	const owners = [
 		getAppOwner(access.app),
@@ -153,13 +156,18 @@ export async function listAppConnections(
 		.execute()
 	return {
 		app: access.app,
-		connections: Object.entries(manifest.connections).map(([slug, requirement]) => {
+		connections: Object.entries(resources.connections).map(([slug, requirement]) => {
 			const owner = getCredentialOwner(requirement.mode, access.app, access.identity.user)
 			const assignment = rows.find(
 				(row) =>
 					row.slug === slug && row.owner_type === owner.type && row.owner_id === owner.id,
 			)
-			return { slug, ...requirement, connection_id: assignment?.connection_id ?? null }
+			return {
+				connection_id: assignment?.connection_id ?? null,
+				mode: requirement.mode,
+				slug,
+				toolkit: requirement.toolkit,
+			}
 		}),
 	}
 }

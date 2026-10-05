@@ -1,4 +1,8 @@
-import { slateSchema } from "@usecontextlayer/shared/slate"
+import {
+	appSlatesSchema,
+	collectAppResources,
+	resourcesForConsumer,
+} from "@usecontextlayer/shared/slate"
 import { expect, test } from "vitest"
 import { agentRunRequestSchema, agentRunSchema } from "@/agents.schema"
 import { prepareAgentRun } from "@/agents.server"
@@ -19,13 +23,23 @@ test.each([
 		app,
 		{ id: "bob", type: "user" },
 		{ commit: "published-revision", instructions: "Return a company brief.\n" },
-		slateSchema.parse({
-			connections: {},
-			secrets: {
-				CLAUDE_CODE_OAUTH_TOKEN: { mode: "owner" },
-				PERSONAL_API_KEY: { mode: "viewer" },
-			},
-		}),
+		resourcesForConsumer(
+			collectAppResources(
+				appSlatesSchema.parse({
+					agents: {
+						brief: {
+							connections: {},
+							secrets: {
+								CLAUDE_CODE_OAUTH_TOKEN: { mode: "owner" },
+								PERSONAL_API_KEY: { mode: "viewer" },
+							},
+						},
+					},
+					app: { connections: {} },
+				}),
+			),
+			{ name: "brief", type: "agent" },
+		),
 		agentRunRequestSchema.parse({ name: "brief", prompt: "Research Acme." }),
 	)
 	expect(run).toEqual({
@@ -48,10 +62,17 @@ test.each([
 		app,
 		{ type: "app" },
 		{ commit: "published-revision", instructions: "Return a company brief.\n" },
-		slateSchema.parse({
-			connections: {},
-			secrets: { ANTHROPIC_API_KEY: { mode: "owner" } },
-		}),
+		resourcesForConsumer(
+			collectAppResources(
+				appSlatesSchema.parse({
+					agents: {
+						brief: { connections: {}, secrets: { ANTHROPIC_API_KEY: { mode: "owner" } } },
+					},
+					app: { connections: {} },
+				}),
+			),
+			{ name: "brief", type: "agent" },
+		),
 		{ name: "brief", prompt: "Scheduled research." },
 	)
 	expect(unattended.actor).toEqual({ type: "app" })

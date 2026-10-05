@@ -141,19 +141,13 @@ export class AppAgent extends Think<PlatformEnv["Bindings"]> {
 		}
 	}
 
-	async registerSchedules(
-		appId: AppId,
-		name: string,
-		commit: string,
-		schedules: AgentSchedule[],
-	) {
+	async registerSchedules(appId: AppId, name: string, schedules: AgentSchedule[]) {
 		for (const schedule of await this.listSchedules()) {
 			if (schedule.callback === "runScheduled") await this.cancelSchedule(schedule.id)
 		}
 		for (const schedule of schedules) {
 			await this.schedule(schedule.cron, "runScheduled", {
 				appId,
-				commit,
 				name,
 				prompt: schedule.prompt,
 				schedule: schedule.name,
@@ -176,11 +170,9 @@ export class AppAgent extends Think<PlatformEnv["Bindings"]> {
 			const prepared = await getAgentRun(
 				db,
 				this.env.ARTIFACTS,
-				this.env.APPS,
 				app,
 				{ type: "app" },
 				scheduled,
-				scheduled.commit,
 			)
 			if (!prepared.allowed)
 				throw new Error("Published scheduled agent or connection assignment not found")

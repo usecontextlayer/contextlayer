@@ -19,6 +19,7 @@ import {
 import { assignAppConnection, listAppConnections } from "@/app-connections.server"
 import { appMemberSchema } from "@/app-members.schema"
 import { joinApp } from "@/app-members.server"
+import { getAppResources } from "@/app-resources.server"
 import {
 	type AuthenticatedViewingEnv,
 	requireAppViewing,
@@ -50,7 +51,6 @@ import {
 	connectionsSchema,
 } from "@/connections.schema"
 import { authorizeConnection, listConnections } from "@/connections.server"
-import { getAppManifest } from "@/manifest.server"
 import { getAppOwner } from "@/owner"
 import { ownerParamsSchema } from "@/owner.schema"
 import {
@@ -164,7 +164,11 @@ export function createApi() {
 		}),
 		async (c) => {
 			const { manifest, ...call } = c.req.valid("json")
-			const snapshot = await getAppManifest(c.var.appAccess.app, c.env.APPS, manifest)
+			const snapshot = await getAppResources(
+				c.var.appAccess.app,
+				c.env.ARTIFACTS,
+				manifest,
+			)
 			const result = await callTool(
 				c.var.db,
 				c.var.config.COMPOSIO_API_KEY,
@@ -509,7 +513,6 @@ export function createApi() {
 			const result = await startAgentJob(
 				c.var.db,
 				c.env.ARTIFACTS,
-				c.env.APPS,
 				c.env.AGENTS,
 				c.var.appAccess,
 				{ ...c.req.valid("json"), name: c.req.valid("param").name },
@@ -646,9 +649,9 @@ export function createApi() {
 			security,
 		}),
 		async (c) => {
-			const snapshot = await getAppManifest(
+			const snapshot = await getAppResources(
 				c.var.appAccess.app,
-				c.env.APPS,
+				c.env.ARTIFACTS,
 				c.req.valid("json").manifest,
 			)
 			const result = await listAppConnections(c.var.db, c.var.appAccess, snapshot)
@@ -682,7 +685,11 @@ export function createApi() {
 		}),
 		async (c) => {
 			const { manifest, ...assignment } = c.req.valid("json")
-			const snapshot = await getAppManifest(c.var.appAccess.app, c.env.APPS, manifest)
+			const snapshot = await getAppResources(
+				c.var.appAccess.app,
+				c.env.ARTIFACTS,
+				manifest,
+			)
 			const result = await assignAppConnection(
 				c.var.db,
 				c.var.appAccess,

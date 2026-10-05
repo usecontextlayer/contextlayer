@@ -12,6 +12,7 @@ import { data, Form, useFetcher } from "react-router"
 import { z } from "zod"
 import { assignmentSchema } from "@/app-connections.schema"
 import { assignAppConnection, listAppConnections } from "@/app-connections.server"
+import { getAppResources } from "@/app-resources.server"
 import { appTargetSchema } from "@/apps.schema"
 import { resolveAppForViewing } from "@/apps.server"
 import { type AuthIdentity, getCurrentUser } from "@/auth.server"
@@ -41,8 +42,12 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { CONNECTION_MODE_LABELS } from "@/connection-labels"
 import { authorizeConnection, listConnections, listToolkits } from "@/connections.server"
-import { appsContext, configContext, databaseContext, identityContext } from "@/context"
-import { getAppManifest } from "@/manifest.server"
+import {
+	artifactsContext,
+	configContext,
+	databaseContext,
+	identityContext,
+} from "@/context"
 import { getCredentialOwner } from "@/owner"
 import type { Route } from "@/routes/+types/chrome"
 
@@ -72,9 +77,9 @@ async function getChromeApp(
 	const localManifest = manifestInput
 		? slateSchema.parse(JSON.parse(manifestInput))
 		: undefined
-	const snapshot = await getAppManifest(
+	const snapshot = await getAppResources(
 		access.app,
-		context.get(appsContext),
+		context.get(artifactsContext),
 		localManifest,
 	)
 	return { access: { app: access.app, identity }, snapshot }
@@ -87,7 +92,7 @@ export async function action({ request, params, context }: Route.ActionArgs) {
 	if (!input.success) throw new Response("Invalid connection action", { status: 400 })
 	const { access, snapshot } = await getChromeApp({ context, params, request }, identity)
 	if (input.data.intent === "connect") {
-		const requirement = snapshot.manifest.connections[input.data.slug]
+		const requirement = snapshot.resources.connections[input.data.slug]
 		if (!requirement) throw new Response(null, { status: 404 })
 		const result = await authorizeConnection(
 			context.get(configContext),

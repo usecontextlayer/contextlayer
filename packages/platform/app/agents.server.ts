@@ -1,16 +1,16 @@
-import type { Slate } from "@usecontextlayer/shared/slate"
+import { type Resources, resourcesForConsumer } from "@usecontextlayer/shared/slate"
 import { getAgentByName } from "agents/routing"
 import type { z } from "zod"
 import type { AppAgent } from "@/agent-runtime"
 import type { AgentActor, AgentRun, AgentRunRequest, agentSchema } from "@/agents.schema"
 import { getAppConnectionAssignment } from "@/app-connections.server"
+import { readAppDeclarations } from "@/app-declarations.server"
 import type { App } from "@/apps.schema"
 import { type AppAccess, authorizeAppManagement } from "@/apps.server"
 import { listOrganizations } from "@/auth.server"
 import type { PlatformDb } from "@/database"
 import type { AppId } from "@/database/models/public/App"
 import type { AppConnectionAssignmentSlug } from "@/database/models/public/AppConnectionAssignment"
-import { getAppManifest } from "@/manifest.server"
 import { getCredentialOwner } from "@/owner"
 
 export async function getAgent(
@@ -56,7 +56,7 @@ export function prepareAgentRun(
 	app: App,
 	actor: AgentActor,
 	agent: z.infer<typeof agentSchema>,
-	manifest: Slate,
+	resources: Resources,
 	{ name, prompt }: AgentRunRequest,
 ): AgentRun {
 	return {
@@ -66,7 +66,7 @@ export function prepareAgentRun(
 		connections: {},
 		prompt,
 		secrets: Object.fromEntries(
-			Object.entries(manifest.secrets).map(([secretName, requirement]) => [
+			Object.entries(resources.secrets).map(([secretName, requirement]) => [
 				secretName,
 				getCredentialOwner(requirement.mode, app, actor.type === "user" ? actor : null),
 			]),
@@ -77,17 +77,19 @@ export function prepareAgentRun(
 export async function getAgentRun(
 	db: PlatformDb,
 	artifacts: Artifacts,
-	apps: DispatchNamespace,
 	app: App,
 	actor: AgentActor,
 	input: AgentRunRequest,
-	revision = "main",
 ) {
-	const result = await readAgent(artifacts, app.id, input.name, revision)
+	const snapshot = await readAppDeclarations(artifacts, app.id)
+	const result = await readAgent(artifacts, app.id, input.name, snapshot.commit)
 	if (!result.allowed) return result
-	const snapshot = await getAppManifest(app, apps)
-	const run = prepareAgentRun(app, actor, result.agent, snapshot.manifest, input)
-	for (const [slug, requirement] of Object.entries(snapshot.manifest.connections)) {
+	const resources = resourcesForConsumer(snapshot.resources, {
+		name: input.name,
+		type: "agent",
+	})
+	const run = prepareAgentRun(app, actor, result.agent, resources, input)
+	for (const [slug, requirement] of Object.entries(resources.connections)) {
 		const owner = getCredentialOwner(
 			requirement.mode,
 			app,
@@ -158,7 +160,6 @@ export async function listAgentJobs(
 export async function startAgentJob(
 	db: PlatformDb,
 	artifacts: Artifacts,
-	apps: DispatchNamespace,
 	agents: DurableObjectNamespace<AppAgent>,
 	access: AppAccess,
 	input: AgentRunRequest,
@@ -166,7 +167,6 @@ export async function startAgentJob(
 	const prepared = await getAgentRun(
 		db,
 		artifacts,
-		apps,
 		access.app,
 		{ id: access.identity.user.id, type: "user" },
 		input,

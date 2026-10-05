@@ -1,7 +1,12 @@
 import { join } from "node:path"
 import { assertMigrationSucceeded, createMigrator } from "@usecontextlayer/db-infra"
 import { provisionEphemeralDatabases } from "@usecontextlayer/db-infra/ephemeral"
-import { slateSchema } from "@usecontextlayer/shared/slate"
+import { appConnectionsSchema } from "@usecontextlayer/shared/app-connections"
+import {
+	appSlatesSchema,
+	collectAppResources,
+	slateSchema,
+} from "@usecontextlayer/shared/slate"
 import { sql } from "kysely"
 import { expect, test } from "vitest"
 import { assignmentSchema } from "@/app-connections.schema"
@@ -10,10 +15,10 @@ import {
 	listAppConnections,
 	resolveAppConnection,
 } from "@/app-connections.server"
+import type { ResourcesSnapshot } from "@/app-resources.server"
 import { appSchema } from "@/apps.schema"
 import { createPlatformDb } from "@/database"
 import { migrateToLatest } from "@/database/migrate"
-import type { ManifestSnapshot } from "@/manifest.server"
 import { getCredentialOwner } from "@/owner"
 
 test("existing viewer assignments survive the Owner migration", async () => {
@@ -54,6 +59,102 @@ test("existing viewer assignments survive the Owner migration", async () => {
 	}
 })
 
+test("configuration includes agent-only connections while app execution uses its own resources", async () => {
+	const databases = await provisionEphemeralDatabases({
+		migrators: { ctx_connection_consumers: migrateToLatest },
+	})
+	const db = createPlatformDb(databases.urls.ctx_connection_consumers)
+	const resources = collectAppResources(
+		appSlatesSchema.parse({
+			agents: {
+				"daily-summary": {
+					connections: {
+						mail: { mode: "viewer", toolkit: "gmail" },
+						repository: { mode: "owner", toolkit: "github" },
+					},
+				},
+			},
+			app: { connections: { mail: { mode: "viewer", toolkit: "gmail" } } },
+		}),
+	)
+	const snapshot = {
+		commit: "0123456789012345678901234567890123456789",
+		resources,
+		source: "repository",
+	} satisfies ResourcesSnapshot
+	const alice = {
+		credential: { token: "unused-for-personal-app", type: "access-token" },
+		user: { id: "alice" },
+	} as const
+	try {
+		const app = appSchema.parse(
+			await db
+				.insertInto("app")
+				.values({
+					owner_organization_id: null,
+					owner_user_id: "alice",
+					public_hostname: "consumers.example.com",
+					visibility: "public",
+				})
+				.returningAll()
+				.executeTakeFirstOrThrow(),
+		)
+		const access = { app, identity: alice }
+		for (const slug of ["mail", "repository"]) {
+			expect(
+				await assignAppConnection(
+					db,
+					access,
+					"https://auth.example.com",
+					assignmentSchema.parse({ connection_id: `alice-${slug}`, slug }),
+					snapshot,
+				),
+			).toEqual({ allowed: true, assignment: { connection_id: `alice-${slug}`, slug } })
+		}
+		const listed = await listAppConnections(db, access, snapshot)
+		expect(listed.connections).toEqual([
+			{ connection_id: "alice-mail", mode: "viewer", slug: "mail", toolkit: "gmail" },
+			{
+				connection_id: "alice-repository",
+				mode: "owner",
+				slug: "repository",
+				toolkit: "github",
+			},
+		])
+		expect(appConnectionsSchema.parse(listed).connections).toEqual(listed.connections)
+		expect(
+			await resolveAppConnection(
+				db,
+				access,
+				"https://auth.example.com",
+				assignmentSchema.shape.slug.parse("mail"),
+				snapshot,
+			),
+		).toEqual({
+			allowed: true,
+			connection_id: "alice-mail",
+			owner: { id: "alice", type: "user" },
+			requirement: {
+				consumers: [{ type: "app" }, { name: "daily-summary", type: "agent" }],
+				mode: "viewer",
+				toolkit: "gmail",
+			},
+		})
+		expect(
+			await resolveAppConnection(
+				db,
+				access,
+				"https://auth.example.com",
+				assignmentSchema.shape.slug.parse("repository"),
+				snapshot,
+			),
+		).toEqual({ allowed: false, reason: "not-found" })
+	} finally {
+		await db.destroy()
+		await databases.dropAll()
+	}
+})
+
 test("manifest modes select viewer and app Owner assignments through the production operations", async () => {
 	const databases = await provisionEphemeralDatabases({
 		migrators: { ctx_connection_modes: migrateToLatest },
@@ -69,7 +170,8 @@ test("manifest modes select viewer and app Owner assignments through the product
 			PERSONAL_API_KEY: { mode: "viewer" },
 		},
 	})
-	const snapshot = { manifest, source: "local" } satisfies ManifestSnapshot
+	const resources = collectAppResources({ agents: {}, app: manifest })
+	const snapshot = { resources, source: "local" } satisfies ResourcesSnapshot
 	const alice = {
 		credential: { token: "unused-for-local-personal-app", type: "access-token" },
 		user: { id: "alice" },
@@ -130,7 +232,7 @@ test("manifest modes select viewer and app Owner assignments through the product
 			allowed: true,
 			connection_id: "alice-company",
 			owner: { id: "alice", type: "user" },
-			requirement: { mode: "owner", toolkit: "gmail" },
+			requirement: { consumers: [{ type: "app" }], mode: "owner", toolkit: "gmail" },
 		})
 		expect(
 			await assignAppConnection(
@@ -139,6 +241,46 @@ test("manifest modes select viewer and app Owner assignments through the product
 				"https://auth.example.com",
 				assignmentSchema.parse({ connection_id: "replacement", slug: "company" }),
 				snapshot,
+			),
+		).toEqual({ allowed: false, reason: "forbidden" })
+		const repositorySnapshot = {
+			commit: "0123456789012345678901234567890123456789",
+			resources,
+			source: "repository",
+		} satisfies ResourcesSnapshot
+		expect(
+			await assignAppConnection(
+				db,
+				{ app, identity: bob },
+				"https://auth.example.com",
+				assignmentSchema.parse({ connection_id: "bob-personal", slug: "personal" }),
+				repositorySnapshot,
+			),
+		).toEqual({
+			allowed: true,
+			assignment: { connection_id: "bob-personal", slug: "personal" },
+		})
+		expect(
+			await resolveAppConnection(
+				db,
+				{ app, identity: bob },
+				"https://auth.example.com",
+				assignmentSchema.shape.slug.parse("company"),
+				repositorySnapshot,
+			),
+		).toEqual({
+			allowed: true,
+			connection_id: "alice-company",
+			owner: { id: "alice", type: "user" },
+			requirement: { consumers: [{ type: "app" }], mode: "owner", toolkit: "gmail" },
+		})
+		expect(
+			await assignAppConnection(
+				db,
+				{ app, identity: bob },
+				"https://auth.example.com",
+				assignmentSchema.parse({ connection_id: "replacement", slug: "company" }),
+				repositorySnapshot,
 			),
 		).toEqual({ allowed: false, reason: "forbidden" })
 		expect(

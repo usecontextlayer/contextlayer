@@ -4,7 +4,11 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { promisify } from "node:util"
 import { provisionEphemeralDatabases } from "@usecontextlayer/db-infra/ephemeral"
-import { slateSchema } from "@usecontextlayer/shared/slate"
+import {
+	collectAppResources,
+	resourcesForConsumer,
+	slateSchema,
+} from "@usecontextlayer/shared/slate"
 import { expect, test } from "vitest"
 import { z } from "zod"
 import { agentRunRequestSchema, agentRunSchema, agentSchema } from "@/agents.schema"
@@ -282,6 +286,13 @@ test("app ownership protects viewing, joining, listing, and native Git source ac
 				secrets: { CLAUDE_CODE_OAUTH_TOKEN: { mode: "owner" } },
 			}),
 		)
+		await writeFile(
+			join(dir, "agents/company-brief/slate.json"),
+			JSON.stringify({
+				connections: {},
+				secrets: { CLAUDE_CODE_OAUTH_TOKEN: { mode: "owner" } },
+			}),
+		)
 		await git("add", "README.md", "hello.txt", "agents", "public/slate.json")
 		await git("-c", "commit.gpgsign=false", "commit", "-m", "First app")
 		const revision = await git("rev-parse", "HEAD")
@@ -328,14 +339,26 @@ test("app ownership protects viewing, joining, listing, and native Git source ac
 			"Hello ContextLayer\n",
 		)
 		expect(await readFile(join(dir, "cloned", "README.md"), "utf8")).toBe("# My app\n")
-		const manifest = slateSchema.parse(
-			JSON.parse(await readFile(join(dir, "cloned/public/slate.json"), "utf8")),
+		const resources = resourcesForConsumer(
+			collectAppResources({
+				agents: {
+					"company-brief": slateSchema.parse(
+						JSON.parse(
+							await readFile(join(dir, "cloned/agents/company-brief/slate.json"), "utf8"),
+						),
+					),
+				},
+				app: slateSchema.parse(
+					JSON.parse(await readFile(join(dir, "cloned/public/slate.json"), "utf8")),
+				),
+			}),
+			{ name: "company-brief", type: "agent" },
 		)
 		const run = prepareAgentRun(
 			app,
 			{ id: user.id, type: "user" },
 			publishedAgent,
-			manifest,
+			resources,
 			agentRunRequestSchema.parse({ name: "company-brief", prompt: "Research Acme." }),
 		)
 		expect(agentRunSchema.parse(JSON.parse(JSON.stringify(run)))).toEqual({

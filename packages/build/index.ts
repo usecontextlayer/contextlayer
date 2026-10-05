@@ -9,7 +9,7 @@ import {
 export { CiSandbox } from "@cloudflare/ci/worker"
 
 type BuildBindings = ConstructorParameters<typeof CIWorkflow>[1] & {
-	PUBLICATION: { publish(appId: string, commit: string): Promise<void> }
+	PUBLICATION: { publish(appId: string): Promise<void> }
 }
 
 export default {} satisfies ExportedHandler<BuildBindings>
@@ -32,7 +32,7 @@ export class Build extends CIWorkflow<CloudflareArtifacts, BuildBindings> {
 			name: "deploy",
 		})
 		await step.do("publish agent schedules", async () => {
-			await this.env.PUBLICATION.publish(event.payload.repo, event.payload.sha)
+			await this.env.PUBLICATION.publish(event.payload.repo)
 		})
 	}
 }
