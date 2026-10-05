@@ -113,6 +113,26 @@
 					}
 				}
 			}
+		},
+		{
+			"includes": ["packages/cli/template/app/**/*.tsx"],
+			"linter": {
+				"rules": {
+					"style": {
+						"noRestrictedImports": {
+							"level": "warn",
+							"options": {
+								"patterns": [
+									{
+										"group": ["./**", "../**", ".", "..", "!./+types", "!./+types/**"],
+										"message": "Use the app's ~/ alias; relative imports are reserved for React Router's generated +types."
+									}
+								]
+							}
+						}
+					}
+				}
+			}
 		}
 	],
 	"vcs": {

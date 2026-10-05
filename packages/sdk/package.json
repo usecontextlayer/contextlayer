@@ -1,6 +1,13 @@
 {
 	"dependencies": {
+		"@base-ui/react": "^1.8.0",
+		"@fontsource/fugaz-one": "^5.3.0",
 		"@usecontextlayer/cli": "workspace:*",
+		"class-variance-authority": "^0.7.1",
+		"cn": "^0.4.0",
+		"shadcn": "^4.21.1",
+		"tailwindcss": "^4.3.3",
+		"tw-animate-css": "^1.4.0",
 		"zod": "^4.4.3"
 	},
 	"devDependencies": {
@@ -8,6 +15,9 @@
 		"@cloudflare/workers-types": "^5.20261001.1",
 		"@types/node": "^24.13.3",
 		"@types/react": "^19.0.0",
+		"@types/react-dom": "^19.0.0",
+		"react": "^19.3.0",
+		"react-dom": "^19.3.0",
 		"react-router": "^8.4.0",
 		"tsdown": "latest",
 		"typescript": "latest",
@@ -22,6 +32,11 @@
 			"import": "./dist/local.js",
 			"types": "./dist/local.d.ts"
 		},
+		"./react": {
+			"import": "./dist/react.js",
+			"types": "./dist/react.d.ts"
+		},
+		"./styles.css": "./styles.css",
 		"./vite": {
 			"import": "./dist/vite.js",
 			"types": "./dist/vite.d.ts"
@@ -33,11 +48,14 @@
 	},
 	"files": [
 		"dist",
-		"examples"
+		"examples",
+		"styles.css"
 	],
 	"name": "@usecontextlayer/sdk",
 	"peerDependencies": {
 		"@cloudflare/vite-plugin": "^1.62.4",
+		"react": "^19.0.0",
+		"react-dom": "^19.0.0",
 		"react-router": "^8.4.0",
 		"vite": "^8.3.2"
 	},

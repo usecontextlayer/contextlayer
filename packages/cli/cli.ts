@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-import { cp } from "node:fs/promises"
+import { cp, readFile, writeFile } from "node:fs/promises"
+import { join } from "node:path"
 import { Argument, Command } from "commander"
 import { execa } from "execa"
 import { z } from "zod"
@@ -21,7 +22,7 @@ const program = new Command().name("ctx").description("ContextLayer CLI").versio
 program
 	.command("init <directory>")
 	.description(
-		"Create a Cloudflare React Router project, register an app owned by you or an organization (ctx login), and set its immutable Git remote",
+		"Create a Cloudflare React Router project with Tailwind and shadcn Base UI, register an app owned by you or an organization (ctx login), and set its immutable Git remote",
 	)
 	.option("--org <slug>", "Create the app under an organization you belong to")
 	.action(async (directory: string, options: { org?: string }) => {
@@ -49,6 +50,31 @@ program
 		)
 		process.exitCode = result.exitCode
 		if (result.exitCode !== 0) return
+
+		const tsconfigPath = join(directory, "tsconfig.json")
+		const tsconfig = z
+			.looseObject({ compilerOptions: z.record(z.string(), z.unknown()) })
+			.parse(JSON.parse(await readFile(tsconfigPath, "utf8")))
+		tsconfig.compilerOptions.paths = { "~/*": ["./app/*"] }
+		await writeFile(tsconfigPath, `${JSON.stringify(tsconfig, null, 2)}\n`)
+
+		const ui = await execa(
+			"pnpm",
+			[
+				"dlx",
+				"shadcn@latest",
+				"init",
+				"--preset",
+				"nova",
+				"--base",
+				"base",
+				"--yes",
+				"--no-monorepo",
+			],
+			{ cwd: directory, reject: false, stdio: "inherit" },
+		)
+		process.exitCode = ui.exitCode
+		if (ui.exitCode !== 0) return
 
 		await cp(new URL("./template/", import.meta.url), directory, { recursive: true })
 		const configure = await execa(

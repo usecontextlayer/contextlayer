@@ -3,7 +3,7 @@
 The repository contains nine packages; `@usecontextlayer/cli` and `@usecontextlayer/sdk` are public and the others are private:
 
 - `cli` — Published as `@usecontextlayer/cli`; Commander-based `ctx` executable, bundled with tsdown; its version comes from its package manifest, and `init` delegates project creation to the official `create-cloudflare@latest` React Router scaffold.
-- `sdk` — Public `@usecontextlayer/sdk` integration: Tools interface and React Router context, app request handling, local Tools Worker, and Vite integration. Subpath exports keep Vite/Node imports separate from Worker runtime imports.
+- `sdk` — Public `@usecontextlayer/sdk` integration: shared React Router document Layout, Tools interface and React Router context, app request handling, local Tools Worker, and Vite integration. Subpath exports keep React UI, Vite/Node imports, and Worker runtime imports separate.
 - `db-infra` — Postgres/Kysely connections, migrations, and ephemeral database helpers.
 - `shared` — Authentication, token handling, test helpers, and Sentry event capping.
 - `twilio` — Twilio Functions for founder call routing and answer screening.
@@ -74,6 +74,12 @@ The deployment runner restores the successful build workspace and invokes Wrangl
 The platform is deployed at `https://slate.usecontextlayer.com` with Neon Postgres configured through Doppler `platform/prod`. The dispatcher’s `CTX_PLATFORM_URL` points to that address; it no longer depends on a local server or tunnel. Existing local app records were intentionally not migrated. Wrangler builds and deploys the Workers.
 
 ## App tool calls and local development — agreed contract
+
+### User-app Layout
+
+The CLI template's `app/root.tsx` re-exports `Layout` from `@usecontextlayer/sdk/react`. This package-owned React Router root Layout renders the HTML document, native metadata/links/scripts/scroll restoration, ContextLayer chrome, and the authored root component or error boundary as its children. The app retains its routes, root component, error boundary, stylesheet, and font links. The thin, full-width header expands an inline settings panel, moving the app content down. One shadcn Base UI Collapsible owns the header trigger, open state, accessibility, and panel lifecycle. Header and panel render into one native ShadowRoot through a React portal after hydration, preserving the surrounding React context. Vite's native `?inline` import processes the SDK stylesheet without injecting it into the authored page; the panel remains inside that ShadowRoot in normal document flow. The app has independent Tailwind and shadcn base-nova defaults. The lowercase wordmark uses the existing Fugaz One font through the native browser Font Loading API. Browser connection selection is not implemented yet.
+
+Chrome is compiled into both server and browser bundles through normal framework imports. No dispatcher HTML injection or build-time enforcement is used. Authors can remove the Layout, losing the account-selection UI when that capability is implemented; saved assignments remain platform data. The selected next dataflow extends the existing request-scoped Cloudflare RPC pattern for connection operations, with credentials kept outside authored code; that extension is not part of the initial Layout slice.
 
 ### Viewer sign-in boundary
 

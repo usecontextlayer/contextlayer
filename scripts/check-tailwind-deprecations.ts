@@ -1,6 +1,8 @@
 import fs from "node:fs"
 import { createRequire } from "node:module"
 import path from "node:path"
+import { __unstable__loadDesignSystem } from "@tailwindcss/node"
+import { Scanner } from "@tailwindcss/oxide"
 import Parser from "tree-sitter"
 import TypeScript from "tree-sitter-typescript"
 
@@ -8,12 +10,6 @@ import TypeScript from "tree-sitter-typescript"
 // not prose comments. CSS @apply checking is outside this check's scope.
 const SOURCE_PATTERN = "**/*.{ts,tsx}"
 const TAILWIND_IMPORT = /@import\s+(?:url\(\s*)?["']tailwindcss(?:\/[^"']*)?["']/
-const TAILWIND_INTEGRATIONS = [
-	"@tailwindcss/vite",
-	"@tailwindcss/postcss",
-	"@tailwindcss/cli",
-]
-
 // biome-ignore lint/suspicious/noExplicitAny: the grammar packages ship no usable types.
 type Grammar = any
 
@@ -123,41 +119,22 @@ async function findDeprecations(
 	packageDir: string,
 	stylesheetPath: string,
 ): Promise<Finding[]> {
-	const manifest: {
-		dependencies?: Record<string, string>
-		devDependencies?: Record<string, string>
-	} = JSON.parse(fs.readFileSync(path.join(packageDir, "package.json"), "utf8"))
-	const dependencies = { ...manifest.dependencies, ...manifest.devDependencies }
-	const integration = TAILWIND_INTEGRATIONS.find((name) => name in dependencies)
-	if (integration === undefined) {
-		throw new Error(
-			`${stylesheetPath}: declare a Tailwind Vite, PostCSS, or CLI integration in the package.`,
-		)
-	}
-
-	// Resolve the compiler and extractor from the package's own build integration,
-	// so its installed Tailwind version and stylesheet imports own the result.
-	const requireFromIntegration = createRequire(
-		requireFrom(packageDir).resolve(integration),
-	)
-	const tailwind = await import(requireFromIntegration.resolve("@tailwindcss/node"))
-	const { Scanner } = requireFromIntegration("@tailwindcss/oxide")
 	const css = fs.readFileSync(stylesheetPath, "utf8")
 	const options = { base: path.dirname(stylesheetPath) }
 
-	const full: DesignSystem = await tailwind.__unstable__loadDesignSystem(css, options)
+	const full: DesignSystem = await __unstable__loadDesignSystem(css, options)
 
 	// One design system per deprecated key, each with that key unset. A candidate that
 	// compiles against the full system but not against the system missing key K is, by
 	// construction, resolving through K — which both detects and attributes it.
 	const deprecatedKeys = readDeprecatedThemeKeys(
-		requireFromIntegration.resolve("tailwindcss/theme.css"),
+		requireFrom(packageDir).resolve("tailwindcss/theme.css"),
 	)
 	const withoutKey = new Map<string, DesignSystem>()
 	for (const key of deprecatedKeys) {
 		withoutKey.set(
 			key,
-			await tailwind.__unstable__loadDesignSystem(
+			await __unstable__loadDesignSystem(
 				`${css}\n@theme {\n\t${key}: initial;\n}\n`,
 				options,
 			),

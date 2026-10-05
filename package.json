@@ -1,6 +1,8 @@
 {
 	"devDependencies": {
 		"@biomejs/biome": "^2.5.9",
+		"@tailwindcss/node": "^4.3.3",
+		"@tailwindcss/oxide": "^4.3.3",
 		"@types/node": "^24.13.3",
 		"tree-sitter": "^0.25.1",
 		"tree-sitter-typescript": "^0.23.2",
