@@ -477,10 +477,12 @@ export function createApi() {
 		}),
 		async (c) => {
 			const result = await startAgentJob(
+				c.var.db,
 				c.env.ARTIFACTS,
 				c.env.APPS,
 				c.env.AGENTS,
 				c.var.appAccess,
+				c.var.config.CTX_AUTH_ISSUER,
 				{ ...c.req.valid("json"), name: c.req.valid("param").name },
 			)
 			if (!result.allowed) return c.body(null, 404)

@@ -3,10 +3,13 @@ import { getAgentByName } from "agents/routing"
 import type { z } from "zod"
 import type { AppAgent } from "@/agent-runtime"
 import type { AgentRun, AgentRunRequest, agentSchema } from "@/agents.schema"
+import { resolveAppConnection } from "@/app-connections.server"
 import type { App } from "@/apps.schema"
 import { type AppAccess, authorizeAppManagement } from "@/apps.server"
 import { listOrganizations } from "@/auth.server"
+import type { PlatformDb } from "@/database"
 import type { AppId } from "@/database/models/public/App"
+import type { AppConnectionAssignmentSlug } from "@/database/models/public/AppConnectionAssignment"
 import { getAppManifest } from "@/manifest.server"
 import { getCredentialOwner } from "@/owner"
 
@@ -53,6 +56,7 @@ export function prepareAgentRun(
 	return {
 		agent: { commit: agent.commit, instructions: agent.instructions, name },
 		appId: app.id,
+		connections: {},
 		prompt,
 		secrets: Object.fromEntries(
 			Object.entries(manifest.secrets).map(([secretName, requirement]) => [
@@ -65,17 +69,34 @@ export function prepareAgentRun(
 }
 
 export async function getAgentRun(
+	db: PlatformDb,
 	artifacts: Artifacts,
 	apps: DispatchNamespace,
 	access: AppAccess,
+	issuer: string,
 	input: AgentRunRequest,
 ) {
 	const result = await readAgent(artifacts, access.app.id, input.name)
 	if (!result.allowed) return result
-	const { manifest } = await getAppManifest(access.app, apps)
+	const snapshot = await getAppManifest(access.app, apps)
+	const run = prepareAgentRun(access, result.agent, snapshot.manifest, input)
+	for (const slug of Object.keys(snapshot.manifest.connections)) {
+		const resolved = await resolveAppConnection(
+			db,
+			access,
+			issuer,
+			slug as AppConnectionAssignmentSlug,
+			snapshot,
+		)
+		if (!resolved.allowed) return resolved
+		run.connections[slug] = {
+			connection_id: resolved.connection_id,
+			owner: resolved.owner,
+		}
+	}
 	return {
 		allowed: true,
-		run: prepareAgentRun(access, result.agent, manifest, input),
+		run,
 	} as const
 }
 
@@ -98,13 +119,15 @@ export async function getAgentJob(
 }
 
 export async function startAgentJob(
+	db: PlatformDb,
 	artifacts: Artifacts,
 	apps: DispatchNamespace,
 	agents: DurableObjectNamespace<AppAgent>,
 	access: AppAccess,
+	issuer: string,
 	input: AgentRunRequest,
 ) {
-	const prepared = await getAgentRun(artifacts, apps, access, input)
+	const prepared = await getAgentRun(db, artifacts, apps, access, issuer, input)
 	if (!prepared.allowed) return prepared
 	const job = await startAgentRun(agents, prepared.run)
 	return { allowed: true, job } as const

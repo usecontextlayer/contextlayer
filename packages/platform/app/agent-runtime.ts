@@ -4,6 +4,7 @@ import { ownerSchema } from "@usecontextlayer/shared/app-usage"
 import { type ToolSet, tool } from "ai"
 import { z } from "zod"
 import { type AgentJob, type AgentRun, agentRunSchema } from "@/agents.schema"
+import { createConnectionSession } from "@/connections.server"
 import type { PlatformEnv } from "@/context"
 import type { AppId } from "@/database/models/public/App"
 import { loadSharedSecret } from "@/secrets.server"
@@ -13,6 +14,7 @@ export const SHARED_ARTIFACTS_REPO = "agent-shared-2026-10-05-91fc24d8"
 export class AppAgent extends Think<PlatformEnv["Bindings"]> {
 	maxSteps = 20
 	workspaceBash = false
+	waitForMcpConnections = true
 
 	private get container() {
 		const container = this.ctx.container
@@ -34,7 +36,7 @@ export class AppAgent extends Think<PlatformEnv["Bindings"]> {
 		const owner = ownerSchema.parse(run.secrets.ANTHROPIC_API_KEY)
 		const apiKey = await loadSharedSecret(this.env, owner, "ANTHROPIC_API_KEY")
 		return {
-			activeTools: ["bash"],
+			activeTools: ["bash", ...Object.keys(this.mcp.getAITools())],
 			model: createAnthropic({ apiKey, headers: { "accept-encoding": "identity" } })(
 				"claude-haiku-4-5",
 			),
@@ -97,6 +99,16 @@ export class AppAgent extends Think<PlatformEnv["Bindings"]> {
 	async start(input: AgentRun): Promise<AgentJob> {
 		const run = agentRunSchema.parse(input)
 		await this.configure(run)
+		for (const [slug, connection] of Object.entries(run.connections)) {
+			const session = await createConnectionSession(
+				this.env.COMPOSIO_API_KEY,
+				connection.owner,
+				connection.connection_id,
+			)
+			await this.addMcpServer(slug, session.mcp.url, {
+				transport: { headers: session.mcp.headers },
+			})
+		}
 		const submission = await this.submitMessages(
 			[
 				{

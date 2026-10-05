@@ -6,6 +6,20 @@ import type { PlatformConfig } from "@/env"
 import type { Owner } from "@/owner"
 import { authorizeOwner } from "@/owner.server"
 
+export async function createConnectionSession(
+	apiKey: string,
+	owner: Owner,
+	connectionId: string,
+) {
+	const composio = new Composio({ apiKey })
+	const account = await composio.connectedAccounts.get(connectionId)
+	return composio.create(owner.id, {
+		connectedAccounts: { [account.toolkit.slug]: [connectionId] },
+		mcp: true,
+		toolkits: [account.toolkit.slug],
+	})
+}
+
 export async function authorizeConnection(
 	config: PlatformConfig,
 	identity: AuthIdentity,

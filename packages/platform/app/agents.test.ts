@@ -40,6 +40,7 @@ test.each([
 			name: "brief",
 		},
 		appId: "00000000-0000-4000-8000-000000000001",
+		connections: {},
 		prompt: "Research Acme.",
 		secrets: {
 			CLAUDE_CODE_OAUTH_TOKEN: owner,

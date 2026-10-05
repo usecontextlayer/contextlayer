@@ -32,6 +32,10 @@ export const agentJobParamsSchema = agentParamsSchema.extend({
 export const agentRunSchema = z.strictObject({
 	agent: agentSchema.extend({ name: agentRunRequestSchema.shape.name }),
 	appId: appSchema.shape.id,
+	connections: z.record(
+		z.string(),
+		z.object({ connection_id: z.string(), owner: ownerSchema }),
+	),
 	prompt: agentRunRequestSchema.shape.prompt,
 	secrets: z.record(secretNameSchema, ownerSchema),
 	viewerId: userSchema.shape.id,
