@@ -39,6 +39,7 @@ import {
 	ItemTitle,
 } from "@/components/ui/item"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { CONNECTION_MODE_LABELS } from "@/connection-labels"
 import { authorizeConnection, listConnections, listToolkits } from "@/connections.server"
 import { appsContext, configContext, databaseContext, identityContext } from "@/context"
 import { getAppManifest } from "@/manifest.server"
@@ -291,8 +292,8 @@ function ConnectionRow({
 			open={open}
 			onOpenChange={setOpen}
 		>
-			<Item>
-				<div className="flex min-w-36 flex-1 items-center gap-4">
+			<Item className="justify-between">
+				<div className="flex min-w-0 items-center gap-4">
 					{logo && (
 						<img
 							src={logo}
@@ -302,12 +303,12 @@ function ConnectionRow({
 					)}
 					<ItemContent className="min-w-0">
 						<ItemTitle>{requirement.slug}</ItemTitle>
-						<ItemDescription>
-							{requirement.mode === "viewer" ? "viewer" : "shared"}
+						<ItemDescription className="line-clamp-none">
+							{CONNECTION_MODE_LABELS[requirement.mode]}
 						</ItemDescription>
 					</ItemContent>
 				</div>
-				<div className="flex min-w-0 flex-[2] items-center gap-2.5">
+				<div className="flex min-w-0 items-center gap-2.5">
 					<ItemContent
 						className={cn("min-w-0 items-end text-right", pending && "opacity-50")}
 					>
