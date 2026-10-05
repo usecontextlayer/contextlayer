@@ -35,6 +35,7 @@ import {
 	connectionsSchema,
 } from "@/connections.schema"
 import { authorizeConnection, listConnections } from "@/connections.server"
+import { getAppManifest } from "@/manifest.server"
 import { getAppOwner } from "@/owner"
 import { ownerParamsSchema } from "@/owner.schema"
 import {
@@ -445,11 +446,12 @@ export function createApi() {
 			security,
 		}),
 		async (c) => {
-			const result = await listAppConnections(
-				c.var.db,
-				c.var.appAccess,
+			const snapshot = await getAppManifest(
+				c.var.appAccess.app,
+				c.env.APPS,
 				c.req.valid("json").manifest,
 			)
+			const result = await listAppConnections(c.var.db, c.var.appAccess, snapshot)
 			return c.json(result, 200)
 		},
 	)
@@ -479,11 +481,14 @@ export function createApi() {
 			security,
 		}),
 		async (c) => {
+			const { manifest, ...assignment } = c.req.valid("json")
+			const snapshot = await getAppManifest(c.var.appAccess.app, c.env.APPS, manifest)
 			const result = await assignAppConnection(
 				c.var.db,
 				c.var.appAccess,
 				c.var.config.CTX_AUTH_ISSUER,
-				c.req.valid("json"),
+				assignment,
+				snapshot,
 			)
 			if (!result.allowed) return c.body(null, result.reason === "forbidden" ? 403 : 404)
 			return c.json(result.assignment, 200)
@@ -516,12 +521,15 @@ export function createApi() {
 			security,
 		}),
 		async (c) => {
+			const { manifest, ...call } = c.req.valid("json")
+			const snapshot = await getAppManifest(c.var.appAccess.app, c.env.APPS, manifest)
 			const result = await callTool(
 				c.var.db,
 				c.var.config.COMPOSIO_API_KEY,
 				c.var.appAccess,
 				c.var.config.CTX_AUTH_ISSUER,
-				c.req.valid("json"),
+				call,
+				snapshot,
 			)
 			if (!result.allowed) return c.body(null, result.reason === "forbidden" ? 403 : 404)
 			const polar = createPolarCore({

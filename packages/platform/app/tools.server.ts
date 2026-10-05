@@ -3,6 +3,7 @@ import type { z } from "zod"
 import { resolveAppConnection } from "@/app-connections.server"
 import type { AppAccess } from "@/apps.server"
 import type { PlatformDb } from "@/database"
+import type { ManifestSnapshot } from "@/manifest.server"
 import type { toolCallSchema } from "@/tools.schema"
 
 export async function callTool(
@@ -10,15 +11,10 @@ export async function callTool(
 	apiKey: string,
 	access: AppAccess,
 	issuer: string,
-	call: z.infer<typeof toolCallSchema>,
+	call: Omit<z.infer<typeof toolCallSchema>, "manifest">,
+	snapshot: ManifestSnapshot,
 ) {
-	const resolved = await resolveAppConnection(
-		db,
-		access,
-		issuer,
-		call.slug,
-		call.manifest,
-	)
+	const resolved = await resolveAppConnection(db, access, issuer, call.slug, snapshot)
 	if (!resolved.allowed) return resolved
 	const composio = new Composio({ apiKey })
 	const account = await composio.connectedAccounts.get(resolved.connection_id)

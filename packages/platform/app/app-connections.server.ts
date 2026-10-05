@@ -1,6 +1,5 @@
-import type { Slate } from "@usecontextlayer/shared/slate"
 import type { z } from "zod"
-import type { assignAppConnectionRequestSchema } from "@/app-connections.schema"
+import type { assignmentSchema } from "@/app-connections.schema"
 import { type AppAccess, authorizeAppManagement } from "@/apps.server"
 import { listOrganizations } from "@/auth.server"
 import type { PlatformDb } from "@/database"
@@ -9,7 +8,7 @@ import type {
 	AppConnectionAssignmentOwnerType,
 	AppConnectionAssignmentSlug,
 } from "@/database/models/public/AppConnectionAssignment"
-import { getAppManifest } from "@/manifest.server"
+import type { ManifestSnapshot } from "@/manifest.server"
 import { getAppOwner, getCredentialOwner, type Owner } from "@/owner"
 
 function assignmentOwner(owner: Owner) {
@@ -24,13 +23,12 @@ async function resolveConnectionRequirement(
 	issuer: string,
 	slug: string,
 	operation: "configure" | "execute",
-	localManifest?: Slate,
+	{ manifest, source }: ManifestSnapshot,
 ) {
-	const manifest = await getAppManifest(access, localManifest)
 	const requirement = manifest.connections[slug]
 	if (!requirement) return { allowed: false, reason: "not-found" } as const
 	// Only app managers may substitute authored requirements or configure owner accounts.
-	if (localManifest || (operation === "configure" && requirement.mode === "owner")) {
+	if (source === "local" || (operation === "configure" && requirement.mode === "owner")) {
 		const organizations = access.app.owner_organization_id
 			? await listOrganizations(access.identity, issuer)
 			: []
@@ -48,14 +46,15 @@ export async function assignAppConnection(
 	db: PlatformDb,
 	access: AppAccess,
 	issuer: string,
-	{ manifest, ...assignment }: z.infer<typeof assignAppConnectionRequestSchema>,
+	assignment: z.infer<typeof assignmentSchema>,
+	snapshot: ManifestSnapshot,
 ) {
 	const resolved = await resolveConnectionRequirement(
 		access,
 		issuer,
 		assignment.slug,
 		"configure",
-		manifest,
+		snapshot,
 	)
 	if (!resolved.allowed) return resolved
 	const saved = await db
@@ -76,14 +75,14 @@ export async function resolveAppConnection(
 	access: AppAccess,
 	issuer: string,
 	slug: AppConnectionAssignmentSlug,
-	localManifest?: Slate,
+	snapshot: ManifestSnapshot,
 ) {
 	const resolved = await resolveConnectionRequirement(
 		access,
 		issuer,
 		slug,
 		"execute",
-		localManifest,
+		snapshot,
 	)
 	if (!resolved.allowed) return resolved
 	const owner = assignmentOwner(resolved.owner)
@@ -107,9 +106,8 @@ export async function resolveAppConnection(
 export async function listAppConnections(
 	db: PlatformDb,
 	access: AppAccess,
-	localManifest?: Slate,
+	{ manifest }: ManifestSnapshot,
 ) {
-	const manifest = await getAppManifest(access, localManifest)
 	const owners = [
 		getAppOwner(access.app),
 		{ id: access.identity.user.id, type: "user" } as const,

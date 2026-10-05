@@ -59,12 +59,13 @@ export function prepareAgentRun(
 
 export async function getAgentRun(
 	artifacts: Artifacts,
+	apps: DispatchNamespace,
 	access: AppAccess,
 	input: AgentRunRequest,
 ) {
 	const result = await readAgent(artifacts, access.app.id, input.name)
 	if (!result.allowed) return result
-	const manifest = await getAppManifest(access)
+	const { manifest } = await getAppManifest(access.app, apps)
 	return {
 		allowed: true,
 		run: prepareAgentRun(access, result.agent, manifest, input),

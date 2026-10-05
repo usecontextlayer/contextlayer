@@ -9,7 +9,11 @@ export const identityContext = createContext<AuthIdentity>()
 export const configContext = createContext<PlatformConfig>()
 
 export type PlatformEnv = {
-	Bindings: PlatformBindings & { ASSETS: Fetcher; ARTIFACTS: Artifacts }
+	Bindings: PlatformBindings & {
+		APPS: DispatchNamespace
+		ASSETS: Fetcher
+		ARTIFACTS: Artifacts
+	}
 	Variables: {
 		db: PlatformDb
 		config: PlatformConfig

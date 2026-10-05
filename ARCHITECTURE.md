@@ -45,6 +45,8 @@ For management requests, when platform needs user-scoped web facts such as organ
 
 ## Platform storage and request flow
 
+Platform reads deployed app manifests through its native APPS dispatch-namespace binding, selecting the user Worker by canonical AppID. The manifest reader receives the App and binding, not caller identity or credentials, and sends a fresh GET for /slate.json with no Cookie, Authorization, or runtime-capability props. Redirects are not followed. Existing platform authorization precedes the read, so private apps do not require forwarding a caller credential into authored code. The reader validates with shared/slate and returns one { manifest, source } snapshot, where source is local or deployed. Connections and Tools consume that same snapshot rather than fetching requirements inside their domain functions; source preserves the app-management requirement for local substitution. Agent-run preparation uses the same deployed reader. This internal read bypasses public dispatch and clips metering.
+
 The dashboard uses shadcn/ui with the `base-nova` preset and standard Tailwind layout utilities.
 
 Platform separates page routes from asset URLs: React Router's basename is `/dashboard/`, while Vite uses its default `/` asset base. Cloudflare's native selective `assets.run_worker_first` sends `/api/*`, `/git/*`, and `/dashboard/*` through the Worker, including dashboard data requests. Scripts, CSS, and fonts use native asset serving outside those routes; production bundles live under `/assets/`. This configuration belongs only to platform. User-app requests retain the existing dispatcher authorization flow.

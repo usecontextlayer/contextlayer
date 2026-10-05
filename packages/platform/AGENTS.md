@@ -79,3 +79,8 @@ The shared `@usecontextlayer/shared/app-usage` module owns the owner schema, res
 ## Shared app-connection contracts
 
 The canonical manifest and viewer/owner requirement schemas live in `@usecontextlayer/shared/slate`. `@usecontextlayer/shared/app-connections` builds the requirement/assignment read response from that existing requirement schema. `app/app-connections.schema.ts` extends it with `appSchema` for OpenAPI and retains database-specific assignment input branding. CLI, SDK, and dispatcher use the shared response contract. `listAppConnections` remains the domain owner for requirements and the manifest-selected viewer/app Owner assignments; SDK/dispatcher RPC reads call that existing endpoint rather than adding another database path.
+
+
+## Manifest transport and snapshots
+
+Platform’s native APPS dispatch binding reads a deployed manifest by canonical AppID after the existing app-viewing boundary authorizes access. getAppManifest receives an App, the binding, and optionally a boundary-validated local manifest; it receives no caller credentials. Build a fresh credential-free request, follow no redirects, and supply no runtime-capability props. The reader returns the canonical Slate plus local/deployed provenance as ManifestSnapshot. Connection and tool domain operations receive this snapshot and do not fetch authored content. Keep the viewer/owner credential rules and local-substitution management check in those operations. Agent-run preparation shares the deployed reader.

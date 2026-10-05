@@ -110,7 +110,12 @@ test("personal and organization usage reaches Polar at 1/3/1 clips, without bloc
 			const response = await api.request(
 				`/api/apps/${app.id}/tools/call`,
 				{
-					body: JSON.stringify({ arguments: {}, slug: "mail", tool: "READ" }),
+					body: JSON.stringify({
+						arguments: {},
+						manifest: { connections: {} },
+						slug: "mail",
+						tool: "READ",
+					}),
 					headers: { "content-type": "application/json" },
 					method: "POST",
 				},

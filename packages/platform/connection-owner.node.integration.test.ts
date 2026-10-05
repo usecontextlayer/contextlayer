@@ -13,6 +13,7 @@ import {
 import { appSchema } from "@/apps.schema"
 import { createPlatformDb } from "@/database"
 import { migrateToLatest } from "@/database/migrate"
+import type { ManifestSnapshot } from "@/manifest.server"
 import { getCredentialOwner } from "@/owner"
 
 test("existing viewer assignments survive the Owner migration", async () => {
@@ -68,6 +69,7 @@ test("manifest modes select viewer and app Owner assignments through the product
 			PERSONAL_API_KEY: { mode: "viewer" },
 		},
 	})
+	const snapshot = { manifest, source: "local" } satisfies ManifestSnapshot
 	const alice = {
 		credential: { token: "unused-for-local-personal-app", type: "access-token" },
 		user: { id: "alice" },
@@ -89,16 +91,19 @@ test("manifest modes select viewer and app Owner assignments through the product
 		const access = { app, identity: alice }
 		for (const slug of ["company", "personal"]) {
 			expect(
-				await assignAppConnection(db, access, "https://auth.example.com", {
-					...assignmentSchema.parse({ connection_id: `alice-${slug}`, slug }),
-					manifest,
-				}),
+				await assignAppConnection(
+					db,
+					access,
+					"https://auth.example.com",
+					assignmentSchema.parse({ connection_id: `alice-${slug}`, slug }),
+					snapshot,
+				),
 			).toEqual({ allowed: true, assignment: { connection_id: `alice-${slug}`, slug } })
 		}
 		await sql`INSERT INTO app_connection_assignment (app_id, owner_type, owner_id, slug, connection_id)
 			VALUES (${app.id}, 'user', 'bob', 'personal', 'bob-personal')`.execute(db)
 		expect(
-			(await listAppConnections(db, { app, identity: bob }, manifest)).connections,
+			(await listAppConnections(db, { app, identity: bob }, snapshot)).connections,
 		).toEqual([
 			{
 				connection_id: "alice-company",
@@ -119,7 +124,7 @@ test("manifest modes select viewer and app Owner assignments through the product
 				access,
 				"https://auth.example.com",
 				assignmentSchema.shape.slug.parse("company"),
-				manifest,
+				snapshot,
 			),
 		).toEqual({
 			allowed: true,
@@ -128,10 +133,13 @@ test("manifest modes select viewer and app Owner assignments through the product
 			requirement: { mode: "owner", toolkit: "gmail" },
 		})
 		expect(
-			await assignAppConnection(db, { app, identity: bob }, "https://auth.example.com", {
-				...assignmentSchema.parse({ connection_id: "replacement", slug: "company" }),
-				manifest,
-			}),
+			await assignAppConnection(
+				db,
+				{ app, identity: bob },
+				"https://auth.example.com",
+				assignmentSchema.parse({ connection_id: "replacement", slug: "company" }),
+				snapshot,
+			),
 		).toEqual({ allowed: false, reason: "forbidden" })
 		expect(
 			await resolveAppConnection(
@@ -139,7 +147,7 @@ test("manifest modes select viewer and app Owner assignments through the product
 				{ app, identity: bob },
 				"https://auth.example.com",
 				assignmentSchema.shape.slug.parse("company"),
-				manifest,
+				snapshot,
 			),
 		).toEqual({ allowed: false, reason: "forbidden" })
 		const organizationApp = appSchema.parse(
@@ -159,7 +167,7 @@ test("manifest modes select viewer and app Owner assignments through the product
 			db,
 		)
 		expect(
-			(await listAppConnections(db, { app: organizationApp, identity: bob }, manifest))
+			(await listAppConnections(db, { app: organizationApp, identity: bob }, snapshot))
 				.connections,
 		).toEqual([
 			{ connection_id: "acme-company", mode: "owner", slug: "company", toolkit: "gmail" },
