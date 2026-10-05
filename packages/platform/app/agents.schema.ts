@@ -63,7 +63,11 @@ export const agentRunSchema = z.strictObject({
 	appId: appSchema.shape.id,
 	connections: z.record(
 		z.string(),
-		z.object({ connection_id: z.string(), owner: ownerSchema }),
+		z.object({
+			connection_id: z.string(),
+			owner: ownerSchema,
+			toolkit: z.string().min(1),
+		}),
 	),
 	prompt: agentRunRequestSchema.shape.prompt,
 	secrets: z.record(secretNameSchema, ownerSchema),

@@ -20,6 +20,7 @@ export async function callTool(
 		apiKey,
 		resolved.owner,
 		resolved.connection_id,
+		resolved.requirement.toolkit,
 	)
 	return {
 		allowed: true,

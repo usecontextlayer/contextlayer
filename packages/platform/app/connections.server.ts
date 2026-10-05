@@ -10,13 +10,13 @@ export async function createConnectionSession(
 	apiKey: string,
 	owner: Owner,
 	connectionId: string,
+	toolkit: string,
 ) {
 	const composio = new Composio({ apiKey })
-	const account = await composio.connectedAccounts.get(connectionId)
 	return composio.create(owner.id, {
-		connectedAccounts: { [account.toolkit.slug]: [connectionId] },
+		connectedAccounts: { [toolkit]: [connectionId] },
 		mcp: true,
-		toolkits: [account.toolkit.slug],
+		toolkits: [toolkit],
 	})
 }
 
@@ -63,4 +63,10 @@ export async function listConnections(
 		cursor = page.nextCursor ?? undefined
 	} while (cursor)
 	return { allowed: true, connections } as const
+}
+
+export async function listToolkits(config: PlatformConfig, slugs: string[]) {
+	const composio = new Composio({ apiKey: config.COMPOSIO_API_KEY })
+	const toolkits = await composio.toolkits.getMany(slugs)
+	return toolkits.map(({ slug, meta }) => ({ logo: meta.logo, slug }))
 }

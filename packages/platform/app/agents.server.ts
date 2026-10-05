@@ -103,6 +103,7 @@ export async function getAgentRun(
 		run.connections[slug] = {
 			connection_id: assignment.connection_id,
 			owner,
+			toolkit: requirement.toolkit,
 		}
 	}
 	return {

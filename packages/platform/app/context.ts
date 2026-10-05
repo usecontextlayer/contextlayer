@@ -7,7 +7,7 @@ import type { PlatformBindings, PlatformConfig } from "@/env"
 export const databaseContext = createContext<PlatformDb>()
 export const appsContext = createContext<DispatchNamespace>()
 export const artifactsContext = createContext<Artifacts>()
-export const identityContext = createContext<AuthIdentity>()
+export const identityContext = createContext<AuthIdentity | null>(null)
 export const configContext = createContext<PlatformConfig>()
 
 export type PlatformEnv = {

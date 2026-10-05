@@ -116,6 +116,7 @@ export class AppAgent extends Think<PlatformEnv["Bindings"]> {
 				this.env.COMPOSIO_API_KEY,
 				connection.owner,
 				connection.connection_id,
+				connection.toolkit,
 			)
 			await this.addMcpServer(slug, session.mcp.url, {
 				transport: { headers: session.mcp.headers },

@@ -20,6 +20,7 @@ Customer data means anything that is theirs: records in their Planner, Dataverse
 
 **Read the companion documents when their domain comes up:**
 
+- **[`DOCS.md`](DOCS.md)** — each document’s purpose and where information belongs.
 - **`ARCHITECTURE.md`** — the package overview.
 - **[`.font-awesome.md`](.font-awesome.md)** — the shared Font Awesome kit, default family/style, and import conventions for all packages.
 - **`DEVELOPING.md`** — setup, workspace commands, test prerequisites, and operational conventions. Read it before running or debugging the local environment.
@@ -100,9 +101,9 @@ When you notice a skill/doc line that could live in `--help`, the fix is to impr
 
 ### Keep the Agent Docs Current
 
-**The agent-facing doc set is part of every change's definition of done.** That set: every `AGENTS.md`/`CLAUDE.md` (root and subtree), every document they explicitly reference (`ARCHITECTURE.md`, `DEVELOPING.md`, …), and the checks under `.agents/checks/`.
+**Review affected documentation as part of a change, respecting the purposes in [DOCS.md](DOCS.md).** That set: every `AGENTS.md`/`CLAUDE.md` (root and subtree), every document they explicitly reference (`ARCHITECTURE.md`, `DEVELOPING.md`, …), and the checks under `.agents/checks/`.
 
-- If your change makes any statement in these docs false or incomplete — a moved file, a renamed flag, a retired workflow, a new prerequisite — updating the doc is PART of the change, not a follow-up. A stale line in an always-loaded doc actively misleads every future session.
+- If your change makes a documented concept, principle, contract, or development workflow false or incomplete, correct it in the document that owns it. Keep implementation and progress details in the relevant ExecPlan; a change does not require an entry in every document. A stale line in an always-loaded doc actively misleads every future session.
 - Beyond your own change's blast radius: when you notice a line that is wrong, drifted, or missing something these files should carry, suggest the improvement to the user — concrete, with the exact edit. Do not silently rewrite standards.
 - `.agents/checks/*.md` keep their stricter rule: propose the exact edit and wait for explicit user approval (see "Apply the Checks Before Committing to Main").
 
