@@ -66,5 +66,5 @@
 		"tsc": "react-router typegen && tsc --noEmit"
 	},
 	"type": "module",
-	"version": "0.14.0"
+	"version": "0.14.1"
 }
