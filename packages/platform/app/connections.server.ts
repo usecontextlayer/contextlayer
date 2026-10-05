@@ -50,3 +50,9 @@ export async function listConnections(
 	} while (cursor)
 	return { allowed: true, connections } as const
 }
+
+export async function listToolkits(config: PlatformConfig, slugs: string[]) {
+	const composio = new Composio({ apiKey: config.COMPOSIO_API_KEY })
+	const toolkits = await composio.toolkits.getMany(slugs)
+	return toolkits.map(({ slug, meta }) => ({ logo: meta.logo, slug }))
+}

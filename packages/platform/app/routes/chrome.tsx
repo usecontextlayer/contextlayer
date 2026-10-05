@@ -1,12 +1,14 @@
 import {
-	faAngleDown,
 	faCheck,
+	faGear,
+	faPlus,
 	faTriangleExclamation,
 } from "@awesome.me/kit-e146ba5a27/icons/slab/regular"
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome"
 import { slateSchema } from "@usecontextlayer/shared/slate"
-import { Fragment, useCallback } from "react"
-import { data, useFetcher } from "react-router"
+import { cn } from "cn"
+import { Fragment, useCallback, useState } from "react"
+import { data, Form, useFetcher } from "react-router"
 import { z } from "zod"
 import { assignmentSchema } from "@/app-connections.schema"
 import { assignAppConnection, listAppConnections } from "@/app-connections.server"
@@ -21,22 +23,37 @@ import {
 	CollapsibleTrigger,
 } from "@/components/ui/collapsible"
 import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuGroup,
-	DropdownMenuItem,
-	DropdownMenuLabel,
-	DropdownMenuRadioGroup,
-	DropdownMenuRadioItem,
-	DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { listConnections } from "@/connections.server"
+	Field,
+	FieldContent,
+	FieldDescription,
+	FieldLabel,
+	FieldTitle,
+} from "@/components/ui/field"
+import {
+	Item,
+	ItemActions,
+	ItemContent,
+	ItemDescription,
+	ItemGroup,
+	ItemSeparator,
+	ItemTitle,
+} from "@/components/ui/item"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { authorizeConnection, listConnections, listToolkits } from "@/connections.server"
 import { appsContext, configContext, databaseContext, identityContext } from "@/context"
 import { getAppManifest } from "@/manifest.server"
 import { getCredentialOwner, type Owner } from "@/owner"
 import type { Route } from "@/routes/+types/chrome"
 
-export const headers: Route.HeadersFunction = () => ({ "Cache-Control": "no-store" })
+export const headers: Route.HeadersFunction = ({ actionHeaders }) => {
+	actionHeaders.set("Cache-Control", "no-store")
+	return actionHeaders
+}
+
+const chromeActionSchema = z.discriminatedUnion("intent", [
+	assignmentSchema.extend({ intent: z.literal("assign") }),
+	assignmentSchema.pick({ slug: true }).extend({ intent: z.literal("connect") }),
+])
 
 async function getChromeApp(
 	{ request, params, context }: Pick<Route.LoaderArgs, "request" | "params" | "context">,
@@ -65,14 +82,26 @@ async function getChromeApp(
 export async function action({ request, params, context }: Route.ActionArgs) {
 	const identity = context.get(identityContext)
 	if (!identity) throw new Response(null, { status: 401 })
-	const input = assignmentSchema.safeParse(Object.fromEntries(await request.formData()))
-	if (!input.success) throw new Response("Invalid connection assignment", { status: 400 })
+	const input = chromeActionSchema.safeParse(Object.fromEntries(await request.formData()))
+	if (!input.success) throw new Response("Invalid connection action", { status: 400 })
 	const { access, snapshot } = await getChromeApp({ context, params, request }, identity)
+	if (input.data.intent === "connect") {
+		const requirement = snapshot.manifest.connections[input.data.slug]
+		if (!requirement) throw new Response(null, { status: 404 })
+		const result = await authorizeConnection(
+			context.get(configContext),
+			identity,
+			getCredentialOwner(requirement.mode, access.app, identity.user),
+			requirement.toolkit,
+		)
+		if (!result.allowed) throw new Response(null, { status: 403 })
+		return data(null, { headers: { Refresh: `0; url=${result.link.redirect_url}` } })
+	}
 	const result = await assignAppConnection(
 		context.get(databaseContext),
 		access,
 		context.get(configContext).CTX_AUTH_ISSUER,
-		input.data,
+		{ connection_id: input.data.connection_id, slug: input.data.slug },
 		snapshot,
 	)
 	if (!result.allowed)
@@ -88,7 +117,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
 	const identity = context.get(identityContext)
 	if (!identity)
 		return data(
-			{ accountLists: [], connections: [], parentOrigin, user: null },
+			{ accountLists: [], connections: [], parentOrigin, toolkits: [], user: null },
 			{ headers: { "Cache-Control": "no-store" } },
 		)
 	const db = context.get(databaseContext)
@@ -109,30 +138,27 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
 		owners.map(async (owner) => {
 			const result = await listConnections(config, identity, owner)
 			return {
-				accounts: result.allowed
-					? result.connections.map((account) => ({
-							id: account.id,
-							label: account.display_name ?? account.alias ?? account.id,
-							toolkit: account.toolkit,
-						}))
-					: null,
+				accounts: result.allowed ? result.connections : null,
 				owner,
 			}
 		}),
 	)
-	const user = await getCurrentUser(identity, issuer)
+	const [user, toolkits] = await Promise.all([
+		getCurrentUser(identity, issuer),
+		requirements.length
+			? listToolkits(config, [...new Set(requirements.map(({ toolkit }) => toolkit))])
+			: [],
+	])
 	return data(
-		{ accountLists, connections: requirements, parentOrigin, user },
+		{ accountLists, connections: requirements, parentOrigin, toolkits, user },
 		{ headers: { "Cache-Control": "no-store" } },
 	)
 }
 
 export default function Chrome({
-	loaderData: { user, connections, accountLists, parentOrigin },
+	loaderData: { user, connections, accountLists, parentOrigin, toolkits },
 }: Route.ComponentProps) {
-	const fetcher = useFetcher<typeof action>()
-	const requirements = connections
-	const needed = requirements.filter(
+	const needed = connections.filter(
 		(requirement) => requirement.connection_id === null,
 	).length
 	const observeHeader = useCallback(
@@ -150,15 +176,7 @@ export default function Chrome({
 		[parentOrigin],
 	)
 	return (
-		<header
-			ref={observeHeader}
-			style={{
-				colorScheme: "light",
-				fontFamily: "ui-sans-serif, system-ui, sans-serif",
-				fontSize: 14,
-				lineHeight: 1.5,
-			}}
-		>
+		<header ref={observeHeader}>
 			<Collapsible>
 				<div className="flex justify-between border-b border-slate-200 bg-slate-100 text-slate-600">
 					<span className="shrink-0 px-4 py-[6.5px] font-logo text-[13px]/4 font-normal text-slate-500">
@@ -208,97 +226,198 @@ export default function Chrome({
 						</span>
 					</span>
 				</div>
-				<CollapsibleContent className="h-(--collapsible-panel-height) overflow-hidden bg-slate-100 transition-[height] duration-200 ease-out data-ending-style:h-0 data-starting-style:h-0 motion-reduce:transition-none">
-					<div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-center gap-x-4 gap-y-3 border-b border-slate-200 p-4 text-slate-600">
-						{requirements.map((requirement) => {
-							const accounts = accountLists.find(
-								(list) =>
-									list.owner.type === requirement.owner.type &&
-									list.owner.id === requirement.owner.id,
-							)?.accounts
-							const selected = accounts?.find(
-								(account) => account.id === requirement.connection_id,
-							)
-							const choices = accounts?.filter(
-								(account) => account.toolkit === requirement.toolkit,
-							)
-							const label =
-								accounts === null
-									? "Managed by app owner"
-									: (selected?.label ?? requirement.connection_id ?? "Not assigned")
-							return (
-								<Fragment key={requirement.slug}>
-									<div className="min-w-0">
-										<p
-											className="truncate text-sm font-medium"
-											title={requirement.slug}
-										>
-											{requirement.slug}
-										</p>
-										<p className="text-xs text-muted-foreground">
-											{requirement.toolkit} ·{" "}
-											{requirement.mode === "viewer" ? "your account" : "shared"}
-										</p>
-									</div>
-									<DropdownMenu>
-										<DropdownMenuTrigger
-											render={
-												<Button
-													variant="outline"
-													className="w-full min-w-0 justify-between"
-												/>
-											}
-											disabled={accounts === null || fetcher.state !== "idle"}
-											aria-label={`Account for ${requirement.slug}`}
-											title={label}
-										>
-											<span className="truncate">{label}</span>
-											<FontAwesomeIcon
-												icon={faAngleDown}
-												aria-hidden="true"
-											/>
-										</DropdownMenuTrigger>
-										<DropdownMenuContent align="end">
-											<DropdownMenuGroup>
-												<DropdownMenuLabel>Connected accounts</DropdownMenuLabel>
-												{choices?.length ? (
-													<DropdownMenuRadioGroup
-														value={requirement.connection_id ?? ""}
-														onValueChange={(connection_id) => {
-															if (connection_id === requirement.connection_id) return
-															fetcher.submit(
-																{ connection_id, slug: requirement.slug },
-																{ method: "post" },
-															)
-														}}
-													>
-														{choices.map((account) => (
-															<DropdownMenuRadioItem
-																key={account.id}
-																value={account.id}
-																title={account.label}
-															>
-																<span className="truncate">{account.label}</span>
-															</DropdownMenuRadioItem>
-														))}
-													</DropdownMenuRadioGroup>
-												) : (
-													<DropdownMenuItem disabled>
-														No connected accounts
-													</DropdownMenuItem>
-												)}
-											</DropdownMenuGroup>
-										</DropdownMenuContent>
-									</DropdownMenu>
-								</Fragment>
-							)
-						})}
-						{requirements.length === 0 && (
-							<p className="col-span-2 text-sm">No required services.</p>
+				<CollapsibleContent
+					keepMounted
+					className="h-(--collapsible-panel-height) overflow-hidden bg-slate-100 transition-[height] duration-200 ease-out data-ending-style:h-0 data-starting-style:h-0 motion-reduce:transition-none"
+				>
+					<ItemGroup className="gap-0 border-b border-slate-200 px-2 py-2">
+						{connections.map((requirement, index) => (
+							<Fragment key={requirement.slug}>
+								{index > 0 && <ItemSeparator />}
+								<ConnectionRow
+									requirement={requirement}
+									accounts={
+										accountLists.find(
+											({ owner }) =>
+												owner.type === requirement.owner.type &&
+												owner.id === requirement.owner.id,
+										)?.accounts ?? null
+									}
+									logo={toolkits.find(({ slug }) => slug === requirement.toolkit)?.logo}
+								/>
+							</Fragment>
+						))}
+						{connections.length === 0 && (
+							<Item>
+								<ItemContent>
+									<ItemDescription>No required services.</ItemDescription>
+								</ItemContent>
+							</Item>
 						)}
-					</div>
+					</ItemGroup>
 				</CollapsibleContent>
 			</Collapsible>
 		</header>
+	)
+}
+
+function ConnectionRow({
+	requirement,
+	accounts,
+	logo,
+}: {
+	requirement: Route.ComponentProps["loaderData"]["connections"][number]
+	accounts: Route.ComponentProps["loaderData"]["accountLists"][number]["accounts"]
+	logo: string | undefined
+}) {
+	const fetcher = useFetcher<typeof action>()
+	const pending = fetcher.state !== "idle"
+	const [open, setOpen] = useState(false)
+	const [selection, setSelection] = useState<"saved" | "connect">("saved")
+	const selected = accounts?.find(({ id }) => id === requirement.connection_id)
+	const choices = accounts?.filter(({ toolkit }) => toolkit === requirement.toolkit)
+	const title =
+		selection === "connect"
+			? "Once you’ve connected your account, refresh this page to select it."
+			: accounts === null
+				? "Managed by app owner"
+				: (selected?.display_name ??
+					selected?.alias ??
+					requirement.connection_id ??
+					"Not assigned")
+
+	return (
+		<Collapsible
+			open={open}
+			onOpenChange={setOpen}
+		>
+			<Item>
+				<div className="flex min-w-36 flex-1 items-center gap-4">
+					{logo && (
+						<img
+							src={logo}
+							alt={requirement.toolkit}
+							className="h-auto w-[30px] shrink-0"
+						/>
+					)}
+					<ItemContent className="min-w-0">
+						<ItemTitle>{requirement.slug}</ItemTitle>
+						<ItemDescription>
+							{requirement.mode === "viewer" ? "viewer" : "shared"}
+						</ItemDescription>
+					</ItemContent>
+				</div>
+				<div className="flex min-w-0 flex-[2] items-center gap-2.5">
+					<ItemContent
+						className={cn("min-w-0 items-end text-right", pending && "opacity-50")}
+					>
+						<ItemTitle
+							className="max-w-full line-clamp-none"
+							title={title}
+						>
+							<span className={selection === "connect" ? "wrap-anywhere" : "truncate"}>
+								{title}
+							</span>
+						</ItemTitle>
+						{selection === "saved" && selected && (
+							<ItemDescription className="wrap-anywhere text-right">
+								{selected.alias && <>{selected.alias} · </>}
+								{selected.id}
+							</ItemDescription>
+						)}
+					</ItemContent>
+					<ItemActions>
+						<CollapsibleTrigger
+							render={
+								<Button
+									variant="ghost"
+									size="icon"
+								/>
+							}
+							disabled={accounts === null || pending}
+							aria-label={`Configure accounts for ${requirement.slug}`}
+						>
+							<FontAwesomeIcon
+								icon={faGear}
+								className="text-base"
+								aria-hidden="true"
+							/>
+						</CollapsibleTrigger>
+					</ItemActions>
+				</div>
+			</Item>
+			<CollapsibleContent keepMounted>
+				<div className="flex flex-col gap-4 px-3 pb-4">
+					{choices?.length ? (
+						<RadioGroup
+							aria-label={`Accounts for ${requirement.slug}`}
+							value={selection === "saved" ? (requirement.connection_id ?? "") : ""}
+							disabled={pending}
+							onValueChange={(connection_id) => {
+								setOpen(false)
+								setSelection("saved")
+								if (connection_id === requirement.connection_id) return
+								fetcher.submit(
+									{ connection_id, intent: "assign", slug: requirement.slug },
+									{ method: "post" },
+								)
+							}}
+						>
+							{choices.map((account) => (
+								<FieldLabel key={account.id}>
+									<Field orientation="horizontal">
+										<RadioGroupItem value={account.id} />
+										<FieldContent className="min-w-0">
+											<FieldTitle className="max-w-full">
+												<span className="truncate">
+													{account.display_name ?? account.alias ?? account.id}
+												</span>
+											</FieldTitle>
+											<FieldDescription className="wrap-anywhere">
+												{account.alias && <>{account.alias} · </>}
+												{account.id}
+											</FieldDescription>
+										</FieldContent>
+									</Field>
+								</FieldLabel>
+							))}
+						</RadioGroup>
+					) : (
+						<FieldDescription>No connected accounts.</FieldDescription>
+					)}
+					<Form
+						method="post"
+						target="_blank"
+						reloadDocument
+						onSubmit={() => {
+							setOpen(false)
+							setSelection("connect")
+						}}
+					>
+						<input
+							type="hidden"
+							name="intent"
+							value="connect"
+						/>
+						<input
+							type="hidden"
+							name="slug"
+							value={requirement.slug}
+						/>
+						<Button
+							type="submit"
+							variant="outline"
+						>
+							<FontAwesomeIcon
+								icon={faPlus}
+								data-icon="inline-start"
+								aria-hidden="true"
+							/>
+							Connect account
+						</Button>
+					</Form>
+				</div>
+			</CollapsibleContent>
+		</Collapsible>
 	)
 }
