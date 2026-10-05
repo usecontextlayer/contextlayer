@@ -1,4 +1,4 @@
-import { faAngleRight, faCheck } from "@awesome.me/kit-b228b21a21/icons/slab/regular"
+import { faAngleRight, faCheck } from "@awesome.me/kit-e146ba5a27/icons/slab/regular"
 import { Menu as MenuPrimitive } from "@base-ui/react/menu"
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome"
 import { cn } from "cn"

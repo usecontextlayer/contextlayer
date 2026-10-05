@@ -181,9 +181,9 @@ importers:
 
   packages/platform:
     dependencies:
-      '@awesome.me/kit-b228b21a21':
-        specifier: ^1.0.2
-        version: 1.0.2
+      '@awesome.me/kit-e146ba5a27':
+        specifier: latest
+        version: 1.0.5
       '@base-ui/react':
         specifier: ^1.8.0
         version: 1.8.0(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -462,8 +462,8 @@ packages:
     peerDependencies:
       zod: ^4.0.0
 
-  '@awesome.me/kit-b228b21a21@1.0.2':
-    resolution: {integrity: sha512-5dIQQ7FI+LzBHv4eJWlSRXiKe0CLRC2DmHkPF51l0LKSCqb4MMS1o5zxs72BAiLJ80TlBihbynbw/rZYzutV7g==}
+  '@awesome.me/kit-e146ba5a27@1.0.5':
+    resolution: {integrity: sha512-KfPvXRoiSqrrX9lVC3b0n75hpJuAe6VXZ2BTZ2ZUMG2trt7AaWbqNpuUW6dU6vsU5QxGEZ4/43VaXtO424Q/TA==}
     engines: {node: '>=16'}
 
   '@babel/code-frame@7.29.7':
@@ -5052,7 +5052,7 @@ snapshots:
       openapi3-ts: 4.6.1
       zod: 4.4.3
 
-  '@awesome.me/kit-b228b21a21@1.0.2':
+  '@awesome.me/kit-e146ba5a27@1.0.5':
     dependencies:
       '@fortawesome/fontawesome-common-types': 7.3.1
 

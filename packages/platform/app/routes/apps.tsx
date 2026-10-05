@@ -1,4 +1,4 @@
-import { faAngleDown, faBox, faCode } from "@awesome.me/kit-b228b21a21/icons/slab/regular"
+import { faAngleDown, faBox, faCode } from "@awesome.me/kit-e146ba5a27/icons/slab/regular"
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome"
 import { useFetcher } from "react-router"
 import {

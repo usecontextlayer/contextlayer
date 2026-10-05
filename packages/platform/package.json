@@ -1,6 +1,6 @@
 {
 	"dependencies": {
-		"@awesome.me/kit-b228b21a21": "^1.0.2",
+		"@awesome.me/kit-e146ba5a27": "latest",
 		"@base-ui/react": "^1.8.0",
 		"@better-auth-ui/core": "1.7.26",
 		"@better-auth-ui/react": "1.7.26",

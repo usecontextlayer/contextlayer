@@ -26,4 +26,4 @@ allowBuilds:
 # First-party releases are usable immediately; third-party exceptions stay version-specific.
 minimumReleaseAgeExclude:
   - '@usecontextlayer/*'
-  - '@awesome.me/kit-b228b21a21@1.0.2'
+  - '@awesome.me/kit-e146ba5a27@1.0.5'

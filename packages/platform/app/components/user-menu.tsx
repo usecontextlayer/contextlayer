@@ -3,7 +3,7 @@ import {
 	faCheck,
 	faGear,
 	faPlus,
-} from "@awesome.me/kit-b228b21a21/icons/slab/regular"
+} from "@awesome.me/kit-e146ba5a27/icons/slab/regular"
 import type { MultiSessionAuthClient } from "@better-auth-ui/core/plugins/multi-session"
 import { useAuth, useSession, useSignOut } from "@better-auth-ui/react"
 import {
