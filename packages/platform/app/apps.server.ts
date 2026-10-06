@@ -17,9 +17,30 @@ import {
 } from "@/auth.server"
 import type { PlatformDb } from "@/database"
 import type { AppId } from "@/database/models/public/App"
-import type { Owner } from "@/owner"
+import type { Owner, OwnerDetails } from "@/owner"
 
 export type AppAccess = { app: App; identity: AuthIdentity }
+
+export async function getApp(
+	db: PlatformDb,
+	target: AppTarget,
+	identity: AuthIdentity,
+	issuer: string,
+) {
+	const app = await resolveApp(db, target)
+	if (!app) return { allowed: false, reason: "not-found" } as const
+	const organization = app.owner_organization_id
+		? (await listOrganizations(identity, issuer)).find(
+				(item) => item.id === app.owner_organization_id,
+			)
+		: undefined
+	const authorization = authorizeAppManagement(app, identity, !!organization)
+	if (!authorization.allowed) return authorization
+	const owner: OwnerDetails = organization
+		? { ...organization, type: "organization" }
+		: { id: identity.user.id, type: "user" }
+	return { allowed: true, app, owner } as const
+}
 
 export async function listApps(
 	db: PlatformDb,
@@ -180,17 +201,8 @@ export async function getGitAccess(
 	identity: AuthIdentity,
 	issuer: string,
 ) {
-	const app = await resolveApp(db, { id })
-	if (!app) return { allowed: false, reason: "not-found" } as const
-	const organizations = app.owner_organization_id
-		? await listOrganizations(identity, issuer)
-		: []
-	const authorization = authorizeAppManagement(
-		app,
-		identity,
-		organizations.some((organization) => organization.id === app.owner_organization_id),
-	)
-	if (!authorization.allowed) return authorization
+	const access = await getApp(db, { id }, identity, issuer)
+	if (!access.allowed) return access
 	using repo = await artifacts.get(id)
 	const info = await repo.info()
 	const token = await repo.createToken(write ? "write" : "read", 3600)

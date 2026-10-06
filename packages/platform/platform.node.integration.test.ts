@@ -60,6 +60,13 @@ test("app ownership protects viewing, listing, and native Git source access", as
 		expect(app.visibility).toBe("private")
 		expect(app.id).toMatch(/^[0-9a-f-]{36}$/)
 		expect(app.public_hostname).toMatch(/^[a-z-]+\.contextlayer\.xyz$/)
+		const appUrl = `${origin}/api/apps/${app.id}`
+		const appPageUrl = `${origin}/dashboard/apps/${app.id}`
+		expect((await fetch(appUrl)).status).toBe(401)
+		expect((await fetch(appPageUrl)).status).toBe(401)
+		const detail = await fetch(appUrl, { headers })
+		expect(detail.status).toBe(200)
+		expect(await detail.json()).toEqual(app)
 		expect((await getApps()).apps).toContainEqual({ ...app, latest_commit: null })
 		const gitUrl = `${origin}/git/${appId}`
 		const refs = `${gitUrl}/info/refs?service=git-upload-pack`
@@ -93,26 +100,6 @@ test("app ownership protects viewing, listing, and native Git source access", as
 			).toEqual({ visibility })
 			expect((await fetch(resolveUrl)).status).toBe(visibility === "public" ? 200 : 401)
 		}
-		const dashboardUrl = `${origin}/dashboard/personal/apps`
-		const dashboardRequest = {
-			body: new URLSearchParams({ target: app.id, visibility: "public" }),
-			headers,
-			method: "POST",
-		}
-		for (const visibility of ["public", "private"] as const) {
-			const updated = await fetch(dashboardUrl, {
-				...dashboardRequest,
-				body: new URLSearchParams({ target: app.id, visibility }),
-			})
-			expect(updated.status).toBe(200)
-			expect(await updated.text()).toContain(`Visibility for ${app.public_hostname}`)
-			expect((await getApps()).apps).toContainEqual({
-				...app,
-				latest_commit: null,
-				visibility,
-			})
-			expect((await fetch(resolveUrl)).status).toBe(visibility === "public" ? 200 : 401)
-		}
 		expect((await fetch(refs)).status).toBe(401)
 		expect((await fetch(refs)).headers.get("WWW-Authenticate")).toContain("Bearer")
 		const connectionList = `${origin}/api/apps/${app.id}/connections/list`
@@ -136,6 +123,8 @@ test("app ownership protects viewing, listing, and native Git source access", as
 		expect((await fetch(visibilityUrl, visibilityRequest)).status).toBe(403)
 		expect((await fetch(connectionList, listRequest)).status).toBe(403)
 		expect((await fetch(agentUrl, { headers })).status).toBe(403)
+		expect((await fetch(appUrl, { headers })).status).toBe(403)
+		expect((await fetch(appPageUrl, { headers })).status).toBe(403)
 		for (const operation of ["connections/assign", "tools/call"]) {
 			expect(
 				(
@@ -155,6 +144,8 @@ test("app ownership protects viewing, listing, and native Git source access", as
 		expect((await fetch(resolveUrl)).status).toBe(200)
 		expect((await fetch(connectionList, listRequest)).status).toBe(200)
 		expect((await fetch(agentUrl, { headers })).status).toBe(403)
+		expect((await fetch(appUrl, { headers })).status).toBe(403)
+		expect((await fetch(appPageUrl, { headers })).status).toBe(403)
 		expect(
 			(
 				await fetch(visibilityUrl, {
@@ -163,7 +154,6 @@ test("app ownership protects viewing, listing, and native Git source access", as
 				})
 			).status,
 		).toBe(403)
-		expect((await fetch(dashboardUrl, dashboardRequest)).status).toBe(403)
 		expect(
 			await db
 				.selectFrom("app")
@@ -225,6 +215,15 @@ test("app ownership protects viewing, listing, and native Git source access", as
 		expect(page.status).toBe(200)
 		const html = await page.text()
 		expect(html).toContain(app.public_hostname)
+		expect(html).toContain(`href="/dashboard/apps/${app.id}"`)
+		expect(html).not.toContain(`Visibility for ${app.public_hostname}`)
+		const appPage = await fetch(appPageUrl, { headers })
+		expect(appPage.status).toBe(200)
+		const appHtml = await appPage.text()
+		expect(appHtml).toContain("Switch workspace")
+		expect(appHtml).toContain(
+			`>${app.public_hostname.replace(/\.contextlayer\.xyz$/, "")}</h1>`,
+		)
 		expect(html).toMatch(new RegExp(`<code\\b[^>]*>${revision.slice(0, 7)}</code>`))
 		const schema = z
 			.object({
