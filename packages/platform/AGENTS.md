@@ -46,6 +46,8 @@ Use the native `ARTIFACTS` binding directly in domain functions. Acquire disposa
 
 Local platform development and integration tests must select the native test environment with isolated remote resources. Keep namespace selection in Wrangler configuration. Vite must use the source entrypoint, while built local startup must load the compiled bundle with the selected source configuration; preview must not inherit production bindings from a previous build.
 
+Deploy this Worker through the shared repository-root `scripts/cloudflare.sh` build/deploy phases, matching dispatcher, auth, and build. Native `secrets.required` in the effective Wrangler configuration owns required runtime secret names; Doppler owns their values. Let Wrangler resolve Vite's generated deployment configuration. Keep the bootstrap Doppler token and registry credential in the build environment, and do not add package-specific deployment scripts or another secret allowlist.
+
 ## Platform and web ownership
 
 Web should own users, Better Auth sessions, organizations, memberships, and identity verification. Platform should own apps and app authorization. Treat cookies and tokens as opaque credentials; never derive identity from unverified fields or introduce a second session secret, session store, or membership mirror.

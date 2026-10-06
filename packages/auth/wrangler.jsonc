@@ -11,5 +11,6 @@
 			"zone_id": "05346f30e7de4d8f63fe8889156a7f73"
 		}
 	],
+	"secrets": { "required": [] },
 	"workers_dev": false
 }

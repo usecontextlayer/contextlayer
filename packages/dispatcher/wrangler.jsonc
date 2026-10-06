@@ -15,6 +15,7 @@
 				{ "binding": "APPS", "namespace": "contextlayer-test", "remote": true }
 			],
 			"routes": [],
+			"secrets": { "required": ["POLAR_ACCESS_TOKEN", "POLAR_ENVIRONMENT"] },
 			"vars": { "CTX_PLATFORM_URL": "http://127.0.0.1:3010" }
 		}
 	},
@@ -29,6 +30,7 @@
 			"zone_id": "05346f30e7de4d8f63fe8889156a7f73"
 		}
 	],
+	"secrets": { "required": ["POLAR_ACCESS_TOKEN", "POLAR_ENVIRONMENT"] },
 	"vars": {
 		"CTX_PLATFORM_URL": "https://slate.usecontextlayer.com"
 	},

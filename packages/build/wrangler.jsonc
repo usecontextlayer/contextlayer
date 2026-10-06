@@ -56,6 +56,7 @@
 					"bucket_name": "contextlayer-test-build-backups"
 				}
 			],
+			"secrets": { "required": [] },
 			"services": [
 				{
 					"binding": "PUBLICATION",
@@ -94,6 +95,9 @@
 			"bucket_name": "contextlayer-build-backups"
 		}
 	],
+	"secrets": {
+		"required": ["CF_TOKEN", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY"]
+	},
 	"services": [
 		{
 			"binding": "PUBLICATION",
