@@ -1,5 +1,8 @@
+import type { Context } from "hono"
 import { accepts } from "hono/accepts"
+import { except } from "hono/combine"
 import { getCookie } from "hono/cookie"
+import { csrf } from "hono/csrf"
 import { createMiddleware } from "hono/factory"
 import { errors } from "jose"
 import { z } from "zod"
@@ -44,6 +47,12 @@ function createRequireAuth({ signInRedirect = false } = {}) {
 
 export const requireAuth = createRequireAuth()
 export const requireDashboardAuth = createRequireAuth({ signInRedirect: true })
+
+export const requireCsrf = except(
+	(c: Context<IdentityEnv>) =>
+		!c.var.identity || c.var.identity.credential.type === "access-token",
+	csrf(),
+)
 
 function createIdentifyUser({ viewerCookie = false } = {}) {
 	return createMiddleware<IdentityEnv>(async (c, next) => {

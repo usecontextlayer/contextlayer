@@ -97,7 +97,7 @@ test("viewer cookies authenticate runtime requests but not management APIs", asy
 	expect(
 		(
 			await api.request(`/api/apps/${app.id}/tools/call`, {
-				headers: { cookie: viewerCookie },
+				headers: { cookie: viewerCookie, origin: "http://localhost" },
 				method: "POST",
 			})
 		).status,
@@ -124,6 +124,18 @@ test("viewer cookies authenticate runtime requests but not management APIs", asy
 			method,
 		})
 		expect(response.status, `${method} ${path}`).toBe(401)
+	}
+
+	const join = `/api/apps/${app.id}/join`
+	expect(
+		(await api.request(join, { headers: { cookie: nativeCookie }, method: "POST" }))
+			.status,
+	).toBe(403)
+	for (const headers of [
+		new Headers({ cookie: nativeCookie, origin: "http://localhost" }),
+		new Headers({ authorization: `Bearer ${token}` }),
+	]) {
+		expect((await api.request(join, { headers, method: "POST" })).status).toBe(200)
 	}
 
 	for (const headers of [

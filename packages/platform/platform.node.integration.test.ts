@@ -140,9 +140,14 @@ test("app ownership protects viewing, joining, listing, and native Git source ac
 		headers: { ...headers, "content-type": "application/json" },
 		method: "PATCH",
 	}
-	expect((await fetch(visibilityUrl, { ...visibilityRequest, headers: {} })).status).toBe(
-		401,
-	)
+	expect(
+		(
+			await fetch(visibilityUrl, {
+				...visibilityRequest,
+				headers: { "content-type": "application/json" },
+			})
+		).status,
+	).toBe(401)
 	for (const visibility of ["public", "private"] as const) {
 		const updated = await fetch(visibilityUrl, {
 			...visibilityRequest,
@@ -165,7 +170,7 @@ test("app ownership protects viewing, joining, listing, and native Git source ac
 	const dashboardUrl = `${origin}/dashboard/personal/apps`
 	const dashboardRequest = {
 		body: new URLSearchParams({ target: app.id, visibility: "public" }),
-		headers,
+		headers: { ...headers, origin },
 		method: "POST",
 	}
 	for (const visibility of ["public", "private"] as const) {

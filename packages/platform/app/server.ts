@@ -1,9 +1,13 @@
 import { except } from "hono/combine"
-import { csrf } from "hono/csrf"
 import { RouterContextProvider } from "react-router"
 import { createHonoServer } from "react-router-hono-server/cloudflare"
 import { createApi } from "@/api"
-import { type IdentityEnv, identifyUser, requireDashboardAuth } from "@/auth.middleware"
+import {
+	type IdentityEnv,
+	identifyUser,
+	requireCsrf,
+	requireDashboardAuth,
+} from "@/auth.middleware"
 import {
 	appsContext,
 	artifactsContext,
@@ -22,7 +26,6 @@ const publicDashboardPaths = ["/dashboard/chrome/apps/*", "/dashboard/__manifest
 
 export default await createHonoServer<IdentityEnv>({
 	configure(app) {
-		app.use(csrf())
 		app.use(async (c, next) => {
 			const config = parsePlatformEnv(c.env)
 			const db = createPlatformDb(config.CTX_PLATFORM_DATABASE_URL)
@@ -44,6 +47,7 @@ export default await createHonoServer<IdentityEnv>({
 		})
 		app.route("/api", createApi())
 		app.use("*", except("/dashboard/__manifest", identifyUser))
+		app.use("*", requireCsrf)
 		app.route("/git", createGitApp())
 		app.use("/dashboard/*", except(publicDashboardPaths, requireDashboardAuth))
 		app.get("/", (c) => c.redirect("/dashboard"))

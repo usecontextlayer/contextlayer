@@ -47,6 +47,7 @@ import {
 	identifyViewer,
 	type NativeAuthenticatedEnv,
 	requireAuth,
+	requireCsrf,
 } from "@/auth.middleware"
 import { requireAppSubscription } from "@/billing.middleware"
 import { saveCustomerState } from "@/billing.server"
@@ -150,7 +151,14 @@ export function createApi() {
 	)
 	api.route("/apps/resolve", viewing)
 	const tools = new OpenAPIHono<AuthenticatedViewingEnv>()
-	tools.use("*", identifyViewer, requireAuth, requireAppViewing, requireAppSubscription)
+	tools.use(
+		"*",
+		identifyViewer,
+		requireCsrf,
+		requireAuth,
+		requireAppViewing,
+		requireAppSubscription,
+	)
 	tools.openapi(
 		createRoute({
 			method: "post",
@@ -201,7 +209,7 @@ export function createApi() {
 		},
 	)
 	api.route("/apps/:target/tools", tools)
-	api.use("*", identifyUser)
+	api.use("*", identifyUser, requireCsrf)
 	const catalog = new OpenAPIHono<AuthenticatedEnv>()
 	catalog.use("*", requireAuth)
 	catalog.openapi(
