@@ -4,7 +4,7 @@
 	"artifacts": [
 		{
 			"binding": "ARTIFACTS",
-			"namespace": "contextlayer-dev"
+			"namespace": "contextlayer-prod"
 		}
 	],
 	"compatibility_date": "2026-10-02",
@@ -53,7 +53,7 @@
 		"events": [
 			{
 				"filter": {
-					"namespace": "contextlayer-dev"
+					"namespace": "contextlayer-prod"
 				},
 				"targets": [
 					{

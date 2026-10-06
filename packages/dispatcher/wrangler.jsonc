@@ -5,9 +5,19 @@
 	"dispatch_namespaces": [
 		{
 			"binding": "APPS",
-			"namespace": "contextlayer-dev"
+			"namespace": "contextlayer-prod",
+			"remote": true
 		}
 	],
+	"env": {
+		"test": {
+			"dispatch_namespaces": [
+				{ "binding": "APPS", "namespace": "contextlayer-test", "remote": true }
+			],
+			"routes": [],
+			"vars": { "CTX_PLATFORM_URL": "http://127.0.0.1:3010" }
+		}
+	},
 	"main": "index.ts",
 	"name": "contextlayer-dispatcher",
 	"observability": {

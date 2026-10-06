@@ -51,7 +51,9 @@ beforeAll(async () => {
 	await worker.update({
 		workers: [
 			{
-				configPath: new URL("./build/server/wrangler.json", import.meta.url),
+				configPath: new URL("./wrangler.jsonc", import.meta.url),
+				env: "test",
+				prebuiltWorkerDir: new URL("./build/server", import.meta.url),
 				secrets: env,
 			},
 		],

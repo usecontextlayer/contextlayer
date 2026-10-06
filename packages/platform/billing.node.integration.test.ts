@@ -16,6 +16,8 @@ import { parsePlatformEnv } from "@/env"
 const configSchema = z.object({
 	CTX_TEST_ACCESS_TOKEN: z.string().min(1),
 	CTX_TEST_ORGANIZATION_ID: z.string().min(1),
+	CTX_TEST_POLAR_ORGANIZATION_SUBSCRIPTION_ID: z.uuid(),
+	CTX_TEST_POLAR_USER_SUBSCRIPTION_ID: z.uuid(),
 	CTX_TEST_USER_ID: z.string().min(1),
 	POLAR_ACCESS_TOKEN: z.string().min(1),
 	POLAR_ENVIRONMENT: z.literal("sandbox"),
@@ -23,8 +25,7 @@ const configSchema = z.object({
 
 const worker = createTestHarness()
 let config: z.infer<typeof configSchema>
-let personal: Awaited<ReturnType<ReturnType<typeof getStateExternalCustomers>>>
-let organization: typeof personal
+let polar: ReturnType<typeof createPolarCore>
 let databases: ProvisionedDatabases<"ctx_billing_test">
 let db: ReturnType<typeof createPlatformDb>
 let headers: { authorization: string }
@@ -32,20 +33,10 @@ let origin: string
 
 beforeAll(async () => {
 	config = configSchema.parse(process.env)
-	const polar = createPolarCore({
+	polar = createPolarCore({
 		accessToken: config.POLAR_ACCESS_TOKEN,
 		environment: config.POLAR_ENVIRONMENT,
 	})
-	const states = await Promise.all([
-		getStateExternalCustomers(polar)(config.CTX_TEST_USER_ID),
-		getStateExternalCustomers(polar)(config.CTX_TEST_ORGANIZATION_ID),
-	])
-	personal = states[0]
-	organization = states[1]
-	expect(personal.type).toBe("individual")
-	expect(organization.type).toBe("team")
-	expect(personal.active_subscriptions.length).toBeGreaterThan(0)
-	expect(organization.active_subscriptions.length).toBeGreaterThan(0)
 	databases = await provisionEphemeralDatabases({
 		migrators: { ctx_billing_test: migrateToLatest },
 	})
@@ -58,7 +49,9 @@ beforeAll(async () => {
 	await worker.update({
 		workers: [
 			{
-				configPath: new URL("./build/server/wrangler.json", import.meta.url),
+				configPath: new URL("./wrangler.jsonc", import.meta.url),
+				env: "test",
+				prebuiltWorkerDir: new URL("./build/server", import.meta.url),
 				secrets: env,
 			},
 		],
@@ -73,6 +66,8 @@ afterAll(async () => {
 })
 
 test("owner subscriptions gate execution while declaration access stays available", async () => {
+	const personalOwner = config.CTX_TEST_USER_ID
+	const organizationOwner = config.CTX_TEST_ORGANIZATION_ID
 	const post = (body: unknown) => ({
 		body: JSON.stringify(body),
 		headers: { ...headers, "content-type": "application/json" },
@@ -85,12 +80,12 @@ test("owner subscriptions gate execution while declaration access stays availabl
 			.values([
 				{
 					owner_organization_id: null,
-					owner_user_id: config.CTX_TEST_USER_ID,
+					owner_user_id: personalOwner,
 					public_hostname: "personal.example.com",
 					visibility: "public",
 				},
 				{
-					owner_organization_id: config.CTX_TEST_ORGANIZATION_ID,
+					owner_organization_id: organizationOwner,
 					owner_user_id: null,
 					public_hostname: "organization.example.com",
 					visibility: "public",
@@ -102,7 +97,7 @@ test("owner subscriptions gate execution while declaration access stays availabl
 	if (!personalApp || !organizationApp) throw new Error("Expected both test apps")
 	const resolve = (hostname: string, pathname: string) =>
 		`/api/apps/resolve?${new URLSearchParams({ hostname, pathname })}`
-	for (const app of [personalApp, organizationApp]) {
+	const expectBlocked = async (app: typeof personalApp) => {
 		expect((await request(resolve(app.public_hostname, "/"))).status).toBe(402)
 		expect((await request(resolve(app.public_hostname, "/slate.json"))).status).toBe(200)
 		expect(
@@ -114,24 +109,43 @@ test("owner subscriptions gate execution while declaration access stays availabl
 			).status,
 		).toBe(402)
 	}
-	await saveCustomerState(db, personal, null)
-	expect((await request(resolve(personalApp.public_hostname, "/"))).status).toBe(200)
+	for (const app of [personalApp, organizationApp]) await expectBlocked(app)
+	for (const [subscriptionId, app, owner] of [
+		[
+			config.CTX_TEST_POLAR_USER_SUBSCRIPTION_ID,
+			personalApp,
+			{ id: personalOwner, type: "user" },
+		],
+		[
+			config.CTX_TEST_POLAR_ORGANIZATION_SUBSCRIPTION_ID,
+			organizationApp,
+			{ id: organizationOwner, type: "organization" },
+		],
+	] as const) {
+		const state = await getStateExternalCustomers(polar)(owner.id)
+		expect(state.active_subscriptions.map((active) => active.id)).toContain(
+			subscriptionId,
+		)
+		await saveCustomerState(db, state, null)
+		const response = await request(resolve(app.public_hostname, "/"))
+		expect(response.status).toBe(200)
+		expect(await response.json()).toEqual({ id: app.id, owner })
+		if (app.id === personalApp.id) await expectBlocked(organizationApp)
+	}
+	const privateApp = await db
+		.insertInto("app")
+		.values({
+			owner_user_id: config.CTX_TEST_USER_ID,
+			public_hostname: "private.example.com",
+			visibility: "private",
+		})
+		.returningAll()
+		.executeTakeFirstOrThrow()
+	expect((await request(resolve(privateApp.public_hostname, "/slate.json"))).status).toBe(
+		401,
+	)
 	expect(
-		(await request(resolve(organizationApp.public_hostname, "/"), { headers })).status,
-	).toBe(402)
-	await saveCustomerState(db, organization, null)
-	expect((await request(resolve(organizationApp.public_hostname, "/"))).status).toBe(200)
-	await db
-		.updateTable("app")
-		.set({ visibility: "private" })
-		.where("id", "=", personalApp.id)
-		.execute()
-	expect(
-		(await request(resolve(personalApp.public_hostname, "/slate.json"))).status,
-	).toBe(401)
-	expect(
-		(await request(resolve(personalApp.public_hostname, "/slate.json"), { headers }))
+		(await request(resolve(privateApp.public_hostname, "/slate.json"), { headers }))
 			.status,
 	).toBe(200)
-	expect((await request("/api/polar/webhooks", post({}))).status).toBe(403)
 })

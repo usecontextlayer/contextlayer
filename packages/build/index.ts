@@ -27,7 +27,7 @@ export class Build extends CIWorkflow<CloudflareArtifacts, BuildBindings> {
 		await build.runner({
 			cloudflareCredentials: true,
 			command:
-				'pnpm exec wrangler deploy --name "$CTX_APP_ID" --dispatch-namespace contextlayer-dev',
+				'pnpm exec wrangler deploy --name "$CTX_APP_ID" --dispatch-namespace contextlayer-prod',
 			env: { CTX_APP_ID: event.payload.repo },
 			name: "deploy",
 		})

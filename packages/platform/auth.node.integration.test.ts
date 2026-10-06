@@ -1,7 +1,6 @@
 import { once } from "node:events"
 import { createServer } from "node:http"
 import type { AddressInfo } from "node:net"
-import { OpenAPIHono } from "@hono/zod-openapi"
 import {
 	type ProvisionedDatabases,
 	provisionEphemeralDatabases,
@@ -10,13 +9,14 @@ import { betterAuth } from "better-auth"
 import { toNodeHandler } from "better-auth/node"
 import { bearer, jwt } from "better-auth/plugins"
 import { afterAll, beforeAll, expect, test } from "vitest"
-import { createApi } from "@/api"
-import type { IdentityEnv } from "@/auth.middleware"
+import { createTestHarness } from "wrangler"
 import { createPlatformDb } from "@/database"
 import { migrateToLatest } from "@/database/migrate"
 import { parsePlatformEnv } from "@/env"
 
 const server = createServer()
+const worker = createTestHarness()
+let origin: string
 let issuer: string
 let viewerCookie: string
 let nativeCookie: string
@@ -24,6 +24,24 @@ let token: string
 let userId: string
 let databases: ProvisionedDatabases<"ctx_api_auth_test">
 let db: ReturnType<typeof createPlatformDb>
+let app: Awaited<ReturnType<typeof createApp>>
+let forbiddenApp: Awaited<ReturnType<typeof createApp>>
+
+function createApp(
+	ownerId: string,
+	hostname: string,
+	visibility: "private" | "public" = "private",
+) {
+	return db
+		.insertInto("app")
+		.values({
+			owner_user_id: ownerId,
+			public_hostname: hostname,
+			visibility,
+		})
+		.returningAll()
+		.executeTakeFirstOrThrow()
+}
 
 beforeAll(async () => {
 	server.listen(0, "127.0.0.1")
@@ -55,49 +73,54 @@ beforeAll(async () => {
 		migrators: { ctx_api_auth_test: migrateToLatest },
 	})
 	db = createPlatformDb(databases.urls.ctx_api_auth_test)
+	app = await createApp(userId, "viewer.contextlayer.xyz")
+	const anotherUser = await auth.api.signUpEmail({
+		body: {
+			email: "another@example.com",
+			name: "Another viewer",
+			password: "test-password-123",
+		},
+	})
+	forbiddenApp = await createApp(anotherUser.user.id, "another.contextlayer.xyz")
+	await worker.update({
+		workers: [
+			{
+				configPath: new URL("./wrangler.jsonc", import.meta.url),
+				env: "test",
+				prebuiltWorkerDir: new URL("./build/server", import.meta.url),
+				secrets: parsePlatformEnv({
+					COMPOSIO_API_KEY: "unused",
+					CTX_AUTH_ISSUER: issuer,
+					CTX_CUSTOMER_CREDENTIALS_DOPPLER_CONFIG: "unused",
+					CTX_CUSTOMER_CREDENTIALS_DOPPLER_PROJECT: "unused",
+					CTX_CUSTOMER_CREDENTIALS_DOPPLER_TOKEN: "unused",
+					CTX_PLATFORM_DATABASE_URL: databases.urls.ctx_api_auth_test,
+					POLAR_ACCESS_TOKEN: "unused",
+					POLAR_ENVIRONMENT: "sandbox",
+					POLAR_WEBHOOK_SECRET: "unused",
+				}),
+			},
+		],
+	})
+	origin = (await worker.listen()).url.origin
 })
 
 afterAll(async () => {
+	await worker.close()
 	await server[Symbol.asyncDispose]()
 	await db?.destroy()
 	await databases?.dropAll()
 })
 
 test("viewer cookies authenticate runtime requests but not management APIs", async () => {
-	const config = parsePlatformEnv({
-		COMPOSIO_API_KEY: "unused",
-		CTX_AUTH_ISSUER: issuer,
-		CTX_PLATFORM_DATABASE_URL: databases.urls.ctx_api_auth_test,
-		POLAR_ACCESS_TOKEN: "unused",
-		POLAR_ENVIRONMENT: "sandbox",
-		POLAR_WEBHOOK_SECRET: "unused",
-	})
-	const app = await db
-		.insertInto("app")
-		.values({
-			owner_user_id: userId,
-			public_hostname: "viewer.contextlayer.xyz",
-			visibility: "private",
-		})
-		.returningAll()
-		.executeTakeFirstOrThrow()
-	const api = new OpenAPIHono<IdentityEnv>()
-	api.use("*", async (c, next) => {
-		c.set("config", config)
-		c.set("db", db)
-		await next()
-	})
-	api.route("/api", createApi())
-	const resolve = `/api/apps/resolve?hostname=${app.public_hostname}&pathname=/slate.json`
-	expect((await api.request(resolve)).status).toBe(401)
-	expect((await api.request(resolve, { headers: { cookie: viewerCookie } })).status).toBe(
-		200,
-	)
+	const resolve = `${origin}/api/apps/resolve?hostname=${app.public_hostname}&pathname=/slate.json`
+	expect((await fetch(resolve)).status).toBe(401)
+	expect((await fetch(resolve, { headers: { cookie: viewerCookie } })).status).toBe(200)
 	// The runtime token passes identity and private viewing before the subscription gate.
 	expect(
 		(
-			await api.request(`/api/apps/${app.id}/tools/call`, {
-				headers: { cookie: viewerCookie, origin: "http://localhost" },
+			await fetch(`${origin}/api/apps/${app.id}/tools/call`, {
+				headers: { cookie: viewerCookie, origin },
 				method: "POST",
 			})
 		).status,
@@ -119,40 +142,45 @@ test("viewer cookies authenticate runtime requests but not management APIs", asy
 		["PUT", `/secrets/${owner}/example`],
 		["DELETE", `/secrets/${owner}/example`],
 	]) {
-		const response = await api.request(`/api${path}`, {
+		const response = await fetch(`${origin}/api${path}`, {
 			headers: { cookie: viewerCookie },
 			method,
 		})
 		expect(response.status, `${method} ${path}`).toBe(401)
 	}
+})
 
-	const join = `/api/apps/${app.id}/join`
+test("native session mutations require the same origin while CLI tokens can join directly", async () => {
+	const join = `${origin}/api/apps/${app.id}/join`
 	expect(
-		(await api.request(join, { headers: { cookie: nativeCookie }, method: "POST" }))
-			.status,
+		(await fetch(join, { headers: { cookie: nativeCookie }, method: "POST" })).status,
 	).toBe(403)
 	for (const headers of [
-		new Headers({ cookie: nativeCookie, origin: "http://localhost" }),
+		new Headers({ cookie: nativeCookie, origin }),
 		new Headers({ authorization: `Bearer ${token}` }),
 	]) {
-		expect((await api.request(join, { headers, method: "POST" })).status).toBe(200)
+		const response = await fetch(join, { headers, method: "POST" })
+		expect(response.status).toBe(200)
+		expect(await response.json()).toEqual({ app_id: app.id, user_id: userId })
 	}
+})
 
+test("native sessions and CLI tokens can manage apps and accept only scoped resource inputs", async () => {
 	for (const headers of [
 		new Headers({ cookie: nativeCookie }),
 		new Headers({ authorization: `Bearer ${token}` }),
 	]) {
 		headers.set("content-type", "application/json")
-		const response = await api.request(`/api/apps/${app.id}`, {
+		const response = await fetch(`${origin}/api/apps/${app.id}`, {
 			body: JSON.stringify({ visibility: "private" }),
 			headers,
 			method: "PATCH",
 		})
 		expect(response.status).toBe(200)
 		expect(await response.json()).toMatchObject({ id: app.id, visibility: "private" })
-		expect((await api.request("/api/connections", { headers })).status).toBe(400)
+		expect((await fetch(`${origin}/api/connections`, { headers })).status).toBe(400)
 		expect(
-			(await api.request("/api/connections?toolkit=gmail&owner_id=other", { headers }))
+			(await fetch(`${origin}/api/connections?toolkit=gmail&owner_id=other`, { headers }))
 				.status,
 		).toBe(400)
 		const concreteCall = {
@@ -162,7 +190,7 @@ test("viewer cookies authenticate runtime requests but not management APIs", asy
 			toolkit: "gmail",
 		}
 		const callConnection = (body: unknown) =>
-			api.request("/api/connections/ca_example/tools/call", {
+			fetch(`${origin}/api/connections/ca_example/tools/call`, {
 				body: JSON.stringify(body),
 				headers,
 				method: "POST",
@@ -181,7 +209,7 @@ test("viewer cookies authenticate runtime requests but not management APIs", asy
 		] as const) {
 			expect(
 				(
-					await api.request(`/api/apps/${app.id}/${path}`, {
+					await fetch(`${origin}/api/apps/${app.id}/${path}`, {
 						body: JSON.stringify({ ...body, resources: { connections: {} } }),
 						headers,
 						method: "POST",
@@ -190,18 +218,12 @@ test("viewer cookies authenticate runtime requests but not management APIs", asy
 			).toBe(400)
 		}
 	}
-	const forbiddenApp = await db
-		.insertInto("app")
-		.values({
-			owner_user_id: "another-user",
-			public_hostname: "another.contextlayer.xyz",
-			visibility: "private",
-		})
-		.returningAll()
-		.executeTakeFirstOrThrow()
+})
+
+test("personal account execution requires permission to view its app", async () => {
 	expect(
 		(
-			await api.request("/api/connections/ca_example/tools/call", {
+			await fetch(`${origin}/api/connections/ca_example/tools/call`, {
 				body: JSON.stringify({
 					app_id: forbiddenApp.id,
 					arguments: {},
@@ -216,10 +238,15 @@ test("viewer cookies authenticate runtime requests but not management APIs", asy
 			})
 		).status,
 	).toBe(403)
-	await db
-		.updateTable("app")
-		.set({ visibility: "public" })
-		.where("id", "=", app.id)
-		.execute()
-	expect((await api.request(resolve)).status).toBe(200)
+})
+
+test("public app resolution permits declaration paths without a subscription or sign-in", async () => {
+	const publicApp = await createApp(userId, "public.contextlayer.xyz", "public")
+	const resolve = `${origin}/api/apps/resolve?hostname=${publicApp.public_hostname}&pathname=/slate.json`
+	const response = await fetch(resolve)
+	expect(response.status).toBe(200)
+	expect(await response.json()).toEqual({
+		id: publicApp.id,
+		owner: { id: userId, type: "user" },
+	})
 })
