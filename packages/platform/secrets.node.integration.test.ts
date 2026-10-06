@@ -1,8 +1,12 @@
 import { spawn } from "node:child_process"
 import { once } from "node:events"
 import { join } from "node:path"
-import { provisionEphemeralDatabases } from "@usecontextlayer/db-infra/ephemeral"
+import {
+	type ProvisionedDatabases,
+	provisionEphemeralDatabases,
+} from "@usecontextlayer/db-infra/ephemeral"
 import { afterAll, beforeAll, expect, test } from "vitest"
+import { createTestHarness } from "wrangler"
 import { z } from "zod"
 import { organizationSchema } from "@/auth.server"
 import { connectionsSchema } from "@/connections.schema"
@@ -10,15 +14,14 @@ import { migrateToLatest } from "@/database/migrate"
 import { parsePlatformEnv, parseSharedSecretsEnv } from "@/env"
 import type { Owner } from "@/owner"
 import { secretKey } from "@/secrets.server"
-import { startPlatformWorker } from "@/testing"
 
 const cli = join(import.meta.dirname, "../cli/dist/cli.mjs")
 let origin: string
 let userId: string
 let headers: { authorization: string }
 let config: ReturnType<typeof parsePlatformEnv>
-let databases: Awaited<ReturnType<typeof provisionEphemeralDatabases>>
-let worker: Awaited<ReturnType<typeof startPlatformWorker>>
+let databases: ProvisionedDatabases<"ctx_secrets_test">
+const worker = createTestHarness()
 
 beforeAll(async () => {
 	databases = await provisionEphemeralDatabases({
@@ -31,17 +34,23 @@ beforeAll(async () => {
 	headers = {
 		authorization: `Bearer ${z.string().min(1).parse(process.env.CTX_TEST_ACCESS_TOKEN)}`,
 	}
-	worker = await startPlatformWorker(config, process.env)
-	origin = await worker.ready
+	await worker.update({
+		workers: [
+			{
+				configPath: new URL("./build/server/wrangler.json", import.meta.url),
+				secrets: config,
+			},
+		],
+	})
+	origin = (await worker.listen()).url.origin
 	const response = await fetch(new URL("/api/me", config.CTX_AUTH_ISSUER), { headers })
 	expect(response.status).toBe(200)
 	userId = z.object({ id: z.string() }).parse(await response.json()).id
 })
 
 afterAll(async () => {
-	worker?.server.kill("SIGTERM")
-	if (worker) await worker.exited
-	if (databases) await databases.dropAll()
+	await worker.close()
+	await databases?.dropAll()
 })
 
 async function runCli(args: string[], input?: string) {
@@ -288,12 +297,11 @@ test("live Doppler: CLI/API save, replace, isolate Owners, and drop with no valu
 		owner: { id: orgId, type: "organization" },
 	})
 	await assertRawValue(orgUrl, null)
+	const output = JSON.stringify(worker.getLogs())
 	for (const value of values) {
-		expect(worker.output.includes(value)).toBe(false)
-		expect(worker.output.includes(JSON.stringify(value).slice(1, -1))).toBe(false)
+		expect(output.includes(value)).toBe(false)
+		expect(output.includes(JSON.stringify(value).slice(1, -1))).toBe(false)
 	}
-	expect(worker.output.includes(vaultConfig.CTX_CUSTOMER_CREDENTIALS_DOPPLER_TOKEN)).toBe(
-		false,
-	)
-	expect(worker.output.includes(headers.authorization)).toBe(false)
+	expect(output.includes(vaultConfig.CTX_CUSTOMER_CREDENTIALS_DOPPLER_TOKEN)).toBe(false)
+	expect(output.includes(headers.authorization)).toBe(false)
 })
