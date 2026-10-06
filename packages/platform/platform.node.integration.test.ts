@@ -169,26 +169,6 @@ test("app ownership protects viewing, joining, listing, and native Git source ac
 			visibility === "public" ? 403 : 200,
 		)
 	}
-	const dashboardUrl = `${origin}/dashboard/personal/apps`
-	const dashboardRequest = {
-		body: new URLSearchParams({ target: app.id, visibility: "public" }),
-		headers: { ...headers, origin },
-		method: "POST",
-	}
-	for (const visibility of ["public", "private"] as const) {
-		const updated = await fetch(dashboardUrl, {
-			...dashboardRequest,
-			body: new URLSearchParams({ target: app.id, visibility }),
-		})
-		expect(updated.status).toBe(200)
-		expect(await updated.text()).toContain(`Visibility for ${app.public_hostname}`)
-		expect((await getApps()).apps).toContainEqual({
-			...app,
-			latest_commit: null,
-			visibility,
-		})
-		expect((await fetch(resolveUrl)).status).toBe(visibility === "public" ? 200 : 401)
-	}
 	expect((await fetch(refs)).status).toBe(401)
 	expect((await fetch(refs)).headers.get("WWW-Authenticate")).toContain("Bearer")
 	const connectionList = `${origin}/api/apps/${app.id}/connections/list`
@@ -248,7 +228,6 @@ test("app ownership protects viewing, joining, listing, and native Git source ac
 			})
 		).status,
 	).toBe(403)
-	expect((await fetch(dashboardUrl, dashboardRequest)).status).toBe(403)
 	expect(
 		await db
 			.selectFrom("app")

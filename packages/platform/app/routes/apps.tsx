@@ -1,24 +1,7 @@
-import { faAngleDown, faBox, faCode } from "@awesome.me/kit-e146ba5a27/icons/slab/regular"
+import { faBox, faCode } from "@awesome.me/kit-e146ba5a27/icons/slab/regular"
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome"
-import { useFetcher } from "react-router"
-import {
-	type App,
-	appTargetSchema,
-	updateAppVisibilityRequestSchema,
-} from "@/apps.schema"
-import { listApps, resolveAppForViewing, updateAppVisibility } from "@/apps.server"
-import { findOrganizationBySlug } from "@/auth.server"
-import { AuthProvider } from "@/components/auth-provider"
-import { OrganizationSwitcher } from "@/components/organization-switcher"
+import { Link, useOutletContext } from "react-router"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuRadioGroup,
-	DropdownMenuRadioItem,
-	DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import {
 	Empty,
 	EmptyContent,
@@ -29,228 +12,93 @@ import {
 } from "@/components/ui/empty"
 import {
 	Item,
-	ItemActions,
 	ItemContent,
 	ItemDescription,
 	ItemGroup,
 	ItemMedia,
 	ItemTitle,
 } from "@/components/ui/item"
-import { Separator } from "@/components/ui/separator"
-import { UserMenu } from "@/components/user-menu"
-import {
-	artifactsContext,
-	configContext,
-	databaseContext,
-	identityContext,
-} from "@/context"
-import type { OwnerDetails } from "@/owner"
-import type { Route } from "@/routes/+types/apps"
+import type { DashboardData } from "@/routes/dashboard"
 
 export function meta() {
 	return [{ title: "Apps · ContextLayer" }]
 }
 
-export async function loader({ context, request, params }: Route.LoaderArgs) {
-	const issuer = context.get(configContext).CTX_AUTH_ISSUER
-	const identity = context.get(identityContext)
-	if (!identity) throw new Response(null, { status: 401 })
-	const organization = params.organizationSlug
-		? await findOrganizationBySlug(identity, issuer, params.organizationSlug)
-		: undefined
-	if (params.organizationSlug && !organization)
-		throw new Response("Organization not found", { status: 404 })
-	const owner: OwnerDetails = organization
-		? {
-				id: organization.id,
-				name: organization.name,
-				slug: organization.slug,
-				type: "organization",
-			}
-		: { id: identity.user.id, type: "user" }
-	const signIn = new URL("/auth/sign-in", issuer)
-	signIn.searchParams.set("redirectTo", request.url)
-	return {
-		apps: await listApps(
-			context.get(databaseContext),
-			context.get(artifactsContext),
-			identity,
-			issuer,
-			owner,
-		),
-		issuer,
-		owner,
-		signInUrl: signIn.href,
-	}
-}
-
-const visibilityFormSchema = updateAppVisibilityRequestSchema.extend({
-	target: appTargetSchema,
-})
-
-export async function action({ context, request }: Route.ActionArgs) {
-	const input = visibilityFormSchema.safeParse(
-		Object.fromEntries(await request.formData()),
-	)
-	if (!input.success) throw new Response("Invalid app visibility", { status: 400 })
-	const db = context.get(databaseContext)
-	const identity = context.get(identityContext)
-	if (!identity) throw new Response(null, { status: 401 })
-	const issuer = context.get(configContext).CTX_AUTH_ISSUER
-	const access = await resolveAppForViewing(db, input.data.target, identity, issuer)
-	if (!access.allowed) {
-		const status = { forbidden: 403, "not-found": 404, "sign-in-required": 401 } as const
-		throw new Response(null, { status: status[access.reason] })
-	}
-	const result = await updateAppVisibility(
-		db,
-		{ app: access.app, identity },
-		issuer,
-		input.data,
-	)
-	if (!result.allowed) throw new Response(null, { status: 403 })
-	return result.app
-}
-
-function AppVisibility({ app }: { app: App }) {
-	const fetcher = useFetcher<typeof action>()
+export default function Apps() {
+	const { apps, owner } = useOutletContext<Extract<DashboardData, { page: "apps" }>>()
 	return (
-		<DropdownMenu>
-			<DropdownMenuTrigger
-				render={
-					<Button
-						variant="outline"
-						size="sm"
-					/>
-				}
-				aria-label={`Visibility for ${app.public_hostname}`}
-				disabled={fetcher.state !== "idle"}
-			>
-				{app.visibility === "public" ? "Public" : "Private"}
-				<FontAwesomeIcon
-					icon={faAngleDown}
-					aria-hidden="true"
-				/>
-			</DropdownMenuTrigger>
-			<DropdownMenuContent align="end">
-				<DropdownMenuRadioGroup
-					value={app.visibility}
-					onValueChange={(visibility) => {
-						fetcher.submit({ target: app.id, visibility }, { method: "post" })
-					}}
-				>
-					<DropdownMenuRadioItem value="public">Public</DropdownMenuRadioItem>
-					<DropdownMenuRadioItem value="private">Private</DropdownMenuRadioItem>
-				</DropdownMenuRadioGroup>
-			</DropdownMenuContent>
-		</DropdownMenu>
-	)
-}
-
-export default function Apps({
-	loaderData: { apps, issuer, signInUrl, owner },
-}: Route.ComponentProps) {
-	return (
-		<AuthProvider issuer={issuer}>
-			<header className="border-b">
-				<div className="mx-auto flex h-14 max-w-5xl items-center gap-4 px-6">
-					<a
-						href="/dashboard"
-						className="font-logo text-base font-normal"
-					>
-						contextlayer
-					</a>
-					<Separator
-						orientation="vertical"
-						className="h-4"
-					/>
-					<span className="text-sm text-muted-foreground">Dashboard</span>
-					<div className="ml-auto flex items-center gap-3">
-						<OrganizationSwitcher owner={owner} />
-						<UserMenu signInUrl={signInUrl} />
-					</div>
+		<>
+			<div className="space-y-2">
+				<div className="flex items-center gap-3">
+					<h1 className="text-2xl font-semibold tracking-tight">Apps</h1>
+					<Badge variant="secondary">{apps.length}</Badge>
 				</div>
-			</header>
-			<main className="mx-auto max-w-5xl space-y-6 px-6 py-10">
-				<div className="space-y-2">
-					<div className="flex items-center gap-3">
-						<h1 className="text-2xl font-semibold tracking-tight">Apps</h1>
-						<Badge variant="secondary">{apps.length}</Badge>
-					</div>
-					<p className="text-sm text-muted-foreground">
-						Create a project with ctx init, then push your code.
-					</p>
-				</div>
-				{apps.length > 0 ? (
-					<ItemGroup aria-label="Apps">
-						{apps.map((app) => (
-							<Item
-								key={app.id}
-								variant="outline"
-								role="listitem"
-							>
-								<ItemMedia variant="icon">
-									<FontAwesomeIcon
-										icon={faBox}
-										aria-hidden="true"
-									/>
-								</ItemMedia>
-								<ItemContent>
-									<ItemTitle>
-										<a
-											href={`https://${app.public_hostname}`}
-											target="_blank"
-											rel="noopener noreferrer"
-											className="hover:underline"
-										>
-											{app.public_hostname.replace(/\.contextlayer\.xyz$/, "")}
-										</a>
-									</ItemTitle>
-									<ItemDescription className="flex items-center gap-2">
-										<FontAwesomeIcon
-											icon={faCode}
-											aria-hidden="true"
-										/>
-										{app.latest_commit ? (
-											<code title={app.latest_commit}>
-												{app.latest_commit.slice(0, 7)}
-											</code>
-										) : (
-											"No commits yet"
-										)}
-									</ItemDescription>
-								</ItemContent>
-								<ItemActions>
-									<AppVisibility app={app} />
-								</ItemActions>
-							</Item>
-						))}
-					</ItemGroup>
-				) : (
-					<Empty className="border">
-						<EmptyHeader>
-							<EmptyMedia variant="icon">
+				<p className="text-sm text-muted-foreground">
+					Create a project with ctx init, then push your code.
+				</p>
+			</div>
+			{apps.length > 0 ? (
+				<ItemGroup aria-label="Apps">
+					{apps.map((app) => (
+						<Item
+							key={app.id}
+							variant="outline"
+							role="listitem"
+						>
+							<ItemMedia variant="icon">
 								<FontAwesomeIcon
 									icon={faBox}
 									aria-hidden="true"
 								/>
-							</EmptyMedia>
-							<EmptyTitle>Create your first app</EmptyTitle>
-							<EmptyDescription>Create a project from your terminal:</EmptyDescription>
-						</EmptyHeader>
-						<EmptyContent className="max-w-full">
-							<code className="max-w-full overflow-x-auto rounded-md bg-muted p-3 text-xs whitespace-nowrap">
-								{owner.type === "organization"
-									? `ctx init --org ${owner.slug} my-app`
-									: "ctx init my-app"}
-							</code>
-							<p className="text-muted-foreground">
-								Your app will appear here after initialization.
-							</p>
-						</EmptyContent>
-					</Empty>
-				)}
-			</main>
-		</AuthProvider>
+							</ItemMedia>
+							<ItemContent>
+								<ItemTitle>
+									<Link
+										to={`/apps/${app.id}`}
+										className="hover:underline"
+									>
+										{app.public_hostname.replace(/\.contextlayer\.xyz$/, "")}
+									</Link>
+								</ItemTitle>
+								<ItemDescription className="flex items-center gap-2">
+									<FontAwesomeIcon
+										icon={faCode}
+										aria-hidden="true"
+									/>
+									{app.latest_commit ? (
+										<code title={app.latest_commit}>{app.latest_commit.slice(0, 7)}</code>
+									) : (
+										"No commits yet"
+									)}
+								</ItemDescription>
+							</ItemContent>
+						</Item>
+					))}
+				</ItemGroup>
+			) : (
+				<Empty className="border">
+					<EmptyHeader>
+						<EmptyMedia variant="icon">
+							<FontAwesomeIcon
+								icon={faBox}
+								aria-hidden="true"
+							/>
+						</EmptyMedia>
+						<EmptyTitle>Create your first app</EmptyTitle>
+						<EmptyDescription>Create a project from your terminal:</EmptyDescription>
+					</EmptyHeader>
+					<EmptyContent className="max-w-full">
+						<code className="max-w-full overflow-x-auto rounded-md bg-muted p-3 text-xs whitespace-nowrap">
+							{owner.type === "organization"
+								? `ctx init --org ${owner.slug} my-app`
+								: "ctx init my-app"}
+						</code>
+						<p className="text-muted-foreground">
+							Your app will appear here after initialization.
+						</p>
+					</EmptyContent>
+				</Empty>
+			)}
+		</>
 	)
 }

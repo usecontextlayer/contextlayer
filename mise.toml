@@ -1,5 +1,6 @@
 [tools]
-node = "24"
+# Share the Node version with Cloudflare's build image.
+node = "{{ read_file(path=config_root ~ '/.node-version') | trim }}"
 # Must match the root package.json `packageManager` pin. mise is the one pnpm
 # source for dev shells + CI mise-action (corepack stays unused).
 pnpm = "11.22.0"

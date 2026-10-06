@@ -39,7 +39,7 @@ import {
 	resolveAppQuerySchema,
 	updateAppVisibilityRequestSchema,
 } from "@/apps.schema"
-import { createApp, listApps, updateAppVisibility } from "@/apps.server"
+import { createApp, getApp, listApps, updateAppVisibility } from "@/apps.server"
 import {
 	type AuthenticatedEnv,
 	type IdentityEnv,
@@ -290,6 +290,42 @@ export function createApi() {
 			)
 			if (!app) return c.body(null, 404)
 			return c.json(app, 201)
+		},
+	)
+	catalog.openapi(
+		createRoute({
+			method: "get",
+			operationId: "getApp",
+			path: "/{target}",
+			request: { params: z.object({ target: appTargetSchema }) },
+			responses: {
+				200: {
+					content: { "application/json": { schema: appSchema } },
+					description: "App manageable by this user",
+				},
+				400: { description: "Invalid app target" },
+				401: { description: "A valid ContextLayer login is required" },
+				403: { description: "This user cannot manage this app" },
+				404: { description: "App not found" },
+			},
+			security,
+		}),
+		async (c) => {
+			const result = await getApp(
+				c.var.db,
+				c.req.valid("param").target,
+				c.var.identity,
+				c.var.config.CTX_AUTH_ISSUER,
+			)
+			if (!result.allowed) {
+				const status = {
+					forbidden: 403,
+					"not-found": 404,
+					"sign-in-required": 401,
+				} as const
+				return c.body(null, status[result.reason])
+			}
+			return c.json(result.app, 200)
 		},
 	)
 	api.route("/apps", catalog)
