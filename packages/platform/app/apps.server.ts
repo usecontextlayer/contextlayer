@@ -58,23 +58,23 @@ export async function listApps(
 	const organizations = storedApps.some((app) => app.owner_organization_id !== null)
 		? await listOrganizations(identity, issuer)
 		: []
-	const apps = []
-	for (const app of storedApps) {
-		if (
-			!authorizeAppManagement(
+	const apps = storedApps.filter(
+		(app) =>
+			authorizeAppManagement(
 				app,
 				identity,
 				organizations.some(
 					(organization) => organization.id === app.owner_organization_id,
 				),
-			).allowed
-		)
-			continue
-		using repo = await artifacts.get(app.id)
-		const commits = await repo.log({ limit: 1, ref: "main" })
-		apps.push({ ...app, latest_commit: commits[0]?.hash ?? null })
-	}
-	return apps
+			).allowed,
+	)
+	return Promise.all(
+		apps.map(async (app) => {
+			using repo = await artifacts.get(app.id)
+			const commits = await repo.log({ limit: 1, ref: "main" })
+			return { ...app, latest_commit: commits[0]?.hash ?? null }
+		}),
+	)
 }
 
 export async function resolveAppForViewing(
