@@ -10,7 +10,7 @@ import { migrateToLatest } from "@/database/migrate"
 import { parsePlatformEnv } from "@/env"
 import { startPlatformWorker } from "@/testing"
 
-test("owner subscriptions gate execution while manifests and configuration stay available", async () => {
+test("owner subscriptions gate execution while declaration access stays available", async () => {
 	const config = z
 		.object({
 			CTX_TEST_ACCESS_TOKEN: z.string().min(1),
@@ -46,7 +46,6 @@ test("owner subscriptions gate execution while manifests and configuration stay 
 		headers: { ...headers, "content-type": "application/json" },
 		method: "POST",
 	})
-	const manifest = { connections: { mail: { mode: "viewer", toolkit: "gmail" } } }
 	let worker: Awaited<ReturnType<typeof startPlatformWorker>> | undefined
 	try {
 		worker = await startPlatformWorker(env, process.env)
@@ -84,22 +83,6 @@ test("owner subscriptions gate execution while manifests and configuration stay 
 			expect(
 				(
 					await request(
-						`/api/apps/${app.id}/connections/list`,
-						post({ manifest: { connections: {} } }),
-					)
-				).status,
-			).toBe(200)
-			expect(
-				(
-					await request(
-						`/api/apps/${app.id}/connections/assign`,
-						post({ connection_id: "test-connection", manifest, slug: "mail" }),
-					)
-				).status,
-			).toBe(200)
-			expect(
-				(
-					await request(
 						`/api/apps/${app.id}/tools/call`,
 						post({ arguments: {}, slug: "unassigned", tool: "EXAMPLE" }),
 					)
@@ -115,14 +98,6 @@ test("owner subscriptions gate execution while manifests and configuration stay 
 		expect((await request(resolve(organizationApp.public_hostname, "/"))).status).toBe(
 			200,
 		)
-		expect(
-			(
-				await request(
-					`/api/apps/${organizationApp.id}/tools/call`,
-					post({ arguments: {}, manifest, slug: "unassigned", tool: "EXAMPLE" }),
-				)
-			).status,
-		).toBe(404)
 		await db
 			.updateTable("app")
 			.set({ visibility: "private" })

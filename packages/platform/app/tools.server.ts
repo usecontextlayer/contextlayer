@@ -1,20 +1,22 @@
 import type { z } from "zod"
-import { resolveAppConnection } from "@/app-connections.server"
-import type { ResourcesSnapshot } from "@/app-resources.server"
-import type { AppAccess } from "@/apps.server"
+import { getAppResources, resolveAppConnection } from "@/app-resources.server"
+import { type AppAccess, resolveAppForViewing } from "@/apps.server"
+import type { NativeAuthIdentity } from "@/auth.server"
+import { checkAppSubscription } from "@/billing.server"
 import { createConnectionSession } from "@/connections.server"
 import type { PlatformDb } from "@/database"
-import type { toolCallSchema } from "@/tools.schema"
+import type { PlatformConfig } from "@/env"
+import type { connectionToolCallSchema, toolCallSchema } from "@/tools.schema"
 
 export async function callTool(
 	db: PlatformDb,
 	apiKey: string,
 	access: AppAccess,
-	issuer: string,
-	call: Omit<z.infer<typeof toolCallSchema>, "manifest">,
-	snapshot: ResourcesSnapshot,
+	call: z.infer<typeof toolCallSchema>,
+	artifacts: Artifacts,
 ) {
-	const resolved = await resolveAppConnection(db, access, issuer, call.slug, snapshot)
+	const resources = await getAppResources(access, artifacts)
+	const resolved = await resolveAppConnection(db, access, call.slug, resources)
 	if (!resolved.allowed) return resolved
 	const session = await createConnectionSession(
 		apiKey,
@@ -24,6 +26,35 @@ export async function callTool(
 	)
 	return {
 		allowed: true,
+		result: await session.execute(call.tool, call.arguments),
+	} as const
+}
+
+export async function callConnectionTool(
+	db: PlatformDb,
+	config: PlatformConfig,
+	identity: NativeAuthIdentity,
+	connectionId: string,
+	call: z.infer<typeof connectionToolCallSchema>,
+) {
+	const access = await resolveAppForViewing(
+		db,
+		{ id: call.app_id },
+		identity,
+		config.CTX_AUTH_ISSUER,
+	)
+	if (!access.allowed) return access
+	if (!(await checkAppSubscription(db, access.app)))
+		return { allowed: false, reason: "subscription-required" } as const
+	const session = await createConnectionSession(
+		config.COMPOSIO_API_KEY,
+		{ id: identity.user.id, type: "user" },
+		connectionId,
+		call.toolkit,
+	)
+	return {
+		allowed: true,
+		app: access.app,
 		result: await session.execute(call.tool, call.arguments),
 	} as const
 }

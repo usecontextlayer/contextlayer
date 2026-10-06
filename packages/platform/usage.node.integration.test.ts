@@ -109,7 +109,6 @@ test("personal and organization usage reaches Polar at 1/3/1 clips, without bloc
 				{
 					body: JSON.stringify({
 						arguments: {},
-						manifest: { connections: {} },
 						slug: "mail",
 						tool: "READ",
 					}),
@@ -163,7 +162,11 @@ test("personal and organization usage reaches Polar at 1/3/1 clips, without bloc
 				const nonblocking = await api.request(
 					`/api/apps/${app.id}/tools/call`,
 					{
-						body: JSON.stringify({ arguments: {}, slug: "mail", tool: "READ" }),
+						body: JSON.stringify({
+							arguments: {},
+							slug: "mail",
+							tool: "READ",
+						}),
 						headers: {
 							authorization: `Bearer ${accessToken}`,
 							"content-type": "application/json",

@@ -32,6 +32,7 @@
 	"scripts": {
 		"build": "tsdown",
 		"dev:watch": "tsdown --watch",
+		"test": "vitest run --project @usecontextlayer/cli",
 		"tsc": "tsc -b tsconfig.json"
 	},
 	"type": "module",

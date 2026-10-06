@@ -1,10 +1,10 @@
 import { z } from "zod"
-import { connectionRequirementSchema } from "@/lib/slate"
+import { appResourceConfigurationSchema } from "@/lib/app-resources"
 
-export const appConnectionSchema = connectionRequirementSchema.extend({
-	connection_id: z.string().nullable(),
-	slug: z.string(),
-})
+export const appConnectionSchema =
+	appResourceConfigurationSchema.shape.connections.valueType.extend({
+		slug: z.string(),
+	})
 export type AppConnection = z.infer<typeof appConnectionSchema>
 
 export const appConnectionsSchema = z.object({

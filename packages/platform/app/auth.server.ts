@@ -13,6 +13,10 @@ export type AuthIdentity = {
 		| { type: "cookie"; cookie: string }
 }
 
+export type NativeAuthIdentity = AuthIdentity & {
+	credential: Exclude<AuthIdentity["credential"], { type: "session" }>
+}
+
 export function credentialHeaders(credential: AuthIdentity["credential"]) {
 	const headers = new Headers()
 	if (credential.type === "access-token") {

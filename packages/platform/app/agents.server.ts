@@ -1,17 +1,16 @@
-import { type Resources, resourcesForConsumer } from "@usecontextlayer/shared/slate"
+import type { AppResourceConfiguration } from "@usecontextlayer/shared/app-resources"
+import { resourcesForConsumer } from "@usecontextlayer/shared/slate"
 import { getAgentByName } from "agents/routing"
 import type { z } from "zod"
 import type { AppAgent } from "@/agent-runtime"
 import type { AgentActor, AgentRun, AgentRunRequest, agentSchema } from "@/agents.schema"
-import { getAppConnectionAssignment } from "@/app-connections.server"
 import { readAppDeclarations } from "@/app-declarations.server"
+import { getAppResourceConfiguration } from "@/app-resources.server"
 import type { App } from "@/apps.schema"
 import { type AppAccess, authorizeAppManagement } from "@/apps.server"
 import { listOrganizations } from "@/auth.server"
 import type { PlatformDb } from "@/database"
 import type { AppId } from "@/database/models/public/App"
-import type { AppConnectionAssignmentSlug } from "@/database/models/public/AppConnectionAssignment"
-import { getCredentialOwner } from "@/owner"
 
 export async function getAgent(
 	artifacts: Artifacts,
@@ -56,22 +55,33 @@ export function prepareAgentRun(
 	app: App,
 	actor: AgentActor,
 	agent: z.infer<typeof agentSchema>,
-	resources: Resources,
+	configuration: AppResourceConfiguration,
 	{ name, prompt }: AgentRunRequest,
-): AgentRun {
-	return {
+) {
+	const connections: AgentRun["connections"] = {}
+	for (const [slug, connection] of Object.entries(configuration.connections)) {
+		if (connection.connection_id === null)
+			return { allowed: false, reason: "not-found" } as const
+		connections[slug] = {
+			connection_id: connection.connection_id,
+			owner: connection.owner,
+			toolkit: connection.toolkit,
+		}
+	}
+	const run: AgentRun = {
 		actor,
 		agent: { commit: agent.commit, instructions: agent.instructions, name },
 		appId: app.id,
-		connections: {},
+		connections,
 		prompt,
 		secrets: Object.fromEntries(
-			Object.entries(resources.secrets).map(([secretName, requirement]) => [
+			Object.entries(configuration.secrets).map(([secretName, requirement]) => [
 				secretName,
-				getCredentialOwner(requirement.mode, app, actor.type === "user" ? actor : null),
+				requirement.owner,
 			]),
 		),
 	}
+	return { allowed: true, run } as const
 }
 
 export async function getAgentRun(
@@ -88,30 +98,13 @@ export async function getAgentRun(
 		name: input.name,
 		type: "agent",
 	})
-	const run = prepareAgentRun(app, actor, result.agent, resources, input)
-	for (const [slug, requirement] of Object.entries(resources.connections)) {
-		const owner = getCredentialOwner(
-			requirement.mode,
-			app,
-			actor.type === "user" ? actor : null,
-		)
-		const assignment = await getAppConnectionAssignment(
-			db,
-			app.id,
-			owner,
-			slug as AppConnectionAssignmentSlug,
-		)
-		if (!assignment) return { allowed: false, reason: "not-found" } as const
-		run.connections[slug] = {
-			connection_id: assignment.connection_id,
-			owner,
-			toolkit: requirement.toolkit,
-		}
-	}
-	return {
-		allowed: true,
-		run,
-	} as const
+	const configuration = await getAppResourceConfiguration(
+		db,
+		app,
+		actor.type === "user" ? actor : null,
+		resources,
+	)
+	return prepareAgentRun(app, actor, result.agent, configuration, input)
 }
 
 export async function startAgentRun(

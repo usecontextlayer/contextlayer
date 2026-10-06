@@ -1,38 +1,75 @@
 import { WorkerEntrypoint } from "cloudflare:workers"
-import { z } from "zod"
-import type { Slate } from "@/lib/slate"
+import type { LocalResourceConfiguration } from "@/lib/app-resources"
+import { toolResultSchema } from "@/lib/tools"
 
 export interface ToolsProps {
 	appId: string
-	credential: { token: string; type: "access-token" | "session" }
-	manifest?: Slate
+	credential: { token: string; type: "session" }
 }
 
-const execution = z.object({
-	data: z.record(z.string(), z.unknown()),
-	error: z.string().nullable(),
-	logId: z.string(),
-})
+export interface LocalToolsProps {
+	appId: string
+	connections: LocalResourceConfiguration["connections"]
+	credential: { token: string; type: "access-token" }
+}
 
 export class Tools extends WorkerEntrypoint<{ CTX_PLATFORM_URL: string }, ToolsProps> {
 	async call(slug: string, toolSlug: string, args: Record<string, unknown>) {
-		const { appId, credential, manifest } = this.ctx.props
-		const response = await fetch(
-			new URL(`/api/apps/${appId}/tools/call`, this.env.CTX_PLATFORM_URL),
-			{
-				body: JSON.stringify({ arguments: args, manifest, slug, tool: toolSlug }),
+		const { appId, credential } = this.ctx.props
+		return executeToolRequest(
+			new Request(new URL(`/api/apps/${appId}/tools/call`, this.env.CTX_PLATFORM_URL), {
+				body: JSON.stringify({ arguments: args, slug, tool: toolSlug }),
 				headers: {
 					"content-type": "application/json",
-					...(credential.type === "access-token"
-						? { authorization: `Bearer ${credential.token}` }
-						: { cookie: `ctx-viewer-auth=${credential.token}` }),
+					cookie: `ctx-viewer-auth=${credential.token}`,
 				},
 				method: "POST",
-			},
+			}),
 		)
-		if (!response.ok) throw new Error(`Tool call failed: HTTP ${response.status}`)
-		const result = execution.parse(await response.json())
-		if (result.error !== null) throw new Error(`${result.error} (log: ${result.logId})`)
-		return { data: result.data, logId: result.logId }
 	}
+}
+
+export class LocalTools extends WorkerEntrypoint<
+	{ CTX_PLATFORM_URL: string },
+	LocalToolsProps
+> {
+	async call(slug: string, toolSlug: string, args: Record<string, unknown>) {
+		const { appId, connections, credential } = this.ctx.props
+		const connection = new Map(Object.entries(connections)).get(slug)
+		if (!connection) throw new Error(`No local app connection requirement for "${slug}"`)
+		if (connection.connection_id === null) {
+			throw new Error(
+				`No local account assigned to "${slug}". Run ctx connection local assign ${slug}.`,
+			)
+		}
+		return executeToolRequest(
+			new Request(
+				new URL(
+					`/api/connections/${encodeURIComponent(connection.connection_id)}/tools/call`,
+					this.env.CTX_PLATFORM_URL,
+				),
+				{
+					body: JSON.stringify({
+						app_id: appId,
+						arguments: args,
+						tool: toolSlug,
+						toolkit: connection.toolkit,
+					}),
+					headers: {
+						authorization: `Bearer ${credential.token}`,
+						"content-type": "application/json",
+					},
+					method: "POST",
+				},
+			),
+		)
+	}
+}
+
+async function executeToolRequest(request: Request) {
+	const response = await fetch(request)
+	if (!response.ok) throw new Error(`Tool call failed: HTTP ${response.status}`)
+	const result = toolResultSchema.parse(await response.json())
+	if (result.error !== null) throw new Error(`${result.error} (log: ${result.logId})`)
+	return { data: result.data, logId: result.logId }
 }

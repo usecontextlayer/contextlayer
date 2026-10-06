@@ -5,17 +5,21 @@ import { appConnectionsSchema } from "@usecontextlayer/shared/app-connections"
 import {
 	appSlatesSchema,
 	collectAppResources,
+	resourcesForConsumer,
 	slateSchema,
 } from "@usecontextlayer/shared/slate"
 import { sql } from "kysely"
 import { expect, test } from "vitest"
+import { agentRunSchema } from "@/agents.schema"
+import { prepareAgentRun } from "@/agents.server"
 import { assignmentSchema } from "@/app-connections.schema"
+import { assignAppConnection } from "@/app-connections.server"
 import {
-	assignAppConnection,
+	getAppResourceConfiguration,
 	listAppConnections,
+	listAppResources,
 	resolveAppConnection,
-} from "@/app-connections.server"
-import type { ResourcesSnapshot } from "@/app-resources.server"
+} from "@/app-resources.server"
 import { appSchema } from "@/apps.schema"
 import { createPlatformDb } from "@/database"
 import { migrateToLatest } from "@/database/migrate"
@@ -72,16 +76,18 @@ test("configuration includes agent-only connections while app execution uses its
 						mail: { mode: "viewer", toolkit: "gmail" },
 						repository: { mode: "owner", toolkit: "github" },
 					},
+					folders: { drafts: { mode: "viewer" }, reports: { mode: "owner" } },
+					secrets: { MODEL_API_KEY: { mode: "owner" }, PERSONAL_KEY: { mode: "viewer" } },
+				},
+				nightly: {
+					connections: { repository: { mode: "owner", toolkit: "github" } },
+					folders: { reports: { mode: "owner" } },
+					secrets: { MODEL_API_KEY: { mode: "owner" } },
 				},
 			},
 			app: { connections: { mail: { mode: "viewer", toolkit: "gmail" } } },
 		}),
 	)
-	const snapshot = {
-		commit: "0123456789012345678901234567890123456789",
-		resources,
-		source: "repository",
-	} satisfies ResourcesSnapshot
 	const alice = {
 		credential: { token: "unused-for-personal-app", type: "access-token" },
 		user: { id: "alice" },
@@ -107,28 +113,87 @@ test("configuration includes agent-only connections while app execution uses its
 					access,
 					"https://auth.example.com",
 					assignmentSchema.parse({ connection_id: `alice-${slug}`, slug }),
-					snapshot,
+					resources,
 				),
 			).toEqual({ allowed: true, assignment: { connection_id: `alice-${slug}`, slug } })
 		}
-		const listed = await listAppConnections(db, access, snapshot)
+		const listed = await listAppConnections(db, access, resources)
 		expect(listed.connections).toEqual([
-			{ connection_id: "alice-mail", mode: "viewer", slug: "mail", toolkit: "gmail" },
+			{
+				connection_id: "alice-mail",
+				consumers: [{ type: "app" }, { name: "daily-summary", type: "agent" }],
+				mode: "viewer",
+				owner: { id: "alice", type: "user" },
+				slug: "mail",
+				toolkit: "gmail",
+			},
 			{
 				connection_id: "alice-repository",
+				consumers: [
+					{ name: "daily-summary", type: "agent" },
+					{ name: "nightly", type: "agent" },
+				],
 				mode: "owner",
+				owner: { id: "alice", type: "user" },
 				slug: "repository",
 				toolkit: "github",
 			},
 		])
 		expect(appConnectionsSchema.parse(listed).connections).toEqual(listed.connections)
+		const configured = await listAppResources(db, access, resources)
+		expect(configured.resources.folders).toEqual({
+			drafts: {
+				consumers: [{ name: "daily-summary", type: "agent" }],
+				mode: "viewer",
+				owner: { id: "alice", type: "user" },
+			},
+			reports: {
+				consumers: [
+					{ name: "daily-summary", type: "agent" },
+					{ name: "nightly", type: "agent" },
+				],
+				mode: "owner",
+				owner: { id: "alice", type: "user" },
+			},
+		})
+		const configuration = await getAppResourceConfiguration(
+			db,
+			app,
+			null,
+			resourcesForConsumer(resources, { name: "nightly", type: "agent" }),
+		)
+		const prepared = prepareAgentRun(
+			app,
+			{ type: "app" },
+			{ commit: "published-revision", instructions: "Write the nightly report." },
+			configuration,
+			{ name: "nightly", prompt: "Summarize the repository." },
+		)
+		if (!prepared.allowed) throw new Error("Expected a prepared scheduled run")
+		expect(agentRunSchema.parse(JSON.parse(JSON.stringify(prepared.run)))).toEqual({
+			actor: { type: "app" },
+			agent: {
+				commit: "published-revision",
+				instructions: "Write the nightly report.",
+				name: "nightly",
+			},
+			appId: app.id,
+			connections: {
+				repository: {
+					connection_id: "alice-repository",
+					owner: { id: "alice", type: "user" },
+					toolkit: "github",
+				},
+			},
+			prompt: "Summarize the repository.",
+			secrets: { MODEL_API_KEY: { id: "alice", type: "user" } },
+		})
 		expect(
 			await resolveAppConnection(
 				db,
 				access,
-				"https://auth.example.com",
 				assignmentSchema.shape.slug.parse("mail"),
-				snapshot,
+				resources,
 			),
 		).toEqual({
 			allowed: true,
@@ -144,9 +209,8 @@ test("configuration includes agent-only connections while app execution uses its
 			await resolveAppConnection(
 				db,
 				access,
-				"https://auth.example.com",
 				assignmentSchema.shape.slug.parse("repository"),
-				snapshot,
+				resources,
 			),
 		).toEqual({ allowed: false, reason: "not-found" })
 	} finally {
@@ -155,12 +219,12 @@ test("configuration includes agent-only connections while app execution uses its
 	}
 })
 
-test("manifest modes select viewer and app Owner assignments through the production operations", async () => {
+test("resource modes select viewer and app Owner assignments through the production operations", async () => {
 	const databases = await provisionEphemeralDatabases({
 		migrators: { ctx_connection_modes: migrateToLatest },
 	})
 	const db = createPlatformDb(databases.urls.ctx_connection_modes)
-	const manifest = slateSchema.parse({
+	const slate = slateSchema.parse({
 		connections: {
 			company: { mode: "owner", toolkit: "gmail" },
 			personal: { mode: "viewer", toolkit: "gmail" },
@@ -170,8 +234,7 @@ test("manifest modes select viewer and app Owner assignments through the product
 			PERSONAL_API_KEY: { mode: "viewer" },
 		},
 	})
-	const resources = collectAppResources({ agents: {}, app: manifest })
-	const snapshot = { resources, source: "local" } satisfies ResourcesSnapshot
+	const resources = collectAppResources({ agents: {}, app: slate })
 	const alice = {
 		credential: { token: "unused-for-local-personal-app", type: "access-token" },
 		user: { id: "alice" },
@@ -198,24 +261,28 @@ test("manifest modes select viewer and app Owner assignments through the product
 					access,
 					"https://auth.example.com",
 					assignmentSchema.parse({ connection_id: `alice-${slug}`, slug }),
-					snapshot,
+					resources,
 				),
 			).toEqual({ allowed: true, assignment: { connection_id: `alice-${slug}`, slug } })
 		}
 		await sql`INSERT INTO app_connection_assignment (app_id, owner_type, owner_id, slug, connection_id)
 			VALUES (${app.id}, 'user', 'bob', 'personal', 'bob-personal')`.execute(db)
 		expect(
-			(await listAppConnections(db, { app, identity: bob }, snapshot)).connections,
+			(await listAppConnections(db, { app, identity: bob }, resources)).connections,
 		).toEqual([
 			{
 				connection_id: "alice-company",
+				consumers: [{ type: "app" }],
 				mode: "owner",
+				owner: { id: "alice", type: "user" },
 				slug: "company",
 				toolkit: "gmail",
 			},
 			{
 				connection_id: "bob-personal",
+				consumers: [{ type: "app" }],
 				mode: "viewer",
+				owner: { id: "bob", type: "user" },
 				slug: "personal",
 				toolkit: "gmail",
 			},
@@ -224,9 +291,8 @@ test("manifest modes select viewer and app Owner assignments through the product
 			await resolveAppConnection(
 				db,
 				access,
-				"https://auth.example.com",
 				assignmentSchema.shape.slug.parse("company"),
-				snapshot,
+				resources,
 			),
 		).toEqual({
 			allowed: true,
@@ -240,21 +306,16 @@ test("manifest modes select viewer and app Owner assignments through the product
 				{ app, identity: bob },
 				"https://auth.example.com",
 				assignmentSchema.parse({ connection_id: "replacement", slug: "company" }),
-				snapshot,
+				resources,
 			),
 		).toEqual({ allowed: false, reason: "forbidden" })
-		const repositorySnapshot = {
-			commit: "0123456789012345678901234567890123456789",
-			resources,
-			source: "repository",
-		} satisfies ResourcesSnapshot
 		expect(
 			await assignAppConnection(
 				db,
 				{ app, identity: bob },
 				"https://auth.example.com",
 				assignmentSchema.parse({ connection_id: "bob-personal", slug: "personal" }),
-				repositorySnapshot,
+				resources,
 			),
 		).toEqual({
 			allowed: true,
@@ -264,9 +325,8 @@ test("manifest modes select viewer and app Owner assignments through the product
 			await resolveAppConnection(
 				db,
 				{ app, identity: bob },
-				"https://auth.example.com",
 				assignmentSchema.shape.slug.parse("company"),
-				repositorySnapshot,
+				resources,
 			),
 		).toEqual({
 			allowed: true,
@@ -274,24 +334,6 @@ test("manifest modes select viewer and app Owner assignments through the product
 			owner: { id: "alice", type: "user" },
 			requirement: { consumers: [{ type: "app" }], mode: "owner", toolkit: "gmail" },
 		})
-		expect(
-			await assignAppConnection(
-				db,
-				{ app, identity: bob },
-				"https://auth.example.com",
-				assignmentSchema.parse({ connection_id: "replacement", slug: "company" }),
-				repositorySnapshot,
-			),
-		).toEqual({ allowed: false, reason: "forbidden" })
-		expect(
-			await resolveAppConnection(
-				db,
-				{ app, identity: bob },
-				"https://auth.example.com",
-				assignmentSchema.shape.slug.parse("company"),
-				snapshot,
-			),
-		).toEqual({ allowed: false, reason: "forbidden" })
 		const organizationApp = appSchema.parse(
 			await db
 				.insertInto("app")
@@ -309,14 +351,28 @@ test("manifest modes select viewer and app Owner assignments through the product
 			db,
 		)
 		expect(
-			(await listAppConnections(db, { app: organizationApp, identity: bob }, snapshot))
+			(await listAppConnections(db, { app: organizationApp, identity: bob }, resources))
 				.connections,
 		).toEqual([
-			{ connection_id: "acme-company", mode: "owner", slug: "company", toolkit: "gmail" },
-			{ connection_id: null, mode: "viewer", slug: "personal", toolkit: "gmail" },
+			{
+				connection_id: "acme-company",
+				consumers: [{ type: "app" }],
+				mode: "owner",
+				owner: { id: "acme", type: "organization" },
+				slug: "company",
+				toolkit: "gmail",
+			},
+			{
+				connection_id: null,
+				consumers: [{ type: "app" }],
+				mode: "viewer",
+				owner: { id: "bob", type: "user" },
+				slug: "personal",
+				toolkit: "gmail",
+			},
 		])
 		expect(
-			Object.values(manifest.secrets).map((requirement) =>
+			Object.values(slate.secrets).map((requirement) =>
 				getCredentialOwner(requirement.mode, organizationApp, bob.user),
 			),
 		).toEqual([

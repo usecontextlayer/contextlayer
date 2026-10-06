@@ -1,6 +1,6 @@
 import { Composio } from "@composio/core"
 import type { z } from "zod"
-import type { AuthIdentity } from "@/auth.server"
+import type { AuthIdentity, NativeAuthIdentity } from "@/auth.server"
 import { connectionLinkSchema, connectionSchema } from "@/connections.schema"
 import type { PlatformConfig } from "@/env"
 import type { Owner } from "@/owner"
@@ -37,18 +37,16 @@ export async function authorizeConnection(
 	} as const
 }
 
-export async function listConnections(
-	config: PlatformConfig,
-	identity: AuthIdentity,
-	owner: Owner,
-) {
-	if (!(await authorizeOwner(identity, config.CTX_AUTH_ISSUER, owner)))
-		return { allowed: false } as const
-	const composio = new Composio({ apiKey: config.COMPOSIO_API_KEY })
+async function listConnectedAccounts(apiKey: string, ownerId: string, toolkit?: string) {
+	const composio = new Composio({ apiKey })
 	const connections: z.infer<typeof connectionSchema>[] = []
 	let cursor: string | undefined
 	do {
-		const page = await composio.connectedAccounts.list({ cursor, userIds: [owner.id] })
+		const page = await composio.connectedAccounts.list({
+			cursor,
+			toolkitSlugs: toolkit === undefined ? undefined : [toolkit],
+			userIds: [ownerId],
+		})
 		for (const account of page.items) {
 			connections.push(
 				connectionSchema.parse({
@@ -62,7 +60,34 @@ export async function listConnections(
 		}
 		cursor = page.nextCursor ?? undefined
 	} while (cursor)
-	return { allowed: true, connections } as const
+	return connections
+}
+
+export async function listConnections(
+	config: PlatformConfig,
+	identity: AuthIdentity,
+	owner: Owner,
+) {
+	if (!(await authorizeOwner(identity, config.CTX_AUTH_ISSUER, owner)))
+		return { allowed: false } as const
+	return {
+		allowed: true,
+		connections: await listConnectedAccounts(config.COMPOSIO_API_KEY, owner.id),
+	} as const
+}
+
+export async function listPersonalConnections(
+	config: PlatformConfig,
+	identity: NativeAuthIdentity,
+	toolkit: string,
+) {
+	return {
+		connections: await listConnectedAccounts(
+			config.COMPOSIO_API_KEY,
+			identity.user.id,
+			toolkit,
+		),
+	}
 }
 
 export async function listToolkits(config: PlatformConfig, slugs: string[]) {

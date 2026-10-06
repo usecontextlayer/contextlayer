@@ -1,5 +1,9 @@
 import { z } from "zod"
 
+export function readLocalSecret(name: string) {
+	return process.env[name] ?? null
+}
+
 export const env = z
 	.object({
 		CTX_AUTH_CLIENT_ID: z.string().min(1).default("QBFOYTTCdjpEiXwgDNnovDPoJBYAfRpF"),

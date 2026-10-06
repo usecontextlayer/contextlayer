@@ -8,14 +8,12 @@ function Chrome() {
 	const [src, setSrc] = useState<string>()
 	const [height, setHeight] = useState(30)
 	useEffect(() => {
-		const target = browserEnv.CTX_APP_ID ?? window.location.hostname
+		const target = window.location.hostname
 		const url = new URL(
 			`${chromePath}/apps/${encodeURIComponent(target)}`,
 			browserEnv.CTX_PLATFORM_URL,
 		)
 		url.searchParams.set("parentOrigin", window.location.origin)
-		if (browserEnv.CTX_APP_MANIFEST)
-			url.searchParams.set("manifest", browserEnv.CTX_APP_MANIFEST)
 		function resize(event: MessageEvent) {
 			if (event.origin !== url.origin || event.source !== frame.current?.contentWindow)
 				return
@@ -56,7 +54,7 @@ export function Layout({ children }: { children: ReactNode }) {
 				<Links />
 			</head>
 			<body>
-				<Chrome />
+				{!import.meta.env.DEV && <Chrome />}
 				{children}
 				<ScrollRestoration />
 				<Scripts />

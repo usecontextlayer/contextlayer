@@ -4,15 +4,9 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { promisify } from "node:util"
 import { provisionEphemeralDatabases } from "@usecontextlayer/db-infra/ephemeral"
-import {
-	collectAppResources,
-	resourcesForConsumer,
-	slateSchema,
-} from "@usecontextlayer/shared/slate"
 import { expect, test } from "vitest"
 import { z } from "zod"
-import { agentRunRequestSchema, agentRunSchema, agentSchema } from "@/agents.schema"
-import { prepareAgentRun } from "@/agents.server"
+import { agentSchema } from "@/agents.schema"
 import { appSchema, listedAppSchema } from "@/apps.schema"
 import { createPlatformDb } from "@/database"
 import { migrateToLatest } from "@/database/migrate"
@@ -176,11 +170,20 @@ test("app ownership protects viewing, joining, listing, and native Git source ac
 		expect((await fetch(agentUrl)).status).toBe(401)
 		expect((await fetch(agentUrl, { headers })).status).toBe(404)
 		const listRequest = {
-			body: JSON.stringify({ manifest: { connections: {} } }),
+			body: JSON.stringify({}),
 			headers: { ...headers, "content-type": "application/json" },
 			method: "POST",
 		}
-		expect((await fetch(connectionList, listRequest)).status).toBe(200)
+		expect(
+			(
+				await fetch(connectionList, {
+					...listRequest,
+					body: JSON.stringify({
+						resources: { connections: {}, folders: {}, secrets: {} },
+					}),
+				})
+			).status,
+		).toBe(400)
 		const otherOwner = "different-user"
 		await db
 			.updateTable("app")
@@ -210,7 +213,6 @@ test("app ownership protects viewing, joining, listing, and native Git source ac
 			.execute()
 		expect((await fetch(resolveUrl)).status).toBe(200)
 		expect((await fetch(joinUrl, { headers, method: "POST" })).status).toBe(403)
-		expect((await fetch(connectionList, listRequest)).status).toBe(200)
 		expect((await fetch(agentUrl, { headers })).status).toBe(403)
 		expect(
 			(
@@ -305,6 +307,7 @@ test("app ownership protects viewing, joining, listing, and native Git source ac
 			instructions,
 		})
 		expect((await getApps()).apps).toContainEqual({ ...app, latest_commit: revision })
+		expect((await fetch(connectionList, listRequest)).status).toBe(200)
 		const page = await fetch(`${origin}/dashboard/personal/apps`, { headers })
 		expect(page.status).toBe(200)
 		const html = await page.text()
@@ -339,36 +342,6 @@ test("app ownership protects viewing, joining, listing, and native Git source ac
 			"Hello ContextLayer\n",
 		)
 		expect(await readFile(join(dir, "cloned", "README.md"), "utf8")).toBe("# My app\n")
-		const resources = resourcesForConsumer(
-			collectAppResources({
-				agents: {
-					"company-brief": slateSchema.parse(
-						JSON.parse(
-							await readFile(join(dir, "cloned/agents/company-brief/slate.json"), "utf8"),
-						),
-					),
-				},
-				app: slateSchema.parse(
-					JSON.parse(await readFile(join(dir, "cloned/public/slate.json"), "utf8")),
-				),
-			}),
-			{ name: "company-brief", type: "agent" },
-		)
-		const run = prepareAgentRun(
-			app,
-			{ id: user.id, type: "user" },
-			publishedAgent,
-			resources,
-			agentRunRequestSchema.parse({ name: "company-brief", prompt: "Research Acme." }),
-		)
-		expect(agentRunSchema.parse(JSON.parse(JSON.stringify(run)))).toEqual({
-			actor: { id: user.id, type: "user" },
-			agent: { commit: revision, instructions, name: "company-brief" },
-			appId: app.id,
-			connections: {},
-			prompt: "Research Acme.",
-			secrets: { CLAUDE_CODE_OAUTH_TOKEN: { id: user.id, type: "user" } },
-		})
 		await writeFile(join(dir, "hello.txt"), "Updated ContextLayer\n")
 		instructions = "You research companies and write concise briefs with sources.\n"
 		await writeFile(instructionsPath, instructions)

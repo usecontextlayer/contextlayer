@@ -18,14 +18,17 @@ export default defineConfig({
 	// basenames (`dist/<key>.mjs`).
 	entry: {
 		"app-connections": "lib/app-connections.ts",
+		"app-resources": "lib/app-resources.ts",
 		"app-usage": "lib/app-usage.ts",
 		chrome: "lib/chrome.ts",
+		connections: "lib/connections.ts",
 		"ctx-machine-token": "lib/ctx-machine-token.ts",
 		"ctx-token-provider": "lib/ctx-token-provider.ts",
 		index: "index.ts",
 		"sentry-event-cap": "lib/sentry-event-cap.ts",
 		slate: "lib/slate.ts",
 		testing: "testing.ts",
+		tools: "lib/tools.ts",
 		"tools-worker": "lib/tools-worker.ts",
 	},
 	format: ["esm"],

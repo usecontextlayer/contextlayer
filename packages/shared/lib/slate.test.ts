@@ -4,6 +4,7 @@ import {
 	appSlatesSchema,
 	collectAppResources,
 	resourcesForConsumer,
+	resourcesSchema,
 	slateSchema,
 } from "@/lib/slate"
 
@@ -72,6 +73,7 @@ test("collects and selects consumer resources while preserving each Slate", () =
 	const summary = { name: "summary", type: "agent" } as const
 	const followup = { name: "followup", type: "agent" } as const
 	const resources = collectAppResources(slates)
+	expect(resourcesSchema.parse(JSON.parse(JSON.stringify(resources)))).toEqual(resources)
 
 	expect(resources).toEqual({
 		connections: {
@@ -109,6 +111,14 @@ test("collects an app with no agents or requirements", () => {
 	expect(
 		collectAppResources(appSlatesSchema.parse({ agents: {}, app: { connections: {} } })),
 	).toEqual({ connections: {}, folders: {}, secrets: {} })
+})
+
+test("Resources requires consumer metadata beyond the authored Slate", () => {
+	expect(
+		resourcesSchema.safeParse(
+			slateSchema.parse({ connections: { mail: { mode: "viewer", toolkit: "gmail" } } }),
+		).success,
+	).toBe(false)
 })
 
 test.each([

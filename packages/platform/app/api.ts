@@ -11,15 +11,19 @@ import {
 } from "@/agents.schema"
 import { getAgent, getAgentJob, listAgentJobs, startAgentJob } from "@/agents.server"
 import {
-	appConnectionsRequestSchema,
 	appConnectionsSchema,
 	assignAppConnectionRequestSchema,
 	assignmentSchema,
 } from "@/app-connections.schema"
-import { assignAppConnection, listAppConnections } from "@/app-connections.server"
+import { assignAppConnection } from "@/app-connections.server"
 import { appMemberSchema } from "@/app-members.schema"
 import { joinApp } from "@/app-members.server"
-import { getAppResources } from "@/app-resources.server"
+import { appResourcesRequestSchema, appResourcesSchema } from "@/app-resources.schema"
+import {
+	getAppResources,
+	listAppConnections,
+	listAppResources,
+} from "@/app-resources.server"
 import {
 	type AuthenticatedViewingEnv,
 	requireAppViewing,
@@ -41,6 +45,7 @@ import {
 	type IdentityEnv,
 	identifyUser,
 	identifyViewer,
+	type NativeAuthenticatedEnv,
 	requireAuth,
 } from "@/auth.middleware"
 import { requireAppSubscription } from "@/billing.middleware"
@@ -49,8 +54,13 @@ import {
 	authorizeConnectionSchema,
 	connectionLinkSchema,
 	connectionsSchema,
+	personalConnectionsQuerySchema,
 } from "@/connections.schema"
-import { authorizeConnection, listConnections } from "@/connections.server"
+import {
+	authorizeConnection,
+	listConnections,
+	listPersonalConnections,
+} from "@/connections.server"
 import { getAppOwner } from "@/owner"
 import { ownerParamsSchema } from "@/owner.schema"
 import {
@@ -59,8 +69,13 @@ import {
 	setSecretRequestSchema,
 } from "@/secrets.schema"
 import { dropSharedSecret, setSharedSecret } from "@/secrets.server"
-import { toolCallSchema, toolResultSchema } from "@/tools.schema"
-import { callTool } from "@/tools.server"
+import {
+	connectionToolCallSchema,
+	connectionToolParamsSchema,
+	toolCallSchema,
+	toolResultSchema,
+} from "@/tools.schema"
+import { callConnectionTool, callTool } from "@/tools.server"
 
 const security: NonNullable<RouteConfig["security"]> = [
 	{ bearerAuth: [] },
@@ -153,31 +168,27 @@ export function createApi() {
 					content: { "application/json": { schema: toolResultSchema } },
 					description: "Composio tool result, error, and log ID",
 				},
+				400: { description: "Invalid tool call" },
 				401: {
 					description: "A valid ContextLayer access token or viewer session is required",
 				},
 				402: { description: "The app owner needs an active subscription" },
-				403: { description: "App viewing or local manifest access is forbidden" },
+				403: {
+					description: "App viewing is forbidden",
+				},
 				404: { description: "App or connection assignment not found" },
 			},
 			security: [...security, { viewerCookie: [] }],
 		}),
 		async (c) => {
-			const { manifest, ...call } = c.req.valid("json")
-			const snapshot = await getAppResources(
-				c.var.appAccess.app,
-				c.env.ARTIFACTS,
-				manifest,
-			)
 			const result = await callTool(
 				c.var.db,
 				c.var.config.COMPOSIO_API_KEY,
 				c.var.appAccess,
-				c.var.config.CTX_AUTH_ISSUER,
-				call,
-				snapshot,
+				c.req.valid("json"),
+				c.env.ARTIFACTS,
 			)
-			if (!result.allowed) return c.body(null, result.reason === "forbidden" ? 403 : 404)
+			if (!result.allowed) return c.body(null, 404)
 			const polar = createPolarCore({
 				accessToken: c.var.config.POLAR_ACCESS_TOKEN,
 				environment: c.var.config.POLAR_ENVIRONMENT,
@@ -342,6 +353,95 @@ export function createApi() {
 		},
 	)
 	api.route("/secrets", secrets)
+	const personalConnections = new OpenAPIHono<NativeAuthenticatedEnv>()
+	personalConnections.use("*", requireAuth)
+	personalConnections.openapi(
+		createRoute({
+			method: "get",
+			operationId: "listPersonalConnections",
+			path: "/",
+			request: { query: personalConnectionsQuerySchema },
+			responses: {
+				200: {
+					content: { "application/json": { schema: connectionsSchema } },
+					description:
+						"The signed-in user's connected accounts for the requested toolkit",
+				},
+				400: { description: "A toolkit is required; Owner selectors are not accepted" },
+				401: {
+					description: "A native web session or ContextLayer access token is required",
+				},
+			},
+			security,
+		}),
+		async (c) => {
+			const result = await listPersonalConnections(
+				c.var.config,
+				c.var.identity,
+				c.req.valid("query").toolkit,
+			)
+			return c.json(result, 200)
+		},
+	)
+	personalConnections.openapi(
+		createRoute({
+			method: "post",
+			operationId: "callConnectionTool",
+			path: "/{connection_id}/tools/call",
+			request: {
+				body: {
+					content: { "application/json": { schema: connectionToolCallSchema } },
+					required: true,
+				},
+				params: connectionToolParamsSchema,
+			},
+			responses: {
+				200: {
+					content: { "application/json": { schema: toolResultSchema } },
+					description: "Tool result from the signed-in user's pinned connected account",
+				},
+				400: { description: "Invalid concrete-account tool call" },
+				401: {
+					description: "A native web session or ContextLayer access token is required",
+				},
+				402: { description: "The app owner needs an active subscription" },
+				403: { description: "App viewing is forbidden" },
+				404: { description: "App not found" },
+			},
+			security,
+		}),
+		async (c) => {
+			const result = await callConnectionTool(
+				c.var.db,
+				c.var.config,
+				c.var.identity,
+				c.req.valid("param").connection_id,
+				c.req.valid("json"),
+			)
+			if (!result.allowed) {
+				const status = {
+					forbidden: 403,
+					"not-found": 404,
+					"sign-in-required": 401,
+					"subscription-required": 402,
+				} as const
+				return c.body(null, status[result.reason])
+			}
+			const polar = createPolarCore({
+				accessToken: c.var.config.POLAR_ACCESS_TOKEN,
+				environment: c.var.config.POLAR_ENVIRONMENT,
+			})
+			c.executionCtx.waitUntil(
+				recordAppUsage(
+					polar,
+					{ id: result.app.id, owner: getAppOwner(result.app) },
+					"tool_call",
+				),
+			)
+			return c.json(result.result, 200)
+		},
+	)
+	api.route("/connections", personalConnections)
 	api.openapi(
 		createRoute({
 			method: "get",
@@ -626,11 +726,43 @@ export function createApi() {
 	appOperations.openapi(
 		createRoute({
 			method: "post",
+			operationId: "listAppResources",
+			path: "/resources/list",
+			request: {
+				body: {
+					content: { "application/json": { schema: appResourcesRequestSchema } },
+					required: true,
+				},
+				params: z.object({ target: appTargetSchema }),
+			},
+			responses: {
+				200: {
+					content: { "application/json": { schema: appResourcesSchema } },
+					description:
+						"Resource requirements, consumers, selected Owners, and saved connection assignments",
+				},
+				400: { description: "Invalid listing request" },
+				401: { description: "A valid ContextLayer login is required" },
+				403: {
+					description: "App viewing is forbidden",
+				},
+				404: { description: "App not found" },
+			},
+			security,
+		}),
+		async (c) => {
+			const resources = await getAppResources(c.var.appAccess, c.env.ARTIFACTS)
+			return c.json(await listAppResources(c.var.db, c.var.appAccess, resources), 200)
+		},
+	)
+	appOperations.openapi(
+		createRoute({
+			method: "post",
 			operationId: "listAppConnections",
 			path: "/connections/list",
 			request: {
 				body: {
-					content: { "application/json": { schema: appConnectionsRequestSchema } },
+					content: { "application/json": { schema: appResourcesRequestSchema } },
 					required: true,
 				},
 				params: z.object({ target: appTargetSchema }),
@@ -640,21 +772,20 @@ export function createApi() {
 					content: { "application/json": { schema: appConnectionsSchema } },
 					description: "App requirements and connection assignments",
 				},
+				400: { description: "Invalid listing request" },
 				401: {
 					description: "A valid ContextLayer login is required",
 				},
-				403: { description: "This user cannot view this private app" },
+				403: {
+					description: "App viewing is forbidden",
+				},
 				404: { description: "App not found" },
 			},
 			security,
 		}),
 		async (c) => {
-			const snapshot = await getAppResources(
-				c.var.appAccess.app,
-				c.env.ARTIFACTS,
-				c.req.valid("json").manifest,
-			)
-			const result = await listAppConnections(c.var.db, c.var.appAccess, snapshot)
+			const resources = await getAppResources(c.var.appAccess, c.env.ARTIFACTS)
+			const result = await listAppConnections(c.var.db, c.var.appAccess, resources)
 			return c.json(result, 200)
 		},
 	)
@@ -675,6 +806,7 @@ export function createApi() {
 					content: { "application/json": { schema: assignmentSchema } },
 					description: "Saved viewer or owner connection assignment",
 				},
+				400: { description: "Invalid assignment" },
 				401: {
 					description: "A valid ContextLayer login is required",
 				},
@@ -684,18 +816,13 @@ export function createApi() {
 			security,
 		}),
 		async (c) => {
-			const { manifest, ...assignment } = c.req.valid("json")
-			const snapshot = await getAppResources(
-				c.var.appAccess.app,
-				c.env.ARTIFACTS,
-				manifest,
-			)
+			const resources = await getAppResources(c.var.appAccess, c.env.ARTIFACTS)
 			const result = await assignAppConnection(
 				c.var.db,
 				c.var.appAccess,
 				c.var.config.CTX_AUTH_ISSUER,
-				assignment,
-				snapshot,
+				c.req.valid("json"),
+				resources,
 			)
 			if (!result.allowed) return c.body(null, result.reason === "forbidden" ? 403 : 404)
 			return c.json(result.assignment, 200)

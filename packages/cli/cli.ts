@@ -10,6 +10,7 @@ import { getAccessToken, login, whoami } from "@/auth"
 import {
 	addConnection,
 	assignAppConnection,
+	connectionAssignmentSchema,
 	listAppConnections,
 	listConnections,
 } from "@/connections"
@@ -160,12 +161,17 @@ program
 
 const connections = program
 	.command("connections")
-	.description("Manage Owner-owned connected accounts or list an app's requirements")
+	.description(
+		"Manage Owner-owned connected accounts or list app and agent connection requirements; local reads only the current folder and its saved development choices",
+	)
 	.option(
 		"--org <org_slug>",
 		"Manage this organization's connections; defaults to the signed-in user",
 	)
-	.argument("[target]", "AppID, public hostname, or local (run from the app root)")
+	.argument(
+		"[target]",
+		"AppID or public hostname (pushed requirements), or local (current folder; no platform request)",
+	)
 	.addArgument(new Argument("[operation]", "App connection operation").choices(["list"]))
 	.action(async (target, operation) => {
 		if (!target || !operation)
@@ -196,14 +202,22 @@ connections
 program
 	.command("connection")
 	.description(
-		"Assign a connection using the requirement’s viewer or owner mode; owner mode requires app management",
+		"Bind a declared slug: local saves your personal account in .contextlayer/connections.json; AppID/hostname saves a hosted assignment under its declared Owner",
 	)
 	.argument("<target>", "AppID, public hostname, or local (run from the app root)")
 	.addArgument(new Argument("<operation>").choices(["assign"]))
 	.argument("<slug>", "Connection requirement slug")
-	.argument("<connection_id>", "Composio connected-account ID")
+	.argument(
+		"[connection_id]",
+		"Connected account ID; omit locally to choose your accounts for the declared toolkit; required for hosted targets",
+	)
 	.action(async (target, _operation, slug, connectionId) => {
-		await assignAppConnection(target, slug, connectionId)
+		const input = connectionAssignmentSchema.parse({
+			connection_id: connectionId,
+			slug,
+			target,
+		})
+		await assignAppConnection(input.target, input.slug, input.connection_id)
 	})
 
 program

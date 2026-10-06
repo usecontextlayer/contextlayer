@@ -30,12 +30,21 @@ export const resourceConsumerSchema = z.discriminatedUnion("type", [
 ])
 export type ResourceConsumer = z.infer<typeof resourceConsumerSchema>
 
-export type Resources = {
-	[Kind in keyof Slate]: Record<
-		string,
-		Slate[Kind][string] & { consumers: ResourceConsumer[] }
-	>
-}
+export const resourcesSchema = slateSchema.extend({
+	connections: z.record(
+		z.string().min(1),
+		connectionRequirementSchema.extend({ consumers: z.array(resourceConsumerSchema) }),
+	),
+	folders: z.record(
+		z.string().min(1),
+		folderRequirementSchema.extend({ consumers: z.array(resourceConsumerSchema) }),
+	),
+	secrets: z.record(
+		secretNameSchema,
+		secretRequirementSchema.extend({ consumers: z.array(resourceConsumerSchema) }),
+	),
+})
+export type Resources = z.infer<typeof resourcesSchema>
 
 export function collectAppResources(slates: AppSlates): Resources {
 	const declarations: { consumer: ResourceConsumer; slate: Slate }[] = [
@@ -56,10 +65,18 @@ export function collectAppResources(slates: AppSlates): Resources {
 	}
 }
 
-export function resourcesForConsumer(
-	resources: Resources,
+export function resourcesForConsumer<
+	Connection extends Resources["connections"][string],
+	Folder extends Resources["folders"][string],
+	Secret extends Resources["secrets"][string],
+>(
+	resources: {
+		connections: Record<string, Connection>
+		folders: Record<string, Folder>
+		secrets: Record<string, Secret>
+	},
 	consumer: ResourceConsumer,
-): Resources {
+) {
 	return {
 		connections: filterRequirements(resources.connections, consumer),
 		folders: filterRequirements(resources.folders, consumer),

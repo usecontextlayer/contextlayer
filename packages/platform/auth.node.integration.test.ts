@@ -90,6 +90,9 @@ test("viewer cookies authenticate runtime requests but not management APIs", asy
 			["GET", `/apps/${app.id}/agents/example`],
 			["GET", `/connections/${owner}`],
 			["POST", `/connections/${owner}`],
+			["GET", "/connections?toolkit=gmail"],
+			["POST", "/connections/ca_example/tools/call"],
+			["POST", `/apps/${app.id}/resources/list`],
 			["POST", `/apps/${app.id}/connections/list`],
 			["POST", `/apps/${app.id}/connections/assign`],
 			["PUT", `/secrets/${owner}/example`],
@@ -114,7 +117,73 @@ test("viewer cookies authenticate runtime requests but not management APIs", asy
 			})
 			expect(response.status).toBe(200)
 			expect(await response.json()).toMatchObject({ id: app.id, visibility: "private" })
+			expect((await api.request("/api/connections", { headers })).status).toBe(400)
+			expect(
+				(await api.request("/api/connections?toolkit=gmail&owner_id=other", { headers }))
+					.status,
+			).toBe(400)
+			const concreteCall = {
+				app_id: app.id,
+				arguments: {},
+				tool: "READ",
+				toolkit: "gmail",
+			}
+			const callConnection = (body: unknown) =>
+				api.request("/api/connections/ca_example/tools/call", {
+					body: JSON.stringify(body),
+					headers,
+					method: "POST",
+				})
+			expect((await callConnection(concreteCall)).status).toBe(402)
+			expect(
+				(await callConnection({ ...concreteCall, resources: { connections: {} } }))
+					.status,
+			).toBe(400)
+			expect(
+				(await callConnection({ ...concreteCall, app_id: crypto.randomUUID() })).status,
+			).toBe(404)
+			for (const [path, body] of [
+				["resources/list", {}],
+				["connections/list", {}],
+				["connections/assign", { connection_id: "ca_example", slug: "mail" }],
+			] as const) {
+				expect(
+					(
+						await api.request(`/api/apps/${app.id}/${path}`, {
+							body: JSON.stringify({ ...body, resources: { connections: {} } }),
+							headers,
+							method: "POST",
+						})
+					).status,
+				).toBe(400)
+			}
 		}
+		const forbiddenApp = await db
+			.insertInto("app")
+			.values({
+				owner_user_id: "another-user",
+				public_hostname: "another.contextlayer.xyz",
+				visibility: "private",
+			})
+			.returningAll()
+			.executeTakeFirstOrThrow()
+		expect(
+			(
+				await api.request("/api/connections/ca_example/tools/call", {
+					body: JSON.stringify({
+						app_id: forbiddenApp.id,
+						arguments: {},
+						tool: "READ",
+						toolkit: "gmail",
+					}),
+					headers: {
+						authorization: `Bearer ${token}`,
+						"content-type": "application/json",
+					},
+					method: "POST",
+				})
+			).status,
+		).toBe(403)
 		await db
 			.updateTable("app")
 			.set({ visibility: "public" })

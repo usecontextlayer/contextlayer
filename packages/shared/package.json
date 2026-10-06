@@ -20,6 +20,10 @@
 			"import": "./dist/app-connections.mjs",
 			"types": "./dist/app-connections.d.mts"
 		},
+		"./app-resources": {
+			"import": "./dist/app-resources.mjs",
+			"types": "./dist/app-resources.d.mts"
+		},
 		"./app-usage": {
 			"import": "./dist/app-usage.mjs",
 			"types": "./dist/app-usage.d.mts"
@@ -27,6 +31,10 @@
 		"./chrome": {
 			"import": "./dist/chrome.mjs",
 			"types": "./dist/chrome.d.mts"
+		},
+		"./connections": {
+			"import": "./dist/connections.mjs",
+			"types": "./dist/connections.d.mts"
 		},
 		"./ctx-machine-token": {
 			"import": "./dist/ctx-machine-token.mjs",
@@ -47,6 +55,10 @@
 		"./testing": {
 			"import": "./dist/testing.mjs",
 			"types": "./dist/testing.d.mts"
+		},
+		"./tools": {
+			"import": "./dist/tools.mjs",
+			"types": "./dist/tools.d.mts"
 		},
 		"./tools-worker": {
 			"import": "./dist/tools-worker.mjs",

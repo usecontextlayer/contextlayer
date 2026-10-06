@@ -5,14 +5,13 @@ import {
 	faTriangleExclamation,
 } from "@awesome.me/kit-e146ba5a27/icons/slab/regular"
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome"
-import { slateSchema } from "@usecontextlayer/shared/slate"
 import { cn } from "cn"
 import { Fragment, useCallback, useState } from "react"
 import { data, Form, useFetcher } from "react-router"
 import { z } from "zod"
 import { assignmentSchema } from "@/app-connections.schema"
-import { assignAppConnection, listAppConnections } from "@/app-connections.server"
-import { getAppResources } from "@/app-resources.server"
+import { assignAppConnection } from "@/app-connections.server"
+import { getAppResources, listAppConnections } from "@/app-resources.server"
 import { appTargetSchema } from "@/apps.schema"
 import { resolveAppForViewing } from "@/apps.server"
 import { type AuthIdentity, getCurrentUser } from "@/auth.server"
@@ -62,7 +61,7 @@ const chromeActionSchema = z.discriminatedUnion("intent", [
 ])
 
 async function getChromeApp(
-	{ request, params, context }: Pick<Route.LoaderArgs, "request" | "params" | "context">,
+	{ params, context }: Pick<Route.LoaderArgs, "params" | "context">,
 	identity: AuthIdentity,
 ) {
 	const access = await resolveAppForViewing(
@@ -73,16 +72,9 @@ async function getChromeApp(
 	)
 	if (!access.allowed)
 		throw new Response(null, { status: access.reason === "not-found" ? 404 : 403 })
-	const manifestInput = new URL(request.url).searchParams.get("manifest")
-	const localManifest = manifestInput
-		? slateSchema.parse(JSON.parse(manifestInput))
-		: undefined
-	const snapshot = await getAppResources(
-		access.app,
-		context.get(artifactsContext),
-		localManifest,
-	)
-	return { access: { app: access.app, identity }, snapshot }
+	const appAccess = { app: access.app, identity }
+	const resources = await getAppResources(appAccess, context.get(artifactsContext))
+	return { access: appAccess, resources }
 }
 
 export async function action({ request, params, context }: Route.ActionArgs) {
@@ -90,9 +82,9 @@ export async function action({ request, params, context }: Route.ActionArgs) {
 	if (!identity) throw new Response(null, { status: 401 })
 	const input = chromeActionSchema.safeParse(Object.fromEntries(await request.formData()))
 	if (!input.success) throw new Response("Invalid connection action", { status: 400 })
-	const { access, snapshot } = await getChromeApp({ context, params, request }, identity)
+	const { access, resources } = await getChromeApp({ context, params }, identity)
 	if (input.data.intent === "connect") {
-		const requirement = snapshot.resources.connections[input.data.slug]
+		const requirement = resources.connections[input.data.slug]
 		if (!requirement) throw new Response(null, { status: 404 })
 		const result = await authorizeConnection(
 			context.get(configContext),
@@ -108,7 +100,7 @@ export async function action({ request, params, context }: Route.ActionArgs) {
 		access,
 		context.get(configContext).CTX_AUTH_ISSUER,
 		{ connection_id: input.data.connection_id, slug: input.data.slug },
-		snapshot,
+		resources,
 	)
 	if (!result.allowed)
 		throw new Response(null, { status: result.reason === "not-found" ? 404 : 403 })
@@ -127,12 +119,12 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
 			{ headers: { "Cache-Control": "no-store" } },
 		)
 	const db = context.get(databaseContext)
-	const { access, snapshot } = await getChromeApp({ context, params, request }, identity)
-	const { connections } = await listAppConnections(db, access, snapshot)
+	const { access, resources } = await getChromeApp({ context, params }, identity)
+	const { connections } = await listAppConnections(db, access, resources)
 	const accountReads = new Map<string, ReturnType<typeof listConnections>>()
 	const requirements = await Promise.all(
 		connections.map(async (requirement) => {
-			const owner = getCredentialOwner(requirement.mode, access.app, identity.user)
+			const owner = requirement.owner
 			const key = `${owner.type}:${owner.id}`
 			let accountAccess = accountReads.get(key)
 			if (!accountAccess) {
@@ -142,7 +134,6 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
 			return {
 				...requirement,
 				accountAccess: await accountAccess,
-				owner,
 			}
 		}),
 	)

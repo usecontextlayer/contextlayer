@@ -1,16 +1,24 @@
 import { z } from "@hono/zod-openapi"
-import { slateSchema } from "@usecontextlayer/shared/slate"
 import { assignmentSchema } from "@/app-connections.schema"
+import { appSchema } from "@/apps.schema"
+import { personalConnectionsQuerySchema } from "@/connections.schema"
 
-export const toolCallSchema = z.object({
+export { toolResultSchema } from "@usecontextlayer/shared/tools"
+
+export const toolExecutionSchema = z.strictObject({
 	arguments: z.record(z.string(), z.unknown()),
-	manifest: slateSchema.optional(),
-	slug: assignmentSchema.shape.slug,
 	tool: z.string().min(1),
 })
 
-export const toolResultSchema = z.object({
-	data: z.record(z.string(), z.unknown()),
-	error: z.string().nullable(),
-	logId: z.string(),
+export const toolCallSchema = toolExecutionSchema.extend({
+	slug: assignmentSchema.shape.slug,
+})
+
+export const connectionToolCallSchema = toolExecutionSchema.extend({
+	app_id: appSchema.shape.id,
+	toolkit: personalConnectionsQuerySchema.shape.toolkit,
+})
+
+export const connectionToolParamsSchema = z.object({
+	connection_id: assignmentSchema.shape.connection_id,
 })

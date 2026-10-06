@@ -1,1 +1,1 @@
-export { Tools } from "@usecontextlayer/shared/tools-worker"
+export { LocalTools as Tools } from "@usecontextlayer/shared/tools-worker"

@@ -7,12 +7,16 @@ import {
 	type AuthIdentity,
 	authenticateAccessToken,
 	authenticateSession,
+	type NativeAuthIdentity,
 } from "@/auth.server"
 import type { PlatformEnv } from "@/context"
 
 export type IdentityEnv = PlatformEnv & { Variables: { identity: AuthIdentity | null } }
 export type AuthenticatedEnv = IdentityEnv & {
 	Variables: { identity: AuthIdentity }
+}
+export type NativeAuthenticatedEnv = AuthenticatedEnv & {
+	Variables: { identity: NativeAuthIdentity }
 }
 
 function createRequireAuth({ signInRedirect = false } = {}) {
