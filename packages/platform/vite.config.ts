@@ -8,7 +8,10 @@ import { defineConfig } from "vite"
 export default defineConfig({
 	plugins: [
 		tailwindcss(),
-		cloudflare({ viteEnvironment: { name: "ssr" } }),
+		cloudflare({
+			config: { main: fileURLToPath(new URL("./app/server.ts", import.meta.url)) },
+			viteEnvironment: { name: "ssr" },
+		}),
 		reactRouterHonoServer({ runtime: "cloudflare" }),
 		reactRouter(),
 	],

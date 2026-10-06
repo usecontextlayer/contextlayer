@@ -44,6 +44,8 @@ Keep React Router's `/dashboard/` basename separate from Vite's default `/` asse
 
 Use the native `ARTIFACTS` binding directly in domain functions. Acquire disposable repository handles with `using`. Configure the namespace in Wrangler; do not add runtime Artifacts REST clients or API-token secrets.
 
+Local platform development and integration tests must select the native test environment with isolated remote resources. Keep namespace selection in Wrangler configuration. Vite must use the source entrypoint, while built local startup must load the compiled bundle with the selected source configuration; preview must not inherit production bindings from a previous build.
+
 ## Platform and web ownership
 
 Web should own users, Better Auth sessions, organizations, memberships, and identity verification. Platform should own apps and app authorization. Treat cookies and tokens as opaque credentials; never derive identity from unverified fields or introduce a second session secret, session store, or membership mirror.

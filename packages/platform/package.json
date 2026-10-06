@@ -62,9 +62,9 @@
 		"db.codegen": "node --import tsx app/manage.ts codegen",
 		"db.latest": "node --import tsx app/manage.ts latest",
 		"db.manage": "node --import tsx app/manage.ts",
-		"dev": "vite preview --host 127.0.0.1",
-		"dev:watch": "vite dev --host 127.0.0.1",
-		"start": "vite preview --host 127.0.0.1",
+		"dev": "wrangler dev --config wrangler.jsonc --env test --no-bundle",
+		"dev:watch": "CLOUDFLARE_ENV=test vite dev --host 127.0.0.1",
+		"start": "pnpm dev",
 		"test": "vitest run --config vitest.config.ts",
 		"test:integration:node": "vitest run --config vitest.integration.node.config.ts",
 		"tsc": "react-router typegen && tsc --noEmit"

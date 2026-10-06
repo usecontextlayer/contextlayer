@@ -26,6 +26,10 @@
 			"scheduling_policy": "durable_object"
 		}
 	],
+	"dev": {
+		"ip": "127.0.0.1",
+		"port": 3010
+	},
 	"dispatch_namespaces": [
 		{
 			"binding": "APPS",
