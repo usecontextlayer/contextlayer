@@ -13,7 +13,8 @@
 		},
 		"build": {
 			"dependsOn": ["^build"],
-			"outputs": ["dist/**", "bin/**", "build/**", ".vercel/**"]
+			"outputs": ["dist/**", "bin/**", "build/**", ".vercel/**"],
+			"passThroughEnv": ["WRANGLER_CI_OVERRIDE_NETWORK_MODE_HOST"]
 		},
 		"clean": {
 			"cache": false
