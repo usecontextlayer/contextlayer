@@ -25,6 +25,58 @@
 			}
 		]
 	},
+	"env": {
+		"test": {
+			"artifacts": [
+				{
+					"binding": "ARTIFACTS",
+					"namespace": "contextlayer-test",
+					"remote": true
+				}
+			],
+			"containers": [
+				{
+					"class_name": "CiSandbox",
+					"image": "./Dockerfile",
+					"instance_type": "standard-4",
+					"max_instances": 10
+				}
+			],
+			"durable_objects": {
+				"bindings": [
+					{
+						"class_name": "CiSandbox",
+						"name": "SANDBOX"
+					}
+				]
+			},
+			"r2_buckets": [
+				{
+					"binding": "BACKUP_BUCKET",
+					"bucket_name": "contextlayer-test-build-backups"
+				}
+			],
+			"services": [
+				{
+					"binding": "PUBLICATION",
+					"entrypoint": "Publication",
+					"service": "contextlayer-platform-test"
+				}
+			],
+			"triggers": { "events": [] },
+			"vars": {
+				"BACKUP_BUCKET_NAME": "contextlayer-test-build-backups",
+				"CLOUDFLARE_ACCOUNT_ID": "662809b9404bec57077de451f84b26cb"
+			},
+			"workflows": [
+				{
+					"binding": "CI_WORKFLOW",
+					"class_name": "Build",
+					"name": "contextlayer-build-test"
+				}
+			]
+		}
+	},
 	"exports": {
 		"CiSandbox": {
 			"storage": "sqlite",
