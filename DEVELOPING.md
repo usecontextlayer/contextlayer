@@ -12,7 +12,7 @@ mise install
 pnpm install --frozen-lockfile
 ```
 
-`mise.toml` provides Node and pnpm; the pnpm version must match `package.json`. Corepack stays unused. `pnpm-workspace.yaml` enforces the Node version floor and disables automatic dependency repair during task execution, so install dependencies explicitly before running tasks.
+The root `.node-version` pins Node for Cloudflare builds, local development, and GitHub Actions. `mise.toml` reads that file and provides Node and pnpm; the pnpm version must match `package.json`. Corepack stays unused. `pnpm-workspace.yaml` enforces the Node version floor and disables automatic dependency repair during task execution, so install dependencies explicitly before running tasks.
 
 ## Workspace commands
 
@@ -198,7 +198,7 @@ The root commands `test:integration:node`, `test:integration:browser`, and `test
 
 ## Releases and deployment
 
-The platform is deployed at `https://slate.usecontextlayer.com`. Cloudflare Workers Builds watches `main` in `usecontextlayer/contextlayer`, with repository root `/`, build command `bash packages/platform/scripts/build-cloudflare.sh`, and deploy command `bash packages/platform/scripts/deploy-cloudflare.sh`. This pipeline is separate from the GitHub package-release workflows below. Build variables pin `NODE_VERSION=24.19.0`, `PNPM_VERSION=11.22.0`, and `SKIP_DEPENDENCY_INSTALL=true` so registry authentication is available before installation.
+The platform is deployed at `https://slate.usecontextlayer.com`. Cloudflare Workers Builds watches `main` in `usecontextlayer/contextlayer`, with repository root `/`, build command `bash packages/platform/scripts/build-cloudflare.sh`, and deploy command `bash packages/platform/scripts/deploy-cloudflare.sh`. This pipeline is separate from the GitHub package-release workflows below. Cloudflare reads the Node version from the root `.node-version`; build variables pin `PNPM_VERSION=11.22.0` and `SKIP_DEPENDENCY_INSTALL=true` so registry authentication is available before installation.
 
 Auth and dispatcher also have native Cloudflare Workers Builds connections to the same GitHub repository on `main`, root `/`. They use `bash packages/platform/scripts/build-cloudflare.sh` with `@usecontextlayer/auth` or `@usecontextlayer/dispatcher` as its argument, then auth uses `pnpm --dir packages/auth exec wrangler deploy`, while dispatcher uses `bash packages/platform/scripts/deploy-cloudflare.sh dispatcher` to supply its Polar runtime configuration. They use the same build-time Node/pnpm settings as platform. Auth needs no runtime secrets; dispatcher requires its Polar token and matching environment for usage ingestion. The shared script defaults to platform when no package argument is supplied.
 
