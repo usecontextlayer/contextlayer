@@ -178,9 +178,6 @@ importers:
       '@cloudflare/workers-types':
         specifier: ^5.20260730.1
         version: 5.20261001.1
-      '@modelcontextprotocol/client':
-        specifier: 2.3.1
-        version: 2.3.1
       typescript:
         specifier: latest
         version: 7.0.2
@@ -302,6 +299,9 @@ importers:
       '@cloudflare/workers-types':
         specifier: ^5.20261001.1
         version: 5.20261001.1
+      '@modelcontextprotocol/client':
+        specifier: 2.3.1
+        version: 2.3.1
       '@react-router/dev':
         specifier: ^8.4.0
         version: 8.4.0(react-router@8.4.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(supports-color@10.2.2)(typescript@7.0.2)(vite@8.3.2(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(wrangler@4.146.0(@cloudflare/workers-types@5.20261001.1)(@types/node@24.13.3))
@@ -317,6 +317,9 @@ importers:
       '@types/react-dom':
         specifier: ^19.0.0
         version: 19.3.0(@types/react@19.3.0)
+      '@usecontextlayer/sdk':
+        specifier: workspace:*
+        version: link:../sdk
       kanel:
         specifier: ^4.0.3
         version: 4.0.4(@electric-sql/pglite@0.5.8)(supports-color@10.2.2)
