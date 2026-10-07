@@ -5,6 +5,11 @@ import {
 } from "@usecontextlayer/shared/slate"
 import type { AppId } from "@/database/models/public/App"
 
+export type AppDeclarationSnapshot = Extract<
+	Awaited<ReturnType<typeof readAppDeclarations>>,
+	{ state: "snapshot" }
+>
+
 export async function readAppDeclarations(artifacts: Artifacts, appId: AppId) {
 	using repo = await artifacts.get(appId)
 	const [commit] = await repo.log({ limit: 1, ref: "main" })

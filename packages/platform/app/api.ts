@@ -283,6 +283,7 @@ export function createApi() {
 			const app = await createApp(
 				c.var.db,
 				c.env.ARTIFACTS,
+				c.env.FOLDERS,
 				c.env.AGENTS,
 				c.var.config.CTX_APPS_DOMAIN,
 				c.var.identity,
@@ -581,7 +582,13 @@ export function createApi() {
 		async (c) => {
 			if (c.var.appAccess.app.visibility === "public") return c.body(null, 403)
 			return c.json(
-				await joinApp(c.var.db, c.env.ARTIFACTS, c.env.AGENTS, c.var.appAccess),
+				await joinApp(
+					c.var.db,
+					c.env.ARTIFACTS,
+					c.env.FOLDERS,
+					c.env.AGENTS,
+					c.var.appAccess,
+				),
 				200,
 			)
 		},

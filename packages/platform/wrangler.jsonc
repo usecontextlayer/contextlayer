@@ -6,6 +6,11 @@
 			"binding": "ARTIFACTS",
 			"namespace": "contextlayer-prod",
 			"remote": true
+		},
+		{
+			"binding": "FOLDERS",
+			"namespace": "contextlayer-prod-folders",
+			"remote": true
 		}
 	],
 	"assets": {
@@ -51,6 +56,11 @@
 				{
 					"binding": "ARTIFACTS",
 					"namespace": "contextlayer-test",
+					"remote": true
+				},
+				{
+					"binding": "FOLDERS",
+					"namespace": "contextlayer-test-folders",
 					"remote": true
 				}
 			],

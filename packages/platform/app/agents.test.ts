@@ -49,32 +49,34 @@ test.each([
 		public_hostname: "brief.contextlayer.xyz",
 		visibility: "public",
 	})
+	const configuration = prepareAppResourceConfiguration(
+		app,
+		{ id: "bob" },
+		resourcesForConsumer(
+			collectAppResources(
+				appSlatesSchema.parse({
+					agents: {
+						brief: {
+							connections: {},
+							folders: { inbox: { mode: "viewer" }, reports: { mode: "owner" } },
+							secrets: {
+								CLAUDE_CODE_OAUTH_TOKEN: { mode: "owner" },
+								PERSONAL_API_KEY: { mode: "viewer" },
+							},
+						},
+					},
+					app: { connections: {}, folders: { interactive: { mode: "viewer" } } },
+				}),
+			),
+			{ name: "brief", type: "agent" },
+		),
+		[],
+	)
 	const prepared = prepareAgentRun(
 		app,
 		{ id: "bob", type: "user" },
 		{ commit: "published-revision", instructions: "Return a company brief.\n" },
-		prepareAppResourceConfiguration(
-			app,
-			{ id: "bob" },
-			resourcesForConsumer(
-				collectAppResources(
-					appSlatesSchema.parse({
-						agents: {
-							brief: {
-								connections: {},
-								secrets: {
-									CLAUDE_CODE_OAUTH_TOKEN: { mode: "owner" },
-									PERSONAL_API_KEY: { mode: "viewer" },
-								},
-							},
-						},
-						app: { connections: {} },
-					}),
-				),
-				{ name: "brief", type: "agent" },
-			),
-			[],
-		),
+		configuration,
 		agentRunRequestSchema.parse({ name: "brief", prompt: "Research Acme." }),
 	)
 	if (!prepared.allowed) throw new Error("Expected a prepared run")
@@ -88,6 +90,16 @@ test.each([
 		},
 		appId: "00000000-0000-4000-8000-000000000001",
 		connections: {},
+		folders: {
+			inbox: {
+				owner: { id: "bob", type: "user" },
+				repository_name: configuration.folders.inbox?.repository_name,
+			},
+			reports: {
+				owner,
+				repository_name: configuration.folders.reports?.repository_name,
+			},
+		},
 		prompt: "Research Acme.",
 		secrets: {
 			CLAUDE_CODE_OAUTH_TOKEN: owner,
@@ -108,6 +120,7 @@ test.each([
 						agents: {
 							brief: {
 								connections: {},
+								folders: { reports: { mode: "owner" } },
 								secrets: { ANTHROPIC_API_KEY: { mode: "owner" } },
 							},
 						},
@@ -123,6 +136,7 @@ test.each([
 	if (!scheduled.allowed) throw new Error("Expected a prepared scheduled run")
 	const unattended = scheduled.run
 	expect(unattended.actor).toEqual({ type: "app" })
+	expect(unattended.folders).toEqual({ reports: run.folders.reports })
 	expect(unattended.secrets).toEqual({ ANTHROPIC_API_KEY: owner })
 	expect(unattended.prompt).toBe("Scheduled research.")
 	expect(agentRunSchema.parse(JSON.parse(JSON.stringify(unattended)))).toEqual(unattended)

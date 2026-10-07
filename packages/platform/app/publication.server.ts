@@ -1,6 +1,6 @@
 import { WorkerEntrypoint } from "cloudflare:workers"
-import { setupAgentSchedules } from "@/agent-schedules.server"
 import { listAppMembers } from "@/app-members.server"
+import { setupApp } from "@/app-setup.server"
 import { appSchema } from "@/apps.schema"
 import type { PlatformEnv } from "@/context"
 import { createPlatformDb } from "@/database"
@@ -12,13 +12,15 @@ export class Publication extends WorkerEntrypoint<PlatformEnv["Bindings"]> {
 		const config = parseDatabaseEnv(this.env)
 		const db = createPlatformDb(config.CTX_PLATFORM_DATABASE_URL)
 		try {
-			await db
-				.selectFrom("app")
-				.select("id")
-				.where("id", "=", id)
-				.executeTakeFirstOrThrow()
+			const app = appSchema.parse(
+				await db
+					.selectFrom("app")
+					.selectAll()
+					.where("id", "=", id)
+					.executeTakeFirstOrThrow(),
+			)
 			const members = await listAppMembers(db, id)
-			await setupAgentSchedules(this.env.ARTIFACTS, this.env.AGENTS, id, [
+			await setupApp(this.env.ARTIFACTS, this.env.FOLDERS, this.env.AGENTS, app, [
 				{ type: "app" },
 				...members.map(({ user_id }) => ({ id: user_id, type: "user" as const })),
 			])

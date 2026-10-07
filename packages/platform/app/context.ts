@@ -16,6 +16,7 @@ export type PlatformEnv = {
 		APPS: DispatchNamespace
 		ASSETS: Fetcher
 		ARTIFACTS: Artifacts
+		FOLDERS: Artifacts
 	}
 	Variables: {
 		db: PlatformDb

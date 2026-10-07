@@ -10,10 +10,14 @@ export const connectionRequirementSchema = z.strictObject({
 export const secretNameSchema = z.string().regex(/^[A-Z_][A-Z0-9_]*$/)
 export const secretRequirementSchema = z.strictObject({ mode: credentialModeSchema })
 export const folderRequirementSchema = z.strictObject({ mode: credentialModeSchema })
+export const folderNameSchema = z
+	.string()
+	.min(1)
+	.regex(/^(?!\.{1,2}$)[^/\\]+$/)
 
 export const slateSchema = z.strictObject({
 	connections: z.record(z.string().min(1), connectionRequirementSchema),
-	folders: z.record(z.string().min(1), folderRequirementSchema).default({}),
+	folders: z.record(folderNameSchema, folderRequirementSchema).default({}),
 	secrets: z.record(secretNameSchema, secretRequirementSchema).default({}),
 })
 export type Slate = z.infer<typeof slateSchema>
@@ -36,7 +40,7 @@ export const resourcesSchema = slateSchema.extend({
 		connectionRequirementSchema.extend({ consumers: z.array(resourceConsumerSchema) }),
 	),
 	folders: z.record(
-		z.string().min(1),
+		folderNameSchema,
 		folderRequirementSchema.extend({ consumers: z.array(resourceConsumerSchema) }),
 	),
 	secrets: z.record(

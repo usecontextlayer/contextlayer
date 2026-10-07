@@ -138,6 +138,7 @@ export function authorizeAppManagement(
 export async function createApp(
 	db: PlatformDb,
 	artifacts: Artifacts,
+	folders: Artifacts,
 	agents: PlatformEnv["Bindings"]["AGENTS"],
 	appsDomain: string,
 	identity: AuthIdentity,
@@ -169,7 +170,7 @@ export async function createApp(
 			.executeTakeFirstOrThrow()
 		await artifacts.create(app.id, { setDefaultBranch: "main" })
 		const saved = appSchema.parse(app)
-		await joinApp(trx, artifacts, agents, { app: saved, identity })
+		await joinApp(trx, artifacts, folders, agents, { app: saved, identity })
 		return saved
 	})
 }

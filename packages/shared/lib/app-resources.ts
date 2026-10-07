@@ -12,7 +12,10 @@ export const appResourceConfigurationSchema = resourcesSchema.extend({
 	),
 	folders: z.record(
 		resourcesSchema.shape.folders.keyType,
-		resourcesSchema.shape.folders.valueType.extend({ owner: ownerSchema }),
+		resourcesSchema.shape.folders.valueType.extend({
+			owner: ownerSchema,
+			repository_name: z.string().min(1),
+		}),
 	),
 	secrets: z.record(
 		resourcesSchema.shape.secrets.keyType,
@@ -31,7 +34,7 @@ export const localResourceConfigurationSchema = resourcesSchema.extend({
 		}),
 	),
 	folders: z.record(
-		resourcesSchema.shape.folders.keyType.regex(/^(?!\.{1,2}$)[^/\\]+$/),
+		resourcesSchema.shape.folders.keyType,
 		resourcesSchema.shape.folders.valueType.extend({ path: z.string().min(1) }),
 	),
 	secrets: z.record(

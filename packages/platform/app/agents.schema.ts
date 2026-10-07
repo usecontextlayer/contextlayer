@@ -1,4 +1,5 @@
 import { z } from "@hono/zod-openapi"
+import { appResourceConfigurationSchema } from "@usecontextlayer/shared/app-resources"
 import { ownerSchema } from "@usecontextlayer/shared/app-usage"
 import { secretNameSchema } from "@usecontextlayer/shared/slate"
 import { appSchema, appTargetSchema } from "@/apps.schema"
@@ -67,6 +68,13 @@ export const agentRunSchema = z.strictObject({
 			connection_id: z.string(),
 			owner: ownerSchema,
 			toolkit: z.string().min(1),
+		}),
+	),
+	folders: z.record(
+		appResourceConfigurationSchema.shape.folders.keyType,
+		appResourceConfigurationSchema.shape.folders.valueType.pick({
+			owner: true,
+			repository_name: true,
 		}),
 	),
 	prompt: agentRunRequestSchema.shape.prompt,

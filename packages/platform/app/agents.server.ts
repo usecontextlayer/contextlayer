@@ -74,6 +74,12 @@ export function prepareAgentRun(
 		agent: { commit: agent.commit, instructions: agent.instructions, name },
 		appId: app.id,
 		connections,
+		folders: Object.fromEntries(
+			Object.entries(configuration.folders).map(([slug, folder]) => [
+				slug,
+				{ owner: folder.owner, repository_name: folder.repository_name },
+			]),
+		),
 		prompt,
 		secrets: Object.fromEntries(
 			Object.entries(configuration.secrets).map(([secretName, requirement]) => [

@@ -25,8 +25,7 @@ import type { Publication } from "@/publication.server"
 const execFile = promisify(execFileCallback)
 const worker = createTestHarness()
 const appIds: string[] = []
-const sharedRepository = "agent-shared-2026-10-05-91fc24d8"
-let createdSharedRepository = false
+const folderNames = new Set<string>()
 let databases: ProvisionedDatabases<"ctx_agent_schedules">
 let db: ReturnType<typeof createPlatformDb>
 let env: ReturnType<typeof parsePlatformEnv>
@@ -62,46 +61,15 @@ beforeAll(async () => {
 		],
 	})
 	origin = (await worker.listen()).url.origin
-	const { ARTIFACTS } = await worker.getWorker<PlatformEnv["Bindings"]>().getEnv()
-	const { repos } = await ARTIFACTS.list({ limit: 200 })
-	if (!repos.some(({ name }) => name === sharedRepository)) {
-		const created = await ARTIFACTS.create(sharedRepository)
-		createdSharedRepository = true
-		const workspace = join(dir, "shared")
-		await mkdir(workspace)
-		await writeFile(
-			join(workspace, "README.md"),
-			"# Scheduled agent verification workspace\n",
-		)
-		const git = async (...args: string[]) =>
-			await execFile("git", args, { cwd: workspace })
-		await git("init", "-b", "main")
-		await git("config", "user.name", "Scheduled Agent Test")
-		await git("config", "user.email", "agent-test@example.com")
-		await git("add", "README.md")
-		await git("-c", "commit.gpgsign=false", "commit", "-m", "Seed verification workspace")
-		await execFile("git", ["push", created.remote, "main"], {
-			cwd: workspace,
-			env: {
-				...process.env,
-				GIT_CONFIG_COUNT: "1",
-				GIT_CONFIG_KEY_0: "http.extraHeader",
-				GIT_CONFIG_VALUE_0: `Authorization: Basic ${Buffer.from(`x:${created.token}`).toString("base64")}`,
-			},
-		})
-	}
 })
 
 afterAll(async () => {
 	try {
-		for (const id of appIds) {
-			const { ARTIFACTS } = await worker.getWorker<PlatformEnv["Bindings"]>().getEnv()
-			await ARTIFACTS.delete(id)
-		}
-		if (createdSharedRepository) {
-			const { ARTIFACTS } = await worker.getWorker<PlatformEnv["Bindings"]>().getEnv()
-			await ARTIFACTS.delete(sharedRepository)
-		}
+		const { ARTIFACTS, FOLDERS } = await worker
+			.getWorker<PlatformEnv["Bindings"]>()
+			.getEnv()
+		for (const name of folderNames) await FOLDERS.delete(name)
+		for (const id of appIds) await ARTIFACTS.delete(id)
 	} finally {
 		await worker.close()
 		if (dir) await rm(dir, { force: true, recursive: true })
@@ -181,12 +149,16 @@ test("members' published cron jobs use viewer resources and retain results after
 		await git("remote", "add", "origin", `${origin}/git/${app.id}`)
 		await writeFile(
 			join(project, "public/slate.json"),
-			JSON.stringify({ connections: { mail: { mode: "viewer", toolkit: "gmail" } } }),
+			JSON.stringify({
+				connections: { mail: { mode: "viewer", toolkit: "gmail" } },
+				folders: { reports: { mode: "owner" } },
+			}),
 		)
 		await writeFile(
 			join(project, "agents/daily-summary/slate.json"),
 			JSON.stringify({
 				connections: { mail: { mode: "viewer", toolkit: "gmail" } },
+				folders: { inbox: { mode: "viewer" }, reports: { mode: "owner" } },
 				secrets: { ANTHROPIC_API_KEY: { mode: index === 0 ? "owner" : "viewer" } },
 			}),
 		)
@@ -219,6 +191,8 @@ test("members' published cron jobs use viewer resources and retain results after
 				? { id: organizationId, type: "organization" }
 				: { id: user.id, type: "user" },
 		)
+		for (const { repository_name } of Object.values(resources.folders))
+			folderNames.add(repository_name)
 		await PUBLICATION.publish(app.id)
 		const memberInstance = await getAgentByName(
 			AGENTS,
@@ -230,7 +204,7 @@ test("members' published cron jobs use viewer resources and retain results after
 		)
 		expect(await appInstance.listSchedules()).toEqual([])
 		expect(await memberInstance.listSchedules()).toHaveLength(index === 0 ? 1 : 0)
-		projects.push({ app, git, memberInstance, scheduleFile })
+		projects.push({ app, folders: resources.folders, git, memberInstance, scheduleFile })
 	}
 	const joined = await fetch(`${origin}/api/apps/${joinedAfterPublication.id}/join`, {
 		headers,
@@ -247,7 +221,7 @@ test("members' published cron jobs use viewer resources and retain results after
 	for (const { app, git, memberInstance, scheduleFile } of projects) {
 		await writeFile(
 			scheduleFile,
-			`---\ncron: "${cron}"\n---\nInspect only mailbox profile metadata with a read-only Gmail tool. Report only whether this refreshed scheduled task succeeded.\n`,
+			`---\ncron: "${cron}"\n---\nInspect only mailbox profile metadata with a read-only Gmail tool. Save proof.txt containing the marker ${app.id} in both inbox and reports. Commit and push each folder to origin/main. Report only whether this refreshed scheduled task succeeded.\n`,
 		)
 		await git("add", "agents")
 		await git(
@@ -306,8 +280,7 @@ test("members' published cron jobs use viewer resources and retain results after
 	const submitted = await fetch(
 		apiUrl,
 		post({
-			prompt:
-				"Report that the API task completed. Use no tools and disclose no account details.",
+			prompt: `Save api-proof.txt containing the marker ${joinedBeforePublication.id} in both inbox and reports, commit and push each folder to origin/main. Report only whether the API task completed. Disclose no account details.`,
 		}),
 	)
 	expect(submitted.status).toBe(202)
@@ -342,6 +315,23 @@ test("members' published cron jobs use viewer resources and retain results after
 		expect(listed.status).toBe(200)
 		expect(jobs.parse(await listed.json()).jobs).toContainEqual(job)
 	}
+	const { FOLDERS } = await worker.getWorker<PlatformEnv["Bindings"]>().getEnv()
+	for (const { app, folders } of projects) {
+		for (const folder of Object.values(folders)) {
+			const repo = await FOLDERS.get(folder.repository_name)
+			const document = await repo.readFile({ path: "proof.txt", ref: "main" })
+			expect(document).not.toBeNull()
+			expect(await document?.text()).toContain(app.id)
+			if (app.id === joinedBeforePublication.id) {
+				const apiDocument = await repo.readFile({ path: "api-proof.txt", ref: "main" })
+				expect(apiDocument).not.toBeNull()
+				expect(await apiDocument?.text()).toContain(app.id)
+			}
+		}
+	}
+	console.info("Declared folder documents committed by scheduled and API jobs", {
+		folders: folderNames.size,
+	})
 	console.info(
 		"Agent jobs retained after Worker reload",
 		saved.map(({ job }) => ({ id: job.id, source: job.source, status: job.status })),

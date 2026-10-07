@@ -2,7 +2,7 @@ import { resourcesForConsumer } from "@usecontextlayer/shared/slate"
 import { getAgentByName } from "agents/routing"
 import { getAgentInstanceName, getAgentUnattendedScope } from "@/agent-instance"
 import { type AgentActor, agentScheduleSchema } from "@/agents.schema"
-import { readAppDeclarations } from "@/app-declarations.server"
+import type { AppDeclarationSnapshot } from "@/app-declarations.server"
 import type { PlatformEnv } from "@/context"
 import type { AppId } from "@/database/models/public/App"
 
@@ -11,9 +11,8 @@ export async function setupAgentSchedules(
 	agents: PlatformEnv["Bindings"]["AGENTS"],
 	appId: AppId,
 	actors: AgentActor[],
+	snapshot: AppDeclarationSnapshot,
 ) {
-	const snapshot = await readAppDeclarations(artifacts, appId)
-	if (snapshot.state === "no-commit") return
 	const { parseSkillFrontmatter } = await import("agents/skills")
 	using repo = await artifacts.get(appId)
 	for (const definition of snapshot.agentTrees) {

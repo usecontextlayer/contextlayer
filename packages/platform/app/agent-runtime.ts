@@ -22,8 +22,6 @@ import type { AppId } from "@/database/models/public/App"
 import { parseDatabaseEnv } from "@/env"
 import { loadSharedSecret } from "@/secrets.server"
 
-export const SHARED_ARTIFACTS_REPO = "agent-shared-2026-10-05-91fc24d8"
-
 export class AppAgent extends Think<PlatformEnv["Bindings"]> {
 	maxSteps = 20
 	workspaceBash = false
@@ -38,7 +36,7 @@ export class AppAgent extends Think<PlatformEnv["Bindings"]> {
 	getSystemPrompt() {
 		return [
 			super.getSystemPrompt(),
-			"You run tasks for ContextLayer apps. Use bash to run real Linux commands and work with files in your sandbox. /shared is an Artifacts-backed Git working tree, already checked out from origin/main. Save work intended for subsequent jobs there. Local edits are not shared until committed and successfully pushed to origin/main. Push work you intend to preserve before finishing. Other paths are scratch space. Never print credentials or put them in your documents or messages.",
+			"You run tasks for ContextLayer apps. Use bash to run real Linux commands and work with files in your sandbox. Each declared folder is an Artifacts-backed Git working tree at /folders/<slug>. Save work intended for subsequent jobs in those folders. Repositories may be empty until your first commit. Local edits are not saved until committed and successfully pushed to origin/main. Push work you intend to preserve before finishing. Other paths are scratch space. Never print credentials or put them in your documents or messages.",
 			agentRunSchema.parse(this.getConfig()).agent.instructions,
 		].join("\n\n")
 	}
@@ -60,11 +58,11 @@ export class AppAgent extends Think<PlatformEnv["Bindings"]> {
 		return {
 			bash: tool({
 				description:
-					"Run a Bash command in the Linux sandbox, with /shared as the working directory. Git is available; commit and push shared work to preserve it.",
+					"Run a Bash command in the Linux sandbox, with /folders as the working directory. Each declared folder slug is a Git working tree; commit and push its work to preserve it.",
 				execute: async ({ command }) => {
 					const process = await this.container.exec(
 						["timeout", "--kill-after=5", "60", "bash", "-lc", command],
-						{ cwd: "/shared" },
+						{ cwd: "/folders" },
 					)
 					const output = await process.output()
 					const decoder = new TextDecoder()
@@ -87,8 +85,18 @@ export class AppAgent extends Think<PlatformEnv["Bindings"]> {
 				entrypoint: ["sleep", "infinity"],
 				image: container.images.base,
 			})
-			await container.setInactivityTimeout(10 * 60 * 1000)
-			using repo = await this.env.ARTIFACTS.get(SHARED_ARTIFACTS_REPO)
+		}
+		await container.setInactivityTimeout(10 * 60 * 1000)
+		const setup = await container.exec([
+			"bash",
+			"-ec",
+			"umask 077; mkdir -p /folders; git config --global credential.helper store; git config --global credential.useHttpPath true; git config --global init.defaultBranch main; git config --global user.name ContextLayer; git config --global user.email agents@usecontextlayer.com",
+		])
+		if ((await setup.output()).exitCode !== 0)
+			throw new Error("Agent folder workspace setup failed")
+		const run = agentRunSchema.parse(this.getConfig())
+		for (const [slug, folder] of Object.entries(run.folders)) {
+			using repo = await this.env.FOLDERS.get(folder.repository_name)
 			const info = await repo.info()
 			const token = await repo.createToken("write", 3600)
 			const remote = new URL(info.remote)
@@ -98,15 +106,22 @@ export class AppAgent extends Think<PlatformEnv["Bindings"]> {
 				[
 					"bash",
 					"-ec",
-					'umask 077; printf "%s\\n" "$ARTIFACTS_GIT_REMOTE" > /root/.git-credentials; git config --global credential.helper store; git clone --branch main "$ARTIFACTS_REMOTE" /shared; git -C /shared config user.name ContextLayer; git -C /shared config user.email agents@usecontextlayer.com',
+					'umask 077; printf "url=%s\\n\\n" "$ARTIFACTS_GIT_REMOTE" | git credential approve; if [ ! -d "$FOLDER_PATH/.git" ]; then git clone "$ARTIFACTS_REMOTE" "$FOLDER_PATH"; fi',
 				],
-				{ env: { ARTIFACTS_GIT_REMOTE: remote.href, ARTIFACTS_REMOTE: info.remote } },
+				{
+					env: {
+						ARTIFACTS_GIT_REMOTE: remote.href,
+						ARTIFACTS_REMOTE: info.remote,
+						FOLDER_PATH: `/folders/${slug}`,
+					},
+				},
 			)
 			const output = await process.output()
 			if (output.exitCode !== 0)
-				throw new Error(`Artifacts checkout failed with exit code ${output.exitCode}`)
+				throw new Error(
+					`Folder ${slug} checkout failed with exit code ${output.exitCode}`,
+				)
 		}
-		await container.setInactivityTimeout(10 * 60 * 1000)
 	}
 
 	async start(input: AgentRun, source: AgentJob["source"]): Promise<AgentJob> {

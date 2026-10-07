@@ -31,7 +31,7 @@ export class Build extends CIWorkflow<CloudflareArtifacts, BuildBindings> {
 			env: { CTX_APP_ID: event.payload.repo },
 			name: "deploy",
 		})
-		await step.do("publish agent schedules", async () => {
+		await step.do("setup published app", async () => {
 			await this.env.PUBLICATION.publish(event.payload.repo)
 		})
 	}

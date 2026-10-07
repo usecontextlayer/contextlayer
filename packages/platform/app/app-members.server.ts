@@ -1,5 +1,5 @@
-import { setupAgentSchedules } from "@/agent-schedules.server"
 import { appMemberSchema } from "@/app-members.schema"
+import { setupApp } from "@/app-setup.server"
 import type { AppAccess } from "@/apps.server"
 import type { PlatformEnv } from "@/context"
 import type { PlatformDb } from "@/database"
@@ -8,6 +8,7 @@ import type { AppId } from "@/database/models/public/App"
 export async function joinApp(
 	db: PlatformDb,
 	artifacts: Artifacts,
+	folders: Artifacts,
 	agents: PlatformEnv["Bindings"]["AGENTS"],
 	{ app, identity }: AppAccess,
 ) {
@@ -17,7 +18,7 @@ export async function joinApp(
 		.values(member)
 		.onConflict((conflict) => conflict.columns(["app_id", "user_id"]).doNothing())
 		.execute()
-	await setupAgentSchedules(artifacts, agents, app.id, [
+	await setupApp(artifacts, folders, agents, app, [
 		{ id: identity.user.id, type: "user" },
 	])
 	return member
