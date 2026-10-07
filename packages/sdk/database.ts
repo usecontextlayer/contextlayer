@@ -9,7 +9,8 @@ export function database<TSchema extends Record<string, unknown>>(
 	return drizzle(
 		async (sql, params, method) => {
 			const result = await databases.query(slug, sql, params)
-			return { rows: method === "get" ? (result.rows[0] ?? []) : result.rows }
+			// sqlite-proxy maps undefined to a missing row despite its array-only callback type.
+			return { rows: method === "get" ? (result.rows[0] as unknown[]) : result.rows }
 		},
 		{ schema },
 	)

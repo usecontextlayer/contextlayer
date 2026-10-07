@@ -255,9 +255,15 @@ test("hosted API and Chrome configure pushed app and agent resources independent
 				},
 			},
 			databases: {
-				priorities: { consumers: [{ type: "app" }], mode: "viewer", owner: viewer },
+				priorities: {
+					consumers: [{ type: "app" }],
+					instance_name: expect.stringMatching(/.+/),
+					mode: "viewer",
+					owner: viewer,
+				},
 				reports: {
 					consumers: [{ type: "app" }, { name: "daily-summary", type: "agent" }],
+					instance_name: expect.stringMatching(/.+/),
 					mode: "owner",
 					owner,
 				},

@@ -21,7 +21,8 @@
 		"react-router": "^8.4.0",
 		"tsdown": "latest",
 		"typescript": "latest",
-		"vite": "^8.3.2"
+		"vite": "^8.3.2",
+		"vitest": "^4.1.11"
 	},
 	"exports": {
 		".": {
@@ -60,6 +61,7 @@
 	"scripts": {
 		"build": "tsdown",
 		"dev:watch": "tsdown --watch",
+		"test": "vitest run --config vitest.config.ts",
 		"tsc": "tsc -b tsconfig.json"
 	},
 	"type": "module",

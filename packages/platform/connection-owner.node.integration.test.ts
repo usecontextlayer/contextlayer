@@ -146,6 +146,7 @@ test("configuration includes agent-only connections while app execution uses its
 	expect(configured.resources.databases).toEqual({
 		drafts: {
 			consumers: [{ name: "daily-summary", type: "agent" }],
+			instance_name: expect.stringMatching(/.+/),
 			mode: "viewer",
 			owner: { id: "alice", type: "user" },
 		},
@@ -154,6 +155,7 @@ test("configuration includes agent-only connections while app execution uses its
 				{ name: "daily-summary", type: "agent" },
 				{ name: "nightly", type: "agent" },
 			],
+			instance_name: expect.stringMatching(/.+/),
 			mode: "owner",
 			owner: { id: "alice", type: "user" },
 		},
@@ -185,6 +187,12 @@ test("configuration includes agent-only connections while app execution uses its
 				connection_id: "alice-repository",
 				owner: { id: "alice", type: "user" },
 				toolkit: "github",
+			},
+		},
+		databases: {
+			reports: {
+				instance_name: configuration.databases.reports?.instance_name,
+				owner: { id: "alice", type: "user" },
 			},
 		},
 		prompt: "Summarize the repository.",
