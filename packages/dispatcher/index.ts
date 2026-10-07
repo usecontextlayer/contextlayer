@@ -8,10 +8,33 @@ import {
 import { Hono } from "hono"
 import { getCookie } from "hono/cookie"
 import { type Bindings, parseEnv } from "@/env"
+import { serveMcp } from "@/mcp"
 
 export { Tools } from "@usecontextlayer/shared/tools-worker"
 
 const app = new Hono<{ Bindings: Bindings }>()
+
+app.get("/.well-known/oauth-protected-resource/mcp", async (c) => {
+	const env = parseEnv(c.env)
+	const lookup = new URL("/api/apps/mcp/metadata", env.CTX_PLATFORM_URL)
+	lookup.searchParams.set("hostname", new URL(c.req.url).hostname)
+	return fetch(lookup)
+})
+
+app.all("/mcp", async (c) => {
+	const env = parseEnv(c.env)
+	const incomingUrl = new URL(c.req.url)
+	const lookup = new URL("/api/apps/resolve", env.CTX_PLATFORM_URL)
+	lookup.searchParams.set("hostname", incomingUrl.hostname)
+	lookup.searchParams.set("pathname", incomingUrl.pathname)
+	const headers = new Headers()
+	const authorization = c.req.header("authorization")
+	if (authorization) headers.set("Authorization", authorization)
+	const response = await fetch(lookup, { headers })
+	if (!response.ok) return response
+	const resolved = resolvedAppSchema.parse(await response.json())
+	return serveMcp(c.req.raw, c.env.APPS, resolved, env, c.executionCtx)
+})
 
 app.all("*", async (c) => {
 	const env = parseEnv(c.env)

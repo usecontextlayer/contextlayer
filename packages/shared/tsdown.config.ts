@@ -25,6 +25,7 @@ export default defineConfig({
 		"ctx-machine-token": "lib/ctx-machine-token.ts",
 		"ctx-token-provider": "lib/ctx-token-provider.ts",
 		index: "index.ts",
+		mcp: "lib/mcp.ts",
 		"sentry-event-cap": "lib/sentry-event-cap.ts",
 		slate: "lib/slate.ts",
 		testing: "testing.ts",

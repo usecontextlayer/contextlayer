@@ -5,6 +5,7 @@
 		"@base-ui/react": "^1.8.0",
 		"@better-auth-ui/core": "1.7.26",
 		"@better-auth-ui/react": "1.7.26",
+		"@better-auth/oauth-provider": "1.7.7",
 		"@cloudflare/think": "0.20.0",
 		"@composio/core": "^0.22.0",
 		"@fontsource-variable/geist": "^5.3.0",

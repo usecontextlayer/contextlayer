@@ -1,9 +1,10 @@
 {
 	"dependencies": {
+		"@modelcontextprotocol/core": "2.3.1",
 		"@polar-sh/sdk": "1.0.1",
 		"hono": "^4.13.3",
 		"jose": "^6.2.9",
-		"zod": "^4.4.3"
+		"zod": "^4.6.5"
 	},
 	"devDependencies": {
 		"@cloudflare/workers-types": "^5.20261001.1",
@@ -43,6 +44,10 @@
 		"./ctx-token-provider": {
 			"import": "./dist/ctx-token-provider.mjs",
 			"types": "./dist/ctx-token-provider.d.mts"
+		},
+		"./mcp": {
+			"import": "./dist/mcp.mjs",
+			"types": "./dist/mcp.d.mts"
 		},
 		"./sentry-event-cap": {
 			"import": "./dist/sentry-event-cap.mjs",
