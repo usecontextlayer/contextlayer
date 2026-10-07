@@ -157,13 +157,13 @@ test("hosted API and Chrome configure pushed app and agent resources independent
 					mail: { mode: "viewer", toolkit: "gmail" },
 					repository: { mode: "owner", toolkit: "github" },
 				},
-				folders: { reports: { mode: "owner" } },
+				databases: { reports: { mode: "owner" } },
 				secrets: { MODEL_KEY: { mode: "owner" } },
 			},
 		},
 		app: {
 			connections: { mail: { mode: "viewer", toolkit: "gmail" } },
-			folders: { priorities: { mode: "viewer" }, reports: { mode: "owner" } },
+			databases: { priorities: { mode: "viewer" }, reports: { mode: "owner" } },
 			secrets: { PERSONAL_KEY: { mode: "viewer" } },
 		},
 	})
@@ -254,7 +254,7 @@ test("hosted API and Chrome configure pushed app and agent resources independent
 					toolkit: "github",
 				},
 			},
-			folders: {
+			databases: {
 				priorities: { consumers: [{ type: "app" }], mode: "viewer", owner: viewer },
 				reports: {
 					consumers: [{ type: "app" }, { name: "daily-summary", type: "agent" }],
@@ -354,7 +354,7 @@ test("hosted API and Chrome configure pushed app and agent resources independent
 			).status,
 		).toBe(400)
 	}
-	const resources = { connections: {}, folders: {}, secrets: {} }
+	const resources = { connections: {}, databases: {}, secrets: {} }
 	expect(
 		(
 			await fetch(

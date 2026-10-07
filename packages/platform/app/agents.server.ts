@@ -74,10 +74,10 @@ export function prepareAgentRun(
 		agent: { commit: agent.commit, instructions: agent.instructions, name },
 		appId: app.id,
 		connections,
-		folders: Object.fromEntries(
-			Object.entries(configuration.folders).map(([slug, folder]) => [
+		databases: Object.fromEntries(
+			Object.entries(configuration.databases).map(([slug, database]) => [
 				slug,
-				{ owner: folder.owner, repository_name: folder.repository_name },
+				{ instance_name: database.instance_name, owner: database.owner },
 			]),
 		),
 		prompt,

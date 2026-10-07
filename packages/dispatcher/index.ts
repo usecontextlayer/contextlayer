@@ -9,6 +9,7 @@ import { Hono } from "hono"
 import { getCookie } from "hono/cookie"
 import { type Bindings, parseEnv } from "@/env"
 
+export { Databases } from "@usecontextlayer/shared/databases-worker"
 export { Tools } from "@usecontextlayer/shared/tools-worker"
 
 const app = new Hono<{ Bindings: Bindings }>()
@@ -43,6 +44,9 @@ app.all("*", async (c) => {
 	else request.headers.delete("cookie")
 	const props = session
 		? {
+				databases: entrypoints.Databases({
+					props: { appId: id, credential: { token: session, type: "session" } },
+				}),
 				tools: entrypoints.Tools({
 					props: { appId: id, credential: { token: session, type: "session" } },
 				}),

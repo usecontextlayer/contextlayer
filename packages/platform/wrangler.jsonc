@@ -6,11 +6,6 @@
 			"binding": "ARTIFACTS",
 			"namespace": "contextlayer-prod",
 			"remote": true
-		},
-		{
-			"binding": "FOLDERS",
-			"namespace": "contextlayer-prod-folders",
-			"remote": true
 		}
 	],
 	"assets": {
@@ -47,6 +42,10 @@
 			{
 				"class_name": "AppAgent",
 				"name": "AGENTS"
+			},
+			{
+				"class_name": "AppDatabase",
+				"name": "DATABASES"
 			}
 		]
 	},
@@ -56,11 +55,6 @@
 				{
 					"binding": "ARTIFACTS",
 					"namespace": "contextlayer-test",
-					"remote": true
-				},
-				{
-					"binding": "FOLDERS",
-					"namespace": "contextlayer-test-folders",
 					"remote": true
 				}
 			],
@@ -87,6 +81,10 @@
 					{
 						"class_name": "AppAgent",
 						"name": "AGENTS"
+					},
+					{
+						"class_name": "AppDatabase",
+						"name": "DATABASES"
 					}
 				]
 			},
@@ -112,6 +110,10 @@
 		{
 			"new_sqlite_classes": ["AppAgent"],
 			"tag": "v1"
+		},
+		{
+			"new_sqlite_classes": ["AppDatabase"],
+			"tag": "v2"
 		}
 	],
 	"name": "contextlayer-platform",

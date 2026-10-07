@@ -4,6 +4,7 @@ import {
 	type LocalResourceConfiguration,
 	localResourceConfigurationSchema,
 } from "@usecontextlayer/shared/app-resources"
+import { readDatabaseMigrations } from "@usecontextlayer/shared/databases"
 import { resourcesSchema } from "@usecontextlayer/shared/slate"
 import { z } from "zod"
 import { readLocalResources } from "@/app"
@@ -54,11 +55,19 @@ export async function prepareLocalResourceConfiguration(
 				{ ...requirement, connection_id: bindings.get(slug) ?? null },
 			]),
 		),
-		folders: Object.fromEntries(
-			Object.entries(resources.folders).map(([slug, requirement]) => [
-				slug,
-				{ ...requirement, path: resolve(directory, ".contextlayer", "folders", slug) },
-			]),
+		databases: Object.fromEntries(
+			await Promise.all(
+				Object.entries(resources.databases).map(async ([slug, requirement]) => [
+					slug,
+					{
+						...requirement,
+						instance_name: slug,
+						migrations: await readDatabaseMigrations(slug, (path) =>
+							readOptionalFile(resolve(directory, path)),
+						),
+					},
+				]),
+			),
 		),
 		secrets: Object.fromEntries(
 			Object.entries(resources.secrets).map(([name, requirement]) => [
@@ -68,11 +77,7 @@ export async function prepareLocalResourceConfiguration(
 		),
 	})
 	await prepareLocalDirectory(directory)
-	await Promise.all(
-		Object.values(configuration.folders).map(({ path }) =>
-			mkdir(path, { recursive: true }),
-		),
-	)
+
 	return configuration
 }
 

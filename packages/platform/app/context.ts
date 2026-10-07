@@ -1,3 +1,4 @@
+import type { AppDatabase } from "@usecontextlayer/shared/database-worker"
 import { createContext } from "react-router"
 import type { AppAgent } from "@/agent-runtime"
 import type { AuthIdentity } from "@/auth.server"
@@ -16,7 +17,7 @@ export type PlatformEnv = {
 		APPS: DispatchNamespace
 		ASSETS: Fetcher
 		ARTIFACTS: Artifacts
-		FOLDERS: Artifacts
+		DATABASES: DurableObjectNamespace<AppDatabase>
 	}
 	Variables: {
 		db: PlatformDb

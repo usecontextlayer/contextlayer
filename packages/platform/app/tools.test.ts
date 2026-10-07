@@ -4,7 +4,7 @@ import { appResourcesRequestSchema } from "@/app-resources.schema"
 import { personalConnectionsQuerySchema } from "@/connections.schema"
 import { connectionToolCallSchema, toolCallSchema } from "@/tools.schema"
 
-const resources = { connections: {}, folders: {}, secrets: {} }
+const resources = { connections: {}, databases: {}, secrets: {} }
 const tool = { arguments: {}, tool: "READ" }
 
 test("hosted requests cannot replace pushed requirements", () => {

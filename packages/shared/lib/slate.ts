@@ -9,15 +9,15 @@ export const connectionRequirementSchema = z.strictObject({
 })
 export const secretNameSchema = z.string().regex(/^[A-Z_][A-Z0-9_]*$/)
 export const secretRequirementSchema = z.strictObject({ mode: credentialModeSchema })
-export const folderRequirementSchema = z.strictObject({ mode: credentialModeSchema })
-export const folderNameSchema = z
+export const databaseRequirementSchema = z.strictObject({ mode: credentialModeSchema })
+export const databaseNameSchema = z
 	.string()
 	.min(1)
 	.regex(/^(?!\.{1,2}$)[^/\\]+$/)
 
 export const slateSchema = z.strictObject({
 	connections: z.record(z.string().min(1), connectionRequirementSchema),
-	folders: z.record(folderNameSchema, folderRequirementSchema).default({}),
+	databases: z.record(databaseNameSchema, databaseRequirementSchema).default({}),
 	secrets: z.record(secretNameSchema, secretRequirementSchema).default({}),
 })
 export type Slate = z.infer<typeof slateSchema>
@@ -39,9 +39,9 @@ export const resourcesSchema = slateSchema.extend({
 		z.string().min(1),
 		connectionRequirementSchema.extend({ consumers: z.array(resourceConsumerSchema) }),
 	),
-	folders: z.record(
-		folderNameSchema,
-		folderRequirementSchema.extend({ consumers: z.array(resourceConsumerSchema) }),
+	databases: z.record(
+		databaseNameSchema,
+		databaseRequirementSchema.extend({ consumers: z.array(resourceConsumerSchema) }),
 	),
 	secrets: z.record(
 		secretNameSchema,
@@ -64,26 +64,26 @@ export function collectAppResources(slates: AppSlates): Resources {
 			declarations,
 			(slate) => slate.connections,
 		),
-		folders: collectRequirements("folders", declarations, (slate) => slate.folders),
+		databases: collectRequirements("databases", declarations, (slate) => slate.databases),
 		secrets: collectRequirements("secrets", declarations, (slate) => slate.secrets),
 	}
 }
 
 export function resourcesForConsumer<
 	Connection extends Resources["connections"][string],
-	Folder extends Resources["folders"][string],
+	Database extends Resources["databases"][string],
 	Secret extends Resources["secrets"][string],
 >(
 	resources: {
 		connections: Record<string, Connection>
-		folders: Record<string, Folder>
+		databases: Record<string, Database>
 		secrets: Record<string, Secret>
 	},
 	consumer: ResourceConsumer,
 ) {
 	return {
 		connections: filterRequirements(resources.connections, consumer),
-		folders: filterRequirements(resources.folders, consumer),
+		databases: filterRequirements(resources.databases, consumer),
 		secrets: filterRequirements(resources.secrets, consumer),
 	}
 }

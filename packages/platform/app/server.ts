@@ -19,6 +19,7 @@ import { createPlatformDb } from "@/database"
 import { parsePlatformEnv } from "@/env"
 import { createGitApp } from "@/git.server"
 
+export { AppDatabase } from "@usecontextlayer/shared/database-worker"
 export { AppAgent } from "@/agent-runtime"
 export { Publication } from "@/publication.server"
 

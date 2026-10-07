@@ -1,3 +1,4 @@
+import { readDatabaseMigrations } from "@usecontextlayer/shared/databases"
 import {
 	type AppSlates,
 	collectAppResources,
@@ -31,10 +32,28 @@ export async function readAppDeclarations(artifacts: Artifacts, appId: AppId) {
 		agents: Object.fromEntries(agents),
 		app: await readSlate(repo, commit.hash, "public/slate.json"),
 	}
+	const resources = collectAppResources(slates)
+	const databases = Object.fromEntries(
+		await Promise.all(
+			Object.entries(resources.databases).map(
+				async ([slug, requirement]) =>
+					[
+						slug,
+						{
+							...requirement,
+							migrations: await readDatabaseMigrations(slug, async (path) => {
+								const file = await repo.readFile({ path, ref: commit.hash })
+								return file ? file.text() : null
+							}),
+						},
+					] as const,
+			),
+		),
+	)
 	return {
 		agentTrees,
 		commit: commit.hash,
-		resources: collectAppResources(slates),
+		resources: { ...resources, databases },
 		slates,
 		state: "snapshot" as const,
 	}

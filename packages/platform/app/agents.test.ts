@@ -14,11 +14,11 @@ test.each([
 	{ connections: {}, expected: "app" },
 	{ connections: { mail: { mode: "viewer", toolkit: "gmail" } }, expected: "member" },
 	{ connections: {}, expected: "member", secrets: { PERSONAL_KEY: { mode: "viewer" } } },
-	{ connections: {}, expected: "member", folders: { reports: { mode: "viewer" } } },
+	{ connections: {}, databases: { reports: { mode: "viewer" } }, expected: "member" },
 	{
 		connections: { repository: { mode: "owner", toolkit: "github" } },
+		databases: { reports: { mode: "owner" } },
 		expected: "app",
-		folders: { reports: { mode: "owner" } },
 		secrets: { ANTHROPIC_API_KEY: { mode: "owner" } },
 	},
 ])(
@@ -58,14 +58,14 @@ test.each([
 					agents: {
 						brief: {
 							connections: {},
-							folders: { inbox: { mode: "viewer" }, reports: { mode: "owner" } },
+							databases: { inbox: { mode: "viewer" }, reports: { mode: "owner" } },
 							secrets: {
 								CLAUDE_CODE_OAUTH_TOKEN: { mode: "owner" },
 								PERSONAL_API_KEY: { mode: "viewer" },
 							},
 						},
 					},
-					app: { connections: {}, folders: { interactive: { mode: "viewer" } } },
+					app: { connections: {}, databases: { interactive: { mode: "viewer" } } },
 				}),
 			),
 			{ name: "brief", type: "agent" },
@@ -90,14 +90,14 @@ test.each([
 		},
 		appId: "00000000-0000-4000-8000-000000000001",
 		connections: {},
-		folders: {
+		databases: {
 			inbox: {
+				instance_name: configuration.databases.inbox?.instance_name,
 				owner: { id: "bob", type: "user" },
-				repository_name: configuration.folders.inbox?.repository_name,
 			},
 			reports: {
+				instance_name: configuration.databases.reports?.instance_name,
 				owner,
-				repository_name: configuration.folders.reports?.repository_name,
 			},
 		},
 		prompt: "Research Acme.",
@@ -120,7 +120,7 @@ test.each([
 						agents: {
 							brief: {
 								connections: {},
-								folders: { reports: { mode: "owner" } },
+								databases: { reports: { mode: "owner" } },
 								secrets: { ANTHROPIC_API_KEY: { mode: "owner" } },
 							},
 						},
@@ -136,7 +136,7 @@ test.each([
 	if (!scheduled.allowed) throw new Error("Expected a prepared scheduled run")
 	const unattended = scheduled.run
 	expect(unattended.actor).toEqual({ type: "app" })
-	expect(unattended.folders).toEqual({ reports: run.folders.reports })
+	expect(unattended.databases).toEqual({ reports: run.databases.reports })
 	expect(unattended.secrets).toEqual({ ANTHROPIC_API_KEY: owner })
 	expect(unattended.prompt).toBe("Scheduled research.")
 	expect(agentRunSchema.parse(JSON.parse(JSON.stringify(unattended)))).toEqual(unattended)

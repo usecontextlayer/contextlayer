@@ -115,6 +115,12 @@
 			}
 		},
 		{
+			"assist": { "enabled": false },
+			"formatter": { "enabled": false },
+			"includes": ["packages/cli/template/databases/**/migrations/migrations.js"],
+			"linter": { "enabled": false }
+		},
+		{
 			"includes": ["packages/cli/template/app/**/*.tsx"],
 			"linter": {
 				"rules": {

@@ -1,3 +1,4 @@
+import type { Databases } from "@usecontextlayer/shared/databases"
 import { createContext } from "react-router"
 
 export interface Tools {
@@ -9,3 +10,7 @@ export interface Tools {
 }
 
 export const toolsContext = createContext<Tools>()
+
+export const databasesContext = createContext<Databases>()
+export type { Databases } from "@usecontextlayer/shared/databases"
+export { database } from "@/database"

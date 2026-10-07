@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto"
 import type { AppResourceConfiguration } from "@usecontextlayer/shared/app-resources"
 import {
 	type CredentialMode,
@@ -54,23 +53,28 @@ export function prepareAppResourceConfiguration(
 				]
 			}),
 		),
-		folders: prepareAppFolderConfiguration(app, viewer, resources.folders),
+		databases: Object.fromEntries(
+			Object.entries(
+				prepareAppDatabaseConfiguration(app, viewer, resources.databases),
+			).map(([slug, { consumers, instance_name, mode, owner }]) => [
+				slug,
+				{ consumers, instance_name, mode, owner },
+			]),
+		),
 		secrets: withOwners(resources.secrets),
 	}
 }
 
-export function prepareAppFolderConfiguration(
+export function prepareAppDatabaseConfiguration<T extends Resources["databases"][string]>(
 	app: App,
 	viewer: { id: string } | null,
-	requirements: Resources["folders"],
-): AppResourceConfiguration["folders"] {
+	requirements: Record<string, T>,
+) {
 	return Object.fromEntries(
 		Object.entries(requirements).map(([slug, requirement]) => {
 			const owner = getCredentialOwner(requirement.mode, app, viewer)
-			const repository_name = createHash("sha256")
-				.update(JSON.stringify([app.id, owner.type, owner.id, slug]))
-				.digest("hex")
-			return [slug, { ...requirement, owner, repository_name }]
+			const instance_name = JSON.stringify([app.id, owner.type, owner.id, slug])
+			return [slug, { ...requirement, instance_name, owner }]
 		}),
 	)
 }

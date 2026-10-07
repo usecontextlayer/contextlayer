@@ -8,24 +8,24 @@ import {
 	slateSchema,
 } from "@/lib/slate"
 
-test("parses resource requirements and permits omitted folders and secrets", () => {
+test("parses resource requirements and permits omitted databases and secrets", () => {
 	const manifest = {
 		connections: { mail: { mode: "viewer", toolkit: "gmail" } },
-		folders: { reports: { mode: "owner" } },
+		databases: { reports: { mode: "owner" } },
 		secrets: { CLAUDE_CODE_OAUTH_TOKEN: { mode: "owner" } },
 	}
 	expect(slateSchema.parse(manifest)).toEqual(manifest)
 	expect(slateSchema.parse({ connections: {} })).toEqual({
 		connections: {},
-		folders: {},
+		databases: {},
 		secrets: {},
 	})
 })
 
 test.each([
 	[
-		"folder fields",
-		{ connections: {}, folders: { reports: { mode: "owner", path: "/reports" } } },
+		"database fields",
+		{ connections: {}, databases: { reports: { mode: "owner", path: "/reports" } } },
 	],
 	[
 		"manifest fields",
@@ -51,20 +51,20 @@ test("collects and selects consumer resources while preserving each Slate", () =
 		agents: {
 			followup: {
 				connections: { mail: { mode: "viewer", toolkit: "gmail" } },
-				folders: { priorities: { mode: "viewer" } },
+				databases: { priorities: { mode: "viewer" } },
 			},
 			summary: {
 				connections: {
 					mail: { mode: "viewer", toolkit: "gmail" },
 					repository: { mode: "owner", toolkit: "github" },
 				},
-				folders: { priorities: { mode: "viewer" }, reports: { mode: "owner" } },
+				databases: { priorities: { mode: "viewer" }, reports: { mode: "owner" } },
 				secrets: { MODEL_KEY: { mode: "owner" }, SERVICE_KEY: { mode: "owner" } },
 			},
 		},
 		app: {
 			connections: { mail: { mode: "viewer", toolkit: "gmail" } },
-			folders: { reports: { mode: "owner" } },
+			databases: { reports: { mode: "owner" } },
 			secrets: { SERVICE_KEY: { mode: "owner" } },
 		},
 	})
@@ -80,7 +80,7 @@ test("collects and selects consumer resources while preserving each Slate", () =
 			mail: { consumers: [app, followup, summary], mode: "viewer", toolkit: "gmail" },
 			repository: { consumers: [summary], mode: "owner", toolkit: "github" },
 		},
-		folders: {
+		databases: {
 			priorities: { consumers: [followup, summary], mode: "viewer" },
 			reports: { consumers: [app, summary], mode: "owner" },
 		},
@@ -93,14 +93,14 @@ test("collects and selects consumer resources while preserving each Slate", () =
 		connections: {
 			mail: { consumers: [app, followup, summary], mode: "viewer", toolkit: "gmail" },
 		},
-		folders: { reports: { consumers: [app, summary], mode: "owner" } },
+		databases: { reports: { consumers: [app, summary], mode: "owner" } },
 		secrets: { SERVICE_KEY: { consumers: [app, summary], mode: "owner" } },
 	})
 	expect(resourcesForConsumer(resources, followup)).toEqual({
 		connections: {
 			mail: { consumers: [app, followup, summary], mode: "viewer", toolkit: "gmail" },
 		},
-		folders: { priorities: { consumers: [followup, summary], mode: "viewer" } },
+		databases: { priorities: { consumers: [followup, summary], mode: "viewer" } },
 		secrets: {},
 	})
 	expect(resourcesForConsumer(resources, summary)).toEqual(resources)
@@ -110,7 +110,7 @@ test("collects and selects consumer resources while preserving each Slate", () =
 test("collects an app with no agents or requirements", () => {
 	expect(
 		collectAppResources(appSlatesSchema.parse({ agents: {}, app: { connections: {} } })),
-	).toEqual({ connections: {}, folders: {}, secrets: {} })
+	).toEqual({ connections: {}, databases: {}, secrets: {} })
 })
 
 test("Resources requires consumer metadata beyond the authored Slate", () => {
@@ -137,7 +137,7 @@ test.each([
 	{
 		agent: { mode: "viewer" },
 		app: { mode: "owner" },
-		category: "folders",
+		category: "databases",
 		name: "reports",
 	},
 	{

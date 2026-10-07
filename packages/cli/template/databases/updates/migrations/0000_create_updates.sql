@@ -1,0 +1,6 @@
+CREATE TABLE updates (
+	id TEXT PRIMARY KEY NOT NULL,
+	kind TEXT NOT NULL,
+	body TEXT NOT NULL,
+	created_at INTEGER NOT NULL
+);

@@ -1,5 +1,6 @@
 import { z } from "zod"
 import { ownerSchema } from "@/lib/app-usage"
+import { databaseMigrationsSchema } from "@/lib/databases"
 import { resourcesSchema } from "@/lib/slate"
 
 export const appResourceConfigurationSchema = resourcesSchema.extend({
@@ -10,11 +11,11 @@ export const appResourceConfigurationSchema = resourcesSchema.extend({
 			owner: ownerSchema,
 		}),
 	),
-	folders: z.record(
-		resourcesSchema.shape.folders.keyType,
-		resourcesSchema.shape.folders.valueType.extend({
+	databases: z.record(
+		resourcesSchema.shape.databases.keyType,
+		resourcesSchema.shape.databases.valueType.extend({
+			instance_name: z.string().min(1),
 			owner: ownerSchema,
-			repository_name: z.string().min(1),
 		}),
 	),
 	secrets: z.record(
@@ -33,9 +34,12 @@ export const localResourceConfigurationSchema = resourcesSchema.extend({
 			connection_id: z.string().min(1).nullable(),
 		}),
 	),
-	folders: z.record(
-		resourcesSchema.shape.folders.keyType,
-		resourcesSchema.shape.folders.valueType.extend({ path: z.string().min(1) }),
+	databases: z.record(
+		resourcesSchema.shape.databases.keyType,
+		resourcesSchema.shape.databases.valueType.extend({
+			instance_name: z.string().min(1),
+			migrations: databaseMigrationsSchema,
+		}),
 	),
 	secrets: z.record(
 		resourcesSchema.shape.secrets.keyType,

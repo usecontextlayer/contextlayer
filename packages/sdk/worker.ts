@@ -1,11 +1,13 @@
 import { createRequestHandler, RouterContextProvider } from "react-router"
-import { type Tools, toolsContext } from "@/index"
+import { type Databases, databasesContext, type Tools, toolsContext } from "@/index"
 
 interface LocalBindings {
+	DATABASES: Databases
 	TOOLS: Tools
 }
 
 interface AppProps {
+	databases: Databases
 	tools: Tools
 }
 
@@ -26,6 +28,7 @@ export function createApp({
 	return {
 		async fetch(request, env, ctx) {
 			const context = new RouterContextProvider()
+			context.set(databasesContext, development ? env.DATABASES : ctx.props.databases)
 			context.set(toolsContext, development ? env.TOOLS : ctx.props.tools)
 			return requestHandler(request, context)
 		},

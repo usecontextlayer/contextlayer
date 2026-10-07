@@ -1,0 +1,19 @@
+{
+	"compatibility_date": "2026-09-26",
+	"durable_objects": {
+		"bindings": [
+			{
+				"class_name": "AppDatabase",
+				"name": "DATABASE_STORAGE"
+			}
+		]
+	},
+	"main": "index.ts",
+	"migrations": [
+		{
+			"new_sqlite_classes": ["AppDatabase"],
+			"tag": "v1"
+		}
+	],
+	"name": "ctx-local-resources"
+}

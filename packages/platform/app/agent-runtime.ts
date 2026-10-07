@@ -1,6 +1,7 @@
 import { createAnthropic } from "@ai-sdk/anthropic"
 import { Think, type TurnConfig } from "@cloudflare/think"
 import { ownerSchema } from "@usecontextlayer/shared/app-usage"
+import { databaseQuerySchema } from "@usecontextlayer/shared/databases"
 import { type ToolSet, tool } from "ai"
 import { z } from "zod"
 import {
@@ -36,7 +37,7 @@ export class AppAgent extends Think<PlatformEnv["Bindings"]> {
 	getSystemPrompt() {
 		return [
 			super.getSystemPrompt(),
-			"You run tasks for ContextLayer apps. Use bash to run real Linux commands and work with files in your sandbox. Each declared folder is an Artifacts-backed Git working tree at /folders/<slug>. Save work intended for subsequent jobs in those folders. Repositories may be empty until your first commit. Local edits are not saved until committed and successfully pushed to origin/main. Push work you intend to preserve before finishing. Other paths are scratch space. Never print credentials or put them in your documents or messages.",
+			"You run tasks for ContextLayer apps. Use bash to run real Linux commands and work with files in your sandbox. Use database_query with a declared database slug and parameterized SQL to query and save persistent data. Call PRAGMA table_info or inspect sqlite_master to discover its schema. Database writes persist immediately and are shared with the app and other jobs using that resource. Files in the sandbox are scratch space. Never print credentials or put them in your documents or messages.",
 			agentRunSchema.parse(this.getConfig()).agent.instructions,
 		].join("\n\n")
 	}
@@ -47,7 +48,7 @@ export class AppAgent extends Think<PlatformEnv["Bindings"]> {
 		const owner = ownerSchema.parse(run.secrets.ANTHROPIC_API_KEY)
 		const apiKey = await loadSharedSecret(this.env, owner, "ANTHROPIC_API_KEY")
 		return {
-			activeTools: ["bash", ...Object.keys(this.mcp.getAITools())],
+			activeTools: ["bash", "database_query", ...Object.keys(this.mcp.getAITools())],
 			model: createAnthropic({ apiKey, headers: { "accept-encoding": "identity" } })(
 				"claude-haiku-4-5",
 			),
@@ -58,11 +59,11 @@ export class AppAgent extends Think<PlatformEnv["Bindings"]> {
 		return {
 			bash: tool({
 				description:
-					"Run a Bash command in the Linux sandbox, with /folders as the working directory. Each declared folder slug is a Git working tree; commit and push its work to preserve it.",
+					"Run a Bash command in the Linux sandbox, with /workspace as the scratch working directory. Save persistent data with database_query.",
 				execute: async ({ command }) => {
 					const process = await this.container.exec(
 						["timeout", "--kill-after=5", "60", "bash", "-lc", command],
-						{ cwd: "/folders" },
+						{ cwd: "/workspace" },
 					)
 					const output = await process.output()
 					const decoder = new TextDecoder()
@@ -73,6 +74,17 @@ export class AppAgent extends Think<PlatformEnv["Bindings"]> {
 					}
 				},
 				inputSchema: z.object({ command: z.string() }),
+			}),
+			database_query: tool({
+				description:
+					"Execute parameterized SQL against a declared database. Read its schema with sqlite_master or PRAGMA table_info. Writes persist immediately.",
+				execute: async ({ slug, sql, params }) => {
+					const run = agentRunSchema.parse(this.getConfig())
+					const database = run.databases[slug]
+					if (!database) throw new Error(`No database requirement for "${slug}"`)
+					return this.env.DATABASES.getByName(database.instance_name).query(sql, params)
+				},
+				inputSchema: databaseQuerySchema,
 			}),
 		}
 	}
@@ -87,41 +99,9 @@ export class AppAgent extends Think<PlatformEnv["Bindings"]> {
 			})
 		}
 		await container.setInactivityTimeout(10 * 60 * 1000)
-		const setup = await container.exec([
-			"bash",
-			"-ec",
-			"umask 077; mkdir -p /folders; git config --global credential.helper store; git config --global credential.useHttpPath true; git config --global init.defaultBranch main; git config --global user.name ContextLayer; git config --global user.email agents@usecontextlayer.com",
-		])
+		const setup = await container.exec(["mkdir", "-p", "/workspace"])
 		if ((await setup.output()).exitCode !== 0)
-			throw new Error("Agent folder workspace setup failed")
-		const run = agentRunSchema.parse(this.getConfig())
-		for (const [slug, folder] of Object.entries(run.folders)) {
-			using repo = await this.env.FOLDERS.get(folder.repository_name)
-			const info = await repo.info()
-			const token = await repo.createToken("write", 3600)
-			const remote = new URL(info.remote)
-			remote.username = "x"
-			remote.password = token.plaintext.replace(/\?expires=.*$/, "")
-			const process = await container.exec(
-				[
-					"bash",
-					"-ec",
-					'umask 077; printf "url=%s\\n\\n" "$ARTIFACTS_GIT_REMOTE" | git credential approve; if [ ! -d "$FOLDER_PATH/.git" ]; then git clone "$ARTIFACTS_REMOTE" "$FOLDER_PATH"; fi',
-				],
-				{
-					env: {
-						ARTIFACTS_GIT_REMOTE: remote.href,
-						ARTIFACTS_REMOTE: info.remote,
-						FOLDER_PATH: `/folders/${slug}`,
-					},
-				},
-			)
-			const output = await process.output()
-			if (output.exitCode !== 0)
-				throw new Error(
-					`Folder ${slug} checkout failed with exit code ${output.exitCode}`,
-				)
-		}
+			throw new Error("Agent scratch workspace setup failed")
 	}
 
 	async start(input: AgentRun, source: AgentJob["source"]): Promise<AgentJob> {

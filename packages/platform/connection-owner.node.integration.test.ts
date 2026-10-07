@@ -79,12 +79,12 @@ test("configuration includes agent-only connections while app execution uses its
 						mail: { mode: "viewer", toolkit: "gmail" },
 						repository: { mode: "owner", toolkit: "github" },
 					},
-					folders: { drafts: { mode: "viewer" }, reports: { mode: "owner" } },
+					databases: { drafts: { mode: "viewer" }, reports: { mode: "owner" } },
 					secrets: { MODEL_API_KEY: { mode: "owner" }, PERSONAL_KEY: { mode: "viewer" } },
 				},
 				nightly: {
 					connections: { repository: { mode: "owner", toolkit: "github" } },
-					folders: { reports: { mode: "owner" } },
+					databases: { reports: { mode: "owner" } },
 					secrets: { MODEL_API_KEY: { mode: "owner" } },
 				},
 			},
@@ -143,7 +143,7 @@ test("configuration includes agent-only connections while app execution uses its
 	])
 	expect(appConnectionsSchema.parse(listed).connections).toEqual(listed.connections)
 	const configured = await listAppResources(db, access, resources)
-	expect(configured.resources.folders).toEqual({
+	expect(configured.resources.databases).toEqual({
 		drafts: {
 			consumers: [{ name: "daily-summary", type: "agent" }],
 			mode: "viewer",

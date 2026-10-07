@@ -20,7 +20,7 @@ export class Publication extends WorkerEntrypoint<PlatformEnv["Bindings"]> {
 					.executeTakeFirstOrThrow(),
 			)
 			const members = await listAppMembers(db, id)
-			await setupApp(this.env.ARTIFACTS, this.env.FOLDERS, this.env.AGENTS, app, [
+			await setupApp(this.env.ARTIFACTS, this.env.DATABASES, this.env.AGENTS, app, [
 				{ type: "app" },
 				...members.map(({ user_id }) => ({ id: user_id, type: "user" as const })),
 			])

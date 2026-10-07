@@ -1,8 +1,10 @@
 import { execFile as execFileCallback } from "node:child_process"
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
+import { cp, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { promisify } from "node:util"
+import { createPolarCore } from "@polar-sh/sdk/2026-10"
+import { getStateExternalCustomers } from "@polar-sh/sdk/2026-10/services/customers"
 import {
 	type ProvisionedDatabases,
 	provisionEphemeralDatabases,
@@ -18,6 +20,7 @@ import { z } from "zod"
 import { getAgentInstanceName } from "@/agent-instance"
 import { scheduledAgentRunSchema } from "@/agents.schema"
 import { type App, appSchema } from "@/apps.schema"
+import { saveCustomerState } from "@/billing.server"
 import type { PlatformEnv } from "@/context"
 import { createPlatformDb } from "@/database"
 import { migrateToLatest } from "@/database/migrate"
@@ -27,8 +30,7 @@ import type { Publication } from "@/publication.server"
 const execFile = promisify(execFileCallback)
 const worker = createTestHarness()
 const appIds: string[] = []
-const folderNames = new Set<string>()
-let databases: ProvisionedDatabases<"ctx_app_folders">
+let databases: ProvisionedDatabases<"ctx_app_databases">
 let db: ReturnType<typeof createPlatformDb>
 let env: ReturnType<typeof parsePlatformEnv>
 let dir: string
@@ -37,17 +39,17 @@ let headers: { authorization: string }
 
 beforeAll(async () => {
 	databases = await provisionEphemeralDatabases({
-		migrators: { ctx_app_folders: migrateToLatest },
+		migrators: { ctx_app_databases: migrateToLatest },
 	})
-	db = createPlatformDb(databases.urls.ctx_app_folders)
+	db = createPlatformDb(databases.urls.ctx_app_databases)
 	env = parsePlatformEnv({
 		...process.env,
-		CTX_PLATFORM_DATABASE_URL: databases.urls.ctx_app_folders,
+		CTX_PLATFORM_DATABASE_URL: databases.urls.ctx_app_databases,
 	})
 	headers = {
 		authorization: `Bearer ${z.string().min(1).parse(process.env.CTX_TEST_ACCESS_TOKEN)}`,
 	}
-	dir = await mkdtemp(join(tmpdir(), "ctx-app-folders-"))
+	dir = await mkdtemp(join(tmpdir(), "ctx-app-databases-"))
 	await worker.update({
 		workers: [
 			{
@@ -67,10 +69,8 @@ beforeAll(async () => {
 
 afterAll(async () => {
 	try {
-		const { ARTIFACTS, FOLDERS } = await worker
-			.getWorker<PlatformEnv["Bindings"]>()
-			.getEnv()
-		for (const name of folderNames) await FOLDERS.delete(name)
+		if (appIds.length === 0) return
+		const { ARTIFACTS } = await worker.getWorker<PlatformEnv["Bindings"]>().getEnv()
 		for (const id of appIds) await ARTIFACTS.delete(id)
 	} finally {
 		await worker.close()
@@ -80,7 +80,7 @@ afterAll(async () => {
 	}
 })
 
-test("join and publication provision only members' declared app and agent folders", async () => {
+test("join and publication provision only members' declared app and agent databases", async () => {
 	const post = (body: unknown) => ({
 		body: JSON.stringify(body),
 		headers: { ...headers, "content-type": "application/json" },
@@ -91,27 +91,35 @@ test("join and publication provision only members' declared app and agent folder
 	const user = z.object({ id: z.string().min(1) }).parse(await identity.json())
 	const organizationSlug = z.string().min(1).parse(process.env.CTX_TEST_ORGANIZATION_SLUG)
 	const organizationId = z.string().min(1).parse(process.env.CTX_TEST_ORGANIZATION_ID)
+	await saveCustomerState(
+		db,
+		await getStateExternalCustomers(
+			createPolarCore({
+				accessToken: env.POLAR_ACCESS_TOKEN,
+				environment: env.POLAR_ENVIRONMENT,
+			}),
+		)(organizationId),
+		null,
+	)
 	const apps: App[] = []
 	for (let index = 0; index < 2; index++) {
 		const response = await fetch(
 			`${origin}/api/apps`,
 			post({ organization_slug: organizationSlug }),
 		)
-		expect(response.status).toBe(201)
+		expect(response.status, await response.clone().text()).toBe(201)
 		const app = appSchema.parse(await response.json())
 		appIds.push(app.id)
 		apps.push(app)
 	}
 	const [joinedBeforePublication, joinedAfterPublication] = apps
 	if (!joinedBeforePublication || !joinedAfterPublication)
-		throw new Error("Expected folder test apps")
+		throw new Error("Expected database test apps")
 	await db
 		.deleteFrom("app_member")
 		.where("app_id", "=", joinedAfterPublication.id)
 		.execute()
-	const { ARTIFACTS, FOLDERS, AGENTS } = await worker
-		.getWorker<PlatformEnv["Bindings"]>()
-		.getEnv()
+	const { DATABASES, AGENTS } = await worker.getWorker<PlatformEnv["Bindings"]>().getEnv()
 	const { PUBLICATION } = await worker
 		.getWorker<{ PUBLICATION: Service<Publication> }>("contextlayer-build-test")
 		.getEnv()
@@ -131,23 +139,11 @@ test("join and publication provision only members' declared app and agent folder
 			env: gitEnv,
 		},
 	)
-	const listRepositories = async (artifacts: Artifacts) => {
-		const repositories = new Map<string, Omit<ArtifactsRepoInfo, "remote">>()
-		let cursor: string | undefined
-		do {
-			const page = await artifacts.list({ cursor, limit: 200 })
-			for (const repo of page.repos) repositories.set(repo.name, repo)
-			cursor = page.cursor
-		} while (cursor)
-		return repositories
-	}
 	const projects = []
 	const readConfiguration = async (app: App) => {
 		const response = await fetch(`${origin}/api/apps/${app.id}/resources/list`, post({}))
 		expect(response.status).toBe(200)
 		const { resources } = appResourcesSchema.parse(await response.json())
-		for (const { repository_name } of Object.values(resources.folders))
-			folderNames.add(repository_name)
 		return resources
 	}
 	const joinMember = async (app: App) => {
@@ -166,56 +162,63 @@ test("join and publication provision only members' declared app and agent folder
 		const git = async (...args: string[]) =>
 			(await execFile("git", args, { cwd: project, env: gitEnv })).stdout.trim()
 		await git("init", "-b", "main")
-		await git("config", "user.name", "Folder Test")
-		await git("config", "user.email", "folder-test@example.com")
+		await git("config", "user.name", "Database Test")
+		await git("config", "user.email", "database-test@example.com")
 		await git("remote", "add", "origin", `${origin}/git/${app.id}`)
 		await writeFile(
 			join(project, "public/slate.json"),
 			JSON.stringify({
 				connections: {},
-				folders: { drafts: { mode: "viewer" }, reports: { mode: "owner" } },
+				databases: { drafts: { mode: "viewer" }, reports: { mode: "owner" } },
 			}),
 		)
 		await writeFile(
 			join(project, "agents/daily-summary/slate.json"),
 			JSON.stringify({
 				connections: {},
-				folders: { inbox: { mode: "viewer" }, reports: { mode: "owner" } },
+				databases: { inbox: { mode: "viewer" }, reports: { mode: "owner" } },
 			}),
 		)
 		await writeFile(
 			join(project, "agents/daily-summary/instructions.md"),
-			"Save scheduled documents in declared folders.\n",
+			"Save scheduled documents in declared databases.\n",
 		)
 		const scheduleFile = join(project, "agents/daily-summary/schedules/documents.md")
 		await writeFile(
 			scheduleFile,
 			'---\ncron: "0 0 1 1 *"\n---\nSave a scheduled document.\n',
 		)
-		await git("add", "public", "agents")
+		for (const slug of ["drafts", "inbox", "reports"])
+			await cp(
+				new URL("../cli/template/databases/updates/migrations/", import.meta.url),
+				join(project, "databases", slug, "migrations"),
+				{ recursive: true },
+			)
+		await git("add", "public", "agents", "databases")
 		await git(
 			"-c",
 			"commit.gpgsign=false",
 			"commit",
 			"-m",
-			"Declare app and agent folders",
+			"Declare app and agent databases",
 		)
 		await git("push", "origin", "main")
 		const configuration = await readConfiguration(app)
-		expect(Object.keys(configuration.folders).sort()).toEqual([
+		expect(Object.keys(configuration.databases).sort()).toEqual([
 			"drafts",
 			"inbox",
 			"reports",
 		])
-		expect(configuration.folders.reports).toMatchObject({
+		expect(configuration.databases.reports).toMatchObject({
 			consumers: [{ type: "app" }, { name: "daily-summary", type: "agent" }],
 			owner: { id: organizationId, type: "organization" },
 		})
 		for (const slug of ["drafts", "inbox"])
-			expect(configuration.folders[slug]?.owner).toEqual({ id: user.id, type: "user" })
-		const unpublishedFolders = await listRepositories(FOLDERS)
-		for (const { repository_name } of Object.values(configuration.folders))
-			expect(unpublishedFolders.has(repository_name)).toBe(false)
+			expect(configuration.databases[slug]?.owner).toEqual({ id: user.id, type: "user" })
+		for (const { instance_name } of Object.values(configuration.databases))
+			await expect(
+				DATABASES.getByName(instance_name).query("SELECT * FROM updates"),
+			).rejects.toThrow()
 		await PUBLICATION.publish(app.id)
 		const instance = await getAgentByName(
 			AGENTS,
@@ -226,43 +229,67 @@ test("join and publication provision only members' declared app and agent folder
 		)
 		projects.push({ app, configuration, git, instance, project, scheduleFile })
 	}
-	const existing = new Map<string, string>()
-	const publishedFolders = await listRepositories(FOLDERS)
-	const sourceRepositories = await listRepositories(ARTIFACTS)
 	for (const { app, configuration } of projects) {
-		for (const { repository_name } of Object.values(configuration.folders)) {
-			if (app.id === joinedAfterPublication.id) {
-				expect(publishedFolders.has(repository_name)).toBe(false)
-			} else {
-				const info = publishedFolders.get(repository_name)
-				if (!info) throw new Error("Expected provisioned folder")
-				expect(info.defaultBranch).toBe("main")
-				existing.set(repository_name, info.id)
-				expect(sourceRepositories.has(repository_name)).toBe(false)
-			}
+		for (const { instance_name } of Object.values(configuration.databases)) {
+			const query = DATABASES.getByName(instance_name).query("SELECT * FROM updates")
+			if (app.id === joinedAfterPublication.id) await expect(query).rejects.toThrow()
+			else expect((await query).rows).toEqual([])
 		}
 	}
 	await joinMember(joinedAfterPublication)
-	const joinedFolders = await listRepositories(FOLDERS)
 	for (const { configuration, instance } of projects) {
 		expect(await instance.listSchedules()).toHaveLength(1)
-		for (const { repository_name } of Object.values(configuration.folders)) {
-			const info = joinedFolders.get(repository_name)
-			if (!info) throw new Error("Expected joined member's folder")
-			existing.set(repository_name, info.id)
-		}
+		for (const { instance_name } of Object.values(configuration.databases))
+			expect(
+				(await DATABASES.getByName(instance_name).query("SELECT * FROM updates")).rows,
+			).toEqual([])
 	}
+	const first = z
+		.object({ instance_name: z.string() })
+		.parse(projects[0]?.configuration.databases.reports)
+	await DATABASES.getByName(first.instance_name).query(
+		"INSERT INTO updates (id, kind, body, created_at) VALUES (?, ?, ?, ?)",
+		["cached", "email", "persisted", 1],
+	)
+	const second = z
+		.object({ instance_name: z.string() })
+		.parse(projects[1]?.configuration.databases.reports)
+	expect(
+		(await DATABASES.getByName(second.instance_name).query("SELECT * FROM updates")).rows,
+	).toEqual([])
 	for (const slug of ["drafts", "inbox", "reports"])
-		expect(projects[0]?.configuration.folders[slug]?.repository_name).not.toBe(
-			projects[1]?.configuration.folders[slug]?.repository_name,
+		expect(projects[0]?.configuration.databases[slug]?.instance_name).not.toBe(
+			projects[1]?.configuration.databases[slug]?.instance_name,
 		)
 	for (const { app, project, git, scheduleFile, instance } of projects) {
 		await joinMember(app)
+		await execFile(
+			join(import.meta.dirname, "../cli/node_modules/.bin/drizzle-kit"),
+			[
+				"generate",
+				"--custom",
+				"--dialect",
+				"sqlite",
+				"--driver",
+				"durable-sqlite",
+				"--schema",
+				join(import.meta.dirname, "../cli/template/databases/updates/schema.ts"),
+				"--out",
+				"databases/reports/migrations",
+				"--name",
+				"add_source",
+			],
+			{ cwd: project },
+		)
+		await writeFile(
+			join(project, "databases/reports/migrations/0001_add_source.sql"),
+			"ALTER TABLE updates ADD COLUMN source TEXT NOT NULL DEFAULT 'email';\n",
+		)
 		await writeFile(
 			join(project, "public/slate.json"),
 			JSON.stringify({
 				connections: {},
-				folders: {
+				databases: {
 					archive: { mode: "owner" },
 					drafts: { mode: "viewer" },
 					reports: { mode: "owner" },
@@ -273,23 +300,51 @@ test("join and publication provision only members' declared app and agent folder
 			scheduleFile,
 			'---\ncron: "0 1 1 1 *"\n---\nSave a refreshed scheduled document.\n',
 		)
-		await git("add", "public", "agents")
+		await git("add", "public", "agents", "databases")
 		await git(
 			"-c",
 			"commit.gpgsign=false",
 			"commit",
 			"-m",
-			"Add a folder and refresh the schedule",
+			"Add a database and refresh the schedule",
 		)
 		await git("push", "origin", "main")
 		const configuration: AppResourceConfiguration = await readConfiguration(app)
-		const archive = configuration.folders.archive
+		const archive = configuration.databases.archive
 		if (!archive) throw new Error("Expected new archive declaration")
-		expect((await listRepositories(FOLDERS)).has(archive.repository_name)).toBe(false)
+		const reports = z
+			.object({ instance_name: z.string() })
+			.parse(configuration.databases.reports)
+		await cp(
+			new URL("../cli/template/databases/updates/migrations/", import.meta.url),
+			join(project, "databases/archive/migrations"),
+			{ recursive: true },
+		)
+		await git("add", "databases")
+		await git("-c", "commit.gpgsign=false", "commit", "-m", "Add archive migrations")
+		await git("push", "origin", "main")
+		await expect(
+			DATABASES.getByName(archive.instance_name).query("SELECT * FROM updates"),
+		).rejects.toThrow()
 		await PUBLICATION.publish(app.id)
 		expect(
-			(await listRepositories(FOLDERS)).get(archive.repository_name)?.defaultBranch,
-		).toBe("main")
+			(
+				await DATABASES.getByName(reports.instance_name).query(
+					"PRAGMA table_info(updates)",
+				)
+			).rows.map((row) => row[1]),
+		).toContain("source")
+		expect(
+			(
+				await DATABASES.getByName(reports.instance_name).query(
+					"SELECT source FROM updates",
+				)
+			).rows,
+		).toEqual(app.id === joinedBeforePublication.id ? [["email"]] : [])
+		expect(
+			(await DATABASES.getByName(archive.instance_name).query("SELECT * FROM updates"))
+				.rows,
+		).toEqual([])
 		const schedules = z
 			.array(z.object({ payload: scheduledAgentRunSchema }))
 			.parse(await instance.listSchedules())
@@ -297,10 +352,19 @@ test("join and publication provision only members' declared app and agent folder
 		expect(schedules[0]?.payload.prompt).toContain("refreshed scheduled document")
 		await PUBLICATION.publish(app.id)
 	}
-	const retainedFolders = await listRepositories(FOLDERS)
-	for (const [name, id] of existing) expect(retainedFolders.get(name)?.id).toBe(id)
-	console.info("Declared folders provisioned through membership setup", {
-		apps: appIds.length,
-		folders: folderNames.size,
-	})
+	const result = await fetch(
+		`${origin}/api/apps/${joinedBeforePublication.id}/databases/query`,
+		post({
+			params: ["email"],
+			slug: "reports",
+			sql: "SELECT body FROM updates WHERE kind = ?",
+		}),
+	)
+	expect(result.status).toBe(200)
+	expect(await result.json()).toMatchObject({ rows: [["persisted"]] })
+	const undeclared = await fetch(
+		`${origin}/api/apps/${joinedBeforePublication.id}/databases/query`,
+		post({ slug: "inbox", sql: "SELECT * FROM updates" }),
+	)
+	expect(undeclared.status).toBe(404)
 }, 120_000)

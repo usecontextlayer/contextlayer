@@ -8,7 +8,7 @@ import type { AppId } from "@/database/models/public/App"
 export async function joinApp(
 	db: PlatformDb,
 	artifacts: Artifacts,
-	folders: Artifacts,
+	databases: PlatformEnv["Bindings"]["DATABASES"],
 	agents: PlatformEnv["Bindings"]["AGENTS"],
 	{ app, identity }: AppAccess,
 ) {
@@ -18,7 +18,7 @@ export async function joinApp(
 		.values(member)
 		.onConflict((conflict) => conflict.columns(["app_id", "user_id"]).doNothing())
 		.execute()
-	await setupApp(artifacts, folders, agents, app, [
+	await setupApp(artifacts, databases, agents, app, [
 		{ id: identity.user.id, type: "user" },
 	])
 	return member

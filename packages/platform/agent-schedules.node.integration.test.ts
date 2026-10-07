@@ -1,5 +1,5 @@
 import { execFile as execFileCallback } from "node:child_process"
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
+import { cp, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { promisify } from "node:util"
@@ -25,7 +25,6 @@ import type { Publication } from "@/publication.server"
 const execFile = promisify(execFileCallback)
 const worker = createTestHarness()
 const appIds: string[] = []
-const folderNames = new Set<string>()
 let databases: ProvisionedDatabases<"ctx_agent_schedules">
 let db: ReturnType<typeof createPlatformDb>
 let env: ReturnType<typeof parsePlatformEnv>
@@ -65,10 +64,8 @@ beforeAll(async () => {
 
 afterAll(async () => {
 	try {
-		const { ARTIFACTS, FOLDERS } = await worker
-			.getWorker<PlatformEnv["Bindings"]>()
-			.getEnv()
-		for (const name of folderNames) await FOLDERS.delete(name)
+		if (appIds.length === 0) return
+		const { ARTIFACTS } = await worker.getWorker<PlatformEnv["Bindings"]>().getEnv()
 		for (const id of appIds) await ARTIFACTS.delete(id)
 	} finally {
 		await worker.close()
@@ -151,14 +148,14 @@ test("members' published cron jobs use viewer resources and retain results after
 			join(project, "public/slate.json"),
 			JSON.stringify({
 				connections: { mail: { mode: "viewer", toolkit: "gmail" } },
-				folders: { reports: { mode: "owner" } },
+				databases: { reports: { mode: "owner" } },
 			}),
 		)
 		await writeFile(
 			join(project, "agents/daily-summary/slate.json"),
 			JSON.stringify({
 				connections: { mail: { mode: "viewer", toolkit: "gmail" } },
-				folders: { inbox: { mode: "viewer" }, reports: { mode: "owner" } },
+				databases: { inbox: { mode: "viewer" }, reports: { mode: "owner" } },
 				secrets: { ANTHROPIC_API_KEY: { mode: index === 0 ? "owner" : "viewer" } },
 			}),
 		)
@@ -171,7 +168,13 @@ test("members' published cron jobs use viewer resources and retain results after
 			scheduleFile,
 			'---\ncron: "0 0 1 1 *"\n---\nInspect only mailbox profile metadata with a read-only Gmail tool. Report only whether it succeeded.\n',
 		)
-		await git("add", "public", "agents")
+		for (const slug of ["inbox", "reports"])
+			await cp(
+				new URL("../cli/template/databases/updates/migrations/", import.meta.url),
+				join(project, "databases", slug, "migrations"),
+				{ recursive: true },
+			)
+		await git("add", "public", "agents", "databases")
 		await git("-c", "commit.gpgsign=false", "commit", "-m", "Publish scheduled agent")
 		await git("push", "origin", "main")
 		expect(
@@ -191,8 +194,6 @@ test("members' published cron jobs use viewer resources and retain results after
 				? { id: organizationId, type: "organization" }
 				: { id: user.id, type: "user" },
 		)
-		for (const { repository_name } of Object.values(resources.folders))
-			folderNames.add(repository_name)
 		await PUBLICATION.publish(app.id)
 		const memberInstance = await getAgentByName(
 			AGENTS,
@@ -204,7 +205,13 @@ test("members' published cron jobs use viewer resources and retain results after
 		)
 		expect(await appInstance.listSchedules()).toEqual([])
 		expect(await memberInstance.listSchedules()).toHaveLength(index === 0 ? 1 : 0)
-		projects.push({ app, folders: resources.folders, git, memberInstance, scheduleFile })
+		projects.push({
+			app,
+			databases: resources.databases,
+			git,
+			memberInstance,
+			scheduleFile,
+		})
 	}
 	const joined = await fetch(`${origin}/api/apps/${joinedAfterPublication.id}/join`, {
 		headers,
@@ -221,7 +228,7 @@ test("members' published cron jobs use viewer resources and retain results after
 	for (const { app, git, memberInstance, scheduleFile } of projects) {
 		await writeFile(
 			scheduleFile,
-			`---\ncron: "${cron}"\n---\nInspect only mailbox profile metadata with a read-only Gmail tool. Save proof.txt containing the marker ${app.id} in both inbox and reports. Commit and push each folder to origin/main. Report only whether this refreshed scheduled task succeeded.\n`,
+			`---\ncron: "${cron}"\n---\nInspect only mailbox profile metadata with a read-only Gmail tool. Use database_query to insert a row into updates in both inbox and reports with id scheduled-proof, kind proof, body ${app.id}, and created_at 1. Report only whether this refreshed scheduled task succeeded.\n`,
 		)
 		await git("add", "agents")
 		await git(
@@ -280,7 +287,7 @@ test("members' published cron jobs use viewer resources and retain results after
 	const submitted = await fetch(
 		apiUrl,
 		post({
-			prompt: `Save api-proof.txt containing the marker ${joinedBeforePublication.id} in both inbox and reports, commit and push each folder to origin/main. Report only whether the API task completed. Disclose no account details.`,
+			prompt: `Use database_query to insert a row into updates in both inbox and reports with id api-proof, kind proof, body ${joinedBeforePublication.id}, and created_at 2. Report only whether the API task completed. Disclose no account details.`,
 		}),
 	)
 	expect(submitted.status).toBe(202)
@@ -315,23 +322,22 @@ test("members' published cron jobs use viewer resources and retain results after
 		expect(listed.status).toBe(200)
 		expect(jobs.parse(await listed.json()).jobs).toContainEqual(job)
 	}
-	const { FOLDERS } = await worker.getWorker<PlatformEnv["Bindings"]>().getEnv()
-	for (const { app, folders } of projects) {
-		for (const folder of Object.values(folders)) {
-			const repo = await FOLDERS.get(folder.repository_name)
-			const document = await repo.readFile({ path: "proof.txt", ref: "main" })
-			expect(document).not.toBeNull()
-			expect(await document?.text()).toContain(app.id)
-			if (app.id === joinedBeforePublication.id) {
-				const apiDocument = await repo.readFile({ path: "api-proof.txt", ref: "main" })
-				expect(apiDocument).not.toBeNull()
-				expect(await apiDocument?.text()).toContain(app.id)
-			}
+	const { DATABASES } = await worker.getWorker<PlatformEnv["Bindings"]>().getEnv()
+	for (const { app, databases } of projects) {
+		for (const database of Object.values(databases)) {
+			const rows = await DATABASES.getByName(database.instance_name).query(
+				"SELECT id, body FROM updates ORDER BY created_at",
+			)
+			expect(rows.rows).toEqual(
+				app.id === joinedBeforePublication.id
+					? [
+							["scheduled-proof", app.id],
+							["api-proof", app.id],
+						]
+					: [["scheduled-proof", app.id]],
+			)
 		}
 	}
-	console.info("Declared folder documents committed by scheduled and API jobs", {
-		folders: folderNames.size,
-	})
 	console.info(
 		"Agent jobs retained after Worker reload",
 		saved.map(({ job }) => ({ id: job.id, source: job.source, status: job.status })),

@@ -1,6 +1,7 @@
 {
 	"dependencies": {
 		"@polar-sh/sdk": "1.0.1",
+		"drizzle-orm": "0.45.3",
 		"hono": "^4.13.3",
 		"jose": "^6.2.9",
 		"zod": "^4.4.3"
@@ -43,6 +44,18 @@
 		"./ctx-token-provider": {
 			"import": "./dist/ctx-token-provider.mjs",
 			"types": "./dist/ctx-token-provider.d.mts"
+		},
+		"./database-worker": {
+			"import": "./dist/database-worker.mjs",
+			"types": "./dist/database-worker.d.mts"
+		},
+		"./databases": {
+			"import": "./dist/databases.mjs",
+			"types": "./dist/databases.d.mts"
+		},
+		"./databases-worker": {
+			"import": "./dist/databases-worker.mjs",
+			"types": "./dist/databases-worker.d.mts"
 		},
 		"./sentry-event-cap": {
 			"import": "./dist/sentry-event-cap.mjs",

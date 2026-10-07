@@ -185,7 +185,7 @@ test("app ownership protects viewing, joining, listing, and native Git source ac
 			await fetch(connectionList, {
 				...listRequest,
 				body: JSON.stringify({
-					resources: { connections: {}, folders: {}, secrets: {} },
+					resources: { connections: {}, databases: {}, secrets: {} },
 				}),
 			})
 		).status,

@@ -70,11 +70,11 @@ export const agentRunSchema = z.strictObject({
 			toolkit: z.string().min(1),
 		}),
 	),
-	folders: z.record(
-		appResourceConfigurationSchema.shape.folders.keyType,
-		appResourceConfigurationSchema.shape.folders.valueType.pick({
+	databases: z.record(
+		appResourceConfigurationSchema.shape.databases.keyType,
+		appResourceConfigurationSchema.shape.databases.valueType.pick({
+			instance_name: true,
 			owner: true,
-			repository_name: true,
 		}),
 	),
 	prompt: agentRunRequestSchema.shape.prompt,

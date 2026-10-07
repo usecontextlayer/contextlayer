@@ -58,7 +58,20 @@ program
 		const tsconfig = z
 			.looseObject({ compilerOptions: z.record(z.string(), z.unknown()) })
 			.parse(JSON.parse(await readFile(tsconfigPath, "utf8")))
-		tsconfig.compilerOptions.paths = { "~/*": ["./app/*"] }
+		tsconfig.compilerOptions.paths = { "@/*": ["./*"], "~/*": ["./app/*"] }
+		const cloudflareTsconfigPath = join(directory, "tsconfig.cloudflare.json")
+		const cloudflareTsconfig = z
+			.looseObject({
+				compilerOptions: z.record(z.string(), z.unknown()),
+				include: z.array(z.string()),
+			})
+			.parse(JSON.parse(await readFile(cloudflareTsconfigPath, "utf8")))
+		cloudflareTsconfig.compilerOptions.paths = tsconfig.compilerOptions.paths
+		cloudflareTsconfig.include.push("databases/**/schema.ts")
+		await writeFile(
+			cloudflareTsconfigPath,
+			`${JSON.stringify(cloudflareTsconfig, null, 2)}\n`,
+		)
 		await writeFile(tsconfigPath, `${JSON.stringify(tsconfig, null, 2)}\n`)
 
 		const ui = await execa(
@@ -97,7 +110,7 @@ program
 
 		const install = await execa(
 			"pnpm",
-			["add", `@usecontextlayer/sdk@${version}`, "zod@^4.4.3"],
+			["add", `@usecontextlayer/sdk@${version}`, "zod@^4.4.3", "drizzle-orm@0.45.3"],
 			{
 				cwd: directory,
 				reject: false,
@@ -106,6 +119,20 @@ program
 		)
 		process.exitCode = install.exitCode
 		if (install.exitCode !== 0) return
+
+		const migrationTool = await execa("pnpm", ["add", "-D", "drizzle-kit@0.31.11"], {
+			cwd: directory,
+			reject: false,
+			stdio: "inherit",
+		})
+		process.exitCode = migrationTool.exitCode
+		if (migrationTool.exitCode !== 0) return
+		const packagePath = join(directory, "package.json")
+		const projectPackage = z
+			.looseObject({ scripts: z.record(z.string(), z.string()) })
+			.parse(JSON.parse(await readFile(packagePath, "utf8")))
+		projectPackage.scripts["db:migration"] = "drizzle-kit generate --custom"
+		await writeFile(packagePath, `${JSON.stringify(projectPackage, null, 2)}\n`)
 
 		const response = await fetch(new URL("/api/apps", env.CTX_PLATFORM_URL), {
 			body: JSON.stringify(input),

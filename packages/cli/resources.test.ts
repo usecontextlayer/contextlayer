@@ -25,7 +25,7 @@ async function createApp() {
 		join(directory, "public/slate.json"),
 		JSON.stringify({
 			connections: { mail: { mode: "viewer", toolkit: "gmail" } },
-			folders: { reports: { mode: "owner" } },
+			databases: { reports: { mode: "owner" } },
 			secrets: { CTX_LOCAL_TEST_SECRET: { mode: "owner" } },
 		}),
 	)
@@ -36,7 +36,7 @@ async function createApp() {
 				mail: { mode: "viewer", toolkit: "gmail" },
 				repository: { mode: "owner", toolkit: "github" },
 			},
-			folders: { reports: { mode: "owner" } },
+			databases: { reports: { mode: "owner" } },
 			secrets: { CTX_LOCAL_TEST_SECRET: { mode: "owner" } },
 		}),
 	)
@@ -56,13 +56,12 @@ test("assembles local configuration before consumer selection without Git, crede
 	expect(app.connections.mail?.connection_id).toBeNull()
 	expect(agent.connections.repository?.connection_id).toBeNull()
 	expect(app.secrets.CTX_LOCAL_TEST_SECRET?.value).toBe("local-only-value")
-	expect(agent.folders.reports?.path).toBe(
-		join(directory, ".contextlayer/folders/reports"),
-	)
-	expect(app.folders.reports).toEqual(agent.folders.reports)
-	expect(
-		(await stat(join(directory, ".contextlayer/folders/reports"))).isDirectory(),
-	).toBe(true)
+	expect(agent.databases.reports?.instance_name).toBe("reports")
+	expect(app.databases.reports).toEqual(agent.databases.reports)
+	expect(agent.databases.reports?.migrations).toEqual({
+		journal: { entries: [] },
+		migrations: {},
+	})
 	expect(await readFile(join(directory, ".gitignore"), "utf8")).toBe(
 		"node_modules/\n/.contextlayer/\n",
 	)
@@ -71,7 +70,7 @@ test("assembles local configuration before consumer selection without Git, crede
 	).rejects.toMatchObject({ code: "ENOENT" })
 })
 
-test("preserves saved choices and reads only the given app folder's current declarations", async () => {
+test("preserves saved choices and reads only the given app database's current declarations", async () => {
 	const directory = await createApp()
 	const other = await createApp()
 	vi.stubEnv("CTX_LOCAL_TEST_SECRET", undefined)
@@ -104,7 +103,7 @@ test("preserves saved choices and reads only the given app folder's current decl
 	).rejects.toMatchObject({ code: "ENOENT" })
 })
 
-test("rejects malformed bindings and folder names that escape the local folder root", async () => {
+test("rejects malformed bindings and database names that escape the local database root", async () => {
 	const directory = await createApp()
 	await mkdir(join(directory, ".contextlayer"))
 	await writeFile(
@@ -117,11 +116,11 @@ test("rejects malformed bindings and folder names that escape the local folder r
 		join(directory, "public/slate.json"),
 		JSON.stringify({
 			connections: {},
-			folders: { "../outside": { mode: "owner" } },
+			databases: { "../outside": { mode: "owner" } },
 		}),
 	)
 	await expect(prepareLocalResourceConfiguration(directory)).rejects.toThrow()
-	await expect(stat(join(directory, ".contextlayer/folders"))).rejects.toMatchObject({
+	await expect(stat(join(directory, ".contextlayer/databases"))).rejects.toMatchObject({
 		code: "ENOENT",
 	})
 })
