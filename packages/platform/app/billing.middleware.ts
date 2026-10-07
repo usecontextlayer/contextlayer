@@ -1,10 +1,9 @@
 import { createMiddleware } from "hono/factory"
 import type { ViewingEnv } from "@/apps.middleware"
-import { checkAppSubscription } from "@/billing.server"
+import { checkAppBilling } from "@/billing.server"
 
-export const requireAppSubscription = createMiddleware<ViewingEnv>(async (c, next) => {
-	if (!(await checkAppSubscription(c.var.db, c.var.appAccess.app))) {
-		return c.body(null, 402)
-	}
+export const requireAppBilling = createMiddleware<ViewingEnv>(async (c, next) => {
+	const billing = await checkAppBilling(c.var.db, c.var.config, c.var.appAccess.app)
+	if (!billing.allowed) return c.text(billing.message, 402)
 	await next()
 })

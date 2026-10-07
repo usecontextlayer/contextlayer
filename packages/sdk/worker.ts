@@ -1,15 +1,16 @@
 import type { ToolConfig } from "@modelcontextprotocol/ext-apps/server"
 import type { CallToolResult } from "@modelcontextprotocol/server"
+import type { ToolsBinding } from "@usecontextlayer/shared/tools"
 import { createRequestHandler, RouterContextProvider } from "react-router"
 import type { z } from "zod"
 import { type Tools, toolsContext } from "@/index"
 
 interface LocalBindings {
-	TOOLS: Tools
+	TOOLS: ToolsBinding
 }
 
 interface AppProps {
-	tools: Tools
+	tools: ToolsBinding
 	mcpTool?: string
 }
 
@@ -46,11 +47,21 @@ export function createApp({
 				)
 				if (!module) throw new Error(`Unknown MCP tool: ${ctx.props.mcpTool}`)
 				const args = await module.tool.inputSchema.parseAsync(await request.json())
-				return Response.json(await module.handler(args, ctx.props.tools))
+				return Response.json(await module.handler(args, createTools(ctx.props.tools)))
 			}
 			const context = new RouterContextProvider()
-			context.set(toolsContext, development ? env.TOOLS : ctx.props.tools)
+			context.set(toolsContext, createTools(development ? env.TOOLS : ctx.props.tools))
 			return requestHandler(request, context)
+		},
+	}
+}
+
+function createTools(binding: ToolsBinding): Tools {
+	return {
+		async call(...args) {
+			const result = await binding.call(...args)
+			if (result instanceof Response) throw result
+			return result
 		},
 	}
 }

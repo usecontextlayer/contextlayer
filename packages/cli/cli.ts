@@ -6,7 +6,7 @@ import { execa } from "execa"
 import { z } from "zod"
 import { runLocalAgent } from "@/agents"
 import { joinApp } from "@/app"
-import { getAccessToken, login, whoami } from "@/auth"
+import { getAccessToken, getCurrentUser, login, LoginRequiredError } from "@/auth"
 import {
 	addConnection,
 	assignAppConnection,
@@ -21,18 +21,45 @@ import { version } from "@/package.json"
 import { dropSecret, secretNameSchema, secretOptionsSchema, setSecret } from "@/secrets"
 
 const program = new Command().name("ctx").description("ContextLayer CLI").version(version)
+program.addHelpText(
+	"afterAll",
+	"\nRun without a global install: npx @usecontextlayer/cli <command>",
+)
+
+async function authenticate(command: Command) {
+	try {
+		return await getCurrentUser({
+			authorization: `Bearer ${await getAccessToken()}`,
+		})
+	} catch (error) {
+		if (error instanceof LoginRequiredError) command.error(error.message)
+		throw error
+	}
+}
+
+async function requireLogin(command: Command) {
+	await authenticate(command)
+}
 
 program
 	.command("init <directory>")
 	.description(
-		"Create a Cloudflare React Router project with Tailwind and shadcn Base UI, register and join a private app owned by you or an organization (ctx login), and set its immutable Git remote",
+		"Create a private ContextLayer app on main with React Router, Tailwind, and shadcn; requires login, Node.js 24+, pnpm, and Git author identity; sets the Git remote and prints how to start and publish the app",
 	)
 	.option("--org <slug>", "Create the app under an organization you belong to")
+	.hook("preAction", requireLogin)
 	.action(async (directory: string, options: { org?: string }) => {
 		const input = z
 			.object({ organization_slug: z.string().min(1).optional() })
 			.parse({ organization_slug: options.org })
 		const accessToken = await getAccessToken()
+		const gitIdentity = await execa("git", ["var", "GIT_AUTHOR_IDENT"], {
+			reject: false,
+			stdio: ["inherit", "ignore", "inherit"],
+		})
+		process.exitCode = gitIdentity.exitCode
+		if (gitIdentity.exitCode !== 0) return
+
 		const result = await execa(
 			"pnpm",
 			[
@@ -47,6 +74,11 @@ program
 				"--yes",
 			],
 			{
+				env: {
+					GIT_CONFIG_COUNT: "1",
+					GIT_CONFIG_KEY_0: "init.defaultBranch",
+					GIT_CONFIG_VALUE_0: "main",
+				},
 				reject: false,
 				stdio: "inherit",
 			},
@@ -126,6 +158,25 @@ program
 			stdio: "inherit",
 		})
 		process.exitCode = git.exitCode
+		if (git.exitCode !== 0) return
+
+		console.log(`
+ContextLayer app created: ${app.id}
+Dashboard: ${new URL(`/dashboard/apps/${app.id}`, env.CTX_PLATFORM_URL).href}
+Hosted URL: https://${app.public_hostname}/ (available after deployment)
+
+Start locally:
+  cd '${directory.replaceAll("'", "'\\''")}'
+  pnpm dev
+Open the local URL printed by the development server.
+
+Publish your changes:
+  git add .
+  git commit
+  git push -u origin main
+
+See README.md for the development and connection workflow.
+`)
 	})
 
 program
@@ -143,11 +194,16 @@ program
 	.description(
 		"Git credential helper using the saved login; invoked automatically by Git",
 	)
+	.hook("preAction", async (command) => {
+		if (command.args[0] === "get") await requireLogin(command)
+	})
 	.action(gitCredential)
 program
 	.command("whoami")
-	.description("Show your ContextLayer user ID using the saved login")
-	.action(whoami)
+	.description("Show your ContextLayer user ID verified by the auth server")
+	.action(async (_options, command: Command) => {
+		console.log((await authenticate(command)).id)
+	})
 
 program
 	.command("join")
@@ -155,6 +211,7 @@ program
 	.description(
 		"Join a private app you can view using ctx login, enabling member-scoped unattended work; returns app and user IDs",
 	)
+	.hook("preAction", requireLogin)
 	.action(async (target) => {
 		await joinApp(z.union([z.literal("local"), z.uuid(), z.hostname()]).parse(target))
 	})
@@ -173,6 +230,11 @@ const connections = program
 		"AppID or public hostname (pushed requirements), or local (current folder; no platform request)",
 	)
 	.addArgument(new Argument("[operation]", "App connection operation").choices(["list"]))
+	.hook("preAction", async (command, actionCommand) => {
+		if (actionCommand !== command || command.args[0] !== "local") {
+			await requireLogin(actionCommand)
+		}
+	})
 	.action(async (target, operation) => {
 		if (!target || !operation)
 			connections.error("Expected: ctx connections <target> list")
@@ -192,7 +254,7 @@ connections
 connections
 	.command("add <toolkit>")
 	.description(
-		"Print a Composio authorization link for the selected Owner's account (for example, gmail)",
+		"Authorize the selected Owner's account in your browser (for example, gmail), then assign it to an app's declared connection slug with ctx connection",
 	)
 	.action(async (toolkit, _options, command: Command) => {
 		const options = ownerOptionsSchema.parse(command.optsWithGlobals())
@@ -206,11 +268,12 @@ program
 	)
 	.argument("<target>", "AppID, public hostname, or local (run from the app root)")
 	.addArgument(new Argument("<operation>").choices(["assign"]))
-	.argument("<slug>", "Connection requirement slug")
+	.argument("<slug>", "Connection slug declared in your Slate (for example, work-email)")
 	.argument(
 		"[connection_id]",
 		"Connected account ID; omit locally to choose your accounts for the declared toolkit; required for hosted targets",
 	)
+	.hook("preAction", requireLogin)
 	.action(async (target, _operation, slug, connectionId) => {
 		const input = connectionAssignmentSchema.parse({
 			connection_id: connectionId,
@@ -248,6 +311,7 @@ const secrets = program
 		"--org <org_slug>",
 		"Use this organization's Owner; defaults to the signed-in user",
 	)
+	.hook("preAction", requireLogin)
 
 secrets
 	.command("set")

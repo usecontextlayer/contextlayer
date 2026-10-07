@@ -8,7 +8,7 @@ import { afterAll, beforeAll, expect, test } from "vitest"
 import { createTestHarness } from "wrangler"
 import { z } from "zod"
 import { appSchema } from "@/apps.schema"
-import { saveCustomerState } from "@/billing.server"
+import { checkAppBilling, saveCustomerState } from "@/billing.server"
 import { createPlatformDb } from "@/database"
 import { migrateToLatest } from "@/database/migrate"
 import { parsePlatformEnv } from "@/env"
@@ -25,6 +25,7 @@ const configSchema = z.object({
 
 const worker = createTestHarness()
 let config: z.infer<typeof configSchema>
+let env: ReturnType<typeof parsePlatformEnv>
 let polar: ReturnType<typeof createPolarCore>
 let databases: ProvisionedDatabases<"ctx_billing_test">
 let db: ReturnType<typeof createPlatformDb>
@@ -41,7 +42,7 @@ beforeAll(async () => {
 		migrators: { ctx_billing_test: migrateToLatest },
 	})
 	db = createPlatformDb(databases.urls.ctx_billing_test)
-	const env = parsePlatformEnv({
+	env = parsePlatformEnv({
 		...process.env,
 		CTX_PLATFORM_DATABASE_URL: databases.urls.ctx_billing_test,
 	})
@@ -126,12 +127,24 @@ test("owner subscriptions gate execution while declaration access stays availabl
 		expect(state.active_subscriptions.map((active) => active.id)).toContain(
 			subscriptionId,
 		)
+		if (owner.type === "user")
+			expect(
+				state.active_subscriptions.find((active) => active.id === subscriptionId)
+					?.product_id,
+			).toBe(env.POLAR_FREE_PRODUCT_ID)
 		await saveCustomerState(db, state, null)
 		const response = await request(resolve(app.public_hostname, "/"))
 		expect(response.status).toBe(200)
 		expect(await response.json()).toEqual({ id: app.id, owner })
 		if (app.id === personalApp.id) await expectBlocked(organizationApp)
 	}
+	expect(
+		await checkAppBilling(
+			db,
+			{ ...env, POLAR_ACCESS_TOKEN: "deliberately-invalid" },
+			organizationApp,
+		),
+	).toEqual({ allowed: true })
 	const privateApp = await db
 		.insertInto("app")
 		.values({

@@ -1,6 +1,6 @@
 import { WorkerEntrypoint } from "cloudflare:workers"
 import type { LocalResourceConfiguration } from "@/lib/app-resources"
-import { toolResultSchema } from "@/lib/tools"
+import { connectionRequiredSchema, toolResultSchema } from "@/lib/tools"
 
 export interface ToolsProps {
 	appId: string
@@ -37,11 +37,7 @@ export class LocalTools extends WorkerEntrypoint<
 		const { appId, connections, credential } = this.ctx.props
 		const connection = new Map(Object.entries(connections)).get(slug)
 		if (!connection) throw new Error(`No local app connection requirement for "${slug}"`)
-		if (connection.connection_id === null) {
-			throw new Error(
-				`No local account assigned to "${slug}". Run ctx connection local assign ${slug}.`,
-			)
-		}
+		if (connection.connection_id === null) return connectionRequiredResponse(slug)
 		return executeToolRequest(
 			new Request(
 				new URL(
@@ -68,8 +64,20 @@ export class LocalTools extends WorkerEntrypoint<
 
 async function executeToolRequest(request: Request) {
 	const response = await fetch(request)
+	if (response.status === 409) {
+		const setup = connectionRequiredSchema.parse(await response.json())
+		return connectionRequiredResponse(setup.slug)
+	}
+	if (response.status === 402) throw new Error(await response.text())
 	if (!response.ok) throw new Error(`Tool call failed: HTTP ${response.status}`)
 	const result = toolResultSchema.parse(await response.json())
 	if (result.error !== null) throw new Error(`${result.error} (log: ${result.logId})`)
 	return { data: result.data, logId: result.logId }
+}
+
+function connectionRequiredResponse(slug: string) {
+	return Response.json(
+		{ reason: "connection-required", slug },
+		{ status: 409, statusText: "Connection required" },
+	)
 }

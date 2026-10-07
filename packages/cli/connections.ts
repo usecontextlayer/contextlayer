@@ -45,7 +45,7 @@ export async function assignAppConnection(
 		const { connections } = connectionsSchema.parse(await response.json())
 		if (connections.length === 0)
 			throw new Error(
-				`No personal ${requirement.toolkit} accounts. Run ctx connections add ${requirement.toolkit}.`,
+				`No personal ${requirement.toolkit} accounts. Run npx @usecontextlayer/cli connections add ${requirement.toolkit}, approve access in your browser, then rerun this assignment.`,
 			)
 		if (connectionId === undefined) {
 			const selected = await select({
@@ -69,6 +69,7 @@ export async function assignAppConnection(
 		}
 		await saveLocalConnection(slug, connectionId)
 		console.log(`${slug} → ${connectionId}`)
+		console.log("Start or restart pnpm dev to use this assignment.")
 		return
 	}
 	const response = await fetch(
@@ -167,7 +168,15 @@ export async function addConnection(toolkit: string, org: string | undefined) {
 		.parse(await response.json())
 	console.log(`Open this link to authorize the Owner's account:\n${redirect_url}`)
 	console.log(
-		`After authorization, run ctx connections${org ? ` --org ${org}` : ""} list to see the Owner's account.`,
+		"After approving access in your browser, assign the account to an app's declared connection slug.",
+	)
+	if (!org) {
+		console.log(
+			"From your app directory, choose your account for a slug in public/slate.json:\n  npx @usecontextlayer/cli connection local assign <slug>",
+		)
+	}
+	console.log(
+		`For a hosted app, get the account ID and assign it:\n  npx @usecontextlayer/cli connections${org ? ` --org '${org.replaceAll("'", "'\\''")}'` : ""} list\n  npx @usecontextlayer/cli connection <AppID-or-hostname> assign <slug> <connection_id>`,
 	)
 }
 

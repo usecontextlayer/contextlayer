@@ -34,7 +34,7 @@ export default function Apps() {
 					<Badge variant="secondary">{apps.length}</Badge>
 				</div>
 				<p className="text-sm text-muted-foreground">
-					Create a project with ctx init, then push your code.
+					Create a project with npx @usecontextlayer/cli init, then push your code.
 				</p>
 			</div>
 			{apps.length > 0 ? (
@@ -90,8 +90,8 @@ export default function Apps() {
 					<EmptyContent className="max-w-full">
 						<code className="max-w-full overflow-x-auto rounded-md bg-muted p-3 text-xs whitespace-nowrap">
 							{owner.type === "organization"
-								? `ctx init --org ${owner.slug} my-app`
-								: "ctx init my-app"}
+								? `npx @usecontextlayer/cli init --org ${owner.slug} my-app`
+								: "npx @usecontextlayer/cli init my-app"}
 						</code>
 						<p className="text-muted-foreground">
 							Your app will appear here after initialization.

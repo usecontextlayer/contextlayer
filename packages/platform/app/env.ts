@@ -24,7 +24,9 @@ const schema = databaseSchema.extend({
 	CTX_APPS_DOMAIN: z.hostname().default("contextlayer.xyz"),
 	CTX_AUTH_ISSUER: z.url().default("https://www.usecontextlayer.com/api/auth"),
 	POLAR_ACCESS_TOKEN: z.string().min(1),
+	POLAR_CLIPS_METER_ID: z.uuid(),
 	POLAR_ENVIRONMENT: z.enum(["sandbox", "production"]),
+	POLAR_FREE_PRODUCT_ID: z.uuid(),
 	POLAR_WEBHOOK_SECRET: z.string().min(1),
 })
 

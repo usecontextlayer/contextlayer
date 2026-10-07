@@ -108,6 +108,14 @@ test("configuration includes agent-only connections while app execution uses its
 			.executeTakeFirstOrThrow(),
 	)
 	const access = { app, identity: alice }
+	expect(
+		await resolveAppConnection(
+			db,
+			access,
+			assignmentSchema.shape.slug.parse("mail"),
+			resources,
+		),
+	).toEqual({ allowed: false, reason: "connection-required", slug: "mail" })
 	for (const slug of ["mail", "repository"]) {
 		expect(
 			await assignAppConnection(

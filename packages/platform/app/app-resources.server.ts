@@ -112,8 +112,9 @@ export async function resolveAppConnection(
 		resourcesForConsumer(resources, { type: "app" }),
 	)
 	const connection = configuration.connections[slug]
-	if (!connection || connection.connection_id === null)
-		return { allowed: false, reason: "not-found" } as const
+	if (!connection) return { allowed: false, reason: "not-found" } as const
+	if (connection.connection_id === null)
+		return { allowed: false, reason: "connection-required", slug } as const
 	const { connection_id, owner, ...requirement } = connection
 	return { allowed: true, connection_id, owner, requirement } as const
 }

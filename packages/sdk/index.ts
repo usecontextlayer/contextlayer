@@ -1,11 +1,6 @@
+import type { Tools } from "@usecontextlayer/shared/tools"
 import { createContext } from "react-router"
 
-export interface Tools {
-	call(
-		slug: string,
-		toolSlug: string,
-		args: Record<string, unknown>,
-	): Promise<{ data: unknown; logId: string }>
-}
+export { connectionRequiredSchema, type Tools } from "@usecontextlayer/shared/tools"
 
 export const toolsContext = createContext<Tools>()

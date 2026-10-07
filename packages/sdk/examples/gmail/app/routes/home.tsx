@@ -1,3 +1,4 @@
+// This example's public/slate.json declares the connection; follow the SDK README to copy the app files and assign a Gmail account.
 import { toolsContext } from "@usecontextlayer/sdk"
 import { type LoaderFunctionArgs, useLoaderData } from "react-router"
 import { z } from "zod"

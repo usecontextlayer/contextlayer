@@ -1,0 +1,9 @@
+{
+	"connections": {
+		"work-email": {
+			"mode": "viewer",
+			"toolkit": "gmail"
+		}
+	},
+	"secrets": {}
+}
