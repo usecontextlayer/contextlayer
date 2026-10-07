@@ -42,7 +42,7 @@ export default await createHonoServer<IdentityEnv>({
 			await next()
 			c.header(
 				"Content-Security-Policy",
-				`frame-ancestors https://*.${c.var.config.CTX_APPS_DOMAIN}${local ? " http://localhost:*" : ""}; base-uri 'none'; object-src 'none'; form-action 'self'`,
+				`frame-ancestors https://*.${c.var.config.CTX_APPS_DOMAIN}${local ? " http://localhost:*" : ""}; base-uri 'none'; object-src 'none'; form-action 'self' https://connect.composio.dev https://dashboard.composio.dev`,
 			)
 		})
 		app.route("/api", createApi())

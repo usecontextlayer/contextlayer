@@ -8,6 +8,7 @@ import {
 	provisionEphemeralDatabases,
 } from "@usecontextlayer/db-infra/ephemeral"
 import { appResourcesSchema } from "@usecontextlayer/shared/app-resources"
+import { connectionsSchema } from "@usecontextlayer/shared/connections"
 import { appSlatesSchema, collectAppResources } from "@usecontextlayer/shared/slate"
 import { afterAll, beforeAll, expect, test } from "vitest"
 import { createTestHarness } from "wrangler"
@@ -75,7 +76,7 @@ afterAll(async () => {
 	}
 })
 
-test("hosted configuration uses pushed declarations independently of developer-local configuration", async () => {
+test("hosted API and Chrome configure pushed app and agent resources independently of developer-local configuration", async () => {
 	const identity = await fetch(new URL("/api/me", env.CTX_AUTH_ISSUER), { headers })
 	expect(identity.status).toBe(200)
 	const user = z.object({ id: z.string().min(1) }).parse(await identity.json())
@@ -102,6 +103,13 @@ test("hosted configuration uses pushed declarations independently of developer-l
 	}
 	const [personal, organization] = apps
 	if (!personal || !organization) throw new Error("Expected test apps")
+	const accountsResponse = await fetch(`${origin}/api/connections?toolkit=gmail`, {
+		headers,
+	})
+	expect(accountsResponse.status).toBe(200)
+	const mailAccount = connectionsSchema.parse(await accountsResponse.json())
+		.connections[0]
+	if (!mailAccount) throw new Error("Expected an authorized active Gmail account")
 	const publicViewer = await db
 		.insertInto("app")
 		.values({
@@ -122,6 +130,9 @@ test("hosted configuration uses pushed declarations independently of developer-l
 				CTX_PLATFORM_URL: origin,
 			},
 		})
+	const listedAccounts = await command("connections", "list")
+	expect(listedAccounts.stdout).toContain("ACTIVE")
+	expect(listedAccounts.stdout).not.toContain("EXPIRED")
 	const gitEnv = {
 		...process.env,
 		CTX_AUTH_ISSUER: env.CTX_AUTH_ISSUER,
@@ -260,6 +271,64 @@ test("hosted configuration uses pushed declarations independently of developer-l
 				PERSONAL_KEY: { consumers: [{ type: "app" }], mode: "viewer", owner: viewer },
 			},
 		})
+		const chromeUrl = new URL(`/dashboard/chrome/apps/${app.id}`, origin)
+		chromeUrl.searchParams.set("parentOrigin", `https://${app.public_hostname}`)
+		const chromeHeaders = { ...headers, accept: "text/html" }
+		const chrome = await fetch(chromeUrl, { headers: chromeHeaders })
+		expect(chrome.status).toBe(200)
+		expect(chrome.headers.get("content-security-policy")).toContain(
+			"form-action 'self' https://connect.composio.dev https://dashboard.composio.dev",
+		)
+		const html = await chrome.text()
+		expect(html).toContain("1 connection to configure")
+		expect(html.match(/agent: daily-summary/g)).toHaveLength(2)
+		expect(html).not.toContain("Used by")
+		expect(html.match(/Configure accounts for mail/g)).toHaveLength(1)
+		expect(html.match(/Configure accounts for repository/g)).toHaveLength(1)
+		for (const name of ["MODEL_KEY", "PERSONAL_KEY", "priorities", "reports"])
+			expect(html).not.toContain(name)
+		const chromeAssigned = await fetch(chromeUrl, {
+			body: new URLSearchParams({
+				connection_id: mailAccount.id,
+				intent: "assign",
+				slug: "mail",
+			}),
+			headers: chromeHeaders,
+			method: "POST",
+		})
+		expect(chromeAssigned.status).toBe(200)
+		expect(await chromeAssigned.text()).toContain("all connections configured")
+		const saved = await fetch(`${origin}/api/apps/${app.id}/resources/list`, post({}))
+		expect(saved.status).toBe(200)
+		expect(
+			appResourcesSchema.parse(await saved.json()).resources.connections.mail
+				?.connection_id,
+		).toBe(mailAccount.id)
+		if (app === personal) {
+			await db
+				.updateTable("app")
+				.set({ owner_user_id: publicViewer.owner_user_id, visibility: "public" })
+				.where("id", "=", app.id)
+				.execute()
+			const viewerChrome = await fetch(chromeUrl, { headers: chromeHeaders })
+			expect(viewerChrome.status).toBe(200)
+			expect(await viewerChrome.text()).toContain("Managed by app owner")
+			const denied = await fetch(chromeUrl, {
+				body: new URLSearchParams({
+					connection_id: mailAccount.id,
+					intent: "assign",
+					slug: "repository",
+				}),
+				headers: chromeHeaders,
+				method: "POST",
+			})
+			expect(denied.status).toBe(403)
+			await db
+				.updateTable("app")
+				.set({ owner_user_id: user.id, visibility: "private" })
+				.where("id", "=", app.id)
+				.execute()
+		}
 	}
 	await writeFile(
 		agentSlate,

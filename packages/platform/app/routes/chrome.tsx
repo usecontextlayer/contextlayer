@@ -7,7 +7,7 @@ import {
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome"
 import { cn } from "cn"
 import { Fragment, useCallback, useState } from "react"
-import { data, Form, useFetcher } from "react-router"
+import { data, Form, redirectDocument, useFetcher } from "react-router"
 import { z } from "zod"
 import { assignmentSchema } from "@/app-connections.schema"
 import { assignAppConnection } from "@/app-connections.server"
@@ -16,6 +16,7 @@ import { appTargetSchema } from "@/apps.schema"
 import { resolveAppForViewing } from "@/apps.server"
 import { type AuthIdentity, getCurrentUser } from "@/auth.server"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
 	Collapsible,
@@ -93,7 +94,7 @@ export async function action({ request, params, context }: Route.ActionArgs) {
 			requirement.toolkit,
 		)
 		if (!result.allowed) throw new Response(null, { status: 403 })
-		return data(null, { headers: { Refresh: `0; url=${result.link.redirect_url}` } })
+		return redirectDocument(result.link.redirect_url, 303)
 	}
 	const result = await assignAppConnection(
 		context.get(databaseContext),
@@ -115,46 +116,74 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
 	const identity = context.get(identityContext)
 	if (!identity)
 		return data(
-			{ connections: [], parentOrigin, toolkits: [], user: null },
+			{ connections: [], parentOrigin, unconfiguredCount: 0, user: null },
 			{ headers: { "Cache-Control": "no-store" } },
 		)
 	const db = context.get(databaseContext)
 	const { access, resources } = await getChromeApp({ context, params }, identity)
 	const { connections } = await listAppConnections(db, access, resources)
+	const [user, toolkits] = await Promise.all([
+		getCurrentUser(identity, issuer),
+		connections.length
+			? listToolkits(config, [...new Set(connections.map(({ toolkit }) => toolkit))])
+			: [],
+	])
 	const accountReads = new Map<string, ReturnType<typeof listConnections>>()
 	const requirements = await Promise.all(
-		connections.map(async (requirement) => {
+		connections.map(async ({ connection_id, ...requirement }) => {
 			const owner = requirement.owner
 			const key = `${owner.type}:${owner.id}`
-			let accountAccess = accountReads.get(key)
-			if (!accountAccess) {
-				accountAccess = listConnections(config, identity, owner)
-				accountReads.set(key, accountAccess)
+			let accountRead = accountReads.get(key)
+			if (!accountRead) {
+				accountRead = listConnections(config, identity, owner)
+				accountReads.set(key, accountRead)
 			}
-			return {
+			const row = {
 				...requirement,
-				accountAccess: await accountAccess,
+				logo: toolkits.find(({ slug }) => slug === requirement.toolkit)?.logo ?? null,
+			}
+			const accountAccess = await accountRead
+			if (!accountAccess.allowed) return { ...row, accountAccess }
+			const assignedAccount = accountAccess.connections.find(
+				({ id }) => id === connection_id,
+			)
+			return {
+				...row,
+				accountAccess: {
+					accounts: accountAccess.connections.filter(
+						({ toolkit }) => toolkit === requirement.toolkit,
+					),
+					allowed: true as const,
+					assignment:
+						connection_id === null
+							? { type: "unassigned" as const }
+							: {
+									account: {
+										alias: assignedAccount?.alias ?? null,
+										display_name: assignedAccount?.display_name ?? null,
+										id: connection_id,
+									},
+									type: "assigned" as const,
+								},
+				},
 			}
 		}),
 	)
-	const [user, toolkits] = await Promise.all([
-		getCurrentUser(identity, issuer),
-		requirements.length
-			? listToolkits(config, [...new Set(requirements.map(({ toolkit }) => toolkit))])
-			: [],
-	])
 	return data(
-		{ connections: requirements, parentOrigin, toolkits, user },
+		{
+			connections: requirements,
+			parentOrigin,
+			unconfiguredCount: connections.filter(({ connection_id }) => connection_id === null)
+				.length,
+			user,
+		},
 		{ headers: { "Cache-Control": "no-store" } },
 	)
 }
 
 export default function Chrome({
-	loaderData: { user, connections, parentOrigin, toolkits },
+	loaderData: { user, connections, parentOrigin, unconfiguredCount },
 }: Route.ComponentProps) {
-	const needed = connections.filter(
-		(requirement) => requirement.connection_id === null,
-	).length
 	const observeHeader = useCallback(
 		(element: HTMLElement | null) => {
 			if (!element) return
@@ -187,13 +216,15 @@ export default function Chrome({
 								}
 							>
 								<FontAwesomeIcon
-									icon={needed === 0 ? faCheck : faTriangleExclamation}
-									className={needed === 0 ? "text-green-600" : "text-orange-600"}
+									icon={unconfiguredCount === 0 ? faCheck : faTriangleExclamation}
+									className={
+										unconfiguredCount === 0 ? "text-green-600" : "text-orange-600"
+									}
 									aria-hidden="true"
 								/>
-								{needed === 0
-									? "all services connected"
-									: `${needed} connection${needed === 1 ? "" : "s"} needed`}
+								{unconfiguredCount === 0
+									? "all connections configured"
+									: `${unconfiguredCount} connection${unconfiguredCount === 1 ? "" : "s"} to configure`}
 							</CollapsibleTrigger>
 						)}
 						<span className="flex min-w-0 items-center gap-2 border-l border-slate-200 py-[3px] pr-3 pl-[3px] text-[13px]/4 font-normal">
@@ -231,16 +262,13 @@ export default function Chrome({
 							{connections.map((requirement, index) => (
 								<Fragment key={requirement.slug}>
 									{index > 0 && <ItemSeparator />}
-									<ConnectionRow
-										requirement={requirement}
-										logo={toolkits.find(({ slug }) => slug === requirement.toolkit)?.logo}
-									/>
+									<ConnectionRow requirement={requirement} />
 								</Fragment>
 							))}
 							{connections.length === 0 && (
 								<Item>
 									<ItemContent>
-										<ItemDescription>No required services.</ItemDescription>
+										<ItemDescription>No connection requirements.</ItemDescription>
 									</ItemContent>
 								</Item>
 							)}
@@ -254,31 +282,24 @@ export default function Chrome({
 
 function ConnectionRow({
 	requirement,
-	logo,
 }: {
 	requirement: Route.ComponentProps["loaderData"]["connections"][number]
-	logo: string | undefined
 }) {
 	const fetcher = useFetcher<typeof action>()
 	const pending = fetcher.state !== "idle"
 	const [open, setOpen] = useState(false)
 	const [selection, setSelection] = useState<"saved" | "connect">("saved")
-	const { accountAccess } = requirement
-	const selected = accountAccess.allowed
-		? accountAccess.connections.find(({ id }) => id === requirement.connection_id)
-		: undefined
-	const choices = accountAccess.allowed
-		? accountAccess.connections.filter(({ toolkit }) => toolkit === requirement.toolkit)
-		: []
+	const { accountAccess, logo } = requirement
 	const title =
 		selection === "connect"
 			? "Once you’ve connected your account, refresh this page to select it."
 			: !accountAccess.allowed
 				? "Managed by app owner"
-				: (selected?.display_name ??
-					selected?.alias ??
-					requirement.connection_id ??
-					"Not assigned")
+				: accountAccess.assignment.type === "unassigned"
+					? "Not assigned"
+					: (accountAccess.assignment.account.display_name ??
+						accountAccess.assignment.account.alias ??
+						accountAccess.assignment.account.id)
 
 	return (
 		<Collapsible
@@ -298,6 +319,16 @@ function ConnectionRow({
 						<ItemTitle>{requirement.slug}</ItemTitle>
 						<ItemDescription className="line-clamp-none">
 							{CONNECTION_MODE_LABELS[requirement.mode]}
+							<span className="mt-1 flex flex-wrap items-center gap-1.5">
+								{requirement.consumers.map((consumer) => (
+									<Badge
+										key={consumer.type === "app" ? "app" : `agent:${consumer.name}`}
+										variant="outline"
+									>
+										{consumer.type === "app" ? "app" : `agent: ${consumer.name}`}
+									</Badge>
+								))}
+							</span>
 						</ItemDescription>
 					</ItemContent>
 				</div>
@@ -313,12 +344,16 @@ function ConnectionRow({
 								{title}
 							</span>
 						</ItemTitle>
-						{selection === "saved" && selected && (
-							<ItemDescription className="wrap-anywhere text-right">
-								{selected.alias && <>{selected.alias} · </>}
-								{selected.id}
-							</ItemDescription>
-						)}
+						{selection === "saved" &&
+							accountAccess.allowed &&
+							accountAccess.assignment.type === "assigned" && (
+								<ItemDescription className="wrap-anywhere text-right">
+									{accountAccess.assignment.account.alias && (
+										<>{accountAccess.assignment.account.alias} · </>
+									)}
+									{accountAccess.assignment.account.id}
+								</ItemDescription>
+							)}
 					</ItemContent>
 					<ItemActions>
 						<CollapsibleTrigger
@@ -340,78 +375,88 @@ function ConnectionRow({
 					</ItemActions>
 				</div>
 			</Item>
-			<CollapsibleContent keepMounted>
-				<div className="flex flex-col gap-4 px-3 pb-4">
-					{choices.length ? (
-						<RadioGroup
-							aria-label={`Accounts for ${requirement.slug}`}
-							value={selection === "saved" ? (requirement.connection_id ?? "") : ""}
-							disabled={pending}
-							onValueChange={(connection_id) => {
+			{accountAccess.allowed && (
+				<CollapsibleContent keepMounted>
+					<div className="flex flex-col gap-4 px-3 pb-4">
+						{accountAccess.accounts.length ? (
+							<RadioGroup
+								aria-label={`Accounts for ${requirement.slug}`}
+								value={
+									selection === "saved" && accountAccess.assignment.type === "assigned"
+										? accountAccess.assignment.account.id
+										: ""
+								}
+								disabled={pending}
+								onValueChange={(connection_id) => {
+									setOpen(false)
+									setSelection("saved")
+									if (
+										accountAccess.assignment.type === "assigned" &&
+										connection_id === accountAccess.assignment.account.id
+									)
+										return
+									fetcher.submit(
+										{ connection_id, intent: "assign", slug: requirement.slug },
+										{ method: "post" },
+									)
+								}}
+							>
+								{accountAccess.accounts.map((account) => (
+									<FieldLabel key={account.id}>
+										<Field orientation="horizontal">
+											<RadioGroupItem value={account.id} />
+											<FieldContent className="min-w-0">
+												<FieldTitle className="max-w-full">
+													<span className="truncate">
+														{account.display_name ?? account.alias ?? account.id}
+													</span>
+												</FieldTitle>
+												<FieldDescription className="wrap-anywhere">
+													{account.alias && <>{account.alias} · </>}
+													{account.id}
+												</FieldDescription>
+											</FieldContent>
+										</Field>
+									</FieldLabel>
+								))}
+							</RadioGroup>
+						) : (
+							<FieldDescription>No connected accounts.</FieldDescription>
+						)}
+						<Form
+							method="post"
+							target="_blank"
+							reloadDocument
+							onSubmit={() => {
 								setOpen(false)
-								setSelection("saved")
-								if (connection_id === requirement.connection_id) return
-								fetcher.submit(
-									{ connection_id, intent: "assign", slug: requirement.slug },
-									{ method: "post" },
-								)
+								setSelection("connect")
 							}}
 						>
-							{choices.map((account) => (
-								<FieldLabel key={account.id}>
-									<Field orientation="horizontal">
-										<RadioGroupItem value={account.id} />
-										<FieldContent className="min-w-0">
-											<FieldTitle className="max-w-full">
-												<span className="truncate">
-													{account.display_name ?? account.alias ?? account.id}
-												</span>
-											</FieldTitle>
-											<FieldDescription className="wrap-anywhere">
-												{account.alias && <>{account.alias} · </>}
-												{account.id}
-											</FieldDescription>
-										</FieldContent>
-									</Field>
-								</FieldLabel>
-							))}
-						</RadioGroup>
-					) : (
-						<FieldDescription>No connected accounts.</FieldDescription>
-					)}
-					<Form
-						method="post"
-						target="_blank"
-						reloadDocument
-						onSubmit={() => {
-							setOpen(false)
-							setSelection("connect")
-						}}
-					>
-						<input
-							type="hidden"
-							name="intent"
-							value="connect"
-						/>
-						<input
-							type="hidden"
-							name="slug"
-							value={requirement.slug}
-						/>
-						<Button
-							type="submit"
-							variant="outline"
-						>
-							<FontAwesomeIcon
-								icon={faPlus}
-								data-icon="inline-start"
-								aria-hidden="true"
+							<input
+								type="hidden"
+								name="intent"
+								value="connect"
 							/>
-							Connect account
-						</Button>
-					</Form>
-				</div>
-			</CollapsibleContent>
+							<input
+								type="hidden"
+								name="slug"
+								value={requirement.slug}
+							/>
+							<Button
+								type="submit"
+								variant="outline"
+							>
+								<FontAwesomeIcon
+									icon={faPlus}
+									data-icon="inline-start"
+									aria-hidden="true"
+								/>
+								Connect account
+							</Button>
+						</Form>
+					</div>
+				</CollapsibleContent>
+			)}
 		</Collapsible>
 	)
 }

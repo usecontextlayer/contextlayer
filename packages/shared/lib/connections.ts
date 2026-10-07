@@ -4,7 +4,7 @@ export const connectionSchema = z.object({
 	alias: z.string().nullable(),
 	display_name: z.string().nullable(),
 	id: z.string(),
-	status: z.string(),
+	status: z.literal("ACTIVE"),
 	toolkit: z.string(),
 })
 

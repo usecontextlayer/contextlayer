@@ -58,7 +58,7 @@ The browser and Claude test obligations remain when their suites return. Do not 
 
 If `--ff-only` refuses, main moved during the gates — go back to Step 2. Never create a merge commit here.
 
-- Pushing main starts neither `check.yml` nor `release.yml`; both workflows require explicit dispatch. If this change alters a contract shared with a deployed consumer, coordinate the releases so production does not run incompatible versions. Use `node --import tsx scripts/release.ts --help` for the retained release ladder; do not assume a merge alone completes a deployment.
+- Pushing main starts `check.yml` and the configured Workers Builds deployments. Version-tag pushes start `release.yml`; manual dispatch remains available. If this change alters a contract shared with a deployed consumer, coordinate the releases so production does not run incompatible versions. Use `node --import tsx scripts/release.ts --help` for the retained release ladder; do not assume a merge alone completes a deployment.
 
 ## Step 6 — Update and archive the spec
 

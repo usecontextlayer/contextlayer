@@ -44,6 +44,7 @@ async function listConnectedAccounts(apiKey: string, ownerId: string, toolkit?: 
 	do {
 		const page = await composio.connectedAccounts.list({
 			cursor,
+			statuses: ["ACTIVE"],
 			toolkitSlugs: toolkit === undefined ? undefined : [toolkit],
 			userIds: [ownerId],
 		})
