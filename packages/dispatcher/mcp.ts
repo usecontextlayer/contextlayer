@@ -76,16 +76,7 @@ export async function serveMcp(
 				const resource = await assetWorker.fetch(new URL(path, request.url).href)
 				if (!resource.ok) throw new Error(`${uri}: HTTP ${resource.status}`)
 				return {
-					contents: [
-						{
-							_meta: {
-								ui: { csp: { frameDomains: [new URL(env.CTX_PLATFORM_URL).origin] } },
-							},
-							mimeType: RESOURCE_MIME_TYPE,
-							text: await resource.text(),
-							uri,
-						},
-					],
+					contents: [{ mimeType: RESOURCE_MIME_TYPE, text: await resource.text(), uri }],
 				}
 			})
 		}
