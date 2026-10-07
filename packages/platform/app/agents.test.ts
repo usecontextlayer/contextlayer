@@ -4,10 +4,39 @@ import {
 	resourcesForConsumer,
 } from "@usecontextlayer/shared/slate"
 import { expect, test } from "vitest"
+import { getAgentUnattendedScope } from "@/agent-instance"
 import { agentRunRequestSchema, agentRunSchema } from "@/agents.schema"
 import { prepareAgentRun } from "@/agents.server"
 import { prepareAppResourceConfiguration } from "@/app-resources.server"
 import { appSchema } from "@/apps.schema"
+
+test.each([
+	{ connections: {}, expected: "app" },
+	{ connections: { mail: { mode: "viewer", toolkit: "gmail" } }, expected: "member" },
+	{ connections: {}, expected: "member", secrets: { PERSONAL_KEY: { mode: "viewer" } } },
+	{ connections: {}, expected: "member", folders: { reports: { mode: "viewer" } } },
+	{
+		connections: { repository: { mode: "owner", toolkit: "github" } },
+		expected: "app",
+		folders: { reports: { mode: "owner" } },
+		secrets: { ANTHROPIC_API_KEY: { mode: "owner" } },
+	},
+])(
+	"unattended scope is $expected for the agent's own requirements",
+	({ expected, ...slate }) => {
+		const resources = collectAppResources(
+			appSlatesSchema.parse({
+				agents: { brief: slate },
+				app: { connections: { interactive: { mode: "viewer", toolkit: "gmail" } } },
+			}),
+		)
+		expect(
+			getAgentUnattendedScope(
+				resourcesForConsumer(resources, { name: "brief", type: "agent" }),
+			),
+		).toBe(expected)
+	},
+)
 
 test.each([
 	{ id: "alice", type: "user" },

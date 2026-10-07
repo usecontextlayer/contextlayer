@@ -4,6 +4,7 @@ import { ownerSchema } from "@usecontextlayer/shared/app-usage"
 import { type ToolSet, tool } from "ai"
 import { z } from "zod"
 import {
+	type AgentActor,
 	type AgentJob,
 	type AgentRun,
 	type AgentSchedule,
@@ -141,12 +142,18 @@ export class AppAgent extends Think<PlatformEnv["Bindings"]> {
 		}
 	}
 
-	async registerSchedules(appId: AppId, name: string, schedules: AgentSchedule[]) {
+	async registerSchedules(
+		appId: AppId,
+		name: string,
+		actor: AgentActor,
+		schedules: AgentSchedule[],
+	) {
 		for (const schedule of await this.listSchedules()) {
 			if (schedule.callback === "runScheduled") await this.cancelSchedule(schedule.id)
 		}
 		for (const schedule of schedules) {
 			await this.schedule(schedule.cron, "runScheduled", {
+				actor,
 				appId,
 				name,
 				prompt: schedule.prompt,
@@ -171,7 +178,7 @@ export class AppAgent extends Think<PlatformEnv["Bindings"]> {
 				db,
 				this.env.ARTIFACTS,
 				app,
-				{ type: "app" },
+				scheduled.actor,
 				scheduled,
 			)
 			if (!prepared.allowed)

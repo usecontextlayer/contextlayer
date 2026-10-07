@@ -8,7 +8,7 @@ import type { AppId } from "@/database/models/public/App"
 export async function readAppDeclarations(artifacts: Artifacts, appId: AppId) {
 	using repo = await artifacts.get(appId)
 	const [commit] = await repo.log({ limit: 1, ref: "main" })
-	if (!commit) throw new Error("App repository main commit not found")
+	if (!commit) return { state: "no-commit" } as const
 
 	const root = (await repo.readTree(commit.treeHash)) as ArtifactsTreeEntry[]
 	const directory = root.find((entry) => entry.name === "agents" && entry.type === "tree")
@@ -31,6 +31,7 @@ export async function readAppDeclarations(artifacts: Artifacts, appId: AppId) {
 		commit: commit.hash,
 		resources: collectAppResources(slates),
 		slates,
+		state: "snapshot" as const,
 	}
 }
 

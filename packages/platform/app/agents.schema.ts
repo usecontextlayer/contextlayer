@@ -52,6 +52,7 @@ export const agentScheduleSchema = z.object({
 })
 
 export const scheduledAgentRunSchema = agentRunRequestSchema.extend({
+	actor: agentActorSchema,
 	appId: appSchema.shape.id,
 	schedule: agentScheduleSchema.shape.name,
 })

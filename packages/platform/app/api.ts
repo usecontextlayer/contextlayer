@@ -283,6 +283,7 @@ export function createApi() {
 			const app = await createApp(
 				c.var.db,
 				c.env.ARTIFACTS,
+				c.env.AGENTS,
 				c.var.config.CTX_APPS_DOMAIN,
 				c.var.identity,
 				c.var.config.CTX_AUTH_ISSUER,
@@ -579,7 +580,10 @@ export function createApi() {
 		}),
 		async (c) => {
 			if (c.var.appAccess.app.visibility === "public") return c.body(null, 403)
-			return c.json(await joinApp(c.var.db, c.var.appAccess), 200)
+			return c.json(
+				await joinApp(c.var.db, c.env.ARTIFACTS, c.env.AGENTS, c.var.appAccess),
+				200,
+			)
 		},
 	)
 	appOperations.openapi(
@@ -707,7 +711,8 @@ export function createApi() {
 					content: {
 						"application/json": { schema: z.object({ jobs: z.array(agentJobSchema) }) },
 					},
-					description: "App-scoped agent jobs, including clock-triggered executions",
+					description:
+						"App and signed-in user's agent jobs, including scheduled executions",
 				},
 				400: { description: "Invalid app target or agent name" },
 				401: { description: "A valid ContextLayer login is required" },
@@ -721,7 +726,7 @@ export function createApi() {
 				{
 					jobs: await listAgentJobs(
 						c.env.AGENTS,
-						c.var.appAccess.app,
+						c.var.appAccess,
 						c.req.valid("param").name,
 					),
 				},

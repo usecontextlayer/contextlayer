@@ -2,6 +2,7 @@ import type { AppResourceConfiguration } from "@usecontextlayer/shared/app-resou
 import { resourcesForConsumer } from "@usecontextlayer/shared/slate"
 import { getAgentByName } from "agents/routing"
 import type { z } from "zod"
+import { getAgentInstanceName } from "@/agent-instance"
 import type { AppAgent } from "@/agent-runtime"
 import type { AgentActor, AgentRun, AgentRunRequest, agentSchema } from "@/agents.schema"
 import { readAppDeclarations } from "@/app-declarations.server"
@@ -92,6 +93,8 @@ export async function getAgentRun(
 	input: AgentRunRequest,
 ) {
 	const snapshot = await readAppDeclarations(artifacts, app.id)
+	if (snapshot.state === "no-commit")
+		return { allowed: false, reason: "not-found" } as const
 	const result = await readAgent(artifacts, app.id, input.name, snapshot.commit)
 	if (!result.allowed) return result
 	const resources = resourcesForConsumer(snapshot.resources, {
@@ -118,15 +121,6 @@ export async function startAgentRun(
 	return agent.start(run, "api")
 }
 
-export function getAgentInstanceName(appId: AppId, name: string, actor: AgentActor) {
-	return JSON.stringify([
-		appId,
-		name,
-		actor.type,
-		actor.type === "user" ? actor.id : null,
-	])
-}
-
 export async function getAgentJob(
 	agents: DurableObjectNamespace<AppAgent>,
 	app: App,
@@ -140,14 +134,20 @@ export async function getAgentJob(
 
 export async function listAgentJobs(
 	agents: DurableObjectNamespace<AppAgent>,
-	app: App,
+	{ app, identity }: AppAccess,
 	name: string,
 ) {
-	const agent = await getAgentByName(
-		agents,
-		getAgentInstanceName(app.id, name, { type: "app" }),
+	const actors: AgentActor[] = [{ type: "app" }, { id: identity.user.id, type: "user" }]
+	const jobs = await Promise.all(
+		actors.map(async (actor) => {
+			const agent = await getAgentByName(
+				agents,
+				getAgentInstanceName(app.id, name, actor),
+			)
+			return agent.listJobs(app.id, name)
+		}),
 	)
-	return agent.listJobs(app.id, name)
+	return jobs.flat()
 }
 
 export async function startAgentJob(

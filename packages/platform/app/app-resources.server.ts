@@ -13,8 +13,10 @@ import type { AppConnectionAssignmentSlug } from "@/database/models/public/AppCo
 import { getAppOwner, getCredentialOwner } from "@/owner"
 
 export async function getAppResources(access: AppAccess, artifacts: Artifacts) {
-	const { resources } = await readAppDeclarations(artifacts, access.app.id)
-	return resources
+	const snapshot = await readAppDeclarations(artifacts, access.app.id)
+	if (snapshot.state === "no-commit")
+		throw new Error("App repository main commit not found")
+	return snapshot.resources
 }
 
 export function prepareAppResourceConfiguration(

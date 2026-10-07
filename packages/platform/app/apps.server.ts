@@ -16,6 +16,7 @@ import {
 	findOrganizationBySlug,
 	listOrganizations,
 } from "@/auth.server"
+import type { PlatformEnv } from "@/context"
 import type { PlatformDb } from "@/database"
 import type { AppId } from "@/database/models/public/App"
 import type { Owner, OwnerDetails } from "@/owner"
@@ -137,6 +138,7 @@ export function authorizeAppManagement(
 export async function createApp(
 	db: PlatformDb,
 	artifacts: Artifacts,
+	agents: PlatformEnv["Bindings"]["AGENTS"],
 	appsDomain: string,
 	identity: AuthIdentity,
 	issuer: string,
@@ -167,7 +169,7 @@ export async function createApp(
 			.executeTakeFirstOrThrow()
 		await artifacts.create(app.id, { setDefaultBranch: "main" })
 		const saved = appSchema.parse(app)
-		await joinApp(trx, { app: saved, identity })
+		await joinApp(trx, artifacts, agents, { app: saved, identity })
 		return saved
 	})
 }
