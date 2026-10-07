@@ -42,7 +42,7 @@ export default await createHonoServer<IdentityEnv>({
 			await next()
 			c.header(
 				"Content-Security-Policy",
-				`frame-ancestors https://*.${c.var.config.CTX_APPS_DOMAIN}${local ? " http://localhost:*" : ""}; base-uri 'none'; object-src 'none'; form-action 'self'`,
+				`frame-ancestors https://*.${c.var.config.CTX_APPS_DOMAIN} https://claude.ai https://*.claudemcpcontent.com${local ? " http://localhost:*" : ""}; base-uri 'none'; object-src 'none'; form-action 'self'`,
 			)
 		})
 		app.route("/api", createApi())

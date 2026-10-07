@@ -3,14 +3,13 @@ import { type ReactNode, useEffect, useRef, useState } from "react"
 import { Links, Meta, Scripts, ScrollRestoration } from "react-router"
 import { browserEnv } from "@/browser-env"
 
-function Chrome() {
+export function Chrome({ target }: { target?: string }) {
 	const frame = useRef<HTMLIFrameElement>(null)
 	const [src, setSrc] = useState<string>()
 	const [height, setHeight] = useState(30)
 	useEffect(() => {
-		const target = window.location.hostname
 		const url = new URL(
-			`${chromePath}/apps/${encodeURIComponent(target)}`,
+			`${chromePath}/apps/${encodeURIComponent(target ?? window.location.hostname)}`,
 			browserEnv.CTX_PLATFORM_URL,
 		)
 		url.searchParams.set("parentOrigin", window.location.origin)
@@ -23,7 +22,7 @@ function Chrome() {
 		window.addEventListener("message", resize)
 		setSrc(url.href)
 		return () => window.removeEventListener("message", resize)
-	}, [])
+	}, [target])
 	return (
 		<iframe
 			ref={frame}

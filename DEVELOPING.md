@@ -349,7 +349,7 @@ For live account selection, use the intended CTX_PLATFORM_URL and the auth issue
 
 ## Iframe chrome verification
 
-Authored-app chrome is disabled during local development. Verify it through a hosted app using pushed declarations and production assignments. The frame lives at `/dashboard/chrome/apps/:target` on platform's existing router. Sign in through web to verify native-session authentication. Native session cookies must remain Secure, HttpOnly, and SameSite=None; browser third-party-cookie policy still applies.
+Authored-app chrome is disabled during local development. Verify it through a hosted app using pushed declarations and production assignments. MCP Views can mount SDK `Chrome` with an explicit AppID or hostname and use the same published configuration; verify them in the supported Claude host. The frame lives at `/dashboard/chrome/apps/:target` on platform's existing router. Sign in through web to verify native-session authentication. Native session cookies must remain Secure, HttpOnly, and SameSite=None; browser third-party-cookie policy still applies.
 
 Run `pnpm exec turbo run tsc test build --filter=@usecontextlayer/platform... --filter=@usecontextlayer/sdk... --concurrency=4`. In the matching web checkout, run `doppler run -p web -c dev_personal -- pnpm test --project integration lib/__tests__/viewer-session.integration.test.ts lib/__tests__/platform-identity.integration.test.ts lib/__tests__/trusted-origins.integration.test.ts` after verifying the Doppler workplace. The existing real Better Auth tests check native session cookie attributes, logout revocation, origin rejection, and general API rejection of viewer cookies.
 

@@ -26,6 +26,16 @@ The Layout owns the HTML document, React Router's metadata, links, scripts, scro
 
 The header and tray are served by platform in a cross-origin iframe on slate.usecontextlayer.com. Platform owns their styles, Fugaz One font, and data loading. Layout receives only a height message and resizes the frame to keep the expanding tray in document flow. The app's Tailwind/shadcn setup is independent; there is no SDK stylesheet export or chrome root loader.
 
+An MCP View can mount the same trusted header with an explicit app target, since its host sandbox has a different hostname:
+
+```tsx
+import { Chrome } from "@usecontextlayer/sdk/react"
+
+<Chrome target="your-app-id-or-hostname" />
+```
+
+The dispatcher declares the platform frame origin through native MCP resource-content CSP metadata. Chrome still reads the app's pushed declarations and uses its own native browser session for account management.
+
 The frame authenticates directly with the native web session. Its cookie always uses Secure, HttpOnly, and SameSite=None, in every environment. When browser third-party-cookie policy permits delivery, the existing web login authenticates the header automatically, without a separate sign-in or frame cookie. Web logout revokes subsequent frame authentication. The surrounding authored page receives neither credentials nor chrome data. Hosted private-app cookie delivery still requires deployed browser verification.
 
 ## A loader that reads Gmail
