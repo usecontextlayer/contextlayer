@@ -1,9 +1,12 @@
 {
 	"dependencies": {
+		"@modelcontextprotocol/core": "2.3.1",
+		"@modelcontextprotocol/ext-apps": "2.0.3",
+		"@modelcontextprotocol/server": "2.3.1",
 		"@polar-sh/sdk": "1.0.1",
 		"@usecontextlayer/shared": "workspace:*",
 		"hono": "^4.13.7",
-		"zod": "^4.4.3"
+		"zod": "^4.6.5"
 	},
 	"devDependencies": {
 		"@cloudflare/workers-types": "^5.20260730.1",
@@ -17,5 +20,5 @@
 		"tsc": "tsc --noEmit"
 	},
 	"type": "module",
-	"version": "0.14.2"
+	"version": "0.14.3"
 }

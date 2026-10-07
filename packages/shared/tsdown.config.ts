@@ -28,6 +28,7 @@ export default defineConfig({
 		databases: "lib/databases.ts",
 		"databases-worker": "lib/databases-worker.ts",
 		index: "index.ts",
+		mcp: "lib/mcp.ts",
 		"sentry-event-cap": "lib/sentry-event-cap.ts",
 		slate: "lib/slate.ts",
 		testing: "testing.ts",

@@ -1,10 +1,11 @@
 {
 	"dependencies": {
+		"@modelcontextprotocol/core": "2.3.1",
 		"@polar-sh/sdk": "1.0.1",
 		"drizzle-orm": "0.45.3",
 		"hono": "^4.13.3",
 		"jose": "^6.2.9",
-		"zod": "^4.4.3"
+		"zod": "^4.6.5"
 	},
 	"devDependencies": {
 		"@cloudflare/workers-types": "^5.20261001.1",
@@ -57,6 +58,10 @@
 			"import": "./dist/databases-worker.mjs",
 			"types": "./dist/databases-worker.d.mts"
 		},
+		"./mcp": {
+			"import": "./dist/mcp.mjs",
+			"types": "./dist/mcp.d.mts"
+		},
 		"./sentry-event-cap": {
 			"import": "./dist/sentry-event-cap.mjs",
 			"types": "./dist/sentry-event-cap.d.mts"
@@ -90,5 +95,5 @@
 	},
 	"type": "module",
 	"types": "./dist/index.d.mts",
-	"version": "0.14.2"
+	"version": "0.14.3"
 }

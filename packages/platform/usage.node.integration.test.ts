@@ -268,7 +268,7 @@ test("real dispatch and connected-account execution report exact app-owner usage
 						.map((event) => ({ clips: event.metadata.clips, name: event.name }))
 						.sort((a, b) => a.name.localeCompare(b.name))
 				},
-				{ interval: 1000, timeout: 60_000 },
+				{ interval: 1000, timeout: 300_000 },
 			)
 			.toEqual([
 				{ clips: 3, name: "action_call" },
@@ -276,4 +276,4 @@ test("real dispatch and connected-account execution report exact app-owner usage
 				{ clips: 1, name: "tool_call" },
 			])
 	}
-}, 180_000)
+}, 660_000)

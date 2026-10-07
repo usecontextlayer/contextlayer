@@ -5,6 +5,7 @@ import {
 	databaseQuerySchema,
 	databaseResultSchema,
 } from "@usecontextlayer/shared/databases"
+import { isAPIError } from "better-auth/api"
 import {
 	agentJobParamsSchema,
 	agentJobQuerySchema,
@@ -31,8 +32,8 @@ import {
 } from "@/app-resources.server"
 import {
 	type AuthenticatedViewingEnv,
+	appViewingErrorStatus,
 	requireAppViewing,
-	type ViewingEnv,
 } from "@/apps.middleware"
 import {
 	type AppOwnerFilter,
@@ -44,9 +45,17 @@ import {
 	resolveAppQuerySchema,
 	updateAppVisibilityRequestSchema,
 } from "@/apps.schema"
-import { createApp, getApp, listApps, updateAppVisibility } from "@/apps.server"
+import {
+	createApp,
+	getApp,
+	listApps,
+	resolveApp,
+	resolveAppForViewing,
+	updateAppVisibility,
+} from "@/apps.server"
 import {
 	type AuthenticatedEnv,
+	getAppViewerIdentity,
 	type IdentityEnv,
 	identifyUser,
 	identifyViewer,
@@ -54,8 +63,9 @@ import {
 	requireAuth,
 	requireCsrf,
 } from "@/auth.middleware"
+import type { AuthIdentity } from "@/auth.server"
 import { requireAppSubscription } from "@/billing.middleware"
-import { saveCustomerState } from "@/billing.server"
+import { checkAppSubscription, saveCustomerState } from "@/billing.server"
 import {
 	authorizeConnectionSchema,
 	connectionLinkSchema,
@@ -67,6 +77,7 @@ import {
 	listConnections,
 	listPersonalConnections,
 } from "@/connections.server"
+import { getMcpMetadata } from "@/mcp.server"
 import { getAppOwner } from "@/owner"
 import { ownerParamsSchema } from "@/owner.schema"
 import {
@@ -128,8 +139,7 @@ export function createApi() {
 		name: "better-auth.session_token",
 		type: "apiKey",
 	})
-	const viewing = new OpenAPIHono<ViewingEnv>()
-	viewing.use("*", identifyViewer, requireAppViewing, requireAppSubscription)
+	const viewing = new OpenAPIHono<IdentityEnv>()
 	viewing.openapi(
 		createRoute({
 			method: "get",
@@ -148,13 +158,70 @@ export function createApi() {
 			},
 			security: [...security, { viewerCookie: [] }, {}],
 		}),
-		async (c) =>
-			c.json(
-				{ id: c.var.appAccess.app.id, owner: getAppOwner(c.var.appAccess.app) },
-				200,
-			),
+		async (c) => {
+			const input = c.req.valid("query")
+			let identity: AuthIdentity | null
+			try {
+				identity = await getAppViewerIdentity(c, input)
+			} catch (error) {
+				if (isAPIError(error) && [401, 403].includes(error.statusCode)) {
+					return new Response(null, { headers: error.headers, status: error.statusCode })
+				}
+				throw error
+			}
+			const result = await resolveAppForViewing(
+				c.var.db,
+				{ public_hostname: input.hostname },
+				identity,
+				c.var.config.CTX_AUTH_ISSUER,
+			)
+			if (!result.allowed) return c.body(null, appViewingErrorStatus[result.reason])
+			if (
+				input.pathname !== "/slate.json" &&
+				!(await checkAppSubscription(c.var.db, result.app))
+			) {
+				return c.body(null, 402)
+			}
+			return c.json({ id: result.app.id, owner: getAppOwner(result.app) }, 200)
+		},
 	)
 	api.route("/apps/resolve", viewing)
+	api.openapi(
+		createRoute({
+			method: "get",
+			operationId: "getAppMcpMetadata",
+			path: "/apps/mcp/metadata",
+			request: { query: resolveAppQuerySchema.pick({ hostname: true }) },
+			responses: {
+				200: {
+					content: {
+						"application/json": {
+							schema: z.object({
+								authorization_servers: z.array(z.string()).optional(),
+								bearer_methods_supported: z.array(z.string()).optional(),
+								resource: z.url(),
+								scopes_supported: z.array(z.string()).optional(),
+							}),
+						},
+					},
+					description:
+						"Public OAuth protected-resource metadata for the app MCP endpoint",
+				},
+				404: { description: "No app has this public hostname" },
+			},
+			security: [{}],
+		}),
+		async (c) => {
+			const app = await resolveApp(c.var.db, {
+				public_hostname: c.req.valid("query").hostname,
+			})
+			if (!app) return c.body(null, 404)
+			return c.json(
+				await getMcpMetadata(app.public_hostname, c.var.config.CTX_AUTH_ISSUER),
+				200,
+			)
+		},
+	)
 	const tools = new OpenAPIHono<AuthenticatedViewingEnv>()
 	tools.use(
 		"*",

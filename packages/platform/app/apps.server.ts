@@ -103,7 +103,7 @@ export async function resolveAppForViewing(
 	return authorizeAppViewing(app, identity, isOwnerOrganizationMember)
 }
 
-async function resolveApp(db: PlatformDb, target: AppTarget) {
+export async function resolveApp(db: PlatformDb, target: AppTarget) {
 	const query = db.selectFrom("app").selectAll()
 	const row = await ("id" in target
 		? query.where("id", "=", target.id)
