@@ -1,3 +1,4 @@
+import { exports as entrypoints } from "cloudflare:workers"
 import { CallToolResultSchema } from "@modelcontextprotocol/core"
 import {
 	RESOURCE_MIME_TYPE,
@@ -22,6 +23,10 @@ export async function serveMcp(
 	const response = await assetWorker.fetch(new URL(MCP_MANIFEST_PATH, request.url).href)
 	if (!response.ok) throw new Error(`MCP manifest: HTTP ${response.status}`)
 	const manifest = mcpManifestSchema.parse(await response.json())
+	const token = z
+		.string()
+		.min(1)
+		.parse(request.headers.get("authorization")?.match(/^Bearer (.+)$/i)?.[1])
 	const handler = createMcpHandler(() => {
 		const server = new McpServer({
 			name: new URL(request.url).hostname,
@@ -34,12 +39,10 @@ export async function serveMcp(
 			name,
 			...definition
 		} of manifest.tools) {
-			if (
-				Object.keys(slate.connections).length ||
-				Object.keys(slate.folders).length ||
-				Object.keys(slate.secrets).length
-			) {
-				throw new Error(`${name}: MCP resource consumers are not implemented yet`)
+			if (Object.keys(slate.folders).length || Object.keys(slate.secrets).length) {
+				throw new Error(
+					`${name}: MCP folder and secret consumers are not implemented yet`,
+				)
 			}
 			registerAppTool(
 				server,
@@ -53,13 +56,18 @@ export async function serveMcp(
 						: undefined,
 				},
 				async (args) => {
-					const result = await namespace.get(app.id, { props: { mcpTool: name } }).fetch(
-						new Request(request.url, {
-							body: JSON.stringify(args),
-							headers: { "content-type": "application/json" },
-							method: "POST",
-						}),
-					)
+					const tools = entrypoints.McpTools({
+						props: { appId: app.id, credential: { token, type: "access-token" }, name },
+					})
+					const result = await namespace
+						.get(app.id, { props: { mcpTool: name, tools } })
+						.fetch(
+							new Request(request.url, {
+								body: JSON.stringify(args),
+								headers: { "content-type": "application/json" },
+								method: "POST",
+							}),
+						)
 					if (!result.ok) throw new Error(`${name}: HTTP ${result.status}`)
 					const output = CallToolResultSchema.parse(await result.json())
 					const polar = createPolarCore({

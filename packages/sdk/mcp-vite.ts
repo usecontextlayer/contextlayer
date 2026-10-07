@@ -28,12 +28,10 @@ export function mcpApps(): Plugin {
 				const slate = slateSchema.parse(
 					JSON.parse(await readFile(join(root, dirname(file), "slate.json"), "utf8")),
 				)
-				if (
-					Object.keys(slate.connections).length ||
-					Object.keys(slate.folders).length ||
-					Object.keys(slate.secrets).length
-				) {
-					throw new Error(`${file}: MCP resource consumers are not implemented yet`)
+				if (Object.keys(slate.folders).length || Object.keys(slate.secrets).length) {
+					throw new Error(
+						`${file}: MCP folder and secret consumers are not implemented yet`,
+					)
 				}
 				tools.push({
 					...tool,

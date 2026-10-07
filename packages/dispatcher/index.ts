@@ -10,7 +10,7 @@ import { getCookie } from "hono/cookie"
 import { type Bindings, parseEnv } from "@/env"
 import { serveMcp } from "@/mcp"
 
-export { Tools } from "@usecontextlayer/shared/tools-worker"
+export { McpTools, Tools } from "@usecontextlayer/shared/tools-worker"
 
 const app = new Hono<{ Bindings: Bindings }>()
 

@@ -2,6 +2,7 @@ import { index, layout, type RouteConfig, route } from "@react-router/dev/routes
 
 export default [
 	route("chrome/apps/:target", "routes/chrome.tsx"),
+	route("configure/apps/:target", "routes/app-configure.tsx"),
 	index("routes/index.ts"),
 	layout("routes/dashboard.tsx", [
 		route("apps/:appId", "routes/app.tsx", [

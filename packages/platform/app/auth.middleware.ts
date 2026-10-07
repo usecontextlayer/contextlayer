@@ -1,3 +1,4 @@
+import { isAPIError } from "better-auth/api"
 import type { Context } from "hono"
 import { accepts } from "hono/accepts"
 import { except } from "hono/combine"
@@ -6,7 +7,8 @@ import { csrf } from "hono/csrf"
 import { createMiddleware } from "hono/factory"
 import { errors } from "jose"
 import { z } from "zod"
-import type { resolveAppQuerySchema } from "@/apps.schema"
+import { appTargetSchema, type resolveAppQuerySchema } from "@/apps.schema"
+import { resolveApp } from "@/apps.server"
 import {
 	type AuthIdentity,
 	authenticateAccessToken,
@@ -93,14 +95,34 @@ function createIdentifyUser({ viewerCookie = false } = {}) {
 export const identifyUser = createIdentifyUser()
 export const identifyViewer = createIdentifyUser({ viewerCookie: true })
 
+export const identifyMcpViewer = createMiddleware<IdentityEnv>(async (c, next) => {
+	const target = appTargetSchema.safeParse(c.req.param("target"))
+	if (!target.success) return c.json({ error: target.error }, 400)
+	const app = await resolveApp(c.var.db, target.data)
+	if (!app) return c.body(null, 404)
+	try {
+		c.set("identity", await getMcpIdentity(c, app.public_hostname))
+	} catch (error) {
+		if (isAPIError(error) && [401, 403].includes(error.statusCode)) {
+			return new Response(null, { headers: error.headers, status: error.statusCode })
+		}
+		throw error
+	}
+	await next()
+})
+
 export async function getAppViewerIdentity(
 	c: Context<IdentityEnv>,
 	input: z.infer<typeof resolveAppQuerySchema>,
 ) {
 	if (input.pathname !== "/mcp") return getRequestIdentity(c, { viewerCookie: true })
+	return getMcpIdentity(c, input.hostname)
+}
+
+async function getMcpIdentity(c: Context<IdentityEnv>, hostname: string) {
 	const user = await authenticateMcpRequest(
 		c.req.raw,
-		input.hostname,
+		hostname,
 		c.var.config.CTX_AUTH_ISSUER,
 	)
 	const token = c.req.header("authorization")?.match(/^Bearer (.+)$/i)?.[1]

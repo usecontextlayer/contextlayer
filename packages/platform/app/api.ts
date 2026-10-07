@@ -1,7 +1,9 @@
 import { createRoute, OpenAPIHono, type RouteConfig, z } from "@hono/zod-openapi"
 import { createPolarCore, webhooks } from "@polar-sh/sdk/2026-10"
 import { recordAppUsage, resolvedAppSchema } from "@usecontextlayer/shared/app-usage"
+import type { ResourceConsumer } from "@usecontextlayer/shared/slate"
 import { isAPIError } from "better-auth/api"
+import type { Context } from "hono"
 import {
 	agentJobParamsSchema,
 	agentJobQuerySchema,
@@ -52,6 +54,7 @@ import {
 	type AuthenticatedEnv,
 	getAppViewerIdentity,
 	type IdentityEnv,
+	identifyMcpViewer,
 	identifyUser,
 	identifyViewer,
 	type NativeAuthenticatedEnv,
@@ -94,6 +97,31 @@ const security: NonNullable<RouteConfig["security"]> = [
 	{ webCookie: [] },
 	{ localWebCookie: [] },
 ]
+
+async function executeHostedTool(
+	c: Context<AuthenticatedViewingEnv>,
+	call: z.infer<typeof toolCallSchema>,
+	consumer: ResourceConsumer,
+) {
+	const result = await callTool(
+		c.var.db,
+		c.var.config.COMPOSIO_API_KEY,
+		c.var.appAccess,
+		call,
+		c.env.ARTIFACTS,
+		consumer,
+	)
+	if (!result.allowed) return c.body(null, 404)
+	const polar = createPolarCore({
+		accessToken: c.var.config.POLAR_ACCESS_TOKEN,
+		environment: c.var.config.POLAR_ENVIRONMENT,
+	})
+	const app = c.var.appAccess.app
+	c.executionCtx.waitUntil(
+		recordAppUsage(polar, { id: app.id, owner: getAppOwner(app) }, "tool_call"),
+	)
+	return c.json(result.result, 200)
+}
 
 export function createApi() {
 	const api = new OpenAPIHono<IdentityEnv>()
@@ -226,56 +254,69 @@ export function createApi() {
 		requireAppViewing,
 		requireAppSubscription,
 	)
-	tools.openapi(
-		createRoute({
-			method: "post",
-			operationId: "callTool",
-			path: "/call",
-			request: {
-				body: {
-					content: { "application/json": { schema: toolCallSchema } },
-					required: true,
-				},
-				params: z.object({ target: appTargetSchema }),
+	const hostedToolRoute = {
+		method: "post",
+		operationId: "callTool",
+		path: "/call",
+		request: {
+			body: {
+				content: { "application/json": { schema: toolCallSchema } },
+				required: true,
 			},
-			responses: {
-				200: {
-					content: { "application/json": { schema: toolResultSchema } },
-					description: "Composio tool result, error, and log ID",
-				},
-				400: { description: "Invalid tool call" },
-				401: {
-					description: "A valid ContextLayer access token or viewer session is required",
-				},
-				402: { description: "The app owner needs an active subscription" },
-				403: {
-					description: "App viewing is forbidden",
-				},
-				404: { description: "App or connection assignment not found" },
-			},
-			security: [...security, { viewerCookie: [] }],
-		}),
-		async (c) => {
-			const result = await callTool(
-				c.var.db,
-				c.var.config.COMPOSIO_API_KEY,
-				c.var.appAccess,
-				c.req.valid("json"),
-				c.env.ARTIFACTS,
-			)
-			if (!result.allowed) return c.body(null, 404)
-			const polar = createPolarCore({
-				accessToken: c.var.config.POLAR_ACCESS_TOKEN,
-				environment: c.var.config.POLAR_ENVIRONMENT,
-			})
-			const app = c.var.appAccess.app
-			c.executionCtx.waitUntil(
-				recordAppUsage(polar, { id: app.id, owner: getAppOwner(app) }, "tool_call"),
-			)
-			return c.json(result.result, 200)
+			params: z.object({ target: appTargetSchema }),
 		},
+		responses: {
+			200: {
+				content: { "application/json": { schema: toolResultSchema } },
+				description: "Composio tool result, error, and log ID",
+			},
+			400: { description: "Invalid tool call" },
+			401: {
+				description: "A valid ContextLayer access token or viewer session is required",
+			},
+			402: { description: "The app owner needs an active subscription" },
+			403: {
+				description: "App viewing is forbidden",
+			},
+			404: { description: "App or connection assignment not found" },
+		},
+		security: [...security, { viewerCookie: [] }],
+	} as const satisfies RouteConfig
+	tools.openapi(createRoute(hostedToolRoute), (c) =>
+		executeHostedTool(c, c.req.valid("json"), { type: "app" }),
 	)
 	api.route("/apps/:target/tools", tools)
+	const mcpTools = new OpenAPIHono<AuthenticatedViewingEnv>()
+	mcpTools.use(
+		"*",
+		identifyMcpViewer,
+		requireAuth,
+		requireAppViewing,
+		requireAppSubscription,
+	)
+	mcpTools.openapi(
+		createRoute({
+			...hostedToolRoute,
+			operationId: "callMcpConnectionTool",
+			request: {
+				...hostedToolRoute.request,
+				params: z.object({ name: z.string().min(1), target: appTargetSchema }),
+			},
+			responses: {
+				...hostedToolRoute.responses,
+				401: {
+					description: "A valid access token for this app MCP resource is required",
+				},
+			},
+			security: [{ bearerAuth: [] }],
+		}),
+		(c) =>
+			executeHostedTool(c, c.req.valid("json"), {
+				name: c.req.valid("param").name,
+				type: "mcp",
+			}),
+	)
+	api.route("/apps/:target/mcp/:name/tools", mcpTools)
 	api.use("*", identifyUser, requireCsrf)
 	const catalog = new OpenAPIHono<AuthenticatedEnv>()
 	catalog.use("*", requireAuth)

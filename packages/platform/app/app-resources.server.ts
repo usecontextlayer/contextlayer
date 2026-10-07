@@ -1,9 +1,5 @@
 import type { AppResourceConfiguration } from "@usecontextlayer/shared/app-resources"
-import {
-	type CredentialMode,
-	type Resources,
-	resourcesForConsumer,
-} from "@usecontextlayer/shared/slate"
+import type { CredentialMode, Resources } from "@usecontextlayer/shared/slate"
 import { getAppConnectionAssignments } from "@/app-connections.server"
 import { readAppDeclarations } from "@/app-declarations.server"
 import type { App } from "@/apps.schema"
@@ -109,7 +105,7 @@ export async function resolveAppConnection(
 		db,
 		access.app,
 		access.identity.user,
-		resourcesForConsumer(resources, { type: "app" }),
+		resources,
 	)
 	const connection = configuration.connections[slug]
 	if (!connection || connection.connection_id === null)

@@ -162,7 +162,7 @@ program
 const connections = program
 	.command("connections")
 	.description(
-		"Manage Owner-owned connected accounts or list app and agent connection requirements; local reads only the current folder and its saved development choices",
+		"Manage Owner-owned connected accounts or list app, agent, and MCP tool connection requirements; local reads only the current folder and its saved development choices",
 	)
 	.option(
 		"--org <org_slug>",

@@ -163,6 +163,27 @@ test("native dispatcher and platform bind MCP to the app and reject cookie fallb
 	).toBe(401)
 	const nativePlatform = platform.getWorker()
 	expect((await nativePlatform.fetch("/api/apps", { headers })).status).toBe(401)
+	const connectionCall = `/api/apps/${app.id}/mcp/fetch-emails/tools/call`
+	// MCP connection execution preserves the same resource audience and viewing gate.
+	expect(
+		(await nativePlatform.fetch(connectionCall, { headers, method: "POST" })).status,
+	).toBe(402)
+	expect(
+		(
+			await nativePlatform.fetch(`/api/apps/${other.id}/mcp/fetch-emails/tools/call`, {
+				headers,
+				method: "POST",
+			})
+		).status,
+	).toBe(401)
+	expect(
+		(
+			await nativePlatform.fetch(connectionCall, {
+				headers: { cookie },
+				method: "POST",
+			})
+		).status,
+	).toBe(401)
 	expect(
 		(
 			await nativePlatform.fetch(

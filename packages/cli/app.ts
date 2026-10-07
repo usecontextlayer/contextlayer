@@ -38,6 +38,7 @@ export async function getLocalAppId() {
 export async function readLocalResources(directory = process.cwd()) {
 	const app = await readLocalSlate(join(directory, "public/slate.json"))
 	const agents: Record<string, Slate> = {}
+	const mcp: Record<string, Slate> = {}
 	for await (const entry of glob("agents/*", { cwd: directory, withFileTypes: true })) {
 		if (entry.isDirectory()) {
 			agents[entry.name] = await readLocalSlate(
@@ -45,7 +46,14 @@ export async function readLocalResources(directory = process.cwd()) {
 			)
 		}
 	}
-	return collectAppResources({ agents, app })
+	for await (const entry of glob("mcp/*", { cwd: directory, withFileTypes: true })) {
+		if (entry.isDirectory()) {
+			mcp[entry.name] = await readLocalSlate(
+				join(directory, "mcp", entry.name, "slate.json"),
+			)
+		}
+	}
+	return collectAppResources({ agents, app, mcp })
 }
 
 async function readLocalSlate(path: string) {

@@ -349,6 +349,8 @@ For live account selection, use the intended CTX_PLATFORM_URL and the auth issue
 
 ## Iframe chrome verification
 
+The standalone app configuration page is `/dashboard/configure/apps/:target`, where target is an app UUID or public hostname. It shares platform chrome and its connection operations, opens the main tray initially, and uses normal dashboard authentication and app viewing. It requires no `parentOrigin`. Verify the page directly through the normal platform server with pushed declarations and the logged-in user's account catalog; configuration does not invoke authored code or record clips. The iframe route below retains its existing parent-origin contract and collapsed default.
+
 Authored-app chrome is disabled during local development. Verify it through a hosted app using pushed declarations and production assignments. The frame lives at `/dashboard/chrome/apps/:target` on platform's existing router. Sign in through web to verify native-session authentication. Native session cookies must remain Secure, HttpOnly, and SameSite=None; browser third-party-cookie policy still applies.
 
 Run `pnpm exec turbo run tsc test build --filter=@usecontextlayer/platform... --filter=@usecontextlayer/sdk... --concurrency=4`. In the matching web checkout, run `doppler run -p web -c dev_personal -- pnpm test --project integration lib/__tests__/viewer-session.integration.test.ts lib/__tests__/platform-identity.integration.test.ts lib/__tests__/trusted-origins.integration.test.ts` after verifying the Doppler workplace. The existing real Better Auth tests check native session cookie attributes, logout revocation, origin rejection, and general API rejection of viewer cookies.
@@ -356,3 +358,15 @@ Run `pnpm exec turbo run tsc test build --filter=@usecontextlayer/platform... --
 Browser verification must use HTTPS on different sites for app and frame, with third-party cookies permitted; localhost ports alone do not reproduce production cookie delivery. Sign in on web, then load the app with no extra sign-in interaction. Check the native profile, saved assignments, tray resize, authenticated reload, and logout revocation. Confirm the authored parent cannot read the frame DOM and receives only presentation messages. Check that the frame CSP permits intended app subdomains and blocks unrelated embedding. A same-origin dashboard form should succeed; a credentialed cross-site form submission should return 403 through Hono's CSRF middleware. Secure cookies remain required during development, so use a browser-supported secure localhost context or HTTPS rather than changing cookie attributes.
 
 React Router’s /dashboard/__manifest serves public route metadata and bypasses the native dashboard cookie gate, like static assets. This keeps native route discovery available inside a cross-site frame; it does not grant access to route loaders or general APIs.
+
+## MCP app connection verification
+
+MCP tools declare connections in `mcp/{name}/slate.json`; trusted app configuration lists the collected requirements, including these consumers. A View can use the native MCP Apps `app.openLink` request to open `/dashboard/configure/apps/:target` on the trusted platform origin. Configure viewer-mode accounts under the same ContextLayer identity that granted the host connector access. The next tool invocation reads that viewer's saved assignment. The clock fixture uses one Gmail `mail` requirement and the read-only `GMAIL_FETCH_EMAILS` operation for up to five inbox messages.
+
+Build platform, dispatcher, and SDK before verifying this path. Unpublished fixtures must install matching locally packed CLI/SDK tarballs before rebuilding. The native auth integration can verify resource audience, cookie rejection, and subscription gating without provider calls or usage events:
+
+```sh
+doppler run -p platform -c dev -- pnpm exec turbo run test:integration:node --filter=@usecontextlayer/platform -- mcp.node.integration.test.ts -t "native dispatcher and platform bind MCP"
+```
+
+Real hosted acceptance additionally requires publication, an authorized Gmail assignment, and concrete approval for the metered invocation. A successful authored MCP call and its provider tool execution each retain their existing `tool_call` event. Native host confirmation controls external navigation; the View receives no platform credentials or account catalog.

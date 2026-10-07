@@ -1,3 +1,7 @@
+import {
+	type ResourceConsumer,
+	resourcesForConsumer,
+} from "@usecontextlayer/shared/slate"
 import type { z } from "zod"
 import { getAppResources, resolveAppConnection } from "@/app-resources.server"
 import { type AppAccess, resolveAppForViewing } from "@/apps.server"
@@ -14,9 +18,15 @@ export async function callTool(
 	access: AppAccess,
 	call: z.infer<typeof toolCallSchema>,
 	artifacts: Artifacts,
+	consumer: ResourceConsumer,
 ) {
 	const resources = await getAppResources(access, artifacts)
-	const resolved = await resolveAppConnection(db, access, call.slug, resources)
+	const resolved = await resolveAppConnection(
+		db,
+		access,
+		call.slug,
+		resourcesForConsumer(resources, consumer),
+	)
 	if (!resolved.allowed) return resolved
 	const session = await createConnectionSession(
 		apiKey,

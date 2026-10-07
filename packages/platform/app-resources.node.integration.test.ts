@@ -139,6 +139,7 @@ test("hosted configuration uses pushed declarations independently of developer-l
 	)
 	await mkdir(join(dir, "public"))
 	await mkdir(join(dir, "agents/daily-summary"), { recursive: true })
+	await mkdir(join(dir, "mcp/fetch-emails"), { recursive: true })
 	const declarations = appSlatesSchema.parse({
 		agents: {
 			"daily-summary": {
@@ -155,10 +156,19 @@ test("hosted configuration uses pushed declarations independently of developer-l
 			folders: { priorities: { mode: "viewer" }, reports: { mode: "owner" } },
 			secrets: { PERSONAL_KEY: { mode: "viewer" } },
 		},
+		mcp: {
+			"fetch-emails": {
+				connections: { inbox: { mode: "viewer", toolkit: "gmail" } },
+			},
+		},
 	})
 	await writeFile(join(dir, "public/slate.json"), JSON.stringify(declarations.app))
 	const agentSlate = join(dir, "agents/daily-summary/slate.json")
 	await writeFile(agentSlate, JSON.stringify(declarations.agents["daily-summary"]))
+	await writeFile(
+		join(dir, "mcp/fetch-emails/slate.json"),
+		JSON.stringify(declarations.mcp?.["fetch-emails"]),
+	)
 	await git("init", "-b", "main")
 	await git("config", "user.name", "Resources Test")
 	await git("config", "user.email", "resources-test@example.com")
@@ -168,7 +178,7 @@ test("hosted configuration uses pushed declarations independently of developer-l
 		join(dir, ".contextlayer/connections.json"),
 		JSON.stringify({ repository: "developer-local-repository" }),
 	)
-	await git("add", "public", "agents", ".gitignore")
+	await git("add", "public", "agents", "mcp", ".gitignore")
 	await git(
 		"-c",
 		"commit.gpgsign=false",
@@ -228,6 +238,13 @@ test("hosted configuration uses pushed declarations independently of developer-l
 				: { id: config.CTX_TEST_ORGANIZATION_ID, type: "organization" }
 		expect(configuration).toEqual({
 			connections: {
+				inbox: {
+					connection_id: null,
+					consumers: [{ name: "fetch-emails", type: "mcp" }],
+					mode: "viewer",
+					owner: viewer,
+					toolkit: "gmail",
+				},
 				mail: {
 					connection_id: null,
 					consumers: [{ type: "app" }, { name: "daily-summary", type: "agent" }],

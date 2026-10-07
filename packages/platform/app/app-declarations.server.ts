@@ -11,23 +11,36 @@ export async function readAppDeclarations(artifacts: Artifacts, appId: AppId) {
 	if (!commit) throw new Error("App repository main commit not found")
 
 	const root = (await repo.readTree(commit.treeHash)) as ArtifactsTreeEntry[]
-	const directory = root.find((entry) => entry.name === "agents" && entry.type === "tree")
-	const definitions = directory
-		? ((await repo.readTree(directory.hash)) as ArtifactsTreeEntry[])
-		: []
-	const agentTrees = definitions.filter((entry) => entry.type === "tree")
-	const agents = await Promise.all(
-		agentTrees.map(
-			async ({ name }) =>
-				[name, await readSlate(repo, commit.hash, `agents/${name}/slate.json`)] as const,
-		),
-	)
+	const readDefinitions = async (directoryName: "agents" | "mcp") => {
+		const directory = root.find(
+			(entry) => entry.name === directoryName && entry.type === "tree",
+		)
+		const definitions = directory
+			? ((await repo.readTree(directory.hash)) as ArtifactsTreeEntry[])
+			: []
+		const trees = definitions.filter((entry) => entry.type === "tree")
+		const slates = await Promise.all(
+			trees.map(
+				async ({ name }) =>
+					[
+						name,
+						await readSlate(repo, commit.hash, `${directoryName}/${name}/slate.json`),
+					] as const,
+			),
+		)
+		return { slates: Object.fromEntries(slates), trees }
+	}
+	const [agents, mcp] = await Promise.all([
+		readDefinitions("agents"),
+		readDefinitions("mcp"),
+	])
 	const slates: AppSlates = {
-		agents: Object.fromEntries(agents),
+		agents: agents.slates,
 		app: await readSlate(repo, commit.hash, "public/slate.json"),
+		mcp: mcp.slates,
 	}
 	return {
-		agentTrees,
+		agentTrees: agents.trees,
 		commit: commit.hash,
 		resources: collectAppResources(slates),
 		slates,

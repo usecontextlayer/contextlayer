@@ -113,6 +113,35 @@ test("collects an app with no agents or requirements", () => {
 	).toEqual({ connections: {}, folders: {}, secrets: {} })
 })
 
+test("MCP tools select their own declared connections from the app-wide collection", () => {
+	const resources = collectAppResources(
+		appSlatesSchema.parse({
+			agents: {},
+			app: { connections: { repository: { mode: "owner", toolkit: "github" } } },
+			mcp: {
+				"fetch-emails": { connections: { mail: { mode: "viewer", toolkit: "gmail" } } },
+				"get-time": { connections: {} },
+			},
+		}),
+	)
+	expect(resources.connections.mail).toEqual({
+		consumers: [{ name: "fetch-emails", type: "mcp" }],
+		mode: "viewer",
+		toolkit: "gmail",
+	})
+	expect(
+		Object.keys(
+			resourcesForConsumer(resources, { name: "fetch-emails", type: "mcp" }).connections,
+		),
+	).toEqual(["mail"])
+	expect(
+		resourcesForConsumer(resources, { name: "get-time", type: "mcp" }).connections,
+	).toEqual({})
+	expect(
+		Object.keys(resourcesForConsumer(resources, { type: "app" }).connections),
+	).toEqual(["repository"])
+})
+
 test("Resources requires consumer metadata beyond the authored Slate", () => {
 	expect(
 		resourcesSchema.safeParse(

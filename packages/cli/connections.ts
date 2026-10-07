@@ -106,7 +106,7 @@ export async function listAppConnections(target: string) {
 					connection: connection_id ?? "unassigned",
 					consumers: consumers
 						.map((consumer) =>
-							consumer.type === "app" ? "app" : `agent:${consumer.name}`,
+							consumer.type === "app" ? "app" : `${consumer.type}:${consumer.name}`,
 						)
 						.join(", "),
 					mode,

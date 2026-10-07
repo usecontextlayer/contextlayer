@@ -21,12 +21,14 @@ export type Slate = z.infer<typeof slateSchema>
 export const appSlatesSchema = z.strictObject({
 	agents: z.record(z.string().min(1), slateSchema),
 	app: slateSchema,
+	mcp: z.record(z.string().min(1), slateSchema).optional(),
 })
 export type AppSlates = z.infer<typeof appSlatesSchema>
 
 export const resourceConsumerSchema = z.discriminatedUnion("type", [
 	z.strictObject({ type: z.literal("app") }),
 	z.strictObject({ name: z.string().min(1), type: z.literal("agent") }),
+	z.strictObject({ name: z.string().min(1), type: z.literal("mcp") }),
 ])
 export type ResourceConsumer = z.infer<typeof resourceConsumerSchema>
 
@@ -51,6 +53,10 @@ export function collectAppResources(slates: AppSlates): Resources {
 		{ consumer: { type: "app" }, slate: slates.app },
 		...Object.entries(slates.agents).map(([name, slate]) => ({
 			consumer: { name, type: "agent" as const },
+			slate,
+		})),
+		...Object.entries(slates.mcp ?? {}).map(([name, slate]) => ({
+			consumer: { name, type: "mcp" as const },
 			slate,
 		})),
 	]
@@ -94,7 +100,7 @@ function filterRequirements<T extends { consumers: ResourceConsumer[] }>(
 				(declared) =>
 					declared.type === consumer.type &&
 					(consumer.type === "app" ||
-						(declared.type === "agent" && declared.name === consumer.name)),
+						(declared.type !== "app" && declared.name === consumer.name)),
 			),
 		),
 	)
@@ -122,7 +128,9 @@ function collectRequirements<T extends { mode: CredentialMode; toolkit?: string 
 						code: "custom",
 						message: `Conflicting ${category} requirement "${name}": declarations must agree on mode${category === "connections" ? " and toolkit" : ""}`,
 						path: [
-							...(consumer.type === "app" ? ["app"] : ["agents", consumer.name]),
+							...(consumer.type === "app"
+								? ["app"]
+								: [consumer.type === "agent" ? "agents" : "mcp", consumer.name]),
 							category,
 							name,
 						],

@@ -13,6 +13,12 @@ export interface LocalToolsProps {
 	credential: { token: string; type: "access-token" }
 }
 
+export interface McpToolsProps {
+	appId: string
+	name: string
+	credential: { token: string; type: "access-token" }
+}
+
 export class Tools extends WorkerEntrypoint<{ CTX_PLATFORM_URL: string }, ToolsProps> {
 	async call(slug: string, toolSlug: string, args: Record<string, unknown>) {
 		const { appId, credential } = this.ctx.props
@@ -25,6 +31,31 @@ export class Tools extends WorkerEntrypoint<{ CTX_PLATFORM_URL: string }, ToolsP
 				},
 				method: "POST",
 			}),
+		)
+	}
+}
+
+export class McpTools extends WorkerEntrypoint<
+	{ CTX_PLATFORM_URL: string },
+	McpToolsProps
+> {
+	async call(slug: string, toolSlug: string, args: Record<string, unknown>) {
+		const { appId, name, credential } = this.ctx.props
+		return executeToolRequest(
+			new Request(
+				new URL(
+					`/api/apps/${appId}/mcp/${encodeURIComponent(name)}/tools/call`,
+					this.env.CTX_PLATFORM_URL,
+				),
+				{
+					body: JSON.stringify({ arguments: args, slug, tool: toolSlug }),
+					headers: {
+						authorization: `Bearer ${credential.token}`,
+						"content-type": "application/json",
+					},
+					method: "POST",
+				},
+			),
 		)
 	}
 }
