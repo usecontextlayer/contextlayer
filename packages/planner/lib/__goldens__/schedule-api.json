@@ -1,0 +1,5369 @@
+{
+	"api": "dataverse-project-schedule-v9.2",
+	"interactions": [
+		{
+			"chain": "create-task",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"Description": "ContextLayer: create a task",
+					"ProjectId": "{{projectId}}"
+				},
+				"method": "POST",
+				"path": "msdyn_CreateOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_CreateOperationSetV1Response",
+					"OperationSetId": "{{operationSet1}}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-task · 1: POST msdyn_CreateOperationSetV1"
+		},
+		{
+			"chain": "create-task",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"EntityCollection": [
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+							"msdyn_outlinelevel": 1,
+							"msdyn_project@odata.bind": "/msdyn_projects({{projectId}})",
+							"msdyn_projectbucket@odata.bind": "/msdyn_projectbuckets({{bucketId}})",
+							"msdyn_projecttaskid": "{{plainTaskId}}",
+							"msdyn_subject": "ZZ cassette task"
+						}
+					],
+					"OperationSetId": "{{operationSet1}}"
+				},
+				"method": "POST",
+				"path": "msdyn_PssCreateV2"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_PssCreateV2Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet1}}\"},{\"Key\":\"operationType\",\"Value\":\"Create\"},{\"Key\":\"operationSetDetailId\",\"Value\":\"{{guid1}}\"},{\"Key\":\"recordId\",\"Value\":\"{{plainTaskId}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-task · 2: POST msdyn_PssCreateV2"
+		},
+		{
+			"chain": "create-task",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"OperationSetId": "{{operationSet1}}"
+				},
+				"method": "POST",
+				"path": "msdyn_ExecuteOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_ExecuteOperationSetV1Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet1}}\"},{\"Key\":\"correlationId\",\"Value\":\"{{guid2}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-task · 3: POST msdyn_ExecuteOperationSetV1"
+		},
+		{
+			"chain": "create-task",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet1}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet1}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-task · 4: GET msdyn_operationsets({{operationSet1}})?$select=msdyn_status,_msdyn_psser"
+		},
+		{
+			"chain": "create-task",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet1}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet1}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-task · 5: GET msdyn_operationsets({{operationSet1}})?$select=msdyn_status,_msdyn_psser"
+		},
+		{
+			"chain": "create-task",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet1}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet1}}",
+					"msdyn_status": 192350003
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-task · 6: GET msdyn_operationsets({{operationSet1}})?$select=msdyn_status,_msdyn_psser"
+		},
+		{
+			"chain": "create-task-with-dates",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"Description": "ContextLayer: create a task with dates",
+					"ProjectId": "{{projectId}}"
+				},
+				"method": "POST",
+				"path": "msdyn_CreateOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_CreateOperationSetV1Response",
+					"OperationSetId": "{{operationSet2}}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-task-with-dates · 1: POST msdyn_CreateOperationSetV1"
+		},
+		{
+			"chain": "create-task-with-dates",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"EntityCollection": [
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+							"msdyn_finish": "{{timestamp}}",
+							"msdyn_outlinelevel": 1,
+							"msdyn_project@odata.bind": "/msdyn_projects({{projectId}})",
+							"msdyn_projectbucket@odata.bind": "/msdyn_projectbuckets({{bucketId}})",
+							"msdyn_projecttaskid": "{{datedTaskId}}",
+							"msdyn_start": "{{timestamp}}",
+							"msdyn_subject": "ZZ cassette dated task"
+						}
+					],
+					"OperationSetId": "{{operationSet2}}"
+				},
+				"method": "POST",
+				"path": "msdyn_PssCreateV2"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_PssCreateV2Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet2}}\"},{\"Key\":\"operationType\",\"Value\":\"Create\"},{\"Key\":\"operationSetDetailId\",\"Value\":\"{{guid3}}\"},{\"Key\":\"recordId\",\"Value\":\"{{datedTaskId}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-task-with-dates · 2: POST msdyn_PssCreateV2"
+		},
+		{
+			"chain": "create-task-with-dates",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"OperationSetId": "{{operationSet2}}"
+				},
+				"method": "POST",
+				"path": "msdyn_ExecuteOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_ExecuteOperationSetV1Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet2}}\"},{\"Key\":\"correlationId\",\"Value\":\"{{guid4}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-task-with-dates · 3: POST msdyn_ExecuteOperationSetV1"
+		},
+		{
+			"chain": "create-task-with-dates",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet2}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet2}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-task-with-dates · 4: GET msdyn_operationsets({{operationSet2}})?$select=msdyn_status,_msdyn_psser"
+		},
+		{
+			"chain": "create-task-with-dates",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet2}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet2}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-task-with-dates · 5: GET msdyn_operationsets({{operationSet2}})?$select=msdyn_status,_msdyn_psser"
+		},
+		{
+			"chain": "create-task-with-dates",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet2}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet2}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-task-with-dates · 6: GET msdyn_operationsets({{operationSet2}})?$select=msdyn_status,_msdyn_psser"
+		},
+		{
+			"chain": "create-task-with-dates",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet2}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet2}}",
+					"msdyn_status": 192350003
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-task-with-dates · 7: GET msdyn_operationsets({{operationSet2}})?$select=msdyn_status,_msdyn_psser"
+		},
+		{
+			"chain": "create-task-with-every-field",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"Description": "ContextLayer: create a fully described task",
+					"ProjectId": "{{projectId}}"
+				},
+				"method": "POST",
+				"path": "msdyn_CreateOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_CreateOperationSetV1Response",
+					"OperationSetId": "{{operationSet3}}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-task-with-every-field · 1: POST msdyn_CreateOperationSetV1"
+		},
+		{
+			"chain": "create-task-with-every-field",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"EntityCollection": [
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+							"msdyn_description": "What the client asked for, and by when.\n\nSecond paragraph.",
+							"msdyn_finish": "{{timestamp}}",
+							"msdyn_outlinelevel": 1,
+							"msdyn_priority": 7,
+							"msdyn_project@odata.bind": "/msdyn_projects({{projectId}})",
+							"msdyn_projectbucket@odata.bind": "/msdyn_projectbuckets({{bucketId}})",
+							"msdyn_projecttaskid": "{{richTaskId}}",
+							"msdyn_start": "{{timestamp}}",
+							"msdyn_subject": "ZZ cassette rich task"
+						}
+					],
+					"OperationSetId": "{{operationSet3}}"
+				},
+				"method": "POST",
+				"path": "msdyn_PssCreateV2"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_PssCreateV2Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet3}}\"},{\"Key\":\"operationType\",\"Value\":\"Create\"},{\"Key\":\"operationSetDetailId\",\"Value\":\"{{guid5}}\"},{\"Key\":\"recordId\",\"Value\":\"{{richTaskId}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-task-with-every-field · 2: POST msdyn_PssCreateV2"
+		},
+		{
+			"chain": "create-task-with-every-field",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"OperationSetId": "{{operationSet3}}"
+				},
+				"method": "POST",
+				"path": "msdyn_ExecuteOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_ExecuteOperationSetV1Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet3}}\"},{\"Key\":\"correlationId\",\"Value\":\"{{guid6}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-task-with-every-field · 3: POST msdyn_ExecuteOperationSetV1"
+		},
+		{
+			"chain": "create-task-with-every-field",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet3}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet3}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-task-with-every-field · 4: GET msdyn_operationsets({{operationSet3}})?$select=msdyn_status,_msdyn_psser"
+		},
+		{
+			"chain": "create-task-with-every-field",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet3}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet3}}",
+					"msdyn_status": 192350003
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-task-with-every-field · 5: GET msdyn_operationsets({{operationSet3}})?$select=msdyn_status,_msdyn_psser"
+		},
+		{
+			"chain": "create-subtask",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"Description": "ContextLayer: create a subtask",
+					"ProjectId": "{{projectId}}"
+				},
+				"method": "POST",
+				"path": "msdyn_CreateOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_CreateOperationSetV1Response",
+					"OperationSetId": "{{operationSet4}}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-subtask · 1: POST msdyn_CreateOperationSetV1"
+		},
+		{
+			"chain": "create-subtask",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"EntityCollection": [
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+							"msdyn_outlinelevel": 2,
+							"msdyn_parenttask@odata.bind": "/msdyn_projecttasks({{plainTaskId}})",
+							"msdyn_project@odata.bind": "/msdyn_projects({{projectId}})",
+							"msdyn_projectbucket@odata.bind": "/msdyn_projectbuckets({{bucketId}})",
+							"msdyn_projecttaskid": "{{childTaskId}}",
+							"msdyn_subject": "ZZ cassette subtask"
+						}
+					],
+					"OperationSetId": "{{operationSet4}}"
+				},
+				"method": "POST",
+				"path": "msdyn_PssCreateV2"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_PssCreateV2Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet4}}\"},{\"Key\":\"operationType\",\"Value\":\"Create\"},{\"Key\":\"operationSetDetailId\",\"Value\":\"{{guid7}}\"},{\"Key\":\"recordId\",\"Value\":\"{{childTaskId}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-subtask · 2: POST msdyn_PssCreateV2"
+		},
+		{
+			"chain": "create-subtask",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"OperationSetId": "{{operationSet4}}"
+				},
+				"method": "POST",
+				"path": "msdyn_ExecuteOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_ExecuteOperationSetV1Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet4}}\"},{\"Key\":\"correlationId\",\"Value\":\"{{guid8}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-subtask · 3: POST msdyn_ExecuteOperationSetV1"
+		},
+		{
+			"chain": "create-subtask",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet4}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet4}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-subtask · 4: GET msdyn_operationsets({{operationSet4}})?$select=msdyn_status,_msdyn_psser"
+		},
+		{
+			"chain": "create-subtask",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet4}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet4}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-subtask · 5: GET msdyn_operationsets({{operationSet4}})?$select=msdyn_status,_msdyn_psser"
+		},
+		{
+			"chain": "create-subtask",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet4}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet4}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-subtask · 6: GET msdyn_operationsets({{operationSet4}})?$select=msdyn_status,_msdyn_psser"
+		},
+		{
+			"chain": "create-subtask",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet4}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet4}}",
+					"msdyn_status": 192350003
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-subtask · 7: GET msdyn_operationsets({{operationSet4}})?$select=msdyn_status,_msdyn_psser"
+		},
+		{
+			"chain": "create-deep-subtask",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"Description": "ContextLayer: create a subtask of a subtask",
+					"ProjectId": "{{projectId}}"
+				},
+				"method": "POST",
+				"path": "msdyn_CreateOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_CreateOperationSetV1Response",
+					"OperationSetId": "{{operationSet5}}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-deep-subtask · 1: POST msdyn_CreateOperationSetV1"
+		},
+		{
+			"chain": "create-deep-subtask",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"EntityCollection": [
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+							"msdyn_outlinelevel": 3,
+							"msdyn_parenttask@odata.bind": "/msdyn_projecttasks({{childTaskId}})",
+							"msdyn_project@odata.bind": "/msdyn_projects({{projectId}})",
+							"msdyn_projectbucket@odata.bind": "/msdyn_projectbuckets({{bucketId}})",
+							"msdyn_projecttaskid": "{{grandchildTaskId}}",
+							"msdyn_subject": "ZZ cassette deep subtask"
+						}
+					],
+					"OperationSetId": "{{operationSet5}}"
+				},
+				"method": "POST",
+				"path": "msdyn_PssCreateV2"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_PssCreateV2Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet5}}\"},{\"Key\":\"operationType\",\"Value\":\"Create\"},{\"Key\":\"operationSetDetailId\",\"Value\":\"{{guid9}}\"},{\"Key\":\"recordId\",\"Value\":\"{{grandchildTaskId}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-deep-subtask · 2: POST msdyn_PssCreateV2"
+		},
+		{
+			"chain": "create-deep-subtask",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"OperationSetId": "{{operationSet5}}"
+				},
+				"method": "POST",
+				"path": "msdyn_ExecuteOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_ExecuteOperationSetV1Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet5}}\"},{\"Key\":\"correlationId\",\"Value\":\"{{guid10}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-deep-subtask · 3: POST msdyn_ExecuteOperationSetV1"
+		},
+		{
+			"chain": "create-deep-subtask",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet5}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet5}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-deep-subtask · 4: GET msdyn_operationsets({{operationSet5}})?$select=msdyn_status,_msdyn_psser"
+		},
+		{
+			"chain": "create-deep-subtask",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet5}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet5}}",
+					"msdyn_status": 192350003
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-deep-subtask · 5: GET msdyn_operationsets({{operationSet5}})?$select=msdyn_status,_msdyn_psser"
+		},
+		{
+			"chain": "update-task-name",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"Description": "ContextLayer: rename a task",
+					"ProjectId": "{{projectId}}"
+				},
+				"method": "POST",
+				"path": "msdyn_CreateOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_CreateOperationSetV1Response",
+					"OperationSetId": "{{operationSet6}}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-name · 1: POST msdyn_CreateOperationSetV1"
+		},
+		{
+			"chain": "update-task-name",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"EntityCollection": [
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+							"msdyn_projecttaskid": "{{plainTaskId}}",
+							"msdyn_subject": "ZZ cassette renamed"
+						}
+					],
+					"OperationSetId": "{{operationSet6}}"
+				},
+				"method": "POST",
+				"path": "msdyn_PssUpdateV2"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_PssUpdateV2Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet6}}\"},{\"Key\":\"operationType\",\"Value\":\"Update\"},{\"Key\":\"operationSetDetailId\",\"Value\":\"{{guid11}}\"},{\"Key\":\"recordId\",\"Value\":\"{{plainTaskId}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-name · 2: POST msdyn_PssUpdateV2"
+		},
+		{
+			"chain": "update-task-name",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"OperationSetId": "{{operationSet6}}"
+				},
+				"method": "POST",
+				"path": "msdyn_ExecuteOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_ExecuteOperationSetV1Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet6}}\"},{\"Key\":\"correlationId\",\"Value\":\"{{guid12}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-name · 3: POST msdyn_ExecuteOperationSetV1"
+		},
+		{
+			"chain": "update-task-name",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet6}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet6}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-name · 4: GET msdyn_operationsets({{operationSet6}})?$select=msdyn_status,_msdyn_psser"
+		},
+		{
+			"chain": "update-task-name",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet6}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet6}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-name · 5: GET msdyn_operationsets({{operationSet6}})?$select=msdyn_status,_msdyn_psser"
+		},
+		{
+			"chain": "update-task-name",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet6}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet6}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-name · 6: GET msdyn_operationsets({{operationSet6}})?$select=msdyn_status,_msdyn_psser"
+		},
+		{
+			"chain": "update-task-name",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet6}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet6}}",
+					"msdyn_status": 192350003
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-name · 7: GET msdyn_operationsets({{operationSet6}})?$select=msdyn_status,_msdyn_psser"
+		},
+		{
+			"chain": "update-task-progress",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"Description": "ContextLayer: mark a task half done",
+					"ProjectId": "{{projectId}}"
+				},
+				"method": "POST",
+				"path": "msdyn_CreateOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_CreateOperationSetV1Response",
+					"OperationSetId": "{{operationSet7}}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-progress · 1: POST msdyn_CreateOperationSetV1"
+		},
+		{
+			"chain": "update-task-progress",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"EntityCollection": [
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+							"msdyn_progress": 0.5,
+							"msdyn_projecttaskid": "{{plainTaskId}}"
+						}
+					],
+					"OperationSetId": "{{operationSet7}}"
+				},
+				"method": "POST",
+				"path": "msdyn_PssUpdateV2"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_PssUpdateV2Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet7}}\"},{\"Key\":\"operationType\",\"Value\":\"Update\"},{\"Key\":\"operationSetDetailId\",\"Value\":\"{{guid13}}\"},{\"Key\":\"recordId\",\"Value\":\"{{plainTaskId}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-progress · 2: POST msdyn_PssUpdateV2"
+		},
+		{
+			"chain": "update-task-progress",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"OperationSetId": "{{operationSet7}}"
+				},
+				"method": "POST",
+				"path": "msdyn_ExecuteOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_ExecuteOperationSetV1Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet7}}\"},{\"Key\":\"correlationId\",\"Value\":\"{{guid14}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-progress · 3: POST msdyn_ExecuteOperationSetV1"
+		},
+		{
+			"chain": "update-task-progress",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet7}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet7}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-progress · 4: GET msdyn_operationsets({{operationSet7}})?$select=msdyn_status,_msdyn_psser"
+		},
+		{
+			"chain": "update-task-progress",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet7}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet7}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-progress · 5: GET msdyn_operationsets({{operationSet7}})?$select=msdyn_status,_msdyn_psser"
+		},
+		{
+			"chain": "update-task-progress",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet7}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet7}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-progress · 6: GET msdyn_operationsets({{operationSet7}})?$select=msdyn_status,_msdyn_psser"
+		},
+		{
+			"chain": "update-task-progress",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet7}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet7}}",
+					"msdyn_status": 192350003
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-progress · 7: GET msdyn_operationsets({{operationSet7}})?$select=msdyn_status,_msdyn_psser"
+		},
+		{
+			"chain": "update-task-done",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"Description": "ContextLayer: mark a task done",
+					"ProjectId": "{{projectId}}"
+				},
+				"method": "POST",
+				"path": "msdyn_CreateOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_CreateOperationSetV1Response",
+					"OperationSetId": "{{operationSet8}}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-done · 1: POST msdyn_CreateOperationSetV1"
+		},
+		{
+			"chain": "update-task-done",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"EntityCollection": [
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+							"msdyn_progress": 1,
+							"msdyn_projecttaskid": "{{plainTaskId}}"
+						}
+					],
+					"OperationSetId": "{{operationSet8}}"
+				},
+				"method": "POST",
+				"path": "msdyn_PssUpdateV2"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_PssUpdateV2Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet8}}\"},{\"Key\":\"operationType\",\"Value\":\"Update\"},{\"Key\":\"operationSetDetailId\",\"Value\":\"{{guid15}}\"},{\"Key\":\"recordId\",\"Value\":\"{{plainTaskId}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-done · 2: POST msdyn_PssUpdateV2"
+		},
+		{
+			"chain": "update-task-done",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"OperationSetId": "{{operationSet8}}"
+				},
+				"method": "POST",
+				"path": "msdyn_ExecuteOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_ExecuteOperationSetV1Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet8}}\"},{\"Key\":\"correlationId\",\"Value\":\"{{guid16}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-done · 3: POST msdyn_ExecuteOperationSetV1"
+		},
+		{
+			"chain": "update-task-done",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet8}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet8}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-done · 4: GET msdyn_operationsets({{operationSet8}})?$select=msdyn_status,_msdyn_psser"
+		},
+		{
+			"chain": "update-task-done",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet8}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet8}}",
+					"msdyn_status": 192350003
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-done · 5: GET msdyn_operationsets({{operationSet8}})?$select=msdyn_status,_msdyn_psser"
+		},
+		{
+			"chain": "update-task-dates",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"Description": "ContextLayer: move a task's dates",
+					"ProjectId": "{{projectId}}"
+				},
+				"method": "POST",
+				"path": "msdyn_CreateOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_CreateOperationSetV1Response",
+					"OperationSetId": "{{operationSet9}}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-dates · 1: POST msdyn_CreateOperationSetV1"
+		},
+		{
+			"chain": "update-task-dates",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"EntityCollection": [
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+							"msdyn_finish": "{{timestamp}}",
+							"msdyn_projecttaskid": "{{datedTaskId}}",
+							"msdyn_start": "{{timestamp}}"
+						}
+					],
+					"OperationSetId": "{{operationSet9}}"
+				},
+				"method": "POST",
+				"path": "msdyn_PssUpdateV2"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_PssUpdateV2Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet9}}\"},{\"Key\":\"operationType\",\"Value\":\"Update\"},{\"Key\":\"operationSetDetailId\",\"Value\":\"{{guid17}}\"},{\"Key\":\"recordId\",\"Value\":\"{{datedTaskId}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-dates · 2: POST msdyn_PssUpdateV2"
+		},
+		{
+			"chain": "update-task-dates",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"OperationSetId": "{{operationSet9}}"
+				},
+				"method": "POST",
+				"path": "msdyn_ExecuteOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_ExecuteOperationSetV1Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet9}}\"},{\"Key\":\"correlationId\",\"Value\":\"{{guid18}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-dates · 3: POST msdyn_ExecuteOperationSetV1"
+		},
+		{
+			"chain": "update-task-dates",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet9}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet9}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-dates · 4: GET msdyn_operationsets({{operationSet9}})?$select=msdyn_status,_msdyn_psser"
+		},
+		{
+			"chain": "update-task-dates",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet9}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet9}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-dates · 5: GET msdyn_operationsets({{operationSet9}})?$select=msdyn_status,_msdyn_psser"
+		},
+		{
+			"chain": "update-task-dates",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet9}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet9}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-dates · 6: GET msdyn_operationsets({{operationSet9}})?$select=msdyn_status,_msdyn_psser"
+		},
+		{
+			"chain": "update-task-dates",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet9}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet9}}",
+					"msdyn_status": 192350003
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-dates · 7: GET msdyn_operationsets({{operationSet9}})?$select=msdyn_status,_msdyn_psser"
+		},
+		{
+			"chain": "update-task-description",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"Description": "ContextLayer: describe a task",
+					"ProjectId": "{{projectId}}"
+				},
+				"method": "POST",
+				"path": "msdyn_CreateOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_CreateOperationSetV1Response",
+					"OperationSetId": "{{operationSet10}}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-description · 1: POST msdyn_CreateOperationSetV1"
+		},
+		{
+			"chain": "update-task-description",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"EntityCollection": [
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+							"msdyn_description": "Revised brief after Tuesday's call.",
+							"msdyn_projecttaskid": "{{plainTaskId}}"
+						}
+					],
+					"OperationSetId": "{{operationSet10}}"
+				},
+				"method": "POST",
+				"path": "msdyn_PssUpdateV2"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_PssUpdateV2Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet10}}\"},{\"Key\":\"operationType\",\"Value\":\"Update\"},{\"Key\":\"operationSetDetailId\",\"Value\":\"{{guid19}}\"},{\"Key\":\"recordId\",\"Value\":\"{{plainTaskId}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-description · 2: POST msdyn_PssUpdateV2"
+		},
+		{
+			"chain": "update-task-description",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"OperationSetId": "{{operationSet10}}"
+				},
+				"method": "POST",
+				"path": "msdyn_ExecuteOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_ExecuteOperationSetV1Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet10}}\"},{\"Key\":\"correlationId\",\"Value\":\"{{guid20}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-description · 3: POST msdyn_ExecuteOperationSetV1"
+		},
+		{
+			"chain": "update-task-description",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet10}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet10}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-description · 4: GET msdyn_operationsets({{operationSet10}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "update-task-description",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet10}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet10}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-description · 5: GET msdyn_operationsets({{operationSet10}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "update-task-description",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet10}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet10}}",
+					"msdyn_status": 192350003
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-description · 6: GET msdyn_operationsets({{operationSet10}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "update-task-many-fields",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"Description": "ContextLayer: rename, re-date and prioritise",
+					"ProjectId": "{{projectId}}"
+				},
+				"method": "POST",
+				"path": "msdyn_CreateOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_CreateOperationSetV1Response",
+					"OperationSetId": "{{operationSet11}}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-many-fields · 1: POST msdyn_CreateOperationSetV1"
+		},
+		{
+			"chain": "update-task-many-fields",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"EntityCollection": [
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+							"msdyn_description": "Everything at once, one transaction.",
+							"msdyn_finish": "{{timestamp}}",
+							"msdyn_priority": 2,
+							"msdyn_progress": 0.25,
+							"msdyn_projecttaskid": "{{richTaskId}}",
+							"msdyn_start": "{{timestamp}}",
+							"msdyn_subject": "ZZ cassette multi-field update"
+						}
+					],
+					"OperationSetId": "{{operationSet11}}"
+				},
+				"method": "POST",
+				"path": "msdyn_PssUpdateV2"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_PssUpdateV2Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet11}}\"},{\"Key\":\"operationType\",\"Value\":\"Update\"},{\"Key\":\"operationSetDetailId\",\"Value\":\"{{guid21}}\"},{\"Key\":\"recordId\",\"Value\":\"{{richTaskId}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-many-fields · 2: POST msdyn_PssUpdateV2"
+		},
+		{
+			"chain": "update-task-many-fields",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"OperationSetId": "{{operationSet11}}"
+				},
+				"method": "POST",
+				"path": "msdyn_ExecuteOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_ExecuteOperationSetV1Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet11}}\"},{\"Key\":\"correlationId\",\"Value\":\"{{guid22}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-many-fields · 3: POST msdyn_ExecuteOperationSetV1"
+		},
+		{
+			"chain": "update-task-many-fields",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet11}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet11}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-many-fields · 4: GET msdyn_operationsets({{operationSet11}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "update-task-many-fields",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet11}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet11}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-many-fields · 5: GET msdyn_operationsets({{operationSet11}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "update-task-many-fields",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet11}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet11}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-many-fields · 6: GET msdyn_operationsets({{operationSet11}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "update-task-many-fields",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet11}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet11}}",
+					"msdyn_status": 192350003
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-many-fields · 7: GET msdyn_operationsets({{operationSet11}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "create-bucket",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"Description": "ContextLayer: create a bucket",
+					"ProjectId": "{{projectId}}"
+				},
+				"method": "POST",
+				"path": "msdyn_CreateOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_CreateOperationSetV1Response",
+					"OperationSetId": "{{operationSet12}}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-bucket · 1: POST msdyn_CreateOperationSetV1"
+		},
+		{
+			"chain": "create-bucket",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"EntityCollection": [
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projectbucket",
+							"msdyn_name": "ZZ Cassette Bucket",
+							"msdyn_project@odata.bind": "/msdyn_projects({{projectId}})",
+							"msdyn_projectbucketid": "{{newBucketId}}"
+						}
+					],
+					"OperationSetId": "{{operationSet12}}"
+				},
+				"method": "POST",
+				"path": "msdyn_PssCreateV2"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_PssCreateV2Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet12}}\"},{\"Key\":\"operationType\",\"Value\":\"Create\"},{\"Key\":\"operationSetDetailId\",\"Value\":\"{{guid23}}\"},{\"Key\":\"recordId\",\"Value\":\"{{newBucketId}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-bucket · 2: POST msdyn_PssCreateV2"
+		},
+		{
+			"chain": "create-bucket",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"OperationSetId": "{{operationSet12}}"
+				},
+				"method": "POST",
+				"path": "msdyn_ExecuteOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_ExecuteOperationSetV1Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet12}}\"},{\"Key\":\"correlationId\",\"Value\":\"{{guid24}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-bucket · 3: POST msdyn_ExecuteOperationSetV1"
+		},
+		{
+			"chain": "create-bucket",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet12}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet12}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-bucket · 4: GET msdyn_operationsets({{operationSet12}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "create-bucket",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet12}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet12}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-bucket · 5: GET msdyn_operationsets({{operationSet12}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "create-bucket",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet12}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet12}}",
+					"msdyn_status": 192350003
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-bucket · 6: GET msdyn_operationsets({{operationSet12}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "update-bucket-name",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"Description": "ContextLayer: rename a bucket",
+					"ProjectId": "{{projectId}}"
+				},
+				"method": "POST",
+				"path": "msdyn_CreateOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_CreateOperationSetV1Response",
+					"OperationSetId": "{{operationSet13}}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-bucket-name · 1: POST msdyn_CreateOperationSetV1"
+		},
+		{
+			"chain": "update-bucket-name",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"EntityCollection": [
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projectbucket",
+							"msdyn_name": "ZZ Cassette Bucket Renamed",
+							"msdyn_projectbucketid": "{{newBucketId}}"
+						}
+					],
+					"OperationSetId": "{{operationSet13}}"
+				},
+				"method": "POST",
+				"path": "msdyn_PssUpdateV2"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_PssUpdateV2Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet13}}\"},{\"Key\":\"operationType\",\"Value\":\"Update\"},{\"Key\":\"operationSetDetailId\",\"Value\":\"{{guid25}}\"},{\"Key\":\"recordId\",\"Value\":\"{{newBucketId}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-bucket-name · 2: POST msdyn_PssUpdateV2"
+		},
+		{
+			"chain": "update-bucket-name",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"OperationSetId": "{{operationSet13}}"
+				},
+				"method": "POST",
+				"path": "msdyn_ExecuteOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_ExecuteOperationSetV1Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet13}}\"},{\"Key\":\"correlationId\",\"Value\":\"{{guid26}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-bucket-name · 3: POST msdyn_ExecuteOperationSetV1"
+		},
+		{
+			"chain": "update-bucket-name",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet13}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet13}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-bucket-name · 4: GET msdyn_operationsets({{operationSet13}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "update-bucket-name",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet13}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet13}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-bucket-name · 5: GET msdyn_operationsets({{operationSet13}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "update-bucket-name",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet13}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet13}}",
+					"msdyn_status": 192350003
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-bucket-name · 6: GET msdyn_operationsets({{operationSet13}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "move-task-between-buckets",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"Description": "ContextLayer: move a task to another bucket",
+					"ProjectId": "{{projectId}}"
+				},
+				"method": "POST",
+				"path": "msdyn_CreateOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_CreateOperationSetV1Response",
+					"OperationSetId": "{{operationSet14}}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "move-task-between-buckets · 1: POST msdyn_CreateOperationSetV1"
+		},
+		{
+			"chain": "move-task-between-buckets",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"EntityCollection": [
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+							"msdyn_projectbucket@odata.bind": "/msdyn_projectbuckets({{newBucketId}})",
+							"msdyn_projecttaskid": "{{datedTaskId}}"
+						}
+					],
+					"OperationSetId": "{{operationSet14}}"
+				},
+				"method": "POST",
+				"path": "msdyn_PssUpdateV2"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_PssUpdateV2Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet14}}\"},{\"Key\":\"operationType\",\"Value\":\"Update\"},{\"Key\":\"operationSetDetailId\",\"Value\":\"{{guid27}}\"},{\"Key\":\"recordId\",\"Value\":\"{{datedTaskId}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "move-task-between-buckets · 2: POST msdyn_PssUpdateV2"
+		},
+		{
+			"chain": "move-task-between-buckets",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"OperationSetId": "{{operationSet14}}"
+				},
+				"method": "POST",
+				"path": "msdyn_ExecuteOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_ExecuteOperationSetV1Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet14}}\"},{\"Key\":\"correlationId\",\"Value\":\"{{guid28}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "move-task-between-buckets · 3: POST msdyn_ExecuteOperationSetV1"
+		},
+		{
+			"chain": "move-task-between-buckets",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet14}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet14}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "move-task-between-buckets · 4: GET msdyn_operationsets({{operationSet14}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "move-task-between-buckets",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet14}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet14}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "move-task-between-buckets · 5: GET msdyn_operationsets({{operationSet14}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "move-task-between-buckets",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet14}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet14}}",
+					"msdyn_status": 192350003
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "move-task-between-buckets · 6: GET msdyn_operationsets({{operationSet14}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "create-bucket-with-its-tasks",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"Description": "ContextLayer: new bucket and its first tasks",
+					"ProjectId": "{{projectId}}"
+				},
+				"method": "POST",
+				"path": "msdyn_CreateOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_CreateOperationSetV1Response",
+					"OperationSetId": "{{operationSet15}}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-bucket-with-its-tasks · 1: POST msdyn_CreateOperationSetV1"
+		},
+		{
+			"chain": "create-bucket-with-its-tasks",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"EntityCollection": [
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projectbucket",
+							"msdyn_name": "ZZ Cassette Same-Set Bucket",
+							"msdyn_project@odata.bind": "/msdyn_projects({{projectId}})",
+							"msdyn_projectbucketid": "{{freshBucketId}}"
+						},
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+							"msdyn_outlinelevel": 1,
+							"msdyn_project@odata.bind": "/msdyn_projects({{projectId}})",
+							"msdyn_projectbucket@odata.bind": "/msdyn_projectbuckets({{freshBucketId}})",
+							"msdyn_projecttaskid": "{{freshTaskAId}}",
+							"msdyn_subject": "ZZ cassette same-set task A"
+						},
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+							"msdyn_outlinelevel": 1,
+							"msdyn_project@odata.bind": "/msdyn_projects({{projectId}})",
+							"msdyn_projectbucket@odata.bind": "/msdyn_projectbuckets({{freshBucketId}})",
+							"msdyn_projecttaskid": "{{freshTaskBId}}",
+							"msdyn_subject": "ZZ cassette same-set task B"
+						}
+					],
+					"OperationSetId": "{{operationSet15}}"
+				},
+				"method": "POST",
+				"path": "msdyn_PssCreateV2"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_PssCreateV2Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet15}}\"},{\"Key\":\"operationType\",\"Value\":\"Create\"},{\"Key\":\"operationSetDetailId\",\"Value\":\"{{guid29}},{{guid30}},{{guid31}}\"},{\"Key\":\"recordId\",\"Value\":\"{{freshBucketId}},{{freshTaskAId}},{{freshTaskBId}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-bucket-with-its-tasks · 2: POST msdyn_PssCreateV2"
+		},
+		{
+			"chain": "create-bucket-with-its-tasks",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"OperationSetId": "{{operationSet15}}"
+				},
+				"method": "POST",
+				"path": "msdyn_ExecuteOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_ExecuteOperationSetV1Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet15}}\"},{\"Key\":\"correlationId\",\"Value\":\"{{guid32}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-bucket-with-its-tasks · 3: POST msdyn_ExecuteOperationSetV1"
+		},
+		{
+			"chain": "create-bucket-with-its-tasks",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet15}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet15}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-bucket-with-its-tasks · 4: GET msdyn_operationsets({{operationSet15}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "create-bucket-with-its-tasks",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet15}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet15}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-bucket-with-its-tasks · 5: GET msdyn_operationsets({{operationSet15}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "create-bucket-with-its-tasks",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet15}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet15}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-bucket-with-its-tasks · 6: GET msdyn_operationsets({{operationSet15}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "create-bucket-with-its-tasks",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet15}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet15}}",
+					"msdyn_status": 192350003
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-bucket-with-its-tasks · 7: GET msdyn_operationsets({{operationSet15}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "rename-label",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"Description": "ContextLayer: name a label",
+					"ProjectId": "{{projectId}}"
+				},
+				"method": "POST",
+				"path": "msdyn_CreateOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_CreateOperationSetV1Response",
+					"OperationSetId": "{{operationSet16}}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "rename-label · 1: POST msdyn_CreateOperationSetV1"
+		},
+		{
+			"chain": "rename-label",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"EntityCollection": [
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projectlabel",
+							"msdyn_projectlabelid": "{{labelId}}",
+							"msdyn_projectlabeltext": "ZZ Cassette Label"
+						}
+					],
+					"OperationSetId": "{{operationSet16}}"
+				},
+				"method": "POST",
+				"path": "msdyn_PssUpdateV2"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_PssUpdateV2Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet16}}\"},{\"Key\":\"operationType\",\"Value\":\"Update\"},{\"Key\":\"operationSetDetailId\",\"Value\":\"{{guid33}}\"},{\"Key\":\"recordId\",\"Value\":\"{{labelId}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "rename-label · 2: POST msdyn_PssUpdateV2"
+		},
+		{
+			"chain": "rename-label",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"OperationSetId": "{{operationSet16}}"
+				},
+				"method": "POST",
+				"path": "msdyn_ExecuteOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_ExecuteOperationSetV1Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet16}}\"},{\"Key\":\"correlationId\",\"Value\":\"{{guid34}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "rename-label · 3: POST msdyn_ExecuteOperationSetV1"
+		},
+		{
+			"chain": "rename-label",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet16}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet16}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "rename-label · 4: GET msdyn_operationsets({{operationSet16}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "rename-label",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet16}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet16}}",
+					"msdyn_status": 192350003
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "rename-label · 5: GET msdyn_operationsets({{operationSet16}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "attach-label",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"Description": "ContextLayer: put a label on a task",
+					"ProjectId": "{{projectId}}"
+				},
+				"method": "POST",
+				"path": "msdyn_CreateOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_CreateOperationSetV1Response",
+					"OperationSetId": "{{operationSet17}}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "attach-label · 1: POST msdyn_CreateOperationSetV1"
+		},
+		{
+			"chain": "attach-label",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"EntityCollection": [
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttasktolabel",
+							"msdyn_ProjectLabelId@odata.bind": "/msdyn_projectlabels({{labelId}})",
+							"msdyn_ProjectTaskId@odata.bind": "/msdyn_projecttasks({{plainTaskId}})",
+							"msdyn_projecttasktolabelid": "{{labelLinkId}}"
+						}
+					],
+					"OperationSetId": "{{operationSet17}}"
+				},
+				"method": "POST",
+				"path": "msdyn_PssCreateV2"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_PssCreateV2Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet17}}\"},{\"Key\":\"operationType\",\"Value\":\"Create\"},{\"Key\":\"operationSetDetailId\",\"Value\":\"{{guid35}}\"},{\"Key\":\"recordId\",\"Value\":\"{{labelLinkId}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "attach-label · 2: POST msdyn_PssCreateV2"
+		},
+		{
+			"chain": "attach-label",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"OperationSetId": "{{operationSet17}}"
+				},
+				"method": "POST",
+				"path": "msdyn_ExecuteOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_ExecuteOperationSetV1Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet17}}\"},{\"Key\":\"correlationId\",\"Value\":\"{{guid36}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "attach-label · 3: POST msdyn_ExecuteOperationSetV1"
+		},
+		{
+			"chain": "attach-label",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet17}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet17}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "attach-label · 4: GET msdyn_operationsets({{operationSet17}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "attach-label",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet17}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet17}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "attach-label · 5: GET msdyn_operationsets({{operationSet17}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "attach-label",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet17}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet17}}",
+					"msdyn_status": 192350003
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "attach-label · 6: GET msdyn_operationsets({{operationSet17}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "detach-label",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"Description": "ContextLayer: take a label off a task",
+					"ProjectId": "{{projectId}}"
+				},
+				"method": "POST",
+				"path": "msdyn_CreateOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_CreateOperationSetV1Response",
+					"OperationSetId": "{{operationSet18}}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "detach-label · 1: POST msdyn_CreateOperationSetV1"
+		},
+		{
+			"chain": "detach-label",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"EntityCollection": [
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttasktolabel",
+							"msdyn_projecttasktolabelid": "{{labelLinkId}}"
+						}
+					],
+					"OperationSetId": "{{operationSet18}}"
+				},
+				"method": "POST",
+				"path": "msdyn_PssDeleteV2"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_PssDeleteV2Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet18}}\"},{\"Key\":\"operationType\",\"Value\":\"Delete\"},{\"Key\":\"operationSetDetailId\",\"Value\":\"{{guid37}}\"},{\"Key\":\"recordId\",\"Value\":\"{{labelLinkId}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "detach-label · 2: POST msdyn_PssDeleteV2"
+		},
+		{
+			"chain": "detach-label",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"OperationSetId": "{{operationSet18}}"
+				},
+				"method": "POST",
+				"path": "msdyn_ExecuteOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_ExecuteOperationSetV1Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet18}}\"},{\"Key\":\"correlationId\",\"Value\":\"{{guid38}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "detach-label · 3: POST msdyn_ExecuteOperationSetV1"
+		},
+		{
+			"chain": "detach-label",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet18}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet18}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "detach-label · 4: GET msdyn_operationsets({{operationSet18}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "detach-label",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet18}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet18}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "detach-label · 5: GET msdyn_operationsets({{operationSet18}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "detach-label",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet18}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet18}}",
+					"msdyn_status": 192350003
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "detach-label · 6: GET msdyn_operationsets({{operationSet18}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "assign-task",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"Description": "ContextLayer: a task, then assign it",
+					"ProjectId": "{{projectId}}"
+				},
+				"method": "POST",
+				"path": "msdyn_CreateOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_CreateOperationSetV1Response",
+					"OperationSetId": "{{operationSet19}}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "assign-task · 1: POST msdyn_CreateOperationSetV1"
+		},
+		{
+			"chain": "assign-task",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"EntityCollection": [
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+							"msdyn_outlinelevel": 1,
+							"msdyn_project@odata.bind": "/msdyn_projects({{projectId}})",
+							"msdyn_projectbucket@odata.bind": "/msdyn_projectbuckets({{bucketId}})",
+							"msdyn_projecttaskid": "{{assignableTaskId}}",
+							"msdyn_subject": "ZZ cassette assignable task"
+						},
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_resourceassignment",
+							"msdyn_name": "ZZ cassette assignment",
+							"msdyn_projectid@odata.bind": "/msdyn_projects({{projectId}})",
+							"msdyn_projectteamid@odata.bind": "/msdyn_projectteams({{teamMemberId}})",
+							"msdyn_resourceassignmentid": "{{assignmentId}}",
+							"msdyn_taskid@odata.bind": "/msdyn_projecttasks({{assignableTaskId}})"
+						}
+					],
+					"OperationSetId": "{{operationSet19}}"
+				},
+				"method": "POST",
+				"path": "msdyn_PssCreateV2"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_PssCreateV2Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet19}}\"},{\"Key\":\"operationType\",\"Value\":\"Create\"},{\"Key\":\"operationSetDetailId\",\"Value\":\"{{guid39}},{{guid40}}\"},{\"Key\":\"recordId\",\"Value\":\"{{assignableTaskId}},{{assignmentId}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "assign-task · 2: POST msdyn_PssCreateV2"
+		},
+		{
+			"chain": "assign-task",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"OperationSetId": "{{operationSet19}}"
+				},
+				"method": "POST",
+				"path": "msdyn_ExecuteOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_ExecuteOperationSetV1Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet19}}\"},{\"Key\":\"correlationId\",\"Value\":\"{{guid41}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "assign-task · 3: POST msdyn_ExecuteOperationSetV1"
+		},
+		{
+			"chain": "assign-task",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet19}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet19}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "assign-task · 4: GET msdyn_operationsets({{operationSet19}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "assign-task",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet19}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet19}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "assign-task · 5: GET msdyn_operationsets({{operationSet19}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "assign-task",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet19}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet19}}",
+					"msdyn_status": 192350003
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "assign-task · 6: GET msdyn_operationsets({{operationSet19}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "reject-assign-to-a-parent-task",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"Description": "ContextLayer: assign a task that has subtasks",
+					"ProjectId": "{{projectId}}"
+				},
+				"method": "POST",
+				"path": "msdyn_CreateOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_CreateOperationSetV1Response",
+					"OperationSetId": "{{operationSet20}}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "reject-assign-to-a-parent-task · 1: POST msdyn_CreateOperationSetV1"
+		},
+		{
+			"chain": "reject-assign-to-a-parent-task",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"EntityCollection": [
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_resourceassignment",
+							"msdyn_name": "ZZ cassette parent assignment",
+							"msdyn_projectid@odata.bind": "/msdyn_projects({{projectId}})",
+							"msdyn_projectteamid@odata.bind": "/msdyn_projectteams({{teamMemberId}})",
+							"msdyn_resourceassignmentid": "{{parentAssignmentId}}",
+							"msdyn_taskid@odata.bind": "/msdyn_projecttasks({{plainTaskId}})"
+						}
+					],
+					"OperationSetId": "{{operationSet20}}"
+				},
+				"method": "POST",
+				"path": "msdyn_PssCreateV2"
+			},
+			"response": {
+				"body": {
+					"error": {
+						"code": "0x80040265",
+						"message": "ScheduleAPI-SRV-0002:{{operationSet20}}: The resource assignment with Id {{parentAssignmentId}} cannot be created against parent task with Id {{plainTaskId}}. Parent tasks cannot be assigned to."
+					}
+				},
+				"status": 400,
+				"statusText": "Bad Request"
+			},
+			"scenario": "reject-assign-to-a-parent-task · 2: POST msdyn_PssCreateV2"
+		},
+		{
+			"chain": "reject-assign-to-a-parent-task",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"OperationSetId": "{{operationSet20}}"
+				},
+				"method": "POST",
+				"path": "msdyn_AbandonOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_AbandonOperationSetV1Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet20}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "reject-assign-to-a-parent-task · 3: POST msdyn_AbandonOperationSetV1"
+		},
+		{
+			"chain": "unassign-task",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"Description": "ContextLayer: take a task off a team member",
+					"ProjectId": "{{projectId}}"
+				},
+				"method": "POST",
+				"path": "msdyn_CreateOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_CreateOperationSetV1Response",
+					"OperationSetId": "{{operationSet21}}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "unassign-task · 1: POST msdyn_CreateOperationSetV1"
+		},
+		{
+			"chain": "unassign-task",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"EntityCollection": [
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_resourceassignment",
+							"msdyn_resourceassignmentid": "{{assignmentId}}"
+						}
+					],
+					"OperationSetId": "{{operationSet21}}"
+				},
+				"method": "POST",
+				"path": "msdyn_PssDeleteV2"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_PssDeleteV2Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet21}}\"},{\"Key\":\"operationType\",\"Value\":\"Delete\"},{\"Key\":\"operationSetDetailId\",\"Value\":\"{{guid42}}\"},{\"Key\":\"recordId\",\"Value\":\"{{assignmentId}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "unassign-task · 2: POST msdyn_PssDeleteV2"
+		},
+		{
+			"chain": "unassign-task",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"OperationSetId": "{{operationSet21}}"
+				},
+				"method": "POST",
+				"path": "msdyn_ExecuteOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_ExecuteOperationSetV1Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet21}}\"},{\"Key\":\"correlationId\",\"Value\":\"{{guid43}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "unassign-task · 3: POST msdyn_ExecuteOperationSetV1"
+		},
+		{
+			"chain": "unassign-task",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet21}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet21}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "unassign-task · 4: GET msdyn_operationsets({{operationSet21}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "unassign-task",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet21}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet21}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "unassign-task · 5: GET msdyn_operationsets({{operationSet21}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "unassign-task",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet21}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet21}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "unassign-task · 6: GET msdyn_operationsets({{operationSet21}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "unassign-task",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet21}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet21}}",
+					"msdyn_status": 192350003
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "unassign-task · 7: GET msdyn_operationsets({{operationSet21}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "create-a-subtask-of-a-same-set-parent",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"Description": "ContextLayer: a task and its subtask together",
+					"ProjectId": "{{projectId}}"
+				},
+				"method": "POST",
+				"path": "msdyn_CreateOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_CreateOperationSetV1Response",
+					"OperationSetId": "{{operationSet22}}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-a-subtask-of-a-same-set-parent · 1: POST msdyn_CreateOperationSetV1"
+		},
+		{
+			"chain": "create-a-subtask-of-a-same-set-parent",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"EntityCollection": [
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+							"msdyn_outlinelevel": 1,
+							"msdyn_project@odata.bind": "/msdyn_projects({{projectId}})",
+							"msdyn_projectbucket@odata.bind": "/msdyn_projectbuckets({{bucketId}})",
+							"msdyn_projecttaskid": "{{sameSetParentId}}",
+							"msdyn_subject": "ZZ cassette same-set parent"
+						},
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+							"msdyn_outlinelevel": 2,
+							"msdyn_parenttask@odata.bind": "/msdyn_projecttasks({{sameSetParentId}})",
+							"msdyn_project@odata.bind": "/msdyn_projects({{projectId}})",
+							"msdyn_projectbucket@odata.bind": "/msdyn_projectbuckets({{bucketId}})",
+							"msdyn_projecttaskid": "{{sameSetChildId}}",
+							"msdyn_subject": "ZZ cassette same-set child"
+						}
+					],
+					"OperationSetId": "{{operationSet22}}"
+				},
+				"method": "POST",
+				"path": "msdyn_PssCreateV2"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_PssCreateV2Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet22}}\"},{\"Key\":\"operationType\",\"Value\":\"Create\"},{\"Key\":\"operationSetDetailId\",\"Value\":\"{{guid44}},{{guid45}}\"},{\"Key\":\"recordId\",\"Value\":\"{{sameSetParentId}},{{sameSetChildId}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-a-subtask-of-a-same-set-parent · 2: POST msdyn_PssCreateV2"
+		},
+		{
+			"chain": "create-a-subtask-of-a-same-set-parent",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"OperationSetId": "{{operationSet22}}"
+				},
+				"method": "POST",
+				"path": "msdyn_ExecuteOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_ExecuteOperationSetV1Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet22}}\"},{\"Key\":\"correlationId\",\"Value\":\"{{guid46}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-a-subtask-of-a-same-set-parent · 3: POST msdyn_ExecuteOperationSetV1"
+		},
+		{
+			"chain": "create-a-subtask-of-a-same-set-parent",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet22}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet22}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-a-subtask-of-a-same-set-parent · 4: GET msdyn_operationsets({{operationSet22}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "create-a-subtask-of-a-same-set-parent",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet22}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet22}}",
+					"msdyn_status": 192350003
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-a-subtask-of-a-same-set-parent · 5: GET msdyn_operationsets({{operationSet22}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "label-a-task-created-in-the-same-set",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"Description": "ContextLayer: a task, labelled as it is made",
+					"ProjectId": "{{projectId}}"
+				},
+				"method": "POST",
+				"path": "msdyn_CreateOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_CreateOperationSetV1Response",
+					"OperationSetId": "{{operationSet23}}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "label-a-task-created-in-the-same-set · 1: POST msdyn_CreateOperationSetV1"
+		},
+		{
+			"chain": "label-a-task-created-in-the-same-set",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"EntityCollection": [
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+							"msdyn_outlinelevel": 1,
+							"msdyn_project@odata.bind": "/msdyn_projects({{projectId}})",
+							"msdyn_projectbucket@odata.bind": "/msdyn_projectbuckets({{bucketId}})",
+							"msdyn_projecttaskid": "{{labelledTaskId}}",
+							"msdyn_subject": "ZZ cassette labelled-at-birth task"
+						},
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttasktolabel",
+							"msdyn_ProjectLabelId@odata.bind": "/msdyn_projectlabels({{labelId}})",
+							"msdyn_ProjectTaskId@odata.bind": "/msdyn_projecttasks({{labelledTaskId}})",
+							"msdyn_projecttasktolabelid": "{{sameSetLabelLinkId}}"
+						}
+					],
+					"OperationSetId": "{{operationSet23}}"
+				},
+				"method": "POST",
+				"path": "msdyn_PssCreateV2"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_PssCreateV2Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet23}}\"},{\"Key\":\"operationType\",\"Value\":\"Create\"},{\"Key\":\"operationSetDetailId\",\"Value\":\"{{guid47}},{{guid48}}\"},{\"Key\":\"recordId\",\"Value\":\"{{labelledTaskId}},{{sameSetLabelLinkId}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "label-a-task-created-in-the-same-set · 2: POST msdyn_PssCreateV2"
+		},
+		{
+			"chain": "label-a-task-created-in-the-same-set",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"OperationSetId": "{{operationSet23}}"
+				},
+				"method": "POST",
+				"path": "msdyn_ExecuteOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_ExecuteOperationSetV1Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet23}}\"},{\"Key\":\"correlationId\",\"Value\":\"{{guid49}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "label-a-task-created-in-the-same-set · 3: POST msdyn_ExecuteOperationSetV1"
+		},
+		{
+			"chain": "label-a-task-created-in-the-same-set",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet23}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet23}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "label-a-task-created-in-the-same-set · 4: GET msdyn_operationsets({{operationSet23}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "label-a-task-created-in-the-same-set",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet23}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet23}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "label-a-task-created-in-the-same-set · 5: GET msdyn_operationsets({{operationSet23}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "label-a-task-created-in-the-same-set",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet23}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet23}}",
+					"msdyn_status": 192350003
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "label-a-task-created-in-the-same-set · 6: GET msdyn_operationsets({{operationSet23}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "update-a-task-created-in-the-same-set",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"Description": "ContextLayer: create a task and amend it at once",
+					"ProjectId": "{{projectId}}"
+				},
+				"method": "POST",
+				"path": "msdyn_CreateOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_CreateOperationSetV1Response",
+					"OperationSetId": "{{operationSet24}}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-a-task-created-in-the-same-set · 1: POST msdyn_CreateOperationSetV1"
+		},
+		{
+			"chain": "update-a-task-created-in-the-same-set",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"EntityCollection": [
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+							"msdyn_outlinelevel": 1,
+							"msdyn_project@odata.bind": "/msdyn_projects({{projectId}})",
+							"msdyn_projectbucket@odata.bind": "/msdyn_projectbuckets({{bucketId}})",
+							"msdyn_projecttaskid": "{{createdThenUpdatedId}}",
+							"msdyn_subject": "ZZ cassette created-then-updated"
+						}
+					],
+					"OperationSetId": "{{operationSet24}}"
+				},
+				"method": "POST",
+				"path": "msdyn_PssCreateV2"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_PssCreateV2Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet24}}\"},{\"Key\":\"operationType\",\"Value\":\"Create\"},{\"Key\":\"operationSetDetailId\",\"Value\":\"{{guid50}}\"},{\"Key\":\"recordId\",\"Value\":\"{{createdThenUpdatedId}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-a-task-created-in-the-same-set · 2: POST msdyn_PssCreateV2"
+		},
+		{
+			"chain": "update-a-task-created-in-the-same-set",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"EntityCollection": [
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+							"msdyn_progress": 0.5,
+							"msdyn_projecttaskid": "{{createdThenUpdatedId}}",
+							"msdyn_subject": "ZZ cassette created-then-updated (amended)"
+						}
+					],
+					"OperationSetId": "{{operationSet24}}"
+				},
+				"method": "POST",
+				"path": "msdyn_PssUpdateV2"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_PssUpdateV2Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet24}}\"},{\"Key\":\"operationType\",\"Value\":\"Update\"},{\"Key\":\"operationSetDetailId\",\"Value\":\"{{guid51}}\"},{\"Key\":\"recordId\",\"Value\":\"{{createdThenUpdatedId}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-a-task-created-in-the-same-set · 3: POST msdyn_PssUpdateV2"
+		},
+		{
+			"chain": "update-a-task-created-in-the-same-set",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"OperationSetId": "{{operationSet24}}"
+				},
+				"method": "POST",
+				"path": "msdyn_ExecuteOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_ExecuteOperationSetV1Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet24}}\"},{\"Key\":\"correlationId\",\"Value\":\"{{guid52}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-a-task-created-in-the-same-set · 4: POST msdyn_ExecuteOperationSetV1"
+		},
+		{
+			"chain": "update-a-task-created-in-the-same-set",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet24}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet24}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-a-task-created-in-the-same-set · 5: GET msdyn_operationsets({{operationSet24}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "update-a-task-created-in-the-same-set",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet24}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet24}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-a-task-created-in-the-same-set · 6: GET msdyn_operationsets({{operationSet24}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "update-a-task-created-in-the-same-set",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet24}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet24}}",
+					"msdyn_status": 192350003
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-a-task-created-in-the-same-set · 7: GET msdyn_operationsets({{operationSet24}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "move-a-task-into-a-same-set-bucket",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"Description": "ContextLayer: a new bucket, and an old task into it",
+					"ProjectId": "{{projectId}}"
+				},
+				"method": "POST",
+				"path": "msdyn_CreateOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_CreateOperationSetV1Response",
+					"OperationSetId": "{{operationSet25}}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "move-a-task-into-a-same-set-bucket · 1: POST msdyn_CreateOperationSetV1"
+		},
+		{
+			"chain": "move-a-task-into-a-same-set-bucket",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"EntityCollection": [
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projectbucket",
+							"msdyn_name": "ZZ Cassette Destination Bucket",
+							"msdyn_project@odata.bind": "/msdyn_projects({{projectId}})",
+							"msdyn_projectbucketid": "{{sameSetTargetBucketId}}"
+						}
+					],
+					"OperationSetId": "{{operationSet25}}"
+				},
+				"method": "POST",
+				"path": "msdyn_PssCreateV2"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_PssCreateV2Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet25}}\"},{\"Key\":\"operationType\",\"Value\":\"Create\"},{\"Key\":\"operationSetDetailId\",\"Value\":\"{{guid53}}\"},{\"Key\":\"recordId\",\"Value\":\"{{sameSetTargetBucketId}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "move-a-task-into-a-same-set-bucket · 2: POST msdyn_PssCreateV2"
+		},
+		{
+			"chain": "move-a-task-into-a-same-set-bucket",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"EntityCollection": [
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+							"msdyn_projectbucket@odata.bind": "/msdyn_projectbuckets({{sameSetTargetBucketId}})",
+							"msdyn_projecttaskid": "{{datedTaskId}}"
+						}
+					],
+					"OperationSetId": "{{operationSet25}}"
+				},
+				"method": "POST",
+				"path": "msdyn_PssUpdateV2"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_PssUpdateV2Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet25}}\"},{\"Key\":\"operationType\",\"Value\":\"Update\"},{\"Key\":\"operationSetDetailId\",\"Value\":\"{{guid54}}\"},{\"Key\":\"recordId\",\"Value\":\"{{datedTaskId}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "move-a-task-into-a-same-set-bucket · 3: POST msdyn_PssUpdateV2"
+		},
+		{
+			"chain": "move-a-task-into-a-same-set-bucket",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"OperationSetId": "{{operationSet25}}"
+				},
+				"method": "POST",
+				"path": "msdyn_ExecuteOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_ExecuteOperationSetV1Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet25}}\"},{\"Key\":\"correlationId\",\"Value\":\"{{guid55}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "move-a-task-into-a-same-set-bucket · 4: POST msdyn_ExecuteOperationSetV1"
+		},
+		{
+			"chain": "move-a-task-into-a-same-set-bucket",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet25}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet25}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "move-a-task-into-a-same-set-bucket · 5: GET msdyn_operationsets({{operationSet25}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "move-a-task-into-a-same-set-bucket",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet25}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet25}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "move-a-task-into-a-same-set-bucket · 6: GET msdyn_operationsets({{operationSet25}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "move-a-task-into-a-same-set-bucket",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet25}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet25}}",
+					"msdyn_status": 192350003
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "move-a-task-into-a-same-set-bucket · 7: GET msdyn_operationsets({{operationSet25}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "rename-a-bucket-created-in-the-same-set",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"Description": "ContextLayer: a bucket named twice in one set",
+					"ProjectId": "{{projectId}}"
+				},
+				"method": "POST",
+				"path": "msdyn_CreateOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_CreateOperationSetV1Response",
+					"OperationSetId": "{{operationSet26}}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "rename-a-bucket-created-in-the-same-set · 1: POST msdyn_CreateOperationSetV1"
+		},
+		{
+			"chain": "rename-a-bucket-created-in-the-same-set",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"EntityCollection": [
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projectbucket",
+							"msdyn_name": "ZZ Cassette Born Named",
+							"msdyn_project@odata.bind": "/msdyn_projects({{projectId}})",
+							"msdyn_projectbucketid": "{{bornThenRenamedBucketId}}"
+						}
+					],
+					"OperationSetId": "{{operationSet26}}"
+				},
+				"method": "POST",
+				"path": "msdyn_PssCreateV2"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_PssCreateV2Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet26}}\"},{\"Key\":\"operationType\",\"Value\":\"Create\"},{\"Key\":\"operationSetDetailId\",\"Value\":\"{{guid56}}\"},{\"Key\":\"recordId\",\"Value\":\"{{bornThenRenamedBucketId}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "rename-a-bucket-created-in-the-same-set · 2: POST msdyn_PssCreateV2"
+		},
+		{
+			"chain": "rename-a-bucket-created-in-the-same-set",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"EntityCollection": [
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projectbucket",
+							"msdyn_name": "ZZ Cassette Renamed Same Set",
+							"msdyn_projectbucketid": "{{bornThenRenamedBucketId}}"
+						}
+					],
+					"OperationSetId": "{{operationSet26}}"
+				},
+				"method": "POST",
+				"path": "msdyn_PssUpdateV2"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_PssUpdateV2Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet26}}\"},{\"Key\":\"operationType\",\"Value\":\"Update\"},{\"Key\":\"operationSetDetailId\",\"Value\":\"{{guid57}}\"},{\"Key\":\"recordId\",\"Value\":\"{{bornThenRenamedBucketId}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "rename-a-bucket-created-in-the-same-set · 3: POST msdyn_PssUpdateV2"
+		},
+		{
+			"chain": "rename-a-bucket-created-in-the-same-set",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"OperationSetId": "{{operationSet26}}"
+				},
+				"method": "POST",
+				"path": "msdyn_ExecuteOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_ExecuteOperationSetV1Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet26}}\"},{\"Key\":\"correlationId\",\"Value\":\"{{guid58}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "rename-a-bucket-created-in-the-same-set · 4: POST msdyn_ExecuteOperationSetV1"
+		},
+		{
+			"chain": "rename-a-bucket-created-in-the-same-set",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet26}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet26}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "rename-a-bucket-created-in-the-same-set · 5: GET msdyn_operationsets({{operationSet26}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "rename-a-bucket-created-in-the-same-set",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet26}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet26}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "rename-a-bucket-created-in-the-same-set · 6: GET msdyn_operationsets({{operationSet26}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "rename-a-bucket-created-in-the-same-set",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet26}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet26}}",
+					"msdyn_status": 192350003
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "rename-a-bucket-created-in-the-same-set · 7: GET msdyn_operationsets({{operationSet26}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "reparent-a-task-under-a-same-set-task",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"Description": "ContextLayer: a new parent for an existing task",
+					"ProjectId": "{{projectId}}"
+				},
+				"method": "POST",
+				"path": "msdyn_CreateOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_CreateOperationSetV1Response",
+					"OperationSetId": "{{operationSet27}}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "reparent-a-task-under-a-same-set-task · 1: POST msdyn_CreateOperationSetV1"
+		},
+		{
+			"chain": "reparent-a-task-under-a-same-set-task",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"EntityCollection": [
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+							"msdyn_outlinelevel": 1,
+							"msdyn_project@odata.bind": "/msdyn_projects({{projectId}})",
+							"msdyn_projectbucket@odata.bind": "/msdyn_projectbuckets({{bucketId}})",
+							"msdyn_projecttaskid": "{{sameSetNewParentId}}",
+							"msdyn_subject": "ZZ cassette adopting parent"
+						}
+					],
+					"OperationSetId": "{{operationSet27}}"
+				},
+				"method": "POST",
+				"path": "msdyn_PssCreateV2"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_PssCreateV2Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet27}}\"},{\"Key\":\"operationType\",\"Value\":\"Create\"},{\"Key\":\"operationSetDetailId\",\"Value\":\"{{guid59}}\"},{\"Key\":\"recordId\",\"Value\":\"{{sameSetNewParentId}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "reparent-a-task-under-a-same-set-task · 2: POST msdyn_PssCreateV2"
+		},
+		{
+			"chain": "reparent-a-task-under-a-same-set-task",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"EntityCollection": [
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+							"msdyn_parenttask@odata.bind": "/msdyn_projecttasks({{sameSetNewParentId}})",
+							"msdyn_projecttaskid": "{{assignableTaskId}}"
+						}
+					],
+					"OperationSetId": "{{operationSet27}}"
+				},
+				"method": "POST",
+				"path": "msdyn_PssUpdateV2"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_PssUpdateV2Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet27}}\"},{\"Key\":\"operationType\",\"Value\":\"Update\"},{\"Key\":\"operationSetDetailId\",\"Value\":\"{{guid60}}\"},{\"Key\":\"recordId\",\"Value\":\"{{assignableTaskId}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "reparent-a-task-under-a-same-set-task · 3: POST msdyn_PssUpdateV2"
+		},
+		{
+			"chain": "reparent-a-task-under-a-same-set-task",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"OperationSetId": "{{operationSet27}}"
+				},
+				"method": "POST",
+				"path": "msdyn_ExecuteOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_ExecuteOperationSetV1Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet27}}\"},{\"Key\":\"correlationId\",\"Value\":\"{{guid61}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "reparent-a-task-under-a-same-set-task · 4: POST msdyn_ExecuteOperationSetV1"
+		},
+		{
+			"chain": "reparent-a-task-under-a-same-set-task",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet27}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet27}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "reparent-a-task-under-a-same-set-task · 5: GET msdyn_operationsets({{operationSet27}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "reparent-a-task-under-a-same-set-task",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet27}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet27}}",
+					"msdyn_status": 192350003
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "reparent-a-task-under-a-same-set-task · 6: GET msdyn_operationsets({{operationSet27}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "create-tasks-before-the-bucket-they-name",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"Description": "ContextLayer: tasks listed ahead of their bucket",
+					"ProjectId": "{{projectId}}"
+				},
+				"method": "POST",
+				"path": "msdyn_CreateOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_CreateOperationSetV1Response",
+					"OperationSetId": "{{operationSet28}}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-tasks-before-the-bucket-they-name · 1: POST msdyn_CreateOperationSetV1"
+		},
+		{
+			"chain": "create-tasks-before-the-bucket-they-name",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"EntityCollection": [
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+							"msdyn_outlinelevel": 1,
+							"msdyn_project@odata.bind": "/msdyn_projects({{projectId}})",
+							"msdyn_projectbucket@odata.bind": "/msdyn_projectbuckets({{beforeBucketId}})",
+							"msdyn_projecttaskid": "{{beforeTaskAId}}",
+							"msdyn_subject": "ZZ cassette out-of-order task A"
+						},
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+							"msdyn_outlinelevel": 1,
+							"msdyn_project@odata.bind": "/msdyn_projects({{projectId}})",
+							"msdyn_projectbucket@odata.bind": "/msdyn_projectbuckets({{beforeBucketId}})",
+							"msdyn_projecttaskid": "{{beforeTaskBId}}",
+							"msdyn_subject": "ZZ cassette out-of-order task B"
+						},
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projectbucket",
+							"msdyn_name": "ZZ Cassette Out-Of-Order Bucket",
+							"msdyn_project@odata.bind": "/msdyn_projects({{projectId}})",
+							"msdyn_projectbucketid": "{{beforeBucketId}}"
+						}
+					],
+					"OperationSetId": "{{operationSet28}}"
+				},
+				"method": "POST",
+				"path": "msdyn_PssCreateV2"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_PssCreateV2Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet28}}\"},{\"Key\":\"operationType\",\"Value\":\"Create\"},{\"Key\":\"operationSetDetailId\",\"Value\":\"{{guid62}},{{guid63}},{{guid64}}\"},{\"Key\":\"recordId\",\"Value\":\"{{beforeTaskAId}},{{beforeTaskBId}},{{beforeBucketId}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-tasks-before-the-bucket-they-name · 2: POST msdyn_PssCreateV2"
+		},
+		{
+			"chain": "create-tasks-before-the-bucket-they-name",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"OperationSetId": "{{operationSet28}}"
+				},
+				"method": "POST",
+				"path": "msdyn_ExecuteOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_ExecuteOperationSetV1Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet28}}\"},{\"Key\":\"correlationId\",\"Value\":\"{{guid65}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-tasks-before-the-bucket-they-name · 3: POST msdyn_ExecuteOperationSetV1"
+		},
+		{
+			"chain": "create-tasks-before-the-bucket-they-name",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet28}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet28}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-tasks-before-the-bucket-they-name · 4: GET msdyn_operationsets({{operationSet28}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "create-tasks-before-the-bucket-they-name",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet28}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet28}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-tasks-before-the-bucket-they-name · 5: GET msdyn_operationsets({{operationSet28}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "create-tasks-before-the-bucket-they-name",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet28}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet28}}",
+					"msdyn_status": 192350003
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-tasks-before-the-bucket-they-name · 6: GET msdyn_operationsets({{operationSet28}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "create-an-assignment-before-its-task",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"Description": "ContextLayer: an assignment listed ahead of its task",
+					"ProjectId": "{{projectId}}"
+				},
+				"method": "POST",
+				"path": "msdyn_CreateOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_CreateOperationSetV1Response",
+					"OperationSetId": "{{operationSet29}}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-an-assignment-before-its-task · 1: POST msdyn_CreateOperationSetV1"
+		},
+		{
+			"chain": "create-an-assignment-before-its-task",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"EntityCollection": [
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_resourceassignment",
+							"msdyn_name": "ZZ cassette out-of-order assignment",
+							"msdyn_projectid@odata.bind": "/msdyn_projects({{projectId}})",
+							"msdyn_projectteamid@odata.bind": "/msdyn_projectteams({{teamMemberId}})",
+							"msdyn_resourceassignmentid": "{{orderedAssignmentId}}",
+							"msdyn_taskid@odata.bind": "/msdyn_projecttasks({{orderedTaskId}})"
+						},
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+							"msdyn_outlinelevel": 1,
+							"msdyn_project@odata.bind": "/msdyn_projects({{projectId}})",
+							"msdyn_projectbucket@odata.bind": "/msdyn_projectbuckets({{bucketId}})",
+							"msdyn_projecttaskid": "{{orderedTaskId}}",
+							"msdyn_subject": "ZZ cassette out-of-order assigned task"
+						}
+					],
+					"OperationSetId": "{{operationSet29}}"
+				},
+				"method": "POST",
+				"path": "msdyn_PssCreateV2"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_PssCreateV2Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet29}}\"},{\"Key\":\"operationType\",\"Value\":\"Create\"},{\"Key\":\"operationSetDetailId\",\"Value\":\"{{guid66}},{{guid67}}\"},{\"Key\":\"recordId\",\"Value\":\"{{orderedAssignmentId}},{{orderedTaskId}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-an-assignment-before-its-task · 2: POST msdyn_PssCreateV2"
+		},
+		{
+			"chain": "create-an-assignment-before-its-task",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"OperationSetId": "{{operationSet29}}"
+				},
+				"method": "POST",
+				"path": "msdyn_ExecuteOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"error": {
+						"code": "0x80040220",
+						"message": "Principal user (Id={{guid68}}, type=8, roleCount=10, privilegeCount=2099, accessMode='0 Read-Write', AADObjectId='{{guid69}}', MetadataCachePrivilegesCount=7708, businessUnitId={{guid70}}), is missing prvCreatemsdyn_psserrorlog privilege (Id={{guid71}}) on OTC=10624 for entity 'msdyn_psserrorlog' (LocalizedName='PSS Error Log'). context.Caller={{guid68}}. Consider adding missed privilege to one of the principal (user/team) roles."
+					}
+				},
+				"status": 403,
+				"statusText": "Forbidden"
+			},
+			"scenario": "create-an-assignment-before-its-task · 3: POST msdyn_ExecuteOperationSetV1"
+		},
+		{
+			"chain": "update-task-duration",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"Description": "ContextLayer: set a task's duration",
+					"ProjectId": "{{projectId}}"
+				},
+				"method": "POST",
+				"path": "msdyn_CreateOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_CreateOperationSetV1Response",
+					"OperationSetId": "{{operationSet30}}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-duration · 1: POST msdyn_CreateOperationSetV1"
+		},
+		{
+			"chain": "update-task-duration",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"EntityCollection": [
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+							"msdyn_duration": 3,
+							"msdyn_projecttaskid": "{{datedTaskId}}"
+						}
+					],
+					"OperationSetId": "{{operationSet30}}"
+				},
+				"method": "POST",
+				"path": "msdyn_PssUpdateV2"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_PssUpdateV2Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet30}}\"},{\"Key\":\"operationType\",\"Value\":\"Update\"},{\"Key\":\"operationSetDetailId\",\"Value\":\"{{guid72}}\"},{\"Key\":\"recordId\",\"Value\":\"{{datedTaskId}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-duration · 2: POST msdyn_PssUpdateV2"
+		},
+		{
+			"chain": "update-task-duration",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"OperationSetId": "{{operationSet30}}"
+				},
+				"method": "POST",
+				"path": "msdyn_ExecuteOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_ExecuteOperationSetV1Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet30}}\"},{\"Key\":\"correlationId\",\"Value\":\"{{guid73}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-duration · 3: POST msdyn_ExecuteOperationSetV1"
+		},
+		{
+			"chain": "update-task-duration",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet30}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet30}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-duration · 4: GET msdyn_operationsets({{operationSet30}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "update-task-duration",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet30}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet30}}",
+					"msdyn_status": 192350003
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-duration · 5: GET msdyn_operationsets({{operationSet30}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "update-task-effort",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"Description": "ContextLayer: set a task's effort",
+					"ProjectId": "{{projectId}}"
+				},
+				"method": "POST",
+				"path": "msdyn_CreateOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_CreateOperationSetV1Response",
+					"OperationSetId": "{{operationSet31}}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-effort · 1: POST msdyn_CreateOperationSetV1"
+		},
+		{
+			"chain": "update-task-effort",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"EntityCollection": [
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+							"msdyn_effort": 12,
+							"msdyn_projecttaskid": "{{richTaskId}}"
+						}
+					],
+					"OperationSetId": "{{operationSet31}}"
+				},
+				"method": "POST",
+				"path": "msdyn_PssUpdateV2"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_PssUpdateV2Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet31}}\"},{\"Key\":\"operationType\",\"Value\":\"Update\"},{\"Key\":\"operationSetDetailId\",\"Value\":\"{{guid74}}\"},{\"Key\":\"recordId\",\"Value\":\"{{richTaskId}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-effort · 2: POST msdyn_PssUpdateV2"
+		},
+		{
+			"chain": "update-task-effort",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"OperationSetId": "{{operationSet31}}"
+				},
+				"method": "POST",
+				"path": "msdyn_ExecuteOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_ExecuteOperationSetV1Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet31}}\"},{\"Key\":\"correlationId\",\"Value\":\"{{guid75}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-effort · 3: POST msdyn_ExecuteOperationSetV1"
+		},
+		{
+			"chain": "update-task-effort",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet31}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet31}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-effort · 4: GET msdyn_operationsets({{operationSet31}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "update-task-effort",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet31}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet31}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-effort · 5: GET msdyn_operationsets({{operationSet31}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "update-task-effort",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet31}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet31}}",
+					"msdyn_status": 192350003
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-effort · 6: GET msdyn_operationsets({{operationSet31}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "update-task-lowest-priority-and-no-progress",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"Description": "ContextLayer: lowest priority, nothing done",
+					"ProjectId": "{{projectId}}"
+				},
+				"method": "POST",
+				"path": "msdyn_CreateOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_CreateOperationSetV1Response",
+					"OperationSetId": "{{operationSet32}}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-lowest-priority-and-no-progress · 1: POST msdyn_CreateOperationSetV1"
+		},
+		{
+			"chain": "update-task-lowest-priority-and-no-progress",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"EntityCollection": [
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+							"msdyn_priority": 0,
+							"msdyn_progress": 0,
+							"msdyn_projecttaskid": "{{datedTaskId}}"
+						}
+					],
+					"OperationSetId": "{{operationSet32}}"
+				},
+				"method": "POST",
+				"path": "msdyn_PssUpdateV2"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_PssUpdateV2Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet32}}\"},{\"Key\":\"operationType\",\"Value\":\"Update\"},{\"Key\":\"operationSetDetailId\",\"Value\":\"{{guid76}}\"},{\"Key\":\"recordId\",\"Value\":\"{{datedTaskId}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-lowest-priority-and-no-progress · 2: POST msdyn_PssUpdateV2"
+		},
+		{
+			"chain": "update-task-lowest-priority-and-no-progress",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"OperationSetId": "{{operationSet32}}"
+				},
+				"method": "POST",
+				"path": "msdyn_ExecuteOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_ExecuteOperationSetV1Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet32}}\"},{\"Key\":\"correlationId\",\"Value\":\"{{guid77}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-lowest-priority-and-no-progress · 3: POST msdyn_ExecuteOperationSetV1"
+		},
+		{
+			"chain": "update-task-lowest-priority-and-no-progress",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet32}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet32}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-lowest-priority-and-no-progress · 4: GET msdyn_operationsets({{operationSet32}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "update-task-lowest-priority-and-no-progress",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet32}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet32}}",
+					"msdyn_status": 192350003
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-lowest-priority-and-no-progress · 5: GET msdyn_operationsets({{operationSet32}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "update-task-highest-priority",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"Description": "ContextLayer: the highest priority the service takes",
+					"ProjectId": "{{projectId}}"
+				},
+				"method": "POST",
+				"path": "msdyn_CreateOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_CreateOperationSetV1Response",
+					"OperationSetId": "{{operationSet33}}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-highest-priority · 1: POST msdyn_CreateOperationSetV1"
+		},
+		{
+			"chain": "update-task-highest-priority",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"EntityCollection": [
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+							"msdyn_priority": 10,
+							"msdyn_projecttaskid": "{{richTaskId}}"
+						}
+					],
+					"OperationSetId": "{{operationSet33}}"
+				},
+				"method": "POST",
+				"path": "msdyn_PssUpdateV2"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_PssUpdateV2Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet33}}\"},{\"Key\":\"operationType\",\"Value\":\"Update\"},{\"Key\":\"operationSetDetailId\",\"Value\":\"{{guid78}}\"},{\"Key\":\"recordId\",\"Value\":\"{{richTaskId}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-highest-priority · 2: POST msdyn_PssUpdateV2"
+		},
+		{
+			"chain": "update-task-highest-priority",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"OperationSetId": "{{operationSet33}}"
+				},
+				"method": "POST",
+				"path": "msdyn_ExecuteOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_ExecuteOperationSetV1Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet33}}\"},{\"Key\":\"correlationId\",\"Value\":\"{{guid79}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-highest-priority · 3: POST msdyn_ExecuteOperationSetV1"
+		},
+		{
+			"chain": "update-task-highest-priority",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet33}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet33}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-highest-priority · 4: GET msdyn_operationsets({{operationSet33}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "update-task-highest-priority",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet33}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet33}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-highest-priority · 5: GET msdyn_operationsets({{operationSet33}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "update-task-highest-priority",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet33}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet33}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-highest-priority · 6: GET msdyn_operationsets({{operationSet33}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "update-task-highest-priority",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet33}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet33}}",
+					"msdyn_status": 192350003
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "update-task-highest-priority · 7: GET msdyn_operationsets({{operationSet33}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "create-many-tasks",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"Description": "ContextLayer: create three tasks at once",
+					"ProjectId": "{{projectId}}"
+				},
+				"method": "POST",
+				"path": "msdyn_CreateOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_CreateOperationSetV1Response",
+					"OperationSetId": "{{operationSet34}}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-many-tasks · 1: POST msdyn_CreateOperationSetV1"
+		},
+		{
+			"chain": "create-many-tasks",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"EntityCollection": [
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+							"msdyn_outlinelevel": 1,
+							"msdyn_project@odata.bind": "/msdyn_projects({{projectId}})",
+							"msdyn_projectbucket@odata.bind": "/msdyn_projectbuckets({{bucketId}})",
+							"msdyn_projecttaskid": "{{batchTaskAId}}",
+							"msdyn_subject": "ZZ cassette batch 1"
+						},
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+							"msdyn_outlinelevel": 1,
+							"msdyn_project@odata.bind": "/msdyn_projects({{projectId}})",
+							"msdyn_projectbucket@odata.bind": "/msdyn_projectbuckets({{bucketId}})",
+							"msdyn_projecttaskid": "{{batchTaskBId}}",
+							"msdyn_subject": "ZZ cassette batch 2"
+						},
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+							"msdyn_outlinelevel": 1,
+							"msdyn_project@odata.bind": "/msdyn_projects({{projectId}})",
+							"msdyn_projectbucket@odata.bind": "/msdyn_projectbuckets({{bucketId}})",
+							"msdyn_projecttaskid": "{{batchTaskCId}}",
+							"msdyn_subject": "ZZ cassette batch 3"
+						}
+					],
+					"OperationSetId": "{{operationSet34}}"
+				},
+				"method": "POST",
+				"path": "msdyn_PssCreateV2"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_PssCreateV2Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet34}}\"},{\"Key\":\"operationType\",\"Value\":\"Create\"},{\"Key\":\"operationSetDetailId\",\"Value\":\"{{guid80}},{{guid81}},{{guid82}}\"},{\"Key\":\"recordId\",\"Value\":\"{{batchTaskAId}},{{batchTaskBId}},{{batchTaskCId}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-many-tasks · 2: POST msdyn_PssCreateV2"
+		},
+		{
+			"chain": "create-many-tasks",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"OperationSetId": "{{operationSet34}}"
+				},
+				"method": "POST",
+				"path": "msdyn_ExecuteOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_ExecuteOperationSetV1Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet34}}\"},{\"Key\":\"correlationId\",\"Value\":\"{{guid83}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-many-tasks · 3: POST msdyn_ExecuteOperationSetV1"
+		},
+		{
+			"chain": "create-many-tasks",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet34}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet34}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-many-tasks · 4: GET msdyn_operationsets({{operationSet34}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "create-many-tasks",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet34}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet34}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-many-tasks · 5: GET msdyn_operationsets({{operationSet34}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "create-many-tasks",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet34}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet34}}",
+					"msdyn_status": 192350003
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-many-tasks · 6: GET msdyn_operationsets({{operationSet34}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "create-update-and-delete-together",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"Description": "ContextLayer: one transaction, three verbs",
+					"ProjectId": "{{projectId}}"
+				},
+				"method": "POST",
+				"path": "msdyn_CreateOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_CreateOperationSetV1Response",
+					"OperationSetId": "{{operationSet35}}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-update-and-delete-together · 1: POST msdyn_CreateOperationSetV1"
+		},
+		{
+			"chain": "create-update-and-delete-together",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"EntityCollection": [
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+							"msdyn_outlinelevel": 1,
+							"msdyn_project@odata.bind": "/msdyn_projects({{projectId}})",
+							"msdyn_projectbucket@odata.bind": "/msdyn_projectbuckets({{bucketId}})",
+							"msdyn_projecttaskid": "{{mixedNewTaskId}}",
+							"msdyn_subject": "ZZ cassette mixed create"
+						}
+					],
+					"OperationSetId": "{{operationSet35}}"
+				},
+				"method": "POST",
+				"path": "msdyn_PssCreateV2"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_PssCreateV2Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet35}}\"},{\"Key\":\"operationType\",\"Value\":\"Create\"},{\"Key\":\"operationSetDetailId\",\"Value\":\"{{guid84}}\"},{\"Key\":\"recordId\",\"Value\":\"{{mixedNewTaskId}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-update-and-delete-together · 2: POST msdyn_PssCreateV2"
+		},
+		{
+			"chain": "create-update-and-delete-together",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"EntityCollection": [
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+							"msdyn_projecttaskid": "{{richTaskId}}",
+							"msdyn_subject": "ZZ cassette mixed update"
+						}
+					],
+					"OperationSetId": "{{operationSet35}}"
+				},
+				"method": "POST",
+				"path": "msdyn_PssUpdateV2"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_PssUpdateV2Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet35}}\"},{\"Key\":\"operationType\",\"Value\":\"Update\"},{\"Key\":\"operationSetDetailId\",\"Value\":\"{{guid85}}\"},{\"Key\":\"recordId\",\"Value\":\"{{richTaskId}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-update-and-delete-together · 3: POST msdyn_PssUpdateV2"
+		},
+		{
+			"chain": "create-update-and-delete-together",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"EntityCollection": [
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+							"msdyn_projecttaskid": "{{batchTaskCId}}"
+						}
+					],
+					"OperationSetId": "{{operationSet35}}"
+				},
+				"method": "POST",
+				"path": "msdyn_PssDeleteV2"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_PssDeleteV2Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet35}}\"},{\"Key\":\"operationType\",\"Value\":\"Delete\"},{\"Key\":\"operationSetDetailId\",\"Value\":\"{{guid86}}\"},{\"Key\":\"recordId\",\"Value\":\"{{batchTaskCId}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-update-and-delete-together · 4: POST msdyn_PssDeleteV2"
+		},
+		{
+			"chain": "create-update-and-delete-together",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"OperationSetId": "{{operationSet35}}"
+				},
+				"method": "POST",
+				"path": "msdyn_ExecuteOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_ExecuteOperationSetV1Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet35}}\"},{\"Key\":\"correlationId\",\"Value\":\"{{guid87}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-update-and-delete-together · 5: POST msdyn_ExecuteOperationSetV1"
+		},
+		{
+			"chain": "create-update-and-delete-together",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet35}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet35}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-update-and-delete-together · 6: GET msdyn_operationsets({{operationSet35}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "create-update-and-delete-together",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet35}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet35}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-update-and-delete-together · 7: GET msdyn_operationsets({{operationSet35}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "create-update-and-delete-together",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet35}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet35}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-update-and-delete-together · 8: GET msdyn_operationsets({{operationSet35}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "create-update-and-delete-together",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet35}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet35}}",
+					"msdyn_status": 192350003
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "create-update-and-delete-together · 9: GET msdyn_operationsets({{operationSet35}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "delete-task",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"Description": "ContextLayer: delete a task",
+					"ProjectId": "{{projectId}}"
+				},
+				"method": "POST",
+				"path": "msdyn_CreateOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_CreateOperationSetV1Response",
+					"OperationSetId": "{{operationSet36}}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "delete-task · 1: POST msdyn_CreateOperationSetV1"
+		},
+		{
+			"chain": "delete-task",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"EntityCollection": [
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+							"msdyn_projecttaskid": "{{batchTaskBId}}"
+						}
+					],
+					"OperationSetId": "{{operationSet36}}"
+				},
+				"method": "POST",
+				"path": "msdyn_PssDeleteV2"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_PssDeleteV2Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet36}}\"},{\"Key\":\"operationType\",\"Value\":\"Delete\"},{\"Key\":\"operationSetDetailId\",\"Value\":\"{{guid88}}\"},{\"Key\":\"recordId\",\"Value\":\"{{batchTaskBId}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "delete-task · 2: POST msdyn_PssDeleteV2"
+		},
+		{
+			"chain": "delete-task",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"OperationSetId": "{{operationSet36}}"
+				},
+				"method": "POST",
+				"path": "msdyn_ExecuteOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_ExecuteOperationSetV1Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet36}}\"},{\"Key\":\"correlationId\",\"Value\":\"{{guid89}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "delete-task · 3: POST msdyn_ExecuteOperationSetV1"
+		},
+		{
+			"chain": "delete-task",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet36}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet36}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "delete-task · 4: GET msdyn_operationsets({{operationSet36}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "delete-task",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet36}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet36}}",
+					"msdyn_status": 192350003
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "delete-task · 5: GET msdyn_operationsets({{operationSet36}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "delete-bucket-and-its-tasks",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"Description": "ContextLayer: delete a bucket",
+					"ProjectId": "{{projectId}}"
+				},
+				"method": "POST",
+				"path": "msdyn_CreateOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_CreateOperationSetV1Response",
+					"OperationSetId": "{{operationSet37}}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "delete-bucket-and-its-tasks · 1: POST msdyn_CreateOperationSetV1"
+		},
+		{
+			"chain": "delete-bucket-and-its-tasks",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"EntityCollection": [
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projectbucket",
+							"msdyn_projectbucketid": "{{freshBucketId}}"
+						}
+					],
+					"OperationSetId": "{{operationSet37}}"
+				},
+				"method": "POST",
+				"path": "msdyn_PssDeleteV2"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_PssDeleteV2Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet37}}\"},{\"Key\":\"operationType\",\"Value\":\"Delete\"},{\"Key\":\"operationSetDetailId\",\"Value\":\"{{guid90}}\"},{\"Key\":\"recordId\",\"Value\":\"{{freshBucketId}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "delete-bucket-and-its-tasks · 2: POST msdyn_PssDeleteV2"
+		},
+		{
+			"chain": "delete-bucket-and-its-tasks",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"OperationSetId": "{{operationSet37}}"
+				},
+				"method": "POST",
+				"path": "msdyn_ExecuteOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_ExecuteOperationSetV1Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet37}}\"},{\"Key\":\"correlationId\",\"Value\":\"{{guid91}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "delete-bucket-and-its-tasks · 3: POST msdyn_ExecuteOperationSetV1"
+		},
+		{
+			"chain": "delete-bucket-and-its-tasks",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet37}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet37}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "delete-bucket-and-its-tasks · 4: GET msdyn_operationsets({{operationSet37}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "delete-bucket-and-its-tasks",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet37}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet37}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "delete-bucket-and-its-tasks · 5: GET msdyn_operationsets({{operationSet37}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "delete-bucket-and-its-tasks",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet37}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet37}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "delete-bucket-and-its-tasks · 6: GET msdyn_operationsets({{operationSet37}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "delete-bucket-and-its-tasks",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet37}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet37}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "delete-bucket-and-its-tasks · 7: GET msdyn_operationsets({{operationSet37}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "delete-bucket-and-its-tasks",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet37}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet37}}",
+					"msdyn_status": 192350003
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "delete-bucket-and-its-tasks · 8: GET msdyn_operationsets({{operationSet37}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "execute-refused-and-set-wedged-executing",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"Description": "ContextLayer: a value the service rejects at execute",
+					"ProjectId": "{{projectId}}"
+				},
+				"method": "POST",
+				"path": "msdyn_CreateOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_CreateOperationSetV1Response",
+					"OperationSetId": "{{operationSet38}}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "execute-refused-and-set-wedged-executing · 1: POST msdyn_CreateOperationSetV1"
+		},
+		{
+			"chain": "execute-refused-and-set-wedged-executing",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"EntityCollection": [
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+							"msdyn_progress": 100,
+							"msdyn_projecttaskid": "{{plainTaskId}}"
+						}
+					],
+					"OperationSetId": "{{operationSet38}}"
+				},
+				"method": "POST",
+				"path": "msdyn_PssUpdateV2"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_PssUpdateV2Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet38}}\"},{\"Key\":\"operationType\",\"Value\":\"Update\"},{\"Key\":\"operationSetDetailId\",\"Value\":\"{{guid92}}\"},{\"Key\":\"recordId\",\"Value\":\"{{plainTaskId}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "execute-refused-and-set-wedged-executing · 2: POST msdyn_PssUpdateV2"
+		},
+		{
+			"chain": "execute-refused-and-set-wedged-executing",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"OperationSetId": "{{operationSet38}}"
+				},
+				"method": "POST",
+				"path": "msdyn_ExecuteOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"error": {
+						"code": "0x80040220",
+						"message": "Principal user (Id={{guid68}}, type=8, roleCount=10, privilegeCount=2099, accessMode='0 Read-Write', AADObjectId='{{guid69}}', MetadataCachePrivilegesCount=7708, businessUnitId={{guid70}}), is missing prvCreatemsdyn_psserrorlog privilege (Id={{guid71}}) on OTC=10624 for entity 'msdyn_psserrorlog' (LocalizedName='PSS Error Log'). context.Caller={{guid68}}. Consider adding missed privilege to one of the principal (user/team) roles."
+					}
+				},
+				"status": 403,
+				"statusText": "Forbidden"
+			},
+			"scenario": "execute-refused-and-set-wedged-executing · 3: POST msdyn_ExecuteOperationSetV1"
+		},
+		{
+			"chain": "execute-refused-and-set-wedged-executing",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet38}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet38}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "execute-refused-and-set-wedged-executing · 4: GET msdyn_operationsets({{operationSet38}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "execute-refused-and-set-wedged-executing",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet38}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet38}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "execute-refused-and-set-wedged-executing · 5: GET msdyn_operationsets({{operationSet38}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "execute-refused-and-set-wedged-executing",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet38}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet38}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "execute-refused-and-set-wedged-executing · 6: GET msdyn_operationsets({{operationSet38}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "execute-refused-and-set-wedged-executing",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet38}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet38}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "execute-refused-and-set-wedged-executing · 7: GET msdyn_operationsets({{operationSet38}})?$select=msdyn_status,_msdyn_psse"
+		},
+		{
+			"chain": "reject-unknown-bucket",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"Description": "ContextLayer: create into a bucket that is not there",
+					"ProjectId": "{{projectId}}"
+				},
+				"method": "POST",
+				"path": "msdyn_CreateOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_CreateOperationSetV1Response",
+					"OperationSetId": "{{operationSet40}}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "reject-unknown-bucket · 1: POST msdyn_CreateOperationSetV1"
+		},
+		{
+			"chain": "reject-unknown-bucket",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"EntityCollection": [
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+							"msdyn_outlinelevel": 1,
+							"msdyn_project@odata.bind": "/msdyn_projects({{projectId}})",
+							"msdyn_projectbucket@odata.bind": "/msdyn_projectbuckets({{unknownBucketId}})",
+							"msdyn_projecttaskid": "{{taskForUnknownBucketId}}",
+							"msdyn_subject": "ZZ cassette unreachable"
+						}
+					],
+					"OperationSetId": "{{operationSet40}}"
+				},
+				"method": "POST",
+				"path": "msdyn_PssCreateV2"
+			},
+			"response": {
+				"body": {
+					"error": {
+						"code": "0x80040265",
+						"message": "ScheduleAPI-AV-0006:{{operationSet40}}: Entity 'msdyn_projectbucket' with id {{unknownBucketId}} referenced in the entity 'msdyn_projecttask' with id {{taskForUnknownBucketId}} does not exist."
+					}
+				},
+				"status": 400,
+				"statusText": "Bad Request"
+			},
+			"scenario": "reject-unknown-bucket · 2: POST msdyn_PssCreateV2"
+		},
+		{
+			"chain": "reject-unknown-bucket",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"OperationSetId": "{{operationSet40}}"
+				},
+				"method": "POST",
+				"path": "msdyn_AbandonOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_AbandonOperationSetV1Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet40}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "reject-unknown-bucket · 3: POST msdyn_AbandonOperationSetV1"
+		},
+		{
+			"chain": "reject-unknown-task",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"Description": "ContextLayer: update a task that is not there",
+					"ProjectId": "{{projectId}}"
+				},
+				"method": "POST",
+				"path": "msdyn_CreateOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_CreateOperationSetV1Response",
+					"OperationSetId": "{{operationSet41}}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "reject-unknown-task · 1: POST msdyn_CreateOperationSetV1"
+		},
+		{
+			"chain": "reject-unknown-task",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"EntityCollection": [
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+							"msdyn_projecttaskid": "{{unknownTaskId}}",
+							"msdyn_subject": "ZZ nowhere"
+						}
+					],
+					"OperationSetId": "{{operationSet41}}"
+				},
+				"method": "POST",
+				"path": "msdyn_PssUpdateV2"
+			},
+			"response": {
+				"body": {
+					"error": {
+						"code": "0x80040265",
+						"message": "ScheduleAPI-OV-0001:{{operationSet41}}: The referenced project with id {{zeroGuid}} in the request does not match the project id {{projectId}} of the operation set."
+					}
+				},
+				"status": 400,
+				"statusText": "Bad Request"
+			},
+			"scenario": "reject-unknown-task · 2: POST msdyn_PssUpdateV2"
+		},
+		{
+			"chain": "reject-unknown-task",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"OperationSetId": "{{operationSet41}}"
+				},
+				"method": "POST",
+				"path": "msdyn_AbandonOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_AbandonOperationSetV1Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet41}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "reject-unknown-task · 3: POST msdyn_AbandonOperationSetV1"
+		},
+		{
+			"chain": "reject-delete-unknown-task",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"Description": "ContextLayer: delete a task that is not there",
+					"ProjectId": "{{projectId}}"
+				},
+				"method": "POST",
+				"path": "msdyn_CreateOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_CreateOperationSetV1Response",
+					"OperationSetId": "{{operationSet42}}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "reject-delete-unknown-task · 1: POST msdyn_CreateOperationSetV1"
+		},
+		{
+			"chain": "reject-delete-unknown-task",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"EntityCollection": [
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+							"msdyn_projecttaskid": "{{unknownTaskId}}"
+						}
+					],
+					"OperationSetId": "{{operationSet42}}"
+				},
+				"method": "POST",
+				"path": "msdyn_PssDeleteV2"
+			},
+			"response": {
+				"body": {
+					"error": {
+						"code": "0x80040265",
+						"message": "ScheduleAPI-OV-0001:{{operationSet42}}: The referenced project with id {{zeroGuid}} in the request does not match the project id {{projectId}} of the operation set."
+					}
+				},
+				"status": 400,
+				"statusText": "Bad Request"
+			},
+			"scenario": "reject-delete-unknown-task · 2: POST msdyn_PssDeleteV2"
+		},
+		{
+			"chain": "reject-delete-unknown-task",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"OperationSetId": "{{operationSet42}}"
+				},
+				"method": "POST",
+				"path": "msdyn_AbandonOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_AbandonOperationSetV1Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet42}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "reject-delete-unknown-task · 3: POST msdyn_AbandonOperationSetV1"
+		},
+		{
+			"chain": "reject-unknown-project",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"Description": "ContextLayer: a set for a project that is not there",
+					"ProjectId": "{{unknownProjectId}}"
+				},
+				"method": "POST",
+				"path": "msdyn_CreateOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"error": {
+						"code": "0x80040217",
+						"message": "Entity 'msdyn_project' With Id = {{unknownProjectId}} Does Not Exist"
+					}
+				},
+				"status": 404,
+				"statusText": "Not Found"
+			},
+			"scenario": "reject-unknown-project · 1: POST msdyn_CreateOperationSetV1"
+		},
+		{
+			"chain": "wait-on-a-set-that-does-not-exist",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{unknownTaskId}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"error": {
+						"code": "0x80040217",
+						"message": "Entity 'msdyn_operationset' With Id = {{unknownTaskId}} Does Not Exist"
+					}
+				},
+				"status": 404,
+				"statusText": "Not Found"
+			},
+			"scenario": "wait-on-a-set-that-does-not-exist · 1: GET msdyn_operationsets({{unknownTaskId}})?$select=msdyn_status,_msdyn_psser"
+		},
+		{
+			"chain": "wait-zero-seconds",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"Description": "ContextLayer: a set glanced at rather than waited on",
+					"ProjectId": "{{projectId}}"
+				},
+				"method": "POST",
+				"path": "msdyn_CreateOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_CreateOperationSetV1Response",
+					"OperationSetId": "{{operationSet43}}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "wait-zero-seconds · 1: POST msdyn_CreateOperationSetV1"
+		},
+		{
+			"chain": "wait-zero-seconds",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"EntityCollection": [
+						{
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+							"msdyn_outlinelevel": 1,
+							"msdyn_project@odata.bind": "/msdyn_projects({{projectId}})",
+							"msdyn_projectbucket@odata.bind": "/msdyn_projectbuckets({{bucketId}})",
+							"msdyn_projecttaskid": "{{glanceTaskId}}",
+							"msdyn_subject": "ZZ cassette glance"
+						}
+					],
+					"OperationSetId": "{{operationSet43}}"
+				},
+				"method": "POST",
+				"path": "msdyn_PssCreateV2"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_PssCreateV2Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet43}}\"},{\"Key\":\"operationType\",\"Value\":\"Create\"},{\"Key\":\"operationSetDetailId\",\"Value\":\"{{guid93}}\"},{\"Key\":\"recordId\",\"Value\":\"{{glanceTaskId}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "wait-zero-seconds · 2: POST msdyn_PssCreateV2"
+		},
+		{
+			"chain": "wait-zero-seconds",
+			"request": {
+				"auth": "delegated",
+				"body": {
+					"OperationSetId": "{{operationSet43}}"
+				},
+				"method": "POST",
+				"path": "msdyn_ExecuteOperationSetV1"
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#Microsoft.Dynamics.CRM.msdyn_ExecuteOperationSetV1Response",
+					"OperationSetResponse": "{\"<OperationSetResponses>k__BackingField\":[{\"Key\":\"operationSetId\",\"Value\":\"{{operationSet43}}\"},{\"Key\":\"correlationId\",\"Value\":\"{{guid94}}\"}]}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "wait-zero-seconds · 3: POST msdyn_ExecuteOperationSetV1"
+		},
+		{
+			"chain": "wait-zero-seconds",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_operationsets({{operationSet43}})?$select=msdyn_status,_msdyn_psserrorlog_value"
+			},
+			"response": {
+				"body": {
+					"_msdyn_psserrorlog_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_operationsets(msdyn_status,_msdyn_psserrorlog_value)/$entity",
+					"msdyn_operationsetid": "{{operationSet43}}",
+					"msdyn_status": 192350001
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "wait-zero-seconds · 4: GET msdyn_operationsets({{operationSet43}})?$select=msdyn_status,_msdyn_psse"
+		}
+	],
+	"note": "Recorded AND normalized in one pass by lib/cassette/record.ts, which DRIVES the production client rather than building requests — so every chain holds exactly the request sequence production emits. Never hand-edit: change the script and re-run. Shapes and SEQUENCES only — no timing. Every poll of an operation set is recorded, at the cadence the product polls at, because the wait tool is itself a poll loop.",
+	"recordedBy": "lib/cassette/record.ts"
+}

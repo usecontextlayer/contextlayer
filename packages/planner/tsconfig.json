@@ -1,0 +1,12 @@
+{
+	"compilerOptions": {
+		"paths": {
+			"@/*": ["./*"]
+		},
+		"types": ["node", "@cloudflare/workers-types"]
+	},
+	"exclude": ["node_modules", "dist", "vitest.config.ts"],
+	"extends": "../../tsconfig.base.json",
+	"include": ["**/*.ts", "package.json"],
+	"references": []
+}

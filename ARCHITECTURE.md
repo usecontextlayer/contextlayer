@@ -1,6 +1,6 @@
 # Architecture
 
-The repository contains ten packages; `@usecontextlayer/cli` and `@usecontextlayer/sdk` are public and the others are private:
+The repository contains eleven packages; `@usecontextlayer/cli` and `@usecontextlayer/sdk` are public and the others are private:
 
 - `cli` — Published as `@usecontextlayer/cli`; Commander-based `ctx` executable, bundled with tsdown; its version comes from its package manifest, and `init` delegates checkout scaffolding to the official `create-cloudflare@latest` React Router scaffold.
 - `sdk` — Public `@usecontextlayer/sdk` integration: shared React Router document Layout, Tools and Databases interfaces and React Router contexts, slate request handling, local auxiliary Worker, and authored MCP tool/View builds through Vite. Subpath exports keep React UI, Vite/Node imports, and Worker runtime imports separate.
@@ -15,6 +15,8 @@ The repository contains ten packages; `@usecontextlayer/cli` and `@usecontextlay
 - `dispatcher` — Cloudflare Worker that resolves public hostnames through the platform API and invokes the WfP Worker named by SlateID.
 
 - `auth` — Worker that owns viewer sign-in on the user-code domain.
+
+- `planner` — Standalone Premium Planner MCP Worker exposing `submit_operation_set` and `wait_for_operation_set` over Streamable HTTP at `/mcp`. Each request supplies the chatting user’s delegated Dataverse bearer token; its `aud` claim supplies the org origin. It requires no runtime configuration. The Schedule API client and operation-set lifecycle retain the recorded service behavior; no ContextLayer app or OAuth authority is involved.
 
 Development authentication uses the authority being exercised. Shared setup signs into running web through Better Auth's native client and cookie helper; the consuming fixture owns that session and signs out during cleanup. The development package owns the shared baseline credential parser. Web's isolated tests may use Better Auth `testUtils()` with the application's auth configuration when authentication is only setup. Connected user and organization creation uses the normal application operations so Polar lifecycle hooks run. CLI OAuth credentials remain owned by the CLI; viewer handoff and slate-scoped OAuth grants retain their actual protocols.
 

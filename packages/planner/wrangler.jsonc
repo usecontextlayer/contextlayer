@@ -1,0 +1,14 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"account_id": "662809b9404bec57077de451f84b26cb",
+	"compatibility_date": "2026-10-02",
+	"compatibility_flags": ["nodejs_compat"],
+	"main": "index.ts",
+	"name": "contextlayer-planner",
+	"observability": {
+		"enabled": true
+	},
+	"secrets": {
+		"required": []
+	}
+}
