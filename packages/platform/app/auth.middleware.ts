@@ -83,21 +83,20 @@ async function getRequestIdentity(
 	return user && credential ? { credential, user } : null
 }
 
-function createIdentifyUser({ viewerCookie = false } = {}) {
-	return createMiddleware<IdentityEnv>(async (c, next) => {
-		c.set("identity", await getRequestIdentity(c, { viewerCookie }))
-		await next()
-	})
-}
+export const identifyUser = createMiddleware<IdentityEnv>(async (c, next) => {
+	c.set("identity", await getRequestIdentity(c, { viewerCookie: false }))
+	await next()
+})
 
-export const identifyUser = createIdentifyUser()
-export const identifyViewer = createIdentifyUser({ viewerCookie: true })
+export function identifyViewer(c: Context<IdentityEnv>) {
+	return getRequestIdentity(c, { viewerCookie: true })
+}
 
 export async function getAppViewerIdentity(
 	c: Context<IdentityEnv>,
 	input: z.infer<typeof resolveAppQuerySchema>,
 ) {
-	if (input.pathname !== "/mcp") return getRequestIdentity(c, { viewerCookie: true })
+	if (input.pathname !== "/mcp") return identifyViewer(c)
 	const user = await authenticateMcpRequest(
 		c.req.raw,
 		input.hostname,

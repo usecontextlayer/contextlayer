@@ -201,7 +201,7 @@ test("app ownership protects viewing, joining, listing, and native Git source ac
 	expect((await fetch(visibilityUrl, visibilityRequest)).status).toBe(403)
 	expect((await fetch(connectionList, listRequest)).status).toBe(403)
 	expect((await fetch(agentUrl, { headers })).status).toBe(403)
-	for (const operation of ["connections/assign", "tools/call", "join"]) {
+	for (const operation of ["connections/assign", "join"]) {
 		expect(
 			(
 				await fetch(`${origin}/api/apps/${app.id}/${operation}`, {

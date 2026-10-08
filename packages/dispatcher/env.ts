@@ -1,3 +1,4 @@
+import type { HostedExecution } from "@usecontextlayer/shared/tools-worker"
 import { z } from "zod"
 
 export interface Bindings {
@@ -6,6 +7,7 @@ export interface Bindings {
 	CTX_PLATFORM_URL: string
 	CTX_VIEWER_AUTH_URL?: string
 	APPS: DispatchNamespace
+	EXECUTION: HostedExecution
 }
 
 export function parseEnv(bindings: Bindings) {

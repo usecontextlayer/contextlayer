@@ -10,6 +10,7 @@ import { toNodeHandler } from "better-auth/node"
 import { bearer, jwt } from "better-auth/plugins"
 import { afterAll, beforeAll, expect, test } from "vitest"
 import { createTestHarness } from "wrangler"
+import { z } from "zod"
 import { createPlatformDb } from "@/database"
 import { migrateToLatest } from "@/database/migrate"
 import { parsePlatformEnv } from "@/env"
@@ -112,20 +113,10 @@ afterAll(async () => {
 	await databases?.dropAll()
 })
 
-test("viewer cookies authenticate runtime requests but not management APIs", async () => {
+test("viewer cookies authenticate app resolution but not management APIs", async () => {
 	const resolve = `${origin}/api/apps/resolve?hostname=${app.public_hostname}&pathname=/slate.json`
 	expect((await fetch(resolve)).status).toBe(401)
 	expect((await fetch(resolve, { headers: { cookie: viewerCookie } })).status).toBe(200)
-	// The runtime token passes identity and private viewing before the subscription gate.
-	expect(
-		(
-			await fetch(`${origin}/api/apps/${app.id}/tools/call`, {
-				headers: { cookie: viewerCookie, origin },
-				method: "POST",
-			})
-		).status,
-	).toBe(402)
-
 	const owner = `user/${userId}`
 	for (const [method, path] of [
 		["GET", "/apps"],
@@ -147,6 +138,30 @@ test("viewer cookies authenticate runtime requests but not management APIs", asy
 			method,
 		})
 		expect(response.status, `${method} ${path}`).toBe(401)
+	}
+})
+
+test("hosted execution routes are absent from OpenAPI and reject HTTP calls", async () => {
+	const schema = z
+		.object({ paths: z.record(z.string(), z.unknown()) })
+		.parse(await (await fetch(`${origin}/api/openapi.json`)).json())
+	expect(schema.paths).not.toHaveProperty("/apps/{target}/tools/call")
+	expect(schema.paths).not.toHaveProperty("/apps/{target}/databases/query")
+	for (const [headers, expected] of [
+		[new Headers({ cookie: viewerCookie, origin }), 401],
+		[new Headers({ cookie: nativeCookie, origin }), 404],
+		[new Headers({ authorization: `Bearer ${token}` }), 404],
+	] as const) {
+		for (const operation of ["tools/call", "databases/query"]) {
+			expect(
+				(
+					await fetch(`${origin}/api/apps/${app.id}/${operation}`, {
+						headers,
+						method: "POST",
+					})
+				).status,
+			).toBe(expected)
+		}
 	}
 })
 

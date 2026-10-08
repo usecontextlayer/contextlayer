@@ -16,6 +16,13 @@
 			],
 			"routes": [],
 			"secrets": { "required": ["POLAR_ACCESS_TOKEN", "POLAR_ENVIRONMENT"] },
+			"services": [
+				{
+					"binding": "EXECUTION",
+					"entrypoint": "Execution",
+					"service": "contextlayer-platform-test"
+				}
+			],
 			"vars": { "CTX_PLATFORM_URL": "http://127.0.0.1:3010" }
 		}
 	},
@@ -31,6 +38,13 @@
 		}
 	],
 	"secrets": { "required": ["POLAR_ACCESS_TOKEN", "POLAR_ENVIRONMENT"] },
+	"services": [
+		{
+			"binding": "EXECUTION",
+			"entrypoint": "Execution",
+			"service": "contextlayer-platform"
+		}
+	],
 	"vars": {
 		"CTX_PLATFORM_URL": "https://slate.usecontextlayer.com"
 	},

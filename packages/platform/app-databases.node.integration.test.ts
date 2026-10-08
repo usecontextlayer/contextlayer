@@ -352,19 +352,4 @@ test("join and publication provision only members' declared app and agent databa
 		expect(schedules[0]?.payload.prompt).toContain("refreshed scheduled document")
 		await PUBLICATION.publish(app.id)
 	}
-	const result = await fetch(
-		`${origin}/api/apps/${joinedBeforePublication.id}/databases/query`,
-		post({
-			params: ["email"],
-			slug: "reports",
-			sql: "SELECT body FROM updates WHERE kind = ?",
-		}),
-	)
-	expect(result.status).toBe(200)
-	expect(await result.json()).toMatchObject({ rows: [["persisted"]] })
-	const undeclared = await fetch(
-		`${origin}/api/apps/${joinedBeforePublication.id}/databases/query`,
-		post({ slug: "inbox", sql: "SELECT * FROM updates" }),
-	)
-	expect(undeclared.status).toBe(404)
 }, 120_000)

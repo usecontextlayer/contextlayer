@@ -21,6 +21,7 @@ import { createGitApp } from "@/git.server"
 
 export { AppDatabase } from "@usecontextlayer/shared/database-worker"
 export { AppAgent } from "@/agent-runtime"
+export { Execution } from "@/execution.server"
 export { Publication } from "@/publication.server"
 
 const publicDashboardPaths = ["/dashboard/chrome/apps/*", "/dashboard/__manifest"]

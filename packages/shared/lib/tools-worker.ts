@@ -1,6 +1,21 @@
 import { WorkerEntrypoint } from "cloudflare:workers"
+import type { z } from "zod"
 import type { LocalResourceConfiguration } from "@/lib/app-resources"
+import type { databaseQuerySchema } from "@/lib/databases"
 import { toolResultSchema } from "@/lib/tools"
+
+export interface HostedExecution {
+	callTool(
+		appId: string,
+		viewerSessionToken: string,
+		call: { slug: string; tool: string; arguments: Record<string, unknown> },
+	): Promise<Response>
+	queryDatabase(
+		appId: string,
+		viewerSessionToken: string,
+		query: z.input<typeof databaseQuerySchema>,
+	): Promise<Response>
+}
 
 export interface ToolsProps {
 	appId: string
@@ -13,17 +28,14 @@ export interface LocalToolsProps {
 	credential: { token: string; type: "access-token" }
 }
 
-export class Tools extends WorkerEntrypoint<{ CTX_PLATFORM_URL: string }, ToolsProps> {
+export class Tools extends WorkerEntrypoint<{ EXECUTION: HostedExecution }, ToolsProps> {
 	async call(slug: string, toolSlug: string, args: Record<string, unknown>) {
 		const { appId, credential } = this.ctx.props
-		return executeToolRequest(
-			new Request(new URL(`/api/apps/${appId}/tools/call`, this.env.CTX_PLATFORM_URL), {
-				body: JSON.stringify({ arguments: args, slug, tool: toolSlug }),
-				headers: {
-					"content-type": "application/json",
-					cookie: `ctx-viewer-auth=${credential.token}`,
-				},
-				method: "POST",
+		return readToolResponse(
+			await this.env.EXECUTION.callTool(appId, credential.token, {
+				arguments: args,
+				slug,
+				tool: toolSlug,
 			}),
 		)
 	}
@@ -42,32 +54,33 @@ export class LocalTools extends WorkerEntrypoint<
 				`No local account assigned to "${slug}". Run ctx connection local assign ${slug}.`,
 			)
 		}
-		return executeToolRequest(
-			new Request(
-				new URL(
-					`/api/connections/${encodeURIComponent(connection.connection_id)}/tools/call`,
-					this.env.CTX_PLATFORM_URL,
-				),
-				{
-					body: JSON.stringify({
-						app_id: appId,
-						arguments: args,
-						tool: toolSlug,
-						toolkit: connection.toolkit,
-					}),
-					headers: {
-						authorization: `Bearer ${credential.token}`,
-						"content-type": "application/json",
+		return readToolResponse(
+			await fetch(
+				new Request(
+					new URL(
+						`/api/connections/${encodeURIComponent(connection.connection_id)}/tools/call`,
+						this.env.CTX_PLATFORM_URL,
+					),
+					{
+						body: JSON.stringify({
+							app_id: appId,
+							arguments: args,
+							tool: toolSlug,
+							toolkit: connection.toolkit,
+						}),
+						headers: {
+							authorization: `Bearer ${credential.token}`,
+							"content-type": "application/json",
+						},
+						method: "POST",
 					},
-					method: "POST",
-				},
+				),
 			),
 		)
 	}
 }
 
-async function executeToolRequest(request: Request) {
-	const response = await fetch(request)
+async function readToolResponse(response: Response) {
 	if (!response.ok) throw new Error(`Tool call failed: HTTP ${response.status}`)
 	const result = toolResultSchema.parse(await response.json())
 	if (result.error !== null) throw new Error(`${result.error} (log: ${result.logId})`)

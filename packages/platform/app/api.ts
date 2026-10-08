@@ -1,10 +1,6 @@
 import { createRoute, OpenAPIHono, type RouteConfig, z } from "@hono/zod-openapi"
 import { createPolarCore, webhooks } from "@polar-sh/sdk/2026-10"
 import { recordAppUsage, resolvedAppSchema } from "@usecontextlayer/shared/app-usage"
-import {
-	databaseQuerySchema,
-	databaseResultSchema,
-} from "@usecontextlayer/shared/databases"
 import { isAPIError } from "better-auth/api"
 import {
 	agentJobParamsSchema,
@@ -21,7 +17,6 @@ import {
 	assignmentSchema,
 } from "@/app-connections.schema"
 import { assignAppConnection } from "@/app-connections.server"
-import { queryAppDatabase } from "@/app-databases.server"
 import { appMemberSchema } from "@/app-members.schema"
 import { joinApp } from "@/app-members.server"
 import { appResourcesRequestSchema, appResourcesSchema } from "@/app-resources.schema"
@@ -58,13 +53,11 @@ import {
 	getAppViewerIdentity,
 	type IdentityEnv,
 	identifyUser,
-	identifyViewer,
 	type NativeAuthenticatedEnv,
 	requireAuth,
 	requireCsrf,
 } from "@/auth.middleware"
 import type { AuthIdentity } from "@/auth.server"
-import { requireAppSubscription } from "@/billing.middleware"
 import { checkAppSubscription, saveCustomerState } from "@/billing.server"
 import {
 	authorizeConnectionSchema,
@@ -89,10 +82,9 @@ import { dropSharedSecret, setSharedSecret } from "@/secrets.server"
 import {
 	connectionToolCallSchema,
 	connectionToolParamsSchema,
-	toolCallSchema,
 	toolResultSchema,
 } from "@/tools.schema"
-import { callConnectionTool, callTool } from "@/tools.server"
+import { callConnectionTool } from "@/tools.server"
 
 const security: NonNullable<RouteConfig["security"]> = [
 	{ bearerAuth: [] },
@@ -222,111 +214,6 @@ export function createApi() {
 			)
 		},
 	)
-	const tools = new OpenAPIHono<AuthenticatedViewingEnv>()
-	tools.use(
-		"*",
-		identifyViewer,
-		requireCsrf,
-		requireAuth,
-		requireAppViewing,
-		requireAppSubscription,
-	)
-	tools.openapi(
-		createRoute({
-			method: "post",
-			operationId: "callTool",
-			path: "/call",
-			request: {
-				body: {
-					content: { "application/json": { schema: toolCallSchema } },
-					required: true,
-				},
-				params: z.object({ target: appTargetSchema }),
-			},
-			responses: {
-				200: {
-					content: { "application/json": { schema: toolResultSchema } },
-					description: "Composio tool result, error, and log ID",
-				},
-				400: { description: "Invalid tool call" },
-				401: {
-					description: "A valid ContextLayer access token or viewer session is required",
-				},
-				402: { description: "The app owner needs an active subscription" },
-				403: {
-					description: "App viewing is forbidden",
-				},
-				404: { description: "App or connection assignment not found" },
-			},
-			security: [...security, { viewerCookie: [] }],
-		}),
-		async (c) => {
-			const result = await callTool(
-				c.var.db,
-				c.var.config.COMPOSIO_API_KEY,
-				c.var.appAccess,
-				c.req.valid("json"),
-				c.env.ARTIFACTS,
-			)
-			if (!result.allowed) return c.body(null, 404)
-			const polar = createPolarCore({
-				accessToken: c.var.config.POLAR_ACCESS_TOKEN,
-				environment: c.var.config.POLAR_ENVIRONMENT,
-			})
-			const app = c.var.appAccess.app
-			c.executionCtx.waitUntil(
-				recordAppUsage(polar, { id: app.id, owner: getAppOwner(app) }, "tool_call"),
-			)
-			return c.json(result.result, 200)
-		},
-	)
-	api.route("/apps/:target/tools", tools)
-	const databases = new OpenAPIHono<AuthenticatedViewingEnv>()
-	databases.use(
-		"*",
-		identifyViewer,
-		requireCsrf,
-		requireAuth,
-		requireAppViewing,
-		requireAppSubscription,
-	)
-	databases.openapi(
-		createRoute({
-			method: "post",
-			operationId: "queryAppDatabase",
-			path: "/query",
-			request: {
-				body: {
-					content: { "application/json": { schema: databaseQuerySchema } },
-					required: true,
-				},
-				params: z.object({ target: appTargetSchema }),
-			},
-			responses: {
-				200: {
-					content: { "application/json": { schema: databaseResultSchema } },
-					description: "SQL result from the app's declared database",
-				},
-				400: { description: "Invalid SQL query" },
-				401: { description: "Sign-in is required" },
-				402: { description: "The app owner needs an active subscription" },
-				403: { description: "App viewing is forbidden" },
-				404: { description: "App or declared database not found" },
-			},
-			security: [...security, { viewerCookie: [] }],
-		}),
-		async (c) => {
-			const result = await queryAppDatabase(
-				c.env.ARTIFACTS,
-				c.env.DATABASES,
-				c.var.appAccess,
-				c.req.valid("json"),
-			)
-			if (!result.allowed) return c.body(null, 404)
-			return c.json(result.result, 200)
-		},
-	)
-	api.route("/apps/:target/databases", databases)
 	api.use("*", identifyUser, requireCsrf)
 	const catalog = new OpenAPIHono<AuthenticatedEnv>()
 	catalog.use("*", requireAuth)

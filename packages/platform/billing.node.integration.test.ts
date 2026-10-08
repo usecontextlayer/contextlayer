@@ -103,8 +103,8 @@ test("owner subscriptions gate execution while declaration access stays availabl
 		expect(
 			(
 				await request(
-					`/api/apps/${app.id}/tools/call`,
-					post({ arguments: {}, slug: "unassigned", tool: "EXAMPLE" }),
+					`/api/connections/ca_example/tools/call`,
+					post({ app_id: app.id, arguments: {}, tool: "EXAMPLE", toolkit: "gmail" }),
 				)
 			).status,
 		).toBe(402)

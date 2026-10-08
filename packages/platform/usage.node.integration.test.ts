@@ -19,13 +19,10 @@ import type { PlatformEnv } from "@/context"
 import { createPlatformDb } from "@/database"
 import { migrateToLatest } from "@/database/migrate"
 import { parsePlatformEnv } from "@/env"
-import { toolResultSchema } from "@/tools.schema"
 
 const execFile = promisify(execFileCallback)
 const configSchema = z.object({
 	CTX_TEST_ACCESS_TOKEN: z.string().min(1),
-	CTX_TEST_CONNECTION_EMAIL: z.email(),
-	CTX_TEST_CONNECTION_ID: z.string().min(1),
 	CTX_TEST_ORGANIZATION_ID: z.string().min(1),
 	CTX_TEST_ORGANIZATION_SLUG: z.string().min(1),
 	CTX_TEST_POLAR_ORGANIZATION_SUBSCRIPTION_ID: z.uuid(),
@@ -141,7 +138,7 @@ afterAll(async () => {
 	}
 })
 
-test("real dispatch and connected-account execution report exact app-owner usage", async () => {
+test("real dispatch reports exact app-owner usage", async () => {
 	const post = (body: unknown) => ({
 		body: JSON.stringify(body),
 		headers: { ...headers, "content-type": "application/json" },
@@ -162,7 +159,7 @@ test("real dispatch and connected-account execution report exact app-owner usage
 		expect(app.owner_user_id ?? app.owner_organization_id).toBe(ownerId)
 		const appDir = join(dir, app.id)
 		await mkdir(join(appDir, "public"), { recursive: true })
-		const slate = { connections: { mail: { mode: "viewer", toolkit: "gmail" } } }
+		const slate = { connections: {} }
 		await writeFile(join(appDir, "public/slate.json"), JSON.stringify(slate))
 		await writeFile(
 			join(appDir, "index.js"),
@@ -220,14 +217,6 @@ test("real dispatch and connected-account execution report exact app-owner usage
 			{ cwd: appDir },
 		)
 		deployed.push(app.id)
-		const assigned = await fetch(
-			`${origin}/api/apps/${app.id}/connections/assign`,
-			post({
-				connection_id: config.CTX_TEST_CONNECTION_ID,
-				slug: "mail",
-			}),
-		)
-		expect(assigned.status).toBe(200)
 		for (const method of ["GET", "POST"]) {
 			const response = await dispatcher
 				.getWorker()
@@ -243,19 +232,6 @@ test("real dispatch and connected-account execution report exact app-owner usage
 				method,
 			})
 		}
-		const execution = await fetch(
-			`${origin}/api/apps/${app.id}/tools/call`,
-			post({
-				arguments: { user_id: "me" },
-				slug: "mail",
-				tool: "GMAIL_GET_PROFILE",
-			}),
-		)
-		expect(execution.status).toBe(200)
-		const result = toolResultSchema.parse(await execution.json())
-		expect(result.error).toBeNull()
-		expect(result.logId.length).toBeGreaterThan(0)
-		expect(result.data).toMatchObject({ emailAddress: config.CTX_TEST_CONNECTION_EMAIL })
 		await expect
 			.poll(
 				async () => {
@@ -273,7 +249,6 @@ test("real dispatch and connected-account execution report exact app-owner usage
 			.toEqual([
 				{ clips: 3, name: "action_call" },
 				{ clips: 1, name: "loader_call" },
-				{ clips: 1, name: "tool_call" },
 			])
 	}
 }, 660_000)
