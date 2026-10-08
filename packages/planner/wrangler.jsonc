@@ -9,6 +9,11 @@
 		"enabled": true
 	},
 	"secrets": {
-		"required": []
+		"required": [
+			"CTX_ENTRA_CLIENT_ID",
+			"CTX_ENTRA_CLIENT_SECRET",
+			"CTX_ENTRA_TENANT",
+			"CTX_DATAVERSE_ORG_URL"
+		]
 	}
 }

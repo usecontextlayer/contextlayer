@@ -44,7 +44,7 @@ import { randomUUID } from "node:crypto"
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { fileURLToPath, URL } from "node:url"
 import { z } from "zod"
-import { env } from "@/env"
+import { parseRecorderEnv } from "@/env"
 import {
 	BoardGuardViolation,
 	createBoardGuard,
@@ -91,7 +91,7 @@ import {
 	updateProjectTask,
 } from "@/lib/schedule-api"
 
-const TOKEN_FILE = env.DV_TOKEN_FILE
+const TOKEN_FILE = parseRecorderEnv().DV_TOKEN_FILE
 // Kept outside this live recorder so the guard can be tested without importing code
 // that contacts the customer organisation.
 const boardGuard = createBoardGuard()

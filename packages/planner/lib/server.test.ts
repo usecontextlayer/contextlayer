@@ -10,7 +10,7 @@
 // on evidence that does not exist.
 //
 // The caller's token carries the replay org's origin in `aud`, so the server routes
-// itself — no configuration anywhere, which is also the production contract.
+// itself — no tool configuration, which is also the production MCP contract.
 
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client"
 import { UnsecuredJWT } from "jose"

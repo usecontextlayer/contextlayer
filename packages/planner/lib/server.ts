@@ -2,7 +2,8 @@
 // Cloudflare Worker. Standard MCP over HTTP: the CHATTING
 // USER's delegated Dataverse token arrives per request in `Authorization`, and
 // everything else derives from it — the org URL comes off the token's `aud` claim,
-// so this server takes no configuration at all.
+// so the tools need no org or credential configuration. The Worker's OAuth routes
+// have their own deployment configuration in `env.ts`.
 //
 // THE EDGE, and only the edge. What lives here is what MCP makes us care about: the
 // advertised schemas, the descriptions a model reads, the mapping from tool
