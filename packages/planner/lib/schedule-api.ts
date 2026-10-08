@@ -1,6 +1,6 @@
-// The wire boundary for the Project Schedule APIs — the ONLY write path Microsoft
-// allows into Project-for-the-web's scheduling entities (direct Dataverse CRUD on
-// them is rejected).
+// The Dataverse wire boundary for project reads and the Project Schedule APIs.
+// The Schedule APIs are the ONLY write path Microsoft allows into
+// Project-for-the-web's scheduling entities (direct Dataverse CRUD is rejected).
 //
 // EVERYTHING DATAVERSE-SHAPED STOPS HERE. Above this file the vocabulary is domain:
 // a status is a name, a write is a verb carrying its entity, a failed set carries
@@ -176,7 +176,15 @@ const createOperationSetResponseSchema = z.object({
 	OperationSetId: z.string().min(1),
 })
 
-// The one column list this package reads. A compile-time constant because it is
+const projectsResponseSchema = z.object({
+	value: z.array(
+		z
+			.object({ msdyn_projectid: z.string(), msdyn_subject: z.string() })
+			.transform((row) => ({ id: row.msdyn_projectid, name: row.msdyn_subject })),
+	),
+})
+
+// The column list for operation-set reads. A compile-time constant because it is
 // load-bearing: Dataverse refuses an unknown `$select` column with a 400, so a
 // Microsoft rename breaks the poll loudly instead of quietly returning a row with
 // the error-log reference missing.
@@ -217,7 +225,7 @@ function taskColumns(fields: {
  *
  * `outlineLevel` is the caller's to state rather than ours to default. A subtask sits
  * one level below its parent, and this file cannot learn a parent's level without a
- * read it has no business making; the agent has that column in the synced tables.
+ * read it has no business making; the caller supplies the parent's outline level.
  */
 export function createProjectTask(fields: {
 	bucketId: string
@@ -404,6 +412,7 @@ export function deleteRecord(fields: { id: string; kind: RecordKind }): StagedWr
 // ------------------------------------------------------------------- client
 
 export type ScheduleApiClient = {
+	listProjects: () => Promise<z.output<typeof projectsResponseSchema>["value"]>
 	createOperationSet: (input: {
 		description: string
 		projectId: string
@@ -462,7 +471,7 @@ export function createScheduleApiClient(config: {
 	accessToken: string
 }): ScheduleApiClient {
 	// The one hop against the org: the auth header and the loud non-2xx throw.
-	// Private — callers reach it through `action` or `readRecord`, which is what keeps
+	// Private — callers reach it through `action` or `read`, which is what keeps
 	// "an action with no body" and "a read with one" from being expressible.
 	async function hop(
 		path: string,
@@ -538,8 +547,8 @@ export function createScheduleApiClient(config: {
 		return schema === undefined ? undefined : parseResponse(name, raw, schema)
 	}
 
-	/** A Dataverse record read: bare GET, and the row is always a contract. */
-	async function readRecord<Schema extends z.ZodType>(
+	/** A Dataverse read: bare GET, and the response is always a contract. */
+	async function read<Schema extends z.ZodType>(
 		path: string,
 		schema: Schema,
 	): Promise<z.output<Schema>> {
@@ -560,16 +569,20 @@ export function createScheduleApiClient(config: {
 		executeOperationSet: (operationSetId) =>
 			action("msdyn_ExecuteOperationSetV1", { OperationSetId: operationSetId }),
 		getOperationSet: (operationSetId) =>
-			readRecord(
-				`msdyn_operationsets(${operationSetId})${SET_COLUMNS}`,
-				operationSetRowSchema,
-			),
+			read(`msdyn_operationsets(${operationSetId})${SET_COLUMNS}`, operationSetRowSchema),
 		getPssErrorLog: async (errorLogId) => {
-			const row = await readRecord(
+			const row = await read(
 				`msdyn_psserrorlogs(${errorLogId})?$select=msdyn_log,msdyn_errorcode`,
 				pssErrorLogRowSchema,
 			)
 			return { errorCode: row.msdyn_errorcode ?? "", log: row.msdyn_log ?? "" }
+		},
+		listProjects: async () => {
+			const response = await read(
+				"msdyn_projects?$select=msdyn_projectid,msdyn_subject",
+				projectsResponseSchema,
+			)
+			return response.value
 		},
 		stage: (input) =>
 			action(STAGE_ACTION[input.verb], {

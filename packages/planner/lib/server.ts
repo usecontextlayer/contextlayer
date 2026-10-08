@@ -1,4 +1,4 @@
-// The Premium Planner (Project-for-the-web) write-side MCP server running as a
+// The Premium Planner (Project-for-the-web) MCP server running as a
 // Cloudflare Worker. Standard MCP over HTTP: the CHATTING
 // USER's delegated Dataverse token arrives per request in `Authorization`, and
 // everything else derives from it — the org URL comes off the token's `aud` claim,
@@ -13,9 +13,9 @@
 // stay separate because execution is asynchronous; the OperationSet stays visible
 // because it is the transaction and quota unit.
 //
-// A dumb wrapper on purpose: arguments carry GUIDs verbatim (the agent reads them
-// from the synced msdyn_* tables) plus the human-readable labels the permission
-// prompt shows. No name→id resolution, no lookup reads. The ONE exception is deliberate
+// A dumb wrapper on purpose: write arguments carry Dataverse GUIDs verbatim plus
+// the human-readable labels the permission prompt shows. `list_projects` supplies
+// the project pairs; writes do no name→id resolution or lookup reads. The ONE exception is deliberate
 // and local — a record created in this same submission has no GUID for the caller to
 // know, so it is addressed by a submission-local `ref` that this file mints an id
 // for. That is not a lookup: nothing is read, and the ids come back in the receipt.
@@ -67,7 +67,7 @@ const MAX_OPERATIONS = 200
  */
 const existing = (what: string, idColumn: string) =>
 	z.strictObject({
-		id: z.guid().describe(`${what} GUID from the synced Postgres tables (${idColumn})`),
+		id: z.guid().describe(`${what} Dataverse GUID (${idColumn})`),
 		name: z.string().min(1).describe(`${what} name, for the human approving this action`),
 	})
 
@@ -119,7 +119,7 @@ const taskCreate = z.strictObject({
 		.min(1)
 		.default(1)
 		.describe(
-			"1 for a top-level task. A subtask is its parent's level plus one — read the parent's msdyn_outlinelevel from the synced tables.",
+			"1 for a top-level task. A subtask is its parent's level plus one — use the parent's Dataverse msdyn_outlinelevel.",
 		),
 	parent_task: taskRef().optional().describe("Makes this a subtask of that task"),
 	priority: z.number().int().min(0).max(10).optional().describe("0-10; 5 is the default"),
@@ -521,12 +521,26 @@ export function createMcpServer(): McpServer {
 	})
 
 	server.registerTool(
+		"list_projects",
+		{
+			annotations: { readOnlyHint: true },
+			description:
+				"List the organization's Premium Planner projects visible to the chatting user. Returns projects as { id, name } pairs; pass the chosen pair as project to submit_operation_set. This tool only reads Dataverse.",
+			inputSchema: z.strictObject({}),
+		},
+		async (_input, extra) => {
+			const projects = await scheduleApiFromRequest(extra.http?.req).listProjects()
+			return toolResult({ projects })
+		},
+	)
+
+	server.registerTool(
 		"submit_operation_set",
 		{
 			description: [
 				"Change a Premium Planner (Project for the web) board. One call is one OPERATION SET — the scheduling service's own unit of work: a transaction over many operations, all against ONE project, applied together or not at all.",
 				"Put everything one intent needs into a single call. Creating a bucket and the tasks that go in it, or renaming a task and setting its dates and assigning it, is one set and one approval — not several. A task can go into a bucket created in the SAME call by giving that bucket a `ref` and naming it.",
-				"Read every id from the synced msdyn_* tables; each id travels with the matching name, which the human sees in the approval arguments. `description` is yours to write, so summarize the set in that human's words.",
+				"Use list_projects to get the project pair. Supply each other record's Dataverse id with its matching name, which the human sees in the approval arguments. `description` is yours to write, so summarize the set in that human's words.",
 				"Changing a task's dates can move OTHER tasks: tasks are auto-scheduled, so a task that has dependents drags them along, and the set reports only that it completed.",
 				"Returns an operation_set_id — a RECEIPT, not a confirmation: the set has been accepted, not applied. Pass it to wait_for_operation_set to learn whether it landed.",
 			].join(" "),
@@ -558,7 +572,7 @@ export function createMcpServer(): McpServer {
 				"Find out what became of a submitted set. Takes the operation_set_id returned by submit_operation_set and reads it once. While the status is executing, it polls until the set becomes terminal or the window closes; any other status returns immediately. Reports the scheduling service's own status: completed, failed (with its reason), executing, open, or abandoned. Note that 'completed' means the service applied the set without error — it is not a promise that a field holds the value you sent.",
 			inputSchema: z.strictObject({
 				// A receipt this server minted and handed over, NOT an id read out of a
-				// synced table — so unlike the references above, its lexical shape is
+				// Dataverse row — so unlike the references above, its lexical shape is
 				// Dataverse's business and not ours to assert.
 				operation_set_id: z
 					.string()

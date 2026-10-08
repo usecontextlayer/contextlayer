@@ -138,16 +138,33 @@ afterEach(async () => {
 })
 
 describe("the advertised surface", () => {
-	it("exposes exactly two tools over the operation-set model", async () => {
-		// The set is the unit of work upstream, so the surface is submit-and-wait. A
-		// third tool would break the OperationSet-shaped surface.
+	it("exposes project discovery alongside submit and wait", async () => {
 		const client = await connect()
 		const tools = await client.listTools()
 		await client.close()
 		expect(tools.tools.map((tool) => tool.name).sort()).toEqual([
+			"list_projects",
 			"submit_operation_set",
 			"wait_for_operation_set",
 		])
+	})
+
+	it("advertises list_projects as a read-only tool with no arguments", async () => {
+		// No project-list response has been recorded yet. Discovery is the server's
+		// contract; a Dataverse round trip must wait for the real recording.
+		const client = await connect()
+		const { tools } = await client.listTools()
+		await client.close()
+
+		const list = tools.find((tool) => tool.name === "list_projects")
+		expect(list?.annotations?.readOnlyHint).toBe(true)
+		expect(list?.inputSchema).toMatchObject({
+			additionalProperties: false,
+			type: "object",
+		})
+		expect(list?.inputSchema.properties).toEqual({})
+		expect(org.calls).toEqual([])
+		expect(org.reads).toEqual([])
 	})
 
 	it("advertises the wait-window bounds", async () => {

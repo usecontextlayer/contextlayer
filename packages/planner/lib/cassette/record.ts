@@ -517,10 +517,9 @@ function unmodelledWrite(
  * is recomputed. Both settle `completed`, so a chain that sends one records a set that
  * worked and says nothing about the value that was actually stored.
  *
- * This server makes no reads — a read keyed by a caller-supplied id could never match
- * a recording that holds a placeholder, which is the structural reason there are no
- * lookups. So the read that WOULD show the difference is one production must never
- * make, and recording it would put a request in the fixture that no code can reach.
+ * The write tools do not read task fields back. Recording that peek would put a
+ * request in the fixture that those tools cannot reach. The project-list tool's
+ * read is captured separately through the production client.
  *
  * The honest split: the chain records what production sends, and this prints what the
  * board actually holds, into the run's own output. The finding lands in the plan
@@ -777,6 +776,10 @@ async function preflight(): Promise<void> {
 }
 
 async function main(): Promise<void> {
+	await record("list-projects", async (client) => {
+		await client.listProjects()
+	})
+
 	// ---- the shapes a create can take ---------------------------------------
 	const plainTask = mint("plainTaskId")
 	await record("create-task", async (client) => {
