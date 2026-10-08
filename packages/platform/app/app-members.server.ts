@@ -5,6 +5,26 @@ import type { PlatformEnv } from "@/context"
 import type { PlatformDb } from "@/database"
 import type { AppId } from "@/database/models/public/App"
 
+export type AppActor =
+	| { type: "app" }
+	| { type: "viewer"; id: string }
+	| { type: "member"; id: string }
+
+export async function getAppActor(
+	db: PlatformDb,
+	appId: AppId,
+	user: { id: string } | null,
+): Promise<AppActor> {
+	if (!user) return { type: "app" }
+	const member = await db
+		.selectFrom("app_member")
+		.select("user_id")
+		.where("app_id", "=", appId)
+		.where("user_id", "=", appMemberSchema.shape.user_id.parse(user.id))
+		.executeTakeFirst()
+	return { id: user.id, type: member ? "member" : "viewer" }
+}
+
 export async function joinApp(
 	db: PlatformDb,
 	artifacts: Artifacts,

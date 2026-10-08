@@ -1,4 +1,4 @@
-import type { Resources } from "@usecontextlayer/shared/slate"
+import { hasViewerResources, type Resources } from "@usecontextlayer/shared/slate"
 import type { AgentActor } from "@/agents.schema"
 import type { AppId } from "@/database/models/public/App"
 
@@ -12,9 +12,5 @@ export function getAgentInstanceName(appId: AppId, name: string, actor: AgentAct
 }
 
 export function getAgentUnattendedScope(resources: Resources) {
-	return Object.values(resources).some((requirements) =>
-		Object.values(requirements).some(({ mode }) => mode === "viewer"),
-	)
-		? "member"
-		: "app"
+	return hasViewerResources(resources) ? "member" : "app"
 }

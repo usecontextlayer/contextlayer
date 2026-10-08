@@ -664,7 +664,10 @@ export function createApi() {
 				},
 				400: { description: "Invalid app target, agent name, or prompt" },
 				401: { description: "A valid ContextLayer login is required" },
-				403: { description: "App viewing is forbidden or the app is public" },
+				403: {
+					description:
+						"App viewing is forbidden, the app is public, or viewer resources require membership",
+				},
 				404: { description: "App or published agent not found" },
 			},
 			security,
@@ -677,7 +680,8 @@ export function createApi() {
 				c.var.appAccess,
 				{ ...c.req.valid("json"), name: c.req.valid("param").name },
 			)
-			if (!result.allowed) return c.body(null, 404)
+			if (!result.allowed)
+				return c.body(null, result.reason === "membership-required" ? 403 : 404)
 			return c.json(result.job, 202)
 		},
 	)

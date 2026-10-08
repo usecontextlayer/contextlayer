@@ -1,16 +1,24 @@
 import type { AppResourceConfiguration } from "@usecontextlayer/shared/app-resources"
 import {
 	type CredentialMode,
+	hasViewerResources,
 	type Resources,
 	resourcesForConsumer,
 } from "@usecontextlayer/shared/slate"
 import { getAppConnectionAssignments } from "@/app-connections.server"
 import { readAppDeclarations } from "@/app-declarations.server"
+import { type AppActor, getAppActor } from "@/app-members.server"
 import type { App } from "@/apps.schema"
 import type { AppAccess } from "@/apps.server"
 import type { PlatformDb } from "@/database"
 import type { AppConnectionAssignmentSlug } from "@/database/models/public/AppConnectionAssignment"
 import { getAppOwner, getCredentialOwner } from "@/owner"
+
+export function resolveAppResourceActor(actor: AppActor, resources: Resources) {
+	if (actor.type !== "member" && hasViewerResources(resources))
+		return { allowed: false, reason: "membership-required" } as const
+	return { allowed: true, viewer: actor.type === "app" ? null : actor } as const
+}
 
 export async function getAppResources(access: AppAccess, artifacts: Artifacts) {
 	const snapshot = await readAppDeclarations(artifacts, access.app.id)
@@ -64,12 +72,22 @@ export function prepareAppDatabaseConfiguration(
 	requirements: Resources["databases"],
 ) {
 	return Object.fromEntries(
-		Object.entries(requirements).map(([slug, requirement]) => {
-			const owner = getCredentialOwner(requirement.mode, app, viewer)
-			const instance_name = JSON.stringify([app.id, owner.type, owner.id, slug])
-			return [slug, { ...requirement, instance_name, owner }]
-		}),
+		Object.entries(requirements).map(([slug, requirement]) => [
+			slug,
+			prepareAppDatabase(app, viewer, slug, requirement),
+		]),
 	)
+}
+
+export function prepareAppDatabase(
+	app: App,
+	viewer: { id: string } | null,
+	slug: string,
+	requirement: Resources["databases"][string],
+) {
+	const owner = getCredentialOwner(requirement.mode, app, viewer)
+	const instance_name = JSON.stringify([app.id, owner.type, owner.id, slug])
+	return { ...requirement, instance_name, owner }
 }
 
 export async function getAppResourceConfiguration(
@@ -121,11 +139,22 @@ export async function resolveAppConnection(
 	slug: AppConnectionAssignmentSlug,
 	resources: Resources,
 ) {
+	const selected = resourcesForConsumer(resources, { type: "app" })
+	const declared = selected.connections[slug]
+	if (!declared) return { allowed: false, reason: "not-declared" } as const
+	const actor = await getAppActor(db, access.app.id, access.identity.user)
+	const required = {
+		connections: { [slug]: declared },
+		databases: {},
+		secrets: {},
+	}
+	const resolved = resolveAppResourceActor(actor, required)
+	if (!resolved.allowed) return resolved
 	const configuration = await getAppResourceConfiguration(
 		db,
 		access.app,
-		access.identity.user,
-		resourcesForConsumer(resources, { type: "app" }),
+		resolved.viewer,
+		required,
 	)
 	const connection = configuration.connections[slug]
 	if (!connection || connection.connection_id === null)

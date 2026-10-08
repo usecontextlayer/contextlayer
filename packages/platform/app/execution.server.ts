@@ -4,7 +4,6 @@ import { recordAppUsage } from "@usecontextlayer/shared/app-usage"
 import { databaseQuerySchema } from "@usecontextlayer/shared/databases"
 import type { HostedExecution } from "@usecontextlayer/shared/tools-worker"
 import { queryAppDatabase } from "@/app-databases.server"
-import { appViewingErrorStatus } from "@/apps.middleware"
 import { appSchema } from "@/apps.schema"
 import { resolveAppForViewing } from "@/apps.server"
 import { authenticateSession } from "@/auth.server"
@@ -25,13 +24,12 @@ async function getViewerAccess(
 	const id = appSchema.shape.id.parse(appId)
 	const credential = { token: viewerSessionToken, type: "session" } as const
 	const user = await authenticateSession(credential, config.CTX_AUTH_ISSUER)
-	if (!user) return { allowed: false, status: 401 } as const
+	if (!user) return { allowed: false, reason: "sign-in-required" } as const
 	const identity = { credential, user }
 	const access = await resolveAppForViewing(db, { id }, identity, config.CTX_AUTH_ISSUER)
-	if (!access.allowed)
-		return { allowed: false, status: appViewingErrorStatus[access.reason] } as const
+	if (!access.allowed) return access
 	if (!(await checkAppSubscription(db, access.app)))
-		return { allowed: false, status: 402 } as const
+		return { allowed: false, reason: "subscription-required" } as const
 	return { allowed: true, app: access.app, identity } as const
 }
 
@@ -49,7 +47,7 @@ export class Execution
 		const db = createPlatformDb(config.CTX_PLATFORM_DATABASE_URL)
 		try {
 			const access = await getViewerAccess(db, config, appId, viewerSessionToken)
-			if (!access.allowed) return new Response(null, { status: access.status })
+			if (!access.allowed) return access
 			const result = await callTool(
 				db,
 				config.COMPOSIO_API_KEY,
@@ -57,7 +55,7 @@ export class Execution
 				call,
 				this.env.ARTIFACTS,
 			)
-			if (!result.allowed) return new Response(null, { status: 404 })
+			if (!result.allowed) return result
 			this.ctx.waitUntil(
 				recordAppUsage(
 					createPolarCore({
@@ -68,7 +66,7 @@ export class Execution
 					"tool_call",
 				),
 			)
-			return Response.json(result.result)
+			return result
 		} finally {
 			await db.destroy()
 		}
@@ -84,15 +82,14 @@ export class Execution
 		const db = createPlatformDb(config.CTX_PLATFORM_DATABASE_URL)
 		try {
 			const access = await getViewerAccess(db, config, appId, viewerSessionToken)
-			if (!access.allowed) return new Response(null, { status: access.status })
-			const result = await queryAppDatabase(
+			if (!access.allowed) return access
+			return await queryAppDatabase(
+				db,
 				this.env.ARTIFACTS,
 				this.env.DATABASES,
 				access,
 				query,
 			)
-			if (!result.allowed) return new Response(null, { status: 404 })
-			return Response.json(result.result)
 		} finally {
 			await db.destroy()
 		}

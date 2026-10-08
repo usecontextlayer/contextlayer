@@ -177,7 +177,10 @@ export class AppAgent extends Think<PlatformEnv["Bindings"]> {
 				scheduled,
 			)
 			if (!prepared.allowed) {
-				if (prepared.reason === "agent-definition-missing") {
+				if (
+					prepared.reason === "agent-definition-missing" ||
+					prepared.reason === "membership-required"
+				) {
 					await this.registerSchedules(
 						scheduled.appId,
 						scheduled.name,

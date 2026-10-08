@@ -5,7 +5,10 @@ import {
 	resourcesForConsumer,
 } from "@usecontextlayer/shared/slate"
 import { expect, test } from "vitest"
-import { prepareAppResourceConfiguration } from "@/app-resources.server"
+import {
+	prepareAppResourceConfiguration,
+	resolveAppResourceActor,
+} from "@/app-resources.server"
 import { appSchema } from "@/apps.schema"
 
 test.each([
@@ -77,3 +80,44 @@ test.each([
 		}
 	},
 )
+
+test.each([
+	{ connections: { mail: { mode: "viewer", toolkit: "gmail" } } },
+	{ connections: {}, databases: { personal: { mode: "viewer" } } },
+	{ connections: {}, secrets: { PERSONAL_KEY: { mode: "viewer" } } },
+	{
+		connections: { repository: { mode: "owner", toolkit: "github" } },
+		databases: { personal: { mode: "viewer" }, reports: { mode: "owner" } },
+	},
+])("viewer requirements resolve only for an app member: %j", (slate) => {
+	const resources = collectAppResources(appSlatesSchema.parse({ agents: {}, app: slate }))
+	for (const actor of [{ type: "app" }, { id: "bob", type: "viewer" }] as const)
+		expect(resolveAppResourceActor(actor, resources)).toEqual({
+			allowed: false,
+			reason: "membership-required",
+		})
+	const member = { id: "bob", type: "member" } as const
+	expect(resolveAppResourceActor(member, resources)).toEqual({
+		allowed: true,
+		viewer: member,
+	})
+})
+
+test("a non-member can resolve owner resources without joining", () => {
+	const resources = collectAppResources(
+		appSlatesSchema.parse({
+			agents: {},
+			app: {
+				connections: { repository: { mode: "owner", toolkit: "github" } },
+				databases: { reports: { mode: "owner" } },
+				secrets: { API_KEY: { mode: "owner" } },
+			},
+		}),
+	)
+	const viewer = { id: "bob", type: "viewer" } as const
+	expect(resolveAppResourceActor(viewer, resources)).toEqual({ allowed: true, viewer })
+	expect(resolveAppResourceActor({ type: "app" }, resources)).toEqual({
+		allowed: true,
+		viewer: null,
+	})
+})

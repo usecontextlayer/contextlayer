@@ -50,6 +50,12 @@ export const resourcesSchema = slateSchema.extend({
 })
 export type Resources = z.infer<typeof resourcesSchema>
 
+export function hasViewerResources(resources: Resources) {
+	return Object.values(resources).some((requirements) =>
+		Object.values(requirements).some(({ mode }) => mode === "viewer"),
+	)
+}
+
 export function collectAppResources(slates: AppSlates): Resources {
 	const declarations: { consumer: ResourceConsumer; slate: Slate }[] = [
 		{ consumer: { type: "app" }, slate: slates.app },

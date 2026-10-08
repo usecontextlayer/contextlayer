@@ -6,7 +6,11 @@ import { getAgentInstanceName } from "@/agent-instance"
 import type { AppAgent } from "@/agent-runtime"
 import type { AgentActor, AgentRun, AgentRunRequest, agentSchema } from "@/agents.schema"
 import { readAppDeclarations } from "@/app-declarations.server"
-import { getAppResourceConfiguration } from "@/app-resources.server"
+import { getAppActor } from "@/app-members.server"
+import {
+	getAppResourceConfiguration,
+	resolveAppResourceActor,
+} from "@/app-resources.server"
 import type { App } from "@/apps.schema"
 import { type AppAccess, authorizeAppManagement } from "@/apps.server"
 import { listOrganizations } from "@/auth.server"
@@ -108,10 +112,13 @@ export async function getAgentRun(
 		name: input.name,
 		type: "agent",
 	})
+	const relationship = await getAppActor(db, app.id, actor.type === "user" ? actor : null)
+	const resolved = resolveAppResourceActor(relationship, resources)
+	if (!resolved.allowed) return resolved
 	const configuration = await getAppResourceConfiguration(
 		db,
 		app,
-		actor.type === "user" ? actor : null,
+		resolved.viewer,
 		resources,
 	)
 	return prepareAgentRun(app, actor, result.agent, configuration, input)
