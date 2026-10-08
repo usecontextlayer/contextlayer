@@ -19,7 +19,7 @@ export async function joinApp(target: string) {
 	const response = await fetch(
 		new URL(`/api/apps/${encodeURIComponent(appTarget)}/join`, env.CTX_PLATFORM_URL),
 		{
-			headers: { authorization: `Bearer ${await getAccessToken()}` },
+			headers: { authorization: `Bearer ${await getAccessToken(env)}` },
 			method: "POST",
 		},
 	)

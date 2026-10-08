@@ -1,75 +1,27 @@
 import { execFile as execFileCallback } from "node:child_process"
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
-import { tmpdir } from "node:os"
+import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { promisify } from "node:util"
-import {
-	type ProvisionedDatabases,
-	provisionEphemeralDatabases,
-} from "@usecontextlayer/db-infra/ephemeral"
-import { afterAll, beforeAll, expect, test } from "vitest"
-import { createTestHarness } from "wrangler"
+import { test } from "@tests/integration"
+import { expect } from "vitest"
 import { z } from "zod"
 import { agentSchema } from "@/agents.schema"
 import { appSchema, listedAppSchema } from "@/apps.schema"
-import type { PlatformEnv } from "@/context"
-import { createPlatformDb } from "@/database"
-import { migrateToLatest } from "@/database/migrate"
-import { parsePlatformEnv } from "@/env"
 
 const execFile = promisify(execFileCallback)
 
-const worker = createTestHarness()
-let databases: ProvisionedDatabases<"ctx_platform_test">
-let db: ReturnType<typeof createPlatformDb>
-let env: ReturnType<typeof parsePlatformEnv>
-let accessToken: string
-let appId: string | undefined
-let organizationAppId: string | undefined
-let dir: string
-let origin: string
-
-beforeAll(async () => {
-	databases = await provisionEphemeralDatabases({
-		migrators: { ctx_platform_test: migrateToLatest },
-	})
-	env = parsePlatformEnv({
-		...process.env,
-		CTX_PLATFORM_DATABASE_URL: databases.urls.ctx_platform_test,
-	})
-	accessToken = z.string().min(1).parse(process.env.CTX_TEST_ACCESS_TOKEN)
-	db = createPlatformDb(databases.urls.ctx_platform_test)
-	dir = await mkdtemp(join(tmpdir(), "platform-story-"))
-	await worker.update({
-		workers: [
-			{
-				configPath: new URL("./wrangler.jsonc", import.meta.url),
-				env: "test",
-				prebuiltWorkerDir: new URL("./build/server", import.meta.url),
-				secrets: env,
-			},
-		],
-	})
-	origin = (await worker.listen()).url.origin
-})
-
-afterAll(async () => {
-	try {
-		for (const id of [appId, organizationAppId]) {
-			if (!id) continue
-			const { ARTIFACTS } = await worker.getWorker<PlatformEnv["Bindings"]>().getEnv()
-			await ARTIFACTS.delete(id)
-		}
-	} finally {
-		await worker.close()
-		if (dir) await rm(dir, { force: true, recursive: true })
-		await db?.destroy()
-		await databases?.dropAll()
-	}
-})
-
-test("app ownership protects viewing, joining, listing, and native Git source access", async () => {
-	const headers = { authorization: `Bearer ${accessToken}` }
+test("app ownership protects viewing, joining, listing, and native Git source access", async ({
+	cliEnv,
+	db,
+	directory: dir,
+	identity,
+	organization,
+	platform,
+}) => {
+	const { origin, worker } = platform
+	const { headers, user } = identity
+	const { ARTIFACTS } = await worker.getEnv()
+	await using artifacts = new AsyncDisposableStack()
 	const getApps = async () => {
 		const response = await fetch(`${origin}/api/apps`, { headers })
 		expect(response.status).toBe(200)
@@ -78,13 +30,13 @@ test("app ownership protects viewing, joining, listing, and native Git source ac
 	expect((await fetch(`${origin}/api/apps`, { method: "POST" })).status).toBe(401)
 	expect((await fetch(`${origin}/api/apps`)).status).toBe(401)
 	expect((await fetch(`${origin}/dashboard/personal/apps`)).status).toBe(401)
-	const identity = await fetch(new URL("/api/me", env.CTX_AUTH_ISSUER), { headers })
-	expect(identity.status).toBe(200)
-	const user = z.object({ id: z.string().min(1) }).parse(await identity.json())
 	const created = await fetch(`${origin}/api/apps`, { headers, method: "POST" })
 	expect(created.status).toBe(201)
 	const app = appSchema.parse(await created.json())
-	appId = app.id
+	const appId = app.id
+	artifacts.defer(async () => {
+		await ARTIFACTS.delete(appId)
+	})
 	expect(app.owner_user_id).toBe(user.id)
 	expect(app.owner_organization_id).toBeNull()
 	expect(app.visibility).toBe("private")
@@ -94,14 +46,16 @@ test("app ownership protects viewing, joining, listing, and native Git source ac
 	).toEqual([member])
 	const organizationCreated = await fetch(`${origin}/api/apps`, {
 		body: JSON.stringify({
-			organization_slug: z.string().min(1).parse(process.env.CTX_TEST_ORGANIZATION_SLUG),
+			organization_slug: organization.slug,
 		}),
 		headers: { ...headers, "content-type": "application/json" },
 		method: "POST",
 	})
 	expect(organizationCreated.status).toBe(201)
 	const organizationApp = appSchema.parse(await organizationCreated.json())
-	organizationAppId = organizationApp.id
+	artifacts.defer(async () => {
+		await ARTIFACTS.delete(organizationApp.id)
+	})
 	expect(organizationApp.owner_user_id).toBeNull()
 	expect(organizationApp.owner_organization_id).not.toBeNull()
 	expect(
@@ -242,9 +196,10 @@ test("app ownership protects viewing, joining, listing, and native Git source ac
 		.set({ owner_user_id: user.id, visibility: "private" })
 		.where("id", "=", app.id)
 		.execute()
-	const cli = join(import.meta.dirname, "../cli/dist/cli.mjs")
+	const cli = join(import.meta.dirname, "../../cli/dist/cli.mjs")
 	const gitEnv = {
 		...process.env,
+		...cliEnv,
 		GIT_CONFIG_GLOBAL: join(dir, "gitconfig"),
 		GIT_TERMINAL_PROMPT: "0",
 	}
@@ -264,8 +219,7 @@ test("app ownership protects viewing, joining, listing, and native Git source ac
 			cwd: dir,
 			env: {
 				...process.env,
-				CTX_AUTH_ISSUER: env.CTX_AUTH_ISSUER,
-				CTX_PLATFORM_URL: origin,
+				...cliEnv,
 			},
 		})
 		expect(JSON.parse(joined.stdout)).toEqual(member)

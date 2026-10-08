@@ -21,6 +21,10 @@
 		"node": ">=24.0.0"
 	},
 	"exports": {
+		"./auth": {
+			"import": "./dist/auth.mjs",
+			"types": "./dist/auth.d.mts"
+		},
 		"./vite": {
 			"import": "./dist/vite.mjs",
 			"types": "./dist/vite.d.mts"

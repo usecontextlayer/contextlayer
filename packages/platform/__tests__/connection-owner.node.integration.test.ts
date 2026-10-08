@@ -1,9 +1,6 @@
 import { join } from "node:path"
+import { test } from "@tests/database"
 import { assertMigrationSucceeded, createMigrator } from "@usecontextlayer/db-infra"
-import {
-	type ProvisionedDatabases,
-	provisionEphemeralDatabases,
-} from "@usecontextlayer/db-infra/ephemeral"
 import { appConnectionsSchema } from "@usecontextlayer/shared/app-connections"
 import {
 	appSlatesSchema,
@@ -12,7 +9,7 @@ import {
 	slateSchema,
 } from "@usecontextlayer/shared/slate"
 import { sql } from "kysely"
-import { afterEach, beforeEach, expect, test } from "vitest"
+import { expect } from "vitest"
 import { agentRunSchema } from "@/agents.schema"
 import { prepareAgentRun } from "@/agents.server"
 import { assignmentSchema } from "@/app-connections.schema"
@@ -24,27 +21,10 @@ import {
 	resolveAppConnection,
 } from "@/app-resources.server"
 import { appSchema } from "@/apps.schema"
-import { createPlatformDb } from "@/database"
-import { migrateToLatest } from "@/database/migrate"
 import { getCredentialOwner } from "@/owner"
 
-let databases: ProvisionedDatabases<"ctx_connection_test">
-let db: ReturnType<typeof createPlatformDb>
-
-beforeEach(async () => {
-	databases = await provisionEphemeralDatabases({
-		migrators: { ctx_connection_test: migrateToLatest },
-	})
-	db = createPlatformDb(databases.urls.ctx_connection_test)
-})
-
-afterEach(async () => {
-	await db?.destroy()
-	await databases?.dropAll()
-})
-
-test("existing viewer assignments survive the Owner migration", async () => {
-	const migrator = createMigrator(db, join(import.meta.dirname, "app/database"))
+test("existing viewer assignments survive the Owner migration", async ({ db }) => {
+	const migrator = createMigrator(db, join(import.meta.dirname, "../app/database"))
 	assertMigrationSucceeded(await migrator.migrateTo("005_polar_customer_state"))
 	const app = await db
 		.insertInto("app")
@@ -70,7 +50,9 @@ test("existing viewer assignments survive the Owner migration", async () => {
 	])
 })
 
-test("configuration includes agent-only connections while app execution uses its own resources", async () => {
+test("configuration includes agent-only connections while app execution uses its own resources", async ({
+	db,
+}) => {
 	const resources = collectAppResources(
 		appSlatesSchema.parse({
 			agents: {
@@ -225,7 +207,9 @@ test("configuration includes agent-only connections while app execution uses its
 	).toEqual({ allowed: false, reason: "not-found" })
 })
 
-test("resource modes select viewer and app Owner assignments through the production operations", async () => {
+test("resource modes select viewer and app Owner assignments through the production operations", async ({
+	db,
+}) => {
 	const slate = slateSchema.parse({
 		connections: {
 			company: { mode: "owner", toolkit: "gmail" },

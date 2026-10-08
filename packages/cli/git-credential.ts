@@ -33,6 +33,6 @@ export async function gitCredential(operation: string) {
 		attributes.getAll("capability[]").find((c) => c === "authtype"),
 	)
 	process.stdout.write(
-		`capability[]=authtype\nauthtype=Bearer\ncredential=${await getAccessToken()}\n\n`,
+		`capability[]=authtype\nauthtype=Bearer\ncredential=${await getAccessToken(env)}\n\n`,
 	)
 }

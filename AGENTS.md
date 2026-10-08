@@ -1,6 +1,6 @@
 # AGENTS
 
-This pnpm workspace contains nine packages (cli and sdk are public; the others are private): cli, sdk, db-infra, shared, twilio, platform, build, dispatcher, and auth. Platform proxies Git to Cloudflare Artifacts and serves OpenAPI endpoints and the React Router dashboard; its operation-ownership rules live in `packages/platform/AGENTS.md`. Auth reuses web's Better Auth session on the user-code domain through a one-time-token exchange. The old product stack and deployment images have been removed. Main pushes run checks; version-tag pushes publish public npm packages.
+This pnpm workspace contains ten packages (cli and sdk are public; the others are private): cli, sdk, db-infra, dev-env, shared, twilio, platform, build, dispatcher, and auth. Platform proxies Git to Cloudflare Artifacts and serves OpenAPI endpoints and the React Router dashboard; its operation-ownership rules live in `packages/platform/AGENTS.md`. Auth reuses web's Better Auth session on the user-code domain through a one-time-token exchange. The old product stack and deployment images have been removed. Main pushes run checks; version-tag pushes publish public npm packages.
 
 ## Never Write to Customer Data Without Per-Write Permission
 
@@ -122,7 +122,7 @@ For package-scoped tasks in this repo, ALWAYS use Turbo with `--filter=` selecto
 
 ### Local Development
 
-Run setup and workspace commands from `DEVELOPING.md`. Libraries expose `dev:watch` for rebuilds. The root `dev` and `dev:watch` scripts run the platform through Turbo; platform requires Cloudflare Artifacts configuration. The shared local Postgres instance hosts the platform database and isolated integration-test databases.
+Run setup and workspace commands from `DEVELOPING.md`. Libraries expose `dev:watch` for rebuilds. Root `pnpm dev` composes local web, platform, dispatcher and viewer auth through the private development package; Turbo builds their workspace dependencies. Root `dev:watch` remains the individual platform task. Platform requires Cloudflare Artifacts configuration. The shared local Postgres instance hosts the platform database and isolated integration-test databases. Do not recreate the old product deployment images or services as part of routine setup.
 
 ### Doppler
 
@@ -186,6 +186,7 @@ If the package does not already have an `env.ts`, create one first and route env
 - Keep all normalization and defaults centralized in `env.ts`.
 - Keep hard-fail/required-variable checks centralized in `env.ts`.
 - Do not implement env defaults/fallbacks in non-`env.ts` modules (including shared/runtime libraries).
+- Do not add an environment registry, hostname pool, or platform-resource setting. Setup returns the actual addresses it started and passes them through the existing `env.ts` boundaries; the platform OAuth resource is a protocol constant, never configuration.
 
 #### Environment Variable Naming
 
@@ -248,7 +249,7 @@ Tests are sorted by a **filename suffix** along two orthogonal axes defined in `
 
 A package carries a tier's config and script only when it uses that tier. Unit configs exclude the integration markers through `unitTestExclude`; only a package that actually runs browser tests may exclude that runtime's marker from its Node unit project. Misplaced tests therefore run in Node and fail instead of silently disappearing. When adding the first test of a tier, add the matching per-package config and task using the includes exported by `vitest.shared.ts`.
 
-`DEVELOPING.md` owns the run commands and prerequisites. The remaining suite has Node unit tests in shared, cli, and platform, and Node integration tests in db-infra and platform. Dispatcher behavior is exercised through the platform usage and MCP integrations with native Worker harnesses; MCP uses an SDK-built authored fixture. Browser and Claude tasks and taxonomy are retained.
+`DEVELOPING.md` owns the run commands and prerequisites. The remaining suite has Node unit tests in shared, cli, and platform, and Node integration tests in dev-env and platform. Dispatcher behavior is exercised through the platform usage and MCP integrations with native Worker harnesses; MCP uses an SDK-built authored fixture. Browser and Claude tasks and taxonomy are retained.
 
 #### Assert on the Contract, Not the Inside
 
@@ -264,6 +265,8 @@ A package carries a tier's config and script only when it uses that tier. Unit c
 
 **A test double neither satisfies nor violates this rule.** It is in-contract when it stands at a boundary and the assertion reads the far side; out-of-contract when the assertion reads the double's own call log, which is our code's inside seen through a stand-in. Whether a double belongs there at all is `Exercise the Real Dependency`.
 
+**Keep the operation under test in the test body.** Fixtures and global setup supply prerequisites; they never perform the action being verified, because a test whose subject runs in setup has nothing left to assert. The dev-env provisioning suite therefore creates and drops its databases in the body rather than in a fixture.
+
 #### Exercise the Real Dependency
 
 **Where a dependency is real, the test drives the real thing.** A hand-authored payload — an SDK event, an API response, a stream ordering — is an assertion about somebody else's contract, written from memory: it cannot fail when that contract changes, which was its only job. It looks like coverage and is the opposite. Completeness does not rescue it: a payload hand-authored from the docs with every field filled in is the same frozen guess wearing more detail, and it reads as more authoritative while failing in exactly the same way.
@@ -277,3 +280,5 @@ A package carries a tier's config and script only when it uses that tier. Unit c
 **Captured fixtures are the fallback, not the goal** — a recorded payload goes stale silently while still passing, so capture only when nothing can host the real dependency at all. A committed recorder must be the fixture's only writer; its command, prerequisites, and contract must be discoverable. Nobody hand-edits the capture, and CI replays it without network access, so refreshing it means driving the real thing again. The recorder must own the preconditions its assertions depend on, or it silently encodes the recording machine. `.agents/skills/building-against-a-recorded-api/SKILL.md` is the standard for recording without drifting back into imagination.
 
 **Non-deterministic real behaviour is recorded, not asserted.** A test that waits for a flake to fall the right way launders a coin flip into a claim. Document the observed limitation instead of adding a flaky assertion.
+
+**Interactive terminal input is verified by hand, not automated.** Do not automate Clack's terminal renderer or add pseudo-terminal plumbing to a suite. Clack owns masking and cancellation; a suite drives the non-interactive `--stdin` path and a human checks the interactive one in a real terminal.

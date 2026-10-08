@@ -3,7 +3,9 @@ import { homedir } from "node:os"
 import { join } from "node:path"
 import * as oauth from "openid-client"
 import { z } from "zod"
-import { env } from "@/env"
+import type { env } from "@/env"
+
+export type AuthEnv = Pick<typeof env, "CTX_AUTH_ISSUER" | "CTX_AUTH_CLIENT_ID">
 
 const authDirectory = join(homedir(), ".contextlayer")
 const authPath = join(authDirectory, "auth.json")
@@ -21,7 +23,7 @@ export class LoginRequiredError extends Error {
 	}
 }
 
-async function configuration() {
+async function configuration(env: AuthEnv) {
 	const issuer = new URL(env.CTX_AUTH_ISSUER)
 	return oauth.discovery(issuer, env.CTX_AUTH_CLIENT_ID, undefined, oauth.None(), {
 		algorithm: "oauth2",
@@ -32,7 +34,11 @@ async function configuration() {
 	})
 }
 
-async function save(tokens: oauth.TokenEndpointResponse, previousRefreshToken?: string) {
+async function save(
+	env: AuthEnv,
+	tokens: oauth.TokenEndpointResponse,
+	previousRefreshToken?: string,
+) {
 	const credentials = credentialSchema.parse({
 		accessToken: tokens.access_token,
 		clientId: env.CTX_AUTH_CLIENT_ID,
@@ -45,11 +51,11 @@ async function save(tokens: oauth.TokenEndpointResponse, previousRefreshToken?: 
 	return credentials
 }
 
-export async function login() {
-	const config = await configuration()
+export async function login(env: AuthEnv) {
+	const config = await configuration(env)
 	const authorization = await oauth.initiateDeviceAuthorization(config, {
-		resource: "urn:ctx:platform",
-		scope: "offline_access ctx:access",
+		resource: "https://slate.usecontextlayer.com",
+		scope: "offline_access platform:access",
 	})
 	console.log(
 		`Open ${authorization.verification_uri_complete ?? authorization.verification_uri}`,
@@ -57,11 +63,11 @@ export async function login() {
 	console.log(`Confirm this code: ${authorization.user_code}`)
 	console.log("Waiting for approval…")
 	const tokens = await oauth.pollDeviceAuthorizationGrant(config, authorization)
-	await save(tokens)
+	await save(env, tokens)
 	console.log("Signed in to ContextLayer.")
 }
 
-export async function getAccessToken() {
+export async function getAccessToken(env: AuthEnv) {
 	const contents = await readFile(authPath, "utf8").catch((error: unknown) => {
 		if (error instanceof Error && "code" in error && error.code === "ENOENT") {
 			throw new LoginRequiredError("Not signed in.", { cause: error })
@@ -80,10 +86,14 @@ export async function getAccessToken() {
 	if (credentials.expiresAt <= Date.now()) {
 		if (!credentials.refreshToken) throw new LoginRequiredError("Login expired.")
 		credentials = await save(
+			env,
 			await oauth
-				.refreshTokenGrant(await configuration(), credentials.refreshToken)
+				.refreshTokenGrant(await configuration(env), credentials.refreshToken)
 				.catch((error: unknown) => {
-					if (error instanceof oauth.ResponseBodyError && error.error === "invalid_grant") {
+					if (
+						error instanceof oauth.ResponseBodyError &&
+						error.error === "invalid_grant"
+					) {
 						throw new LoginRequiredError("Login expired.", { cause: error })
 					}
 					throw error
@@ -94,9 +104,25 @@ export async function getAccessToken() {
 	return credentials.accessToken
 }
 
-export async function getCurrentUser(headers: HeadersInit) {
+export async function getCurrentUser(env: AuthEnv, headers: HeadersInit) {
 	const response = await fetch(new URL("/api/me", env.CTX_AUTH_ISSUER), { headers })
 	if (response.status === 401) throw new LoginRequiredError("Saved login was rejected.")
 	if (!response.ok) throw new Error(`Identity request failed: HTTP ${response.status}`)
 	return z.object({ id: z.string().min(1) }).parse(await response.json())
+}
+
+export async function listOrganizations(env: AuthEnv, headers: HeadersInit) {
+	const response = await fetch(
+		new URL("/api/platform/organizations", env.CTX_AUTH_ISSUER),
+		{
+			headers,
+		},
+	)
+	if (!response.ok) throw new Error(`Organization lookup failed: HTTP ${response.status}`)
+	const { organizations } = z
+		.object({
+			organizations: z.array(z.object({ id: z.string().min(1), slug: z.string() })),
+		})
+		.parse(await response.json())
+	return organizations
 }

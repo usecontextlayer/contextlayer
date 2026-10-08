@@ -1,19 +1,31 @@
-// Ephemeral database provisioning against the repo-root docker-compose dev Postgres
-// (:6489) — the one instance every non-production composition runs on: the test
-// tiers AND the ephemeral dev environment. Fenced behind the `./ephemeral` export
-// so the production surface (`initKysely` / `runManage` / `migrateToLatest`) never
-// carries a dev DSN.
-//
-// Vocabulary: a BASE NAME (`ctx_pggit`) is the caller's stable key; the physical
-// database NAME is the uniquified `<baseName>_<hex8>` this module generates.
+// Development database lifecycle. Callers supply their application-owned migrations.
 
 import { randomBytes } from "node:crypto"
+import { initKysely } from "@usecontextlayer/db-infra"
 import type { Kysely } from "kysely"
 import postgres from "postgres"
-import { initKysely } from "@/postgres"
 
-const PG_HOST = "postgres://postgres:postgres@127.0.0.1:6489"
-const ADMIN_URL = `${PG_HOST}/postgres`
+function connectAdmin(url: string) {
+	const adminUrl = new URL(url)
+	adminUrl.pathname = "/postgres"
+	return postgres(adminUrl.href, { max: 1 })
+}
+
+export async function initializeDatabase(
+	url: string,
+	migrate: (url: string) => void | Promise<void>,
+) {
+	const name = decodeURIComponent(new URL(url).pathname.slice(1))
+	const admin = connectAdmin(url)
+	try {
+		const existing = await admin`SELECT 1 FROM pg_database WHERE datname = ${name}`
+		if (!existing.length) await admin`CREATE DATABASE ${admin(name)}`
+	} finally {
+		await admin.end()
+	}
+	await migrate(url)
+	return url
+}
 
 type EphemeralDatabase = { url: string; drop: () => Promise<void> }
 
@@ -21,9 +33,14 @@ type EphemeralDatabase = { url: string; drop: () => Promise<void> }
 // shares state with another. Internal: every caller goes through
 // `provisionEphemeralDatabases`, whose aggregate migrate/cleanup discipline this
 // primitive alone does not provide.
-async function createEphemeralDatabase(baseName: string): Promise<EphemeralDatabase> {
+async function createEphemeralDatabase(
+	url: string,
+	baseName: string,
+): Promise<EphemeralDatabase> {
 	const name = `${baseName}_${randomBytes(4).toString("hex")}`
-	const admin = postgres(ADMIN_URL, { max: 1 })
+	const databaseUrl = new URL(url)
+	databaseUrl.pathname = `/${name}`
+	const admin = connectAdmin(url)
 	try {
 		await admin.unsafe(`CREATE DATABASE ${name}`)
 	} finally {
@@ -31,7 +48,7 @@ async function createEphemeralDatabase(baseName: string): Promise<EphemeralDatab
 	}
 	return {
 		async drop() {
-			const admin2 = postgres(ADMIN_URL, { max: 1 })
+			const admin2 = connectAdmin(url)
 			try {
 				await admin2`SELECT pg_terminate_backend(pid) FROM pg_stat_activity
 					WHERE datname = ${name} AND pid <> pg_backend_pid()`
@@ -40,7 +57,7 @@ async function createEphemeralDatabase(baseName: string): Promise<EphemeralDatab
 				await admin2.end()
 			}
 		},
-		url: `${PG_HOST}/${name}`,
+		url: databaseUrl.href,
 	}
 }
 
@@ -61,7 +78,7 @@ export type ProvisionedDatabases<K extends string> = {
  *   import each schema owner's `migrateToLatest` and pass one migrator per
  *   base name.
  * - `baseNames` + `migrate` — one batch step over the full keyed set: callers
- *   below the composition root (the slate-bridge harness, erect) that migrate
+ *   below the composition root that migrate
  *   via the deployment-parity `platform db.latest` subprocess. `migrate`
  *   receives EVERY requested base name's DSN as a keyed record — the caller
  *   maps base names to the `CTX_*_DATABASE_URL` env keys explicitly, and the
@@ -74,7 +91,7 @@ export type ProvisionedDatabases<K extends string> = {
  * never provisioned.
  */
 type PerKeyMode<K extends string> = {
-	migrators: Record<K, (url: string) => Promise<void>>
+	migrators: Record<K, (url: string) => void | Promise<void>>
 	baseNames?: never
 	migrate?: never
 }
@@ -82,7 +99,7 @@ type PerKeyMode<K extends string> = {
 type BatchMode<K extends string> = {
 	migrators?: never
 	baseNames: readonly K[]
-	migrate: (urls: Record<K, string>) => Promise<void>
+	migrate: (urls: Record<K, string>) => void | Promise<void>
 }
 
 export type ProvisionEphemeralDatabasesOptions<K extends string> =
@@ -102,10 +119,11 @@ function isPerKeyMode<K extends string>(
  * the error rethrows — a failed boot must not leak `ctx_*_<hex8>` litter.
  */
 export async function provisionEphemeralDatabases<K extends string>(
+	url: string,
 	opts: ProvisionEphemeralDatabasesOptions<K>,
 ): Promise<ProvisionedDatabases<K>> {
 	let baseNames: readonly K[]
-	let migrate: (urls: Record<K, string>) => Promise<void>
+	let migrate: (urls: Record<K, string>) => void | Promise<void>
 	if (isPerKeyMode(opts)) {
 		const { migrators } = opts
 		baseNames = Object.keys(migrators) as K[]
@@ -128,7 +146,7 @@ export async function provisionEphemeralDatabases<K extends string>(
 	const settled = await Promise.allSettled(
 		baseNames.map(async (baseName) => ({
 			baseName,
-			db: await createEphemeralDatabase(baseName),
+			db: await createEphemeralDatabase(url, baseName),
 		})),
 	)
 	const created = settled

@@ -32,7 +32,7 @@ export async function setSecret(
 	name: string,
 	options: z.output<typeof secretOptionsSchema>,
 ) {
-	const headers = { authorization: `Bearer ${await getAccessToken()}` }
+	const headers = { authorization: `Bearer ${await getAccessToken(env)}` }
 	const url = await resolveSecretUrl(name, options.org, headers)
 	let value: string
 	if (options.stdin) {
@@ -64,7 +64,7 @@ export async function setSecret(
 }
 
 export async function dropSecret(name: string, org: string | undefined) {
-	const headers = { authorization: `Bearer ${await getAccessToken()}` }
+	const headers = { authorization: `Bearer ${await getAccessToken(env)}` }
 	const response = await fetch(await resolveSecretUrl(name, org, headers), {
 		headers,
 		method: "DELETE",

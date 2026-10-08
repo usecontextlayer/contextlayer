@@ -1,5 +1,6 @@
 import { adjectives, animals, colors, uniqueNamesGenerator } from "unique-names-generator"
 import { joinApp } from "@/app-members.server"
+import { provisionAppOAuth } from "@/app-oauth.server"
 import {
 	type App,
 	type AppOwnerFilter,
@@ -18,6 +19,7 @@ import {
 } from "@/auth.server"
 import type { PlatformDb } from "@/database"
 import type { AppId } from "@/database/models/public/App"
+import type { PlatformConfig } from "@/env"
 import type { Owner, OwnerDetails } from "@/owner"
 
 export type AppAccess = { app: App; identity: AuthIdentity }
@@ -137,13 +139,19 @@ export function authorizeAppManagement(
 export async function createApp(
 	db: PlatformDb,
 	artifacts: Artifacts,
-	appsDomain: string,
+	config: Pick<
+		PlatformConfig,
+		"CTX_APPS_DOMAIN" | "CTX_AUTH_ISSUER" | "CTX_APP_OAUTH_PROVISIONING_SECRET"
+	>,
 	identity: AuthIdentity,
-	issuer: string,
 	input: CreateAppRequest,
 ) {
 	const organization = input.organization_slug
-		? await findOrganizationBySlug(identity, issuer, input.organization_slug)
+		? await findOrganizationBySlug(
+				identity,
+				config.CTX_AUTH_ISSUER,
+				input.organization_slug,
+			)
 		: undefined
 	if (input.organization_slug && !organization) return null
 	const owner: Owner = organization
@@ -153,7 +161,7 @@ export async function createApp(
 		dictionaries: [adjectives, colors, animals],
 		separator: "-",
 	})
-	const publicHostname = publicHostnameSchema.parse(`${name}.${appsDomain}`)
+	const publicHostname = publicHostnameSchema.parse(`${name}.${config.CTX_APPS_DOMAIN}`)
 	return db.transaction().execute(async (trx) => {
 		const app = await trx
 			.insertInto("app")
@@ -168,6 +176,11 @@ export async function createApp(
 		await artifacts.create(app.id, { setDefaultBranch: "main" })
 		const saved = appSchema.parse(app)
 		await joinApp(trx, { app: saved, identity })
+		await provisionAppOAuth(
+			saved,
+			config.CTX_AUTH_ISSUER,
+			config.CTX_APP_OAUTH_PROVISIONING_SECRET,
+		)
 		return saved
 	})
 }

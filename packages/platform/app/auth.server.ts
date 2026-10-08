@@ -63,12 +63,12 @@ export async function checkViewerOrganizationMembership(
 export async function authenticateAccessToken(token: string, issuer: string) {
 	const keys = createRemoteJWKSet(new URL(`${issuer.replace(/\/$/, "")}/jwks`))
 	const { payload } = await jwtVerify(token, keys, {
-		audience: "urn:ctx:platform",
+		audience: "https://slate.usecontextlayer.com",
 		issuer,
 		requiredClaims: ["sub", "exp", "scope"],
 	})
 	const claims = claimsSchema.parse(payload)
-	return claims.scope.split(" ").includes("ctx:access") ? { id: claims.sub } : null
+	return claims.scope.split(" ").includes("platform:access") ? { id: claims.sub } : null
 }
 
 export async function authenticateSession(

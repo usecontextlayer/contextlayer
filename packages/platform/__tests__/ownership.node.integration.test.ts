@@ -1,28 +1,10 @@
-import {
-	type ProvisionedDatabases,
-	provisionEphemeralDatabases,
-} from "@usecontextlayer/db-infra/ephemeral"
-import { afterAll, beforeAll, expect, test } from "vitest"
+import { test } from "@tests/database"
+import { expect } from "vitest"
 import { DEFAULT_APP_VISIBILITY } from "@/apps.schema"
-import { createPlatformDb } from "@/database"
-import { migrateToLatest } from "@/database/migrate"
 
-let databases: ProvisionedDatabases<"ctx_platform_owner_test">
-let db: ReturnType<typeof createPlatformDb>
-
-beforeAll(async () => {
-	databases = await provisionEphemeralDatabases({
-		migrators: { ctx_platform_owner_test: migrateToLatest },
-	})
-	db = createPlatformDb(databases.urls.ctx_platform_owner_test)
-})
-
-afterAll(async () => {
-	await db?.destroy()
-	await databases?.dropAll()
-})
-
-test("Postgres requires exactly one user or organization owner for each app", async () => {
+test("Postgres requires exactly one user or organization owner for each app", async ({
+	db,
+}) => {
 	const personal = await db
 		.insertInto("app")
 		.values({

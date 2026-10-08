@@ -1,92 +1,27 @@
 import { execFile as execFileCallback } from "node:child_process"
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
-import { tmpdir } from "node:os"
+import { mkdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { promisify } from "node:util"
-import {
-	type ProvisionedDatabases,
-	provisionEphemeralDatabases,
-} from "@usecontextlayer/db-infra/ephemeral"
+import { test } from "@tests/integration"
 import { appResourcesSchema } from "@usecontextlayer/shared/app-resources"
 import { appSlatesSchema, collectAppResources } from "@usecontextlayer/shared/slate"
-import { afterAll, beforeAll, expect, test } from "vitest"
-import { createTestHarness } from "wrangler"
-import { z } from "zod"
+import { expect } from "vitest"
 import { appSchema } from "@/apps.schema"
-import { listOrganizations } from "@/auth.server"
-import type { PlatformEnv } from "@/context"
-import { createPlatformDb } from "@/database"
-import { migrateToLatest } from "@/database/migrate"
-import { parsePlatformEnv } from "@/env"
 
 const execFile = promisify(execFileCallback)
 
-const configSchema = z.object({
-	CTX_TEST_ACCESS_TOKEN: z.string().min(1),
-	CTX_TEST_ORGANIZATION_ID: z.string().min(1),
-})
-
-const worker = createTestHarness()
-const appIds: string[] = []
-let config: z.infer<typeof configSchema>
-let databases: ProvisionedDatabases<"ctx_app_resources">
-let db: ReturnType<typeof createPlatformDb>
-let env: ReturnType<typeof parsePlatformEnv>
-let dir: string
-let headers: { authorization: string }
-let origin: string
-
-beforeAll(async () => {
-	config = configSchema.parse(process.env)
-	databases = await provisionEphemeralDatabases({
-		migrators: { ctx_app_resources: migrateToLatest },
-	})
-	db = createPlatformDb(databases.urls.ctx_app_resources)
-	env = parsePlatformEnv({
-		...process.env,
-		CTX_PLATFORM_DATABASE_URL: databases.urls.ctx_app_resources,
-	})
-	dir = await mkdtemp(join(tmpdir(), "ctx-app-resources-"))
-	headers = { authorization: `Bearer ${config.CTX_TEST_ACCESS_TOKEN}` }
-	await worker.update({
-		workers: [
-			{
-				configPath: new URL("./wrangler.jsonc", import.meta.url),
-				env: "test",
-				prebuiltWorkerDir: new URL("./build/server", import.meta.url),
-				secrets: env,
-			},
-		],
-	})
-	origin = (await worker.listen()).url.origin
-})
-
-afterAll(async () => {
-	try {
-		for (const id of appIds) {
-			const { ARTIFACTS } = await worker.getWorker<PlatformEnv["Bindings"]>().getEnv()
-			await ARTIFACTS.delete(id)
-		}
-	} finally {
-		await worker.close()
-		if (dir) await rm(dir, { force: true, recursive: true })
-		await db?.destroy()
-		await databases?.dropAll()
-	}
-})
-
-test("hosted configuration uses pushed declarations independently of developer-local configuration", async () => {
-	const identity = await fetch(new URL("/api/me", env.CTX_AUTH_ISSUER), { headers })
-	expect(identity.status).toBe(200)
-	const user = z.object({ id: z.string().min(1) }).parse(await identity.json())
-	const organizations = await listOrganizations(
-		{ credential: { token: config.CTX_TEST_ACCESS_TOKEN, type: "access-token" }, user },
-		env.CTX_AUTH_ISSUER,
-	)
-	const owningOrganization = organizations.find(
-		(organization) => organization.id === config.CTX_TEST_ORGANIZATION_ID,
-	)
-	if (!owningOrganization) throw new Error("Expected test organization membership")
+test("hosted configuration uses pushed declarations independently of developer-local configuration", async ({
+	cliEnv,
+	db,
+	directory: dir,
+	identity,
+	organization: owningOrganization,
+	platform,
+}) => {
+	const { origin, worker } = platform
+	const { headers, user } = identity
+	const { ARTIFACTS } = await worker.getEnv()
+	await using artifacts = new AsyncDisposableStack()
 	const post = (body: unknown) => ({
 		body: JSON.stringify(body),
 		headers: { ...headers, "content-type": "application/json" },
@@ -97,7 +32,9 @@ test("hosted configuration uses pushed declarations independently of developer-l
 		const response = await fetch(`${origin}/api/apps`, post(body))
 		expect(response.status).toBe(201)
 		const app = appSchema.parse(await response.json())
-		appIds.push(app.id)
+		artifacts.defer(async () => {
+			await ARTIFACTS.delete(app.id)
+		})
 		apps.push(app)
 	}
 	const [personal, organization] = apps
@@ -112,20 +49,18 @@ test("hosted configuration uses pushed declarations independently of developer-l
 		})
 		.returningAll()
 		.executeTakeFirstOrThrow()
-	const cli = join(import.meta.dirname, "../cli/dist/cli.mjs")
+	const cli = join(import.meta.dirname, "../../cli/dist/cli.mjs")
 	const command = async (...args: string[]) =>
 		await execFile(process.execPath, [cli, ...args], {
 			cwd: dir,
 			env: {
 				...process.env,
-				CTX_AUTH_ISSUER: env.CTX_AUTH_ISSUER,
-				CTX_PLATFORM_URL: origin,
+				...cliEnv,
 			},
 		})
 	const gitEnv = {
 		...process.env,
-		CTX_AUTH_ISSUER: env.CTX_AUTH_ISSUER,
-		CTX_PLATFORM_URL: origin,
+		...cliEnv,
 		GIT_CONFIG_GLOBAL: join(dir, "gitconfig"),
 		GIT_TERMINAL_PROMPT: "0",
 	}
@@ -213,7 +148,7 @@ test("hosted configuration uses pushed declarations independently of developer-l
 		).toEqual([
 			{
 				connection_id: "test-repository",
-				owner_id: app === personal ? user.id : config.CTX_TEST_ORGANIZATION_ID,
+				owner_id: app === personal ? user.id : owningOrganization.id,
 				owner_type: app === personal ? "user" : "organization",
 				slug: "repository",
 			},
@@ -223,9 +158,7 @@ test("hosted configuration uses pushed declarations independently of developer-l
 		const { resources: configuration } = appResourcesSchema.parse(await response.json())
 		const viewer = { id: user.id, type: "user" }
 		const owner =
-			app === personal
-				? viewer
-				: { id: config.CTX_TEST_ORGANIZATION_ID, type: "organization" }
+			app === personal ? viewer : { id: owningOrganization.id, type: "organization" }
 		expect(configuration).toEqual({
 			connections: {
 				mail: {

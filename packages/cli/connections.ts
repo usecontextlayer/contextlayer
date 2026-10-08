@@ -38,7 +38,7 @@ export async function assignAppConnection(
 		const url = new URL("/api/connections", env.CTX_PLATFORM_URL)
 		url.searchParams.set("toolkit", requirement.toolkit)
 		const response = await fetch(url, {
-			headers: { authorization: `Bearer ${await getAccessToken()}` },
+			headers: { authorization: `Bearer ${await getAccessToken(env)}` },
 		})
 		if (!response.ok)
 			throw new Error(`Personal connection list failed: HTTP ${response.status}`)
@@ -80,7 +80,7 @@ export async function assignAppConnection(
 		{
 			body: JSON.stringify({ connection_id: connectionId, slug }),
 			headers: {
-				authorization: `Bearer ${await getAccessToken()}`,
+				authorization: `Bearer ${await getAccessToken(env)}`,
 				"content-type": "application/json",
 			},
 			method: "POST",
@@ -126,7 +126,7 @@ export async function listAppConnections(target: string) {
 		{
 			body: JSON.stringify({}),
 			headers: {
-				authorization: `Bearer ${await getAccessToken()}`,
+				authorization: `Bearer ${await getAccessToken(env)}`,
 				"content-type": "application/json",
 			},
 			method: "POST",
@@ -148,7 +148,7 @@ export async function listAppConnections(target: string) {
 }
 
 export async function addConnection(toolkit: string, org: string | undefined) {
-	const headers = { authorization: `Bearer ${await getAccessToken()}` }
+	const headers = { authorization: `Bearer ${await getAccessToken(env)}` }
 	const owner = await resolveOwner(org, headers)
 	const response = await fetch(
 		new URL(`/api/connections/${ownerPath(owner)}`, env.CTX_PLATFORM_URL),
@@ -181,7 +181,7 @@ export async function addConnection(toolkit: string, org: string | undefined) {
 }
 
 export async function listConnections(org: string | undefined) {
-	const headers = { authorization: `Bearer ${await getAccessToken()}` }
+	const headers = { authorization: `Bearer ${await getAccessToken(env)}` }
 	const owner = await resolveOwner(org, headers)
 	const response = await fetch(
 		new URL(`/api/connections/${ownerPath(owner)}`, env.CTX_PLATFORM_URL),

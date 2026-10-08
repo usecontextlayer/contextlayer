@@ -1,0 +1,71 @@
+{
+	"dependencies": {
+		"@better-auth/oauth-provider": "1.7.7",
+		"@polar-sh/cli": "2.0.2",
+		"@polar-sh/sdk": "1.0.1",
+		"@usecontextlayer/cli": "workspace:*",
+		"@usecontextlayer/db-infra": "workspace:*",
+		"better-auth": "1.7.7",
+		"execa": "^10.0.1",
+		"kysely": "^0.29.5",
+		"openid-client": "^6.8.8",
+		"postgres": "^3.4.9",
+		"wait-on": "^9.5.1",
+		"zod": "^4.4.3"
+	},
+	"devDependencies": {
+		"@types/node": "^24.13.3",
+		"tsdown": "latest",
+		"tsx": "^4.23.12",
+		"typescript": "latest",
+		"vitest": "^4.1.11"
+	},
+	"exports": {
+		"./database": {
+			"import": "./dist/database.mjs",
+			"types": "./dist/database.d.mts"
+		},
+		"./development": {
+			"import": "./dist/development.mjs",
+			"types": "./dist/development.d.mts"
+		},
+		"./doppler": {
+			"import": "./dist/doppler.mjs",
+			"types": "./dist/doppler.d.mts"
+		},
+		"./env": {
+			"import": "./dist/env.mjs",
+			"types": "./dist/env.d.mts"
+		},
+		"./mcp": {
+			"import": "./dist/mcp.mjs",
+			"types": "./dist/mcp.d.mts"
+		},
+		"./polar": {
+			"import": "./dist/polar.mjs",
+			"types": "./dist/polar.d.mts"
+		},
+		"./services": {
+			"import": "./dist/services.mjs",
+			"types": "./dist/services.d.mts"
+		},
+		"./viewer": {
+			"import": "./dist/viewer.mjs",
+			"types": "./dist/viewer.d.mts"
+		},
+		"./web": {
+			"import": "./dist/web.mjs",
+			"types": "./dist/web.d.mts"
+		}
+	},
+	"name": "@usecontextlayer/dev-env",
+	"private": true,
+	"scripts": {
+		"build": "tsdown",
+		"dev:watch": "tsdown --watch",
+		"test:integration:node": "vitest run --config vitest.integration.node.config.ts",
+		"tsc": "tsc -b tsconfig.json"
+	},
+	"type": "module",
+	"version": "0.14.3"
+}

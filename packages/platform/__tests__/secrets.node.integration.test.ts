@@ -1,78 +1,35 @@
-import { spawn } from "node:child_process"
-import { once } from "node:events"
 import { join } from "node:path"
-import {
-	type ProvisionedDatabases,
-	provisionEphemeralDatabases,
-} from "@usecontextlayer/db-infra/ephemeral"
-import { afterAll, beforeAll, expect, test } from "vitest"
-import { createTestHarness } from "wrangler"
+import { test as base } from "@tests/integration"
+import { execa } from "execa"
+import { expect } from "vitest"
 import { z } from "zod"
-import { organizationSchema } from "@/auth.server"
 import { connectionsSchema } from "@/connections.schema"
-import { migrateToLatest } from "@/database/migrate"
-import { parsePlatformEnv, parseSharedSecretsEnv } from "@/env"
+import { parseSharedSecretsEnv } from "@/env"
 import type { Owner } from "@/owner"
 import { secretKey } from "@/secrets.server"
 
-const cli = join(import.meta.dirname, "../cli/dist/cli.mjs")
-let origin: string
-let userId: string
-let headers: { authorization: string }
-let config: ReturnType<typeof parsePlatformEnv>
-let databases: ProvisionedDatabases<"ctx_secrets_test">
-const worker = createTestHarness()
+const cli = join(import.meta.dirname, "../../cli/dist/cli.mjs")
+const test = base.extend(
+	"runCli",
+	({ cliEnv }) =>
+		(args: string[], input = "") =>
+			execa(process.execPath, [cli, ...args], {
+				all: true,
+				env: cliEnv,
+				input,
+				reject: false,
+			}),
+)
 
-beforeAll(async () => {
-	databases = await provisionEphemeralDatabases({
-		migrators: { ctx_secrets_test: migrateToLatest },
-	})
-	config = parsePlatformEnv({
-		...process.env,
-		CTX_PLATFORM_DATABASE_URL: databases.urls.ctx_secrets_test,
-	})
-	headers = {
-		authorization: `Bearer ${z.string().min(1).parse(process.env.CTX_TEST_ACCESS_TOKEN)}`,
-	}
-	await worker.update({
-		workers: [
-			{
-				configPath: new URL("./wrangler.jsonc", import.meta.url),
-				env: "test",
-				prebuiltWorkerDir: new URL("./build/server", import.meta.url),
-				secrets: config,
-			},
-		],
-	})
-	origin = (await worker.listen()).url.origin
-	const response = await fetch(new URL("/api/me", config.CTX_AUTH_ISSUER), { headers })
-	expect(response.status).toBe(200)
-	userId = z.object({ id: z.string() }).parse(await response.json()).id
-})
-
-afterAll(async () => {
-	await worker.close()
-	await databases?.dropAll()
-})
-
-async function runCli(args: string[], input?: string) {
-	const child = spawn(process.execPath, [cli, ...args], {
-		env: { ...process.env, CTX_PLATFORM_URL: origin },
-		stdio: ["pipe", "pipe", "pipe"],
-	})
-	const exited = once(child, "close")
-	let output = ""
-	const collect = (chunk: Buffer) => {
-		output += chunk.toString()
-	}
-	child.stdout.on("data", collect)
-	child.stderr.on("data", collect)
-	child.stdin.end(input)
-	const [code] = await exited
-	return { code, output }
-}
-
-test("non-writing: secret API requires authentication and the selected Owner", async () => {
+test("non-writing: secret API requires authentication and the selected Owner", async ({
+	identity,
+	platform,
+}) => {
+	const {
+		headers,
+		user: { id: userId },
+	} = identity
+	const { origin } = platform
 	const name = "CTX_SECRET_ACCESS_TEST"
 	for (const method of ["PUT", "DELETE"]) {
 		const request =
@@ -118,10 +75,12 @@ test("non-writing: secret API requires authentication and the selected Owner", a
 	).toBe(404)
 })
 
-test("non-writing: CLI requires explicit stdin input and resolves organization membership", async () => {
+test("non-writing: CLI requires explicit stdin input and resolves organization membership", async ({
+	runCli,
+}) => {
 	const nonTerminal = await runCli(["secrets", "set", "CTX_SECRET_ACCESS_TEST"])
-	expect(nonTerminal.code).toBe(1)
-	expect(nonTerminal.output).toContain("Use --stdin")
+	expect(nonTerminal.exitCode).toBe(1)
+	expect(nonTerminal.all).toContain("Use --stdin")
 	const unknownOrg = await runCli([
 		"secrets",
 		"--org",
@@ -129,11 +88,22 @@ test("non-writing: CLI requires explicit stdin input and resolves organization m
 		"drop",
 		"CTX_SECRET_ACCESS_TEST",
 	])
-	expect(unknownOrg.code).toBe(1)
-	expect(unknownOrg.output).toContain("Organization is not in your memberships")
+	expect(unknownOrg.exitCode).toBe(1)
+	expect(unknownOrg.all).toContain("Organization is not in your memberships")
 })
 
-test("non-writing: Owner connections enforce access and list through the real API and CLI", async () => {
+test("non-writing: Owner connections enforce access and list through the real API and CLI", async ({
+	identity,
+	organization,
+	platform,
+	runCli,
+}) => {
+	const {
+		headers,
+		user: { id: userId },
+	} = identity
+	const { origin } = platform
+	const { slug } = organization
 	const personalUrl = `${origin}/api/connections/user/${encodeURIComponent(userId)}`
 	for (const method of ["GET", "POST"]) {
 		const request =
@@ -156,18 +126,6 @@ test("non-writing: Owner connections enforce access and list through the real AP
 			).toBe(403)
 		}
 	}
-	const slug = z.string().min(1).parse(process.env.CTX_TEST_ORGANIZATION_SLUG)
-	const membership = await fetch(
-		new URL("/api/platform/organizations", config.CTX_AUTH_ISSUER),
-		{ headers },
-	)
-	expect(membership.status).toBe(200)
-	const { organizations } = z
-		.object({ organizations: z.array(organizationSchema) })
-		.parse(await membership.json())
-	const organization = organizationSchema.parse(
-		organizations.find((organization) => organization.slug === slug),
-	)
 	for (const [url, args] of [
 		[personalUrl, ["connections", "list"]],
 		[
@@ -179,13 +137,13 @@ test("non-writing: Owner connections enforce access and list through the real AP
 		expect(response.status).toBe(200)
 		const { connections } = connectionsSchema.parse(await response.json())
 		const cli = await runCli([...args])
-		expect(cli.code).toBe(0)
-		if (connections.length === 0) expect(cli.output).toContain("No connected accounts.")
-		for (const account of connections) expect(cli.output).toContain(account.id)
+		expect(cli.exitCode).toBe(0)
+		if (connections.length === 0) expect(cli.all).toContain("No connected accounts.")
+		for (const account of connections) expect(cli.all).toContain(account.id)
 	}
 	const unknownOrg = await runCli(["connections", "--org", "not-a-member", "list"])
-	expect(unknownOrg.code).toBe(1)
-	expect(unknownOrg.output).toContain("Organization is not in your memberships")
+	expect(unknownOrg.exitCode).toBe(1)
+	expect(unknownOrg.all).toContain("Organization is not in your memberships")
 	const { paths } = z
 		.object({
 			paths: z.record(
@@ -207,22 +165,20 @@ test("non-writing: Owner connections enforce access and list through the real AP
 	)
 })
 
-test("live Doppler: CLI/API save, replace, isolate Owners, and drop with no values in output", async () => {
-	const vaultConfig = parseSharedSecretsEnv(config)
-	const name = z
-		.string()
-		.regex(/^CTX_SECRET_E2E_[A-Z0-9_]+$/)
-		.parse(process.env.CTX_TEST_SECRET_NAME)
-	const slug = z.string().min(1).parse(process.env.CTX_TEST_ORGANIZATION_SLUG)
-	const organizationUrl = new URL("/api/platform/organizations", config.CTX_AUTH_ISSUER)
-	const response = await fetch(organizationUrl, { headers })
-	expect(response.status).toBe(200)
-	const { organizations } = z
-		.object({ organizations: z.array(organizationSchema) })
-		.parse(await response.json())
-	const organization = organizationSchema.parse(
-		organizations.find((organization) => organization.slug === slug),
-	)
+test("live Doppler: CLI/API save, replace, isolate Owners, and drop with no values in output", async ({
+	identity,
+	organization,
+	platform,
+	runCli,
+}) => {
+	const {
+		headers,
+		user: { id: userId },
+	} = identity
+	const { origin, harness } = platform
+	const { slug } = organization
+	const vaultConfig = parseSharedSecretsEnv(platform.env)
+	const name = `CTX_SECRET_E2E_${crypto.randomUUID().replaceAll("-", "").toUpperCase()}`
 	const orgId = organization.id
 	const providerHeaders = {
 		authorization: `Bearer ${vaultConfig.CTX_CUSTOMER_CREDENTIALS_DOPPLER_TOKEN}`,
@@ -258,9 +214,9 @@ test("live Doppler: CLI/API save, replace, isolate Owners, and drop with no valu
 		"synthetic-organization-replaced",
 	] as const
 	const assertCli = (result: Awaited<ReturnType<typeof runCli>>, owner: Owner) => {
-		expect(result.code).toBe(0)
-		for (const value of values) expect(result.output.includes(value)).toBe(false)
-		expect(JSON.parse(result.output)).toEqual({ name, owner })
+		expect(result.exitCode).toBe(0)
+		for (const value of values) expect(result.all.includes(value)).toBe(false)
+		expect(JSON.parse(result.all)).toEqual({ name, owner })
 	}
 	assertCli(await runCli(["secrets", "set", name, "--stdin"], values[0]), {
 		id: userId,
@@ -303,7 +259,7 @@ test("live Doppler: CLI/API save, replace, isolate Owners, and drop with no valu
 		owner: { id: orgId, type: "organization" },
 	})
 	await assertRawValue(orgUrl, null)
-	const output = JSON.stringify(worker.getLogs())
+	const output = JSON.stringify(harness.getLogs())
 	for (const value of values) {
 		expect(output.includes(value)).toBe(false)
 		expect(output.includes(JSON.stringify(value).slice(1, -1))).toBe(false)

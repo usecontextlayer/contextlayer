@@ -15,8 +15,15 @@
 				{ "binding": "APPS", "namespace": "contextlayer-test", "remote": true }
 			],
 			"routes": [],
-			"secrets": { "required": ["POLAR_ACCESS_TOKEN", "POLAR_ENVIRONMENT"] },
-			"vars": { "CTX_PLATFORM_URL": "http://127.0.0.1:3010" }
+			"secrets": {
+				"required": [
+					"CTX_PLATFORM_URL",
+					"CTX_VIEWER_AUTH_URL",
+					"POLAR_ACCESS_TOKEN",
+					"POLAR_ENVIRONMENT"
+				]
+			},
+			"vars": {}
 		}
 	},
 	"main": "index.ts",

@@ -2,14 +2,15 @@
 	"compilerOptions": {
 		"allowImportingTsExtensions": true,
 		"paths": {
-			"@/*": ["./app/*", "./.react-router/types/app/*"]
+			"@/*": ["./app/*", "./.react-router/types/app/*"],
+			"@tests/*": ["./__tests__/*"]
 		},
 		"rootDirs": [".", "./.react-router/types"],
 		"tsBuildInfoFile": "./node_modules/.cache/tsconfig.tsbuildinfo",
 		"types": ["node", "vite/client", "@cloudflare/workers-types"],
 		"verbatimModuleSyntax": false
 	},
-	"exclude": ["build", "node_modules", "fixtures"],
+	"exclude": ["build", "node_modules", "__tests__/fixtures"],
 	"extends": "../../tsconfig.base.json",
 	"include": ["**/*.ts", "**/*.tsx", ".react-router/types/**/*"],
 	"references": [
@@ -21,6 +22,9 @@
 		},
 		{
 			"path": "../sdk"
+		},
+		{
+			"path": "../dev-env"
 		}
 	]
 }

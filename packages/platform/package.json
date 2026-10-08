@@ -45,6 +45,7 @@
 		"@types/node": "^24.13.3",
 		"@types/react": "^19.0.0",
 		"@types/react-dom": "^19.0.0",
+		"@usecontextlayer/dev-env": "workspace:*",
 		"@usecontextlayer/sdk": "workspace:*",
 		"kanel": "^4.0.3",
 		"kanel-kysely": "^4.0.0",

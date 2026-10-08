@@ -370,9 +370,8 @@ export function createApi() {
 			const app = await createApp(
 				c.var.db,
 				c.env.ARTIFACTS,
-				c.var.config.CTX_APPS_DOMAIN,
+				c.var.config,
 				c.var.identity,
-				c.var.config.CTX_AUTH_ISSUER,
 				c.req.valid("json"),
 			)
 			if (!app) return c.body(null, 404)

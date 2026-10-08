@@ -4,7 +4,7 @@ import { createAuthClient } from "better-auth/client"
 import { userSchema } from "@/auth.server"
 
 const resourceClient = createAuthClient({ plugins: [oauthProviderResourceClient()] })
-const MCP_SCOPE = "ctx:mcp"
+const MCP_SCOPE = "mcp:access"
 
 export function mcpResource(hostname: string) {
 	return new URL("/mcp", `https://${hostname}`).href

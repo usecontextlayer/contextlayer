@@ -12,7 +12,7 @@ export async function getLocalToolsBindings() {
 		props: {
 			appId: await getLocalAppId(),
 			connections,
-			credential: { token: await getAccessToken(), type: "access-token" as const },
+			credential: { token: await getAccessToken(env), type: "access-token" as const },
 		} satisfies LocalToolsProps,
 		vars: { CTX_PLATFORM_URL: env.CTX_PLATFORM_URL },
 	}

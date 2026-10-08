@@ -13,7 +13,7 @@ export default defineProject({
 		// default flaked there (measured a 12s DROP stall under lane load).
 		hookTimeout: 30_000,
 		include: nodeIntegrationTestInclude,
-		name: "@usecontextlayer/db-infra:integration:node",
+		name: "@usecontextlayer/dev-env:integration:node",
 		root: projectRoot,
 		// Real CREATE/DROP DATABASE round-trips against the dev Postgres.
 		testTimeout: 30_000,

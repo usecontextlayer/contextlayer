@@ -5,12 +5,15 @@
 
 import postgres from "postgres"
 import { expect, test } from "vitest"
-import { provisionEphemeralDatabases } from "@/ephemeral"
+import { provisionEphemeralDatabases } from "@/database"
+import { readDevelopmentEnv } from "@/env"
 
-const ADMIN_URL = "postgres://postgres:postgres@127.0.0.1:6489/postgres"
+const databaseUrl = readDevelopmentEnv().CTX_PLATFORM_DATABASE_URL
+const adminUrl = new URL(databaseUrl)
+adminUrl.pathname = "/postgres"
 
 async function listLiveDatabaseNames(prefix: string): Promise<string[]> {
-	const admin = postgres(ADMIN_URL, { max: 1 })
+	const admin = postgres(adminUrl.href, { max: 1 })
 	try {
 		const rows = await admin`SELECT datname FROM pg_database
 			WHERE datname LIKE ${`${prefix}%`}`
@@ -26,7 +29,7 @@ function databaseNamesFromUrls(urls: Record<string, string>): string[] {
 
 test("per-key mode migrates each database with its own migrator and dropAll reclaims them", async () => {
 	const migrated: string[] = []
-	const provisioned = await provisionEphemeralDatabases({
+	const provisioned = await provisionEphemeralDatabases(databaseUrl, {
 		migrators: {
 			ctx_ephemeral_pk_one: async (url) => {
 				migrated.push(url)
@@ -55,7 +58,7 @@ test("per-key mode migrates each database with its own migrator and dropAll recl
 
 test("batch mode hands ONE migrate step the full keyed url record, exactly once", async () => {
 	const calls: Record<string, string>[] = []
-	const provisioned = await provisionEphemeralDatabases({
+	const provisioned = await provisionEphemeralDatabases(databaseUrl, {
 		baseNames: ["ctx_ephemeral_ba_one", "ctx_ephemeral_ba_two"],
 		migrate: async (urls) => {
 			calls.push(urls)
@@ -83,7 +86,7 @@ test("a failed create drops the sibling that succeeded — no leak", async () =>
 	// never escapes a rejected call, so this one asserts as a baseline delta.
 	const baseline = await listLiveDatabaseNames("ctx_ephemeral_cf_")
 	await expect(
-		provisionEphemeralDatabases({
+		provisionEphemeralDatabases(databaseUrl, {
 			baseNames: ["ctx_ephemeral_cf_ok", "bad-name"],
 			migrate: async () => {},
 		}),
@@ -97,7 +100,7 @@ test("a failed migrate drops every created database before rethrowing", async ()
 	// leftovers from killed runs and to concurrent compositions.
 	let doomed: string[] = []
 	await expect(
-		provisionEphemeralDatabases({
+		provisionEphemeralDatabases(databaseUrl, {
 			baseNames: ["ctx_ephemeral_mf_one", "ctx_ephemeral_mf_two"],
 			migrate: async (urls) => {
 				doomed = databaseNamesFromUrls(urls)
@@ -114,11 +117,11 @@ test("a failed migrate drops every created database before rethrowing", async ()
 
 test("two concurrent provisions of the same base coexist under distinct <base>_<hex8> names", async () => {
 	const [first, second] = await Promise.all([
-		provisionEphemeralDatabases({
+		provisionEphemeralDatabases(databaseUrl, {
 			baseNames: ["ctx_ephemeral_cc"],
 			migrate: async () => {},
 		}),
-		provisionEphemeralDatabases({
+		provisionEphemeralDatabases(databaseUrl, {
 			baseNames: ["ctx_ephemeral_cc"],
 			migrate: async () => {},
 		}),

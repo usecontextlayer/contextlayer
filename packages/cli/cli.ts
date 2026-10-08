@@ -6,7 +6,7 @@ import { execa } from "execa"
 import { z } from "zod"
 import { runLocalAgent } from "@/agents"
 import { joinApp } from "@/app"
-import { getAccessToken, getCurrentUser, login, LoginRequiredError } from "@/auth"
+import { getAccessToken, getCurrentUser, LoginRequiredError, login } from "@/auth"
 import {
 	addConnection,
 	assignAppConnection,
@@ -28,8 +28,8 @@ program.addHelpText(
 
 async function authenticate(command: Command) {
 	try {
-		return await getCurrentUser({
-			authorization: `Bearer ${await getAccessToken()}`,
+		return await getCurrentUser(env, {
+			authorization: `Bearer ${await getAccessToken(env)}`,
 		})
 	} catch (error) {
 		if (error instanceof LoginRequiredError) command.error(error.message)
@@ -52,7 +52,7 @@ program
 		const input = z
 			.object({ organization_slug: z.string().min(1).optional() })
 			.parse({ organization_slug: options.org })
-		const accessToken = await getAccessToken()
+		const accessToken = await getAccessToken(env)
 		const gitIdentity = await execa("git", ["var", "GIT_AUTHOR_IDENT"], {
 			reject: false,
 			stdio: ["inherit", "ignore", "inherit"],
@@ -185,7 +185,7 @@ program
 		"Sign in by approving a browser code and configure Git credentials for ContextLayer repositories",
 	)
 	.action(async () => {
-		await login()
+		await login(env)
 		await setupGit(new URL(import.meta.url))
 		console.log("Git credentials configured for ContextLayer.")
 	})

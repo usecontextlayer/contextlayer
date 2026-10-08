@@ -9,17 +9,12 @@
 		"@types/node": "^24.13.3",
 		"tsdown": "latest",
 		"tsx": "^4.23.12",
-		"typescript": "latest",
-		"vitest": "^4.1.11"
+		"typescript": "latest"
 	},
 	"exports": {
 		".": {
 			"import": "./dist/index.mjs",
 			"types": "./dist/index.d.mts"
-		},
-		"./ephemeral": {
-			"import": "./dist/ephemeral.mjs",
-			"types": "./dist/ephemeral.d.mts"
 		}
 	},
 	"main": "./dist/index.mjs",
@@ -29,7 +24,6 @@
 		"build": "npx tsdown",
 		"clean": "rm -rf dist dist-types *.tsbuildinfo",
 		"dev:watch": "npx tsdown --watch",
-		"test:integration:node": "npx vitest run --config vitest.integration.node.config.ts",
 		"tsc": "tsc -b tsconfig.json"
 	},
 	"type": "module",

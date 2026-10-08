@@ -10,6 +10,7 @@ export default defineConfig({
 		tailwindcss(),
 		cloudflare({
 			config: { main: fileURLToPath(new URL("./app/server.ts", import.meta.url)) },
+			inspectorPort: 0,
 			viteEnvironment: { name: "ssr" },
 		}),
 		reactRouterHonoServer({ runtime: "cloudflare" }),
