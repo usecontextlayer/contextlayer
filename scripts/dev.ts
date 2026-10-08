@@ -4,15 +4,15 @@ import {
 	readDevelopmentServiceEnv,
 	readWebDevelopmentEnv,
 } from "@usecontextlayer/dev-env/development"
-import { readDevelopmentEnv } from "@usecontextlayer/dev-env/env"
 import { startPolarListener } from "@usecontextlayer/dev-env/polar"
+import { assignDevelopmentPorts } from "@usecontextlayer/dev-env/ports"
 import { startNext, startVite, startWrangler } from "@usecontextlayer/dev-env/services"
 import { execa, execaNode } from "execa"
 import { z } from "zod"
 
 const root = resolve(import.meta.dirname, "..")
 const webRoot = resolve(root, "../web")
-const addresses = readDevelopmentEnv()
+const addresses = await assignDevelopmentPorts(root)
 const { issuer, platformEnv, polarEnv, webEnv } = await readDevelopmentServiceEnv(
 	root,
 	await readWebDevelopmentEnv(webRoot, addresses),
@@ -73,21 +73,35 @@ const dispatcher = startWrangler({
 })
 
 const services = [web, platform, auth, dispatcher]
-await Promise.all(services.map((service) => service.ready))
+const servicesExited = Promise.race(services.map((service) => service.process)).then(
+	() => {
+		throw new Error("A development service exited.")
+	},
+)
+await Promise.race([
+	Promise.all(services.map((service) => service.ready)),
+	servicesExited,
+])
 const polarListener = startPolarListener(
 	new URL("/api/polar/webhooks", platform.url),
 	polarEnv,
 )
-const { ipcOutput } = await execaNode(resolve(webRoot, "scripts/development.mts"), {
-	cwd: webRoot,
-	env: {
-		...webEnv,
-		TSX_TSCONFIG_PATH: resolve(webRoot, "tsconfig.tsxrepl.json"),
-	},
-	ipc: true,
-	nodeOptions: ["--import", "tsx"],
-	stdio: ["ignore", "inherit", "inherit"],
+const exited = Promise.race([servicesExited, polarListener]).then(() => {
+	throw new Error("The Polar listener exited.")
 })
+const { ipcOutput } = await Promise.race([
+	execaNode(resolve(webRoot, "scripts/development.mts"), {
+		cwd: webRoot,
+		env: {
+			...webEnv,
+			TSX_TSCONFIG_PATH: resolve(webRoot, "tsconfig.tsxrepl.json"),
+		},
+		ipc: true,
+		nodeOptions: ["--import", "tsx"],
+		stdio: ["ignore", "inherit", "inherit"],
+	}),
+	exited,
+])
 const clientId = z.string().min(1).parse(ipcOutput[0])
 console.log(`Web: ${web.url}`)
 console.log(`Platform: ${new URL("/dashboard/personal/apps", platform.url)}`)
@@ -95,4 +109,4 @@ console.log(`Viewer auth: ${auth.url}`)
 console.log(`Dispatcher: ${dispatcher.url}`)
 console.log(`CLI issuer: ${issuer}`)
 console.log(`CLI client: ${clientId}`)
-await Promise.all([...services.map((service) => service.process), polarListener])
+await exited

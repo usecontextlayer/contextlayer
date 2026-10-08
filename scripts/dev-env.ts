@@ -3,10 +3,11 @@ import {
 	readDevelopmentCommandEnv,
 	readWebDevelopmentEnv,
 } from "@usecontextlayer/dev-env/development"
-import { readDevelopmentEnv } from "@usecontextlayer/dev-env/env"
+import { readDevelopmentPorts } from "@usecontextlayer/dev-env/ports"
 
-const webRoot = resolve(import.meta.dirname, "../../web")
-const addresses = readDevelopmentEnv()
+const root = resolve(import.meta.dirname, "..")
+const webRoot = resolve(root, "../web")
+const addresses = await readDevelopmentPorts(root)
 const env = await readDevelopmentCommandEnv(
 	webRoot,
 	await readWebDevelopmentEnv(webRoot, addresses),

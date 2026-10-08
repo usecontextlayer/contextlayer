@@ -9,7 +9,7 @@
 		},
 		"types": ["node"]
 	},
-	"exclude": ["dist-types", "vitest.integration.node.config.ts"],
+	"exclude": ["dist-types", "vitest.config.ts", "vitest.integration.node.config.ts"],
 	"extends": "../../tsconfig.base.json",
 	"include": ["**/*.ts"],
 	"references": [

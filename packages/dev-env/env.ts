@@ -1,19 +1,20 @@
 import { z } from "zod"
 
-const url = (value: string) =>
-	z
-		.url()
-		.default(value)
-		.transform((value) => new URL(value))
+const url = z.url().transform((value) => new URL(value))
 
-const schema = z.object({
-	BETTER_AUTH_URL: url("http://localhost:3000"),
-	CTX_DISPATCHER_URL: url("http://localhost:3012"),
+const serviceSchema = z.object({
+	BETTER_AUTH_URL: url,
+	CTX_DISPATCHER_URL: url,
+	CTX_PLATFORM_URL: url,
+	CTX_VIEWER_AUTH_URL: url,
+})
+
+export const developmentServiceKeys = serviceSchema.keyof().options
+
+const schema = serviceSchema.extend({
 	CTX_PLATFORM_DATABASE_URL: z
 		.url()
 		.default("postgresql://postgres:postgres@127.0.0.1:6489/contextlayer_platform"),
-	CTX_PLATFORM_URL: url("http://localhost:3010"),
-	CTX_VIEWER_AUTH_URL: url("http://localhost:3011"),
 	DATABASE_URL: z
 		.url()
 		.default("postgresql://postgres:postgres@127.0.0.1:5489/contextlayer_web"),
@@ -22,7 +23,17 @@ const schema = z.object({
 export type DevelopmentEnv = z.infer<typeof schema>
 
 export function readDevelopmentEnv() {
-	return schema.parse(process.env)
+	return schema.parse({
+		BETTER_AUTH_URL: "http://localhost:0",
+		CTX_DISPATCHER_URL: "http://localhost:0",
+		CTX_PLATFORM_URL: "http://localhost:0",
+		CTX_VIEWER_AUTH_URL: "http://localhost:0",
+		...process.env,
+	})
+}
+
+export function parseDevelopmentServiceUrls(input: unknown) {
+	return serviceSchema.parse(input)
 }
 
 export const DEVELOPMENT_ORGANIZATION_SLUG = "local-development"

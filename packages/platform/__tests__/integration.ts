@@ -10,6 +10,7 @@ import {
 	readWebDevelopmentEnv,
 } from "@usecontextlayer/dev-env/development"
 import { DEVELOPMENT_ORGANIZATION_SLUG } from "@usecontextlayer/dev-env/env"
+import { readDevelopmentPorts } from "@usecontextlayer/dev-env/ports"
 import { signInWeb } from "@usecontextlayer/dev-env/web"
 import { createTestHarness } from "wrangler"
 import type { PlatformEnv } from "@/context"
@@ -20,6 +21,7 @@ const root = resolve(import.meta.dirname, "../../..")
 const webRoot = resolve(root, "../web")
 
 export const test = base
+	.extend("addresses", { scope: "file" }, () => readDevelopmentPorts(root))
 	.extend("webEnv", { scope: "file" }, ({ addresses }) =>
 		readWebDevelopmentEnv(webRoot, addresses),
 	)

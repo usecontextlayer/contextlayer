@@ -45,6 +45,10 @@
 			"import": "./dist/polar.mjs",
 			"types": "./dist/polar.d.mts"
 		},
+		"./ports": {
+			"import": "./dist/ports.mjs",
+			"types": "./dist/ports.d.mts"
+		},
 		"./services": {
 			"import": "./dist/services.mjs",
 			"types": "./dist/services.d.mts"
@@ -63,6 +67,7 @@
 	"scripts": {
 		"build": "tsdown",
 		"dev:watch": "tsdown --watch",
+		"test": "vitest run --config vitest.config.ts",
 		"test:integration:node": "vitest run --config vitest.integration.node.config.ts",
 		"tsc": "tsc -b tsconfig.json"
 	},

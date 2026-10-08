@@ -10,6 +10,7 @@ export default defineConfig({
 		"env.ts",
 		"mcp.ts",
 		"polar.ts",
+		"ports.ts",
 		"services.ts",
 		"viewer.ts",
 		"web.ts",

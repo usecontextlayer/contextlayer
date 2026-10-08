@@ -186,7 +186,7 @@ If the package does not already have an `env.ts`, create one first and route env
 - Keep all normalization and defaults centralized in `env.ts`.
 - Keep hard-fail/required-variable checks centralized in `env.ts`.
 - Do not implement env defaults/fallbacks in non-`env.ts` modules (including shared/runtime libraries).
-- Do not add an environment registry, hostname pool, or platform-resource setting. Setup returns the actual addresses it started and passes them through the existing `env.ts` boundaries; the platform OAuth resource is a protocol constant, never configuration.
+- Root development stores its four selected service URLs in the checkout's ignored `.ports` file. Reuse the whole set only when every port is free; otherwise assign an entirely new set. Connected commands and tests read that same file and pass the actual addresses through existing `env.ts` boundaries. Do not add a global environment registry, hostname pool, or platform-resource setting; the platform OAuth resource is a protocol constant, never configuration.
 
 #### Environment Variable Naming
 
@@ -249,7 +249,7 @@ Tests are sorted by a **filename suffix** along two orthogonal axes defined in `
 
 A package carries a tier's config and script only when it uses that tier. Unit configs exclude the integration markers through `unitTestExclude`; only a package that actually runs browser tests may exclude that runtime's marker from its Node unit project. Misplaced tests therefore run in Node and fail instead of silently disappearing. When adding the first test of a tier, add the matching per-package config and task using the includes exported by `vitest.shared.ts`.
 
-`DEVELOPING.md` owns the run commands and prerequisites. The remaining suite has Node unit tests in shared, cli, and platform, and Node integration tests in dev-env and platform. Dispatcher behavior is exercised through the platform usage and MCP integrations with native Worker harnesses; MCP uses an SDK-built authored fixture. Browser and Claude tasks and taxonomy are retained.
+`DEVELOPING.md` owns the run commands and prerequisites. The remaining suite has Node unit tests in shared, cli, dev-env and platform, and Node integration tests in dev-env and platform. Dispatcher behavior is exercised through the platform usage and MCP integrations with native Worker harnesses; MCP uses an SDK-built authored fixture. Browser and Claude tasks and taxonomy are retained.
 
 #### Assert on the Contract, Not the Inside
 
