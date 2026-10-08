@@ -3,8 +3,8 @@ import { RouterContextProvider } from "react-router"
 import { createHonoServer } from "react-router-hono-server/cloudflare"
 import { createApi } from "@/api"
 import {
-	type IdentityEnv,
 	identifyUser,
+	type OwnerIdentityEnv,
 	requireCsrf,
 	requireDashboardAuth,
 } from "@/auth.middleware"
@@ -24,7 +24,7 @@ export { Publication } from "@/publication.server"
 
 const publicDashboardPaths = ["/dashboard/chrome/apps/*", "/dashboard/__manifest"]
 
-export default await createHonoServer<IdentityEnv>({
+export default await createHonoServer<OwnerIdentityEnv>({
 	configure(app) {
 		app.use(async (c, next) => {
 			const config = parsePlatformEnv(c.env)

@@ -21,6 +21,7 @@ import {
 	resolveAppConnection,
 } from "@/app-resources.server"
 import { appSchema } from "@/apps.schema"
+import type { OwnerIdentity } from "@/auth.server"
 import { getCredentialOwner } from "@/owner"
 
 test("existing viewer assignments survive the Owner migration", async ({ db }) => {
@@ -74,9 +75,10 @@ test("configuration includes agent-only connections while app execution uses its
 		}),
 	)
 	const alice = {
-		credential: { token: "unused-for-personal-app", type: "access-token" },
+		credential: { cookie: "unused-for-personal-app", type: "cookie" },
+		type: "owner",
 		user: { id: "alice" },
-	} as const
+	} as const satisfies OwnerIdentity
 	const app = appSchema.parse(
 		await db
 			.insertInto("app")
@@ -222,9 +224,10 @@ test("resource modes select viewer and app Owner assignments through the product
 	})
 	const resources = collectAppResources({ agents: {}, app: slate })
 	const alice = {
-		credential: { token: "unused-for-local-personal-app", type: "access-token" },
+		credential: { cookie: "unused-for-local-personal-app", type: "cookie" },
+		type: "owner",
 		user: { id: "alice" },
-	} as const
+	} as const satisfies OwnerIdentity
 	const bob = { ...alice, user: { id: "bob" } }
 	const app = appSchema.parse(
 		await db

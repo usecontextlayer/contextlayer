@@ -99,6 +99,45 @@ test("native dispatcher and platform bind MCP to the app and reject cookie fallb
 	).toBe(200)
 })
 
+test("private organization member reaches billing through app-bound MCP authorization", async ({
+	dispatcher,
+	identity,
+	organization,
+	platform,
+	serviceEnv,
+	webSession,
+}) => {
+	const created = await fetch(`${platform.origin}/api/apps`, {
+		body: JSON.stringify({ organization_slug: organization.slug }),
+		headers: { ...identity.headers, "content-type": "application/json" },
+		method: "POST",
+	})
+	expect(created.status).toBe(201)
+	const app = appSchema.parse(await created.json())
+	const { ARTIFACTS } = await platform.worker.getEnv()
+	await using resources = new AsyncDisposableStack()
+	resources.defer(async () => {
+		await ARTIFACTS.delete(app.id)
+	})
+	expect(app).toMatchObject({
+		owner_organization_id: organization.id,
+		owner_user_id: null,
+		visibility: "private",
+	})
+	const resource = `https://${app.public_hostname}/mcp`
+	const headers = await authorizeMcp({
+		clientId: "https://claude.ai/oauth/claude-code-client-metadata",
+		issuer: serviceEnv.issuer,
+		redirectUri: "http://127.0.0.1:51234/callback",
+		resource,
+		webHeaders: webSession.headers,
+	})
+	expect(
+		(await dispatcher.worker.fetch(resource, { headers: Object.fromEntries(headers) }))
+			.status,
+	).toBe(402)
+})
+
 test("discovers a View and invokes an authored Worker once through native MCP", {
 	timeout: 300_000,
 }, async ({ app, db, directory, dispatcher, identity, mcpHeaders, serviceEnv }) => {

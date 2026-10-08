@@ -28,6 +28,7 @@ import {
 import {
 	type AuthenticatedViewingEnv,
 	appViewingErrorStatus,
+	type OwnerViewingEnv,
 	requireAppViewing,
 } from "@/apps.middleware"
 import {
@@ -49,12 +50,12 @@ import {
 	updateAppVisibility,
 } from "@/apps.server"
 import {
-	type AuthenticatedEnv,
 	getAppViewerIdentity,
 	type IdentityEnv,
 	identifyUser,
 	identifyViewer,
-	type NativeAuthenticatedEnv,
+	type OwnerAuthenticatedEnv,
+	type OwnerIdentityEnv,
 	requireAuth,
 	requireCsrf,
 } from "@/auth.middleware"
@@ -97,7 +98,7 @@ const security: NonNullable<RouteConfig["security"]> = [
 ]
 
 export function createApi() {
-	const api = new OpenAPIHono<IdentityEnv>()
+	const api = new OpenAPIHono<OwnerIdentityEnv>()
 	api.post("/polar/webhooks", async (c) => {
 		let payload: webhooks.WebhookPayload
 		try {
@@ -297,7 +298,7 @@ export function createApi() {
 	)
 	api.route("/apps/:target/tools", tools)
 	api.use("*", identifyUser, requireCsrf)
-	const catalog = new OpenAPIHono<AuthenticatedEnv>()
+	const catalog = new OpenAPIHono<OwnerAuthenticatedEnv>()
 	catalog.use("*", requireAuth)
 	catalog.openapi(
 		createRoute({
@@ -415,7 +416,7 @@ export function createApi() {
 		},
 	)
 	api.route("/apps", catalog)
-	const secrets = new OpenAPIHono<AuthenticatedEnv>()
+	const secrets = new OpenAPIHono<OwnerAuthenticatedEnv>()
 	secrets.use("*", requireAuth)
 	secrets.openapi(
 		createRoute({
@@ -483,7 +484,7 @@ export function createApi() {
 		},
 	)
 	api.route("/secrets", secrets)
-	const personalConnections = new OpenAPIHono<NativeAuthenticatedEnv>()
+	const personalConnections = new OpenAPIHono<OwnerAuthenticatedEnv>()
 	personalConnections.use("*", requireAuth)
 	personalConnections.openapi(
 		createRoute({
@@ -646,7 +647,7 @@ export function createApi() {
 			return c.json(result.link, 200)
 		},
 	)
-	const appOperations = new OpenAPIHono<AuthenticatedViewingEnv>()
+	const appOperations = new OpenAPIHono<OwnerViewingEnv>()
 	appOperations.use("*", requireAuth, requireAppViewing)
 	appOperations.openapi(
 		createRoute({

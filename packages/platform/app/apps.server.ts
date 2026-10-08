@@ -16,6 +16,7 @@ import {
 	checkViewerOrganizationMembership,
 	findOrganizationBySlug,
 	listOrganizations,
+	type OwnerIdentity,
 } from "@/auth.server"
 import type { PlatformDb } from "@/database"
 import type { AppId } from "@/database/models/public/App"
@@ -23,11 +24,12 @@ import type { PlatformConfig } from "@/env"
 import type { Owner, OwnerDetails } from "@/owner"
 
 export type AppAccess = { app: App; identity: AuthIdentity }
+export type OwnerAppAccess = AppAccess & { identity: OwnerIdentity }
 
 export async function getApp(
 	db: PlatformDb,
 	target: AppTarget,
-	identity: AuthIdentity,
+	identity: OwnerIdentity,
 	issuer: string,
 ) {
 	const app = await resolveApp(db, target)
@@ -48,7 +50,7 @@ export async function getApp(
 export async function listApps(
 	db: PlatformDb,
 	artifacts: Artifacts,
-	identity: AuthIdentity,
+	identity: OwnerIdentity,
 	issuer: string,
 	filter: AppOwnerFilter,
 ) {
@@ -91,9 +93,9 @@ export async function resolveAppForViewing(
 	let isOwnerOrganizationMember = false
 	if (identity && app.visibility === "private" && app.owner_organization_id) {
 		isOwnerOrganizationMember =
-			identity.credential.type === "session"
+			identity.type === "viewer"
 				? await checkViewerOrganizationMembership(
-						identity.credential,
+						identity,
 						app.owner_organization_id,
 						issuer,
 					)
@@ -119,12 +121,20 @@ export function authorizeAppViewing(
 	isOwnerOrganizationMember: boolean,
 ) {
 	if (app.visibility === "public") return { allowed: true, app, identity } as const
-	return authorizeAppManagement(app, identity, isOwnerOrganizationMember)
+	return authorizeAppOwnership(app, identity, isOwnerOrganizationMember)
 }
 
 export function authorizeAppManagement(
 	app: App,
-	identity: AuthIdentity | null,
+	identity: OwnerIdentity | null,
+	isOwnerOrganizationMember: boolean,
+) {
+	return authorizeAppOwnership(app, identity, isOwnerOrganizationMember)
+}
+
+function authorizeAppOwnership<T extends AuthIdentity>(
+	app: App,
+	identity: T | null,
 	isOwnerOrganizationMember: boolean,
 ) {
 	if (!identity) return { allowed: false, reason: "sign-in-required" } as const
@@ -143,7 +153,7 @@ export async function createApp(
 		PlatformConfig,
 		"CTX_APPS_DOMAIN" | "CTX_AUTH_ISSUER" | "CTX_APP_OAUTH_PROVISIONING_SECRET"
 	>,
-	identity: AuthIdentity,
+	identity: OwnerIdentity,
 	input: CreateAppRequest,
 ) {
 	const organization = input.organization_slug
@@ -187,7 +197,7 @@ export async function createApp(
 
 export async function updateAppVisibility(
 	db: PlatformDb,
-	{ app, identity }: AppAccess,
+	{ app, identity }: OwnerAppAccess,
 	issuer: string,
 	input: UpdateAppVisibilityRequest,
 ) {
@@ -214,7 +224,7 @@ export async function getGitAccess(
 	artifacts: Artifacts,
 	id: AppId,
 	write: boolean,
-	identity: AuthIdentity,
+	identity: OwnerIdentity,
 	issuer: string,
 ) {
 	const access = await getApp(db, { id }, identity, issuer)

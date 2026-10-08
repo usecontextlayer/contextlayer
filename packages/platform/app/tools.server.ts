@@ -1,7 +1,7 @@
 import type { z } from "zod"
 import { getAppResources, resolveAppConnection } from "@/app-resources.server"
 import { type AppAccess, resolveAppForViewing } from "@/apps.server"
-import type { NativeAuthIdentity } from "@/auth.server"
+import type { OwnerIdentity } from "@/auth.server"
 import { checkAppBilling } from "@/billing.server"
 import { createConnectionSession } from "@/connections.server"
 import type { PlatformDb } from "@/database"
@@ -33,7 +33,7 @@ export async function callTool(
 export async function callConnectionTool(
 	db: PlatformDb,
 	config: PlatformConfig,
-	identity: NativeAuthIdentity,
+	identity: OwnerIdentity,
 	connectionId: string,
 	call: z.infer<typeof connectionToolCallSchema>,
 ) {
