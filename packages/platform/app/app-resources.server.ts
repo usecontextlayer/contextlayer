@@ -53,22 +53,15 @@ export function prepareAppResourceConfiguration(
 				]
 			}),
 		),
-		databases: Object.fromEntries(
-			Object.entries(
-				prepareAppDatabaseConfiguration(app, viewer, resources.databases),
-			).map(([slug, { consumers, instance_name, mode, owner }]) => [
-				slug,
-				{ consumers, instance_name, mode, owner },
-			]),
-		),
+		databases: prepareAppDatabaseConfiguration(app, viewer, resources.databases),
 		secrets: withOwners(resources.secrets),
 	}
 }
 
-export function prepareAppDatabaseConfiguration<T extends Resources["databases"][string]>(
+export function prepareAppDatabaseConfiguration(
 	app: App,
 	viewer: { id: string } | null,
-	requirements: Record<string, T>,
+	requirements: Resources["databases"],
 ) {
 	return Object.fromEntries(
 		Object.entries(requirements).map(([slug, requirement]) => {
