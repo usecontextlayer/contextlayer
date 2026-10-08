@@ -62,7 +62,7 @@ export function prepareAgentRun(
 	const connections: AgentRun["connections"] = {}
 	for (const [slug, connection] of Object.entries(configuration.connections)) {
 		if (connection.connection_id === null)
-			return { allowed: false, reason: "not-found" } as const
+			return { allowed: false, reason: "connection-assignment-missing" } as const
 		connections[slug] = {
 			connection_id: connection.connection_id,
 			owner: connection.owner,
@@ -100,9 +100,10 @@ export async function getAgentRun(
 ) {
 	const snapshot = await readAppDeclarations(artifacts, app.id)
 	if (snapshot.state === "no-commit")
-		return { allowed: false, reason: "not-found" } as const
+		return { allowed: false, reason: "agent-definition-missing" } as const
 	const result = await readAgent(artifacts, app.id, input.name, snapshot.commit)
-	if (!result.allowed) return result
+	if (!result.allowed)
+		return { allowed: false, reason: "agent-definition-missing" } as const
 	const resources = resourcesForConsumer(snapshot.resources, {
 		name: input.name,
 		type: "agent",

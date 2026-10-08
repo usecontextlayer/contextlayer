@@ -176,8 +176,18 @@ export class AppAgent extends Think<PlatformEnv["Bindings"]> {
 				scheduled.actor,
 				scheduled,
 			)
-			if (!prepared.allowed)
-				throw new Error("Published scheduled agent or connection assignment not found")
+			if (!prepared.allowed) {
+				if (prepared.reason === "agent-definition-missing") {
+					await this.registerSchedules(
+						scheduled.appId,
+						scheduled.name,
+						scheduled.actor,
+						[],
+					)
+					return
+				}
+				throw new Error("Published scheduled agent connection assignment not found")
+			}
 			await this.start(prepared.run, "schedule")
 		} finally {
 			await db.destroy()

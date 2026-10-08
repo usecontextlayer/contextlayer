@@ -141,3 +141,35 @@ test.each([
 	expect(unattended.prompt).toBe("Scheduled research.")
 	expect(agentRunSchema.parse(JSON.parse(JSON.stringify(unattended)))).toEqual(unattended)
 })
+
+test("a required connection without an assignment refuses preparation with its own reason", () => {
+	const app = appSchema.parse({
+		id: "00000000-0000-4000-8000-000000000001",
+		owner_organization_id: null,
+		owner_user_id: "alice",
+		public_hostname: "brief.contextlayer.xyz",
+		visibility: "private",
+	})
+	const configuration = prepareAppResourceConfiguration(
+		app,
+		{ id: "bob" },
+		collectAppResources(
+			appSlatesSchema.parse({
+				agents: {
+					brief: { connections: { mail: { mode: "viewer", toolkit: "gmail" } } },
+				},
+				app: { connections: {} },
+			}),
+		),
+		[],
+	)
+	expect(
+		prepareAgentRun(
+			app,
+			{ id: "bob", type: "user" },
+			{ commit: "published-revision", instructions: "Return a company brief.\n" },
+			configuration,
+			{ name: "brief", prompt: "Research Acme." },
+		),
+	).toEqual({ allowed: false, reason: "connection-assignment-missing" })
+})
