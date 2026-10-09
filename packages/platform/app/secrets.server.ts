@@ -1,6 +1,6 @@
 import { Buffer } from "node:buffer"
 import { z } from "zod"
-import type { AuthIdentity } from "@/auth.server"
+import type { OwnerIdentity } from "@/auth.server"
 import { type PlatformBindings, type PlatformConfig, parseSharedSecretsEnv } from "@/env"
 import type { Owner } from "@/owner"
 import { authorizeOwner } from "@/owner.server"
@@ -36,7 +36,7 @@ export async function loadSharedSecret(
 
 export async function setSharedSecret(
 	config: PlatformConfig,
-	identity: AuthIdentity,
+	identity: OwnerIdentity,
 	owner: Owner,
 	name: string,
 	input: SetSecretRequest,
@@ -62,7 +62,7 @@ export async function setSharedSecret(
 
 export async function dropSharedSecret(
 	config: PlatformConfig,
-	identity: AuthIdentity,
+	identity: OwnerIdentity,
 	owner: Owner,
 	name: string,
 ) {

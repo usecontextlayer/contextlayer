@@ -7,14 +7,18 @@ import type { AgentActor, AgentRun, AgentRunRequest, agentSchema } from "@/agent
 import { readAppDeclarations } from "@/app-declarations.server"
 import { getAppResourceConfiguration } from "@/app-resources.server"
 import type { App } from "@/apps.schema"
-import { type AppAccess, authorizeAppManagement } from "@/apps.server"
+import {
+	type AppAccess,
+	authorizeAppManagement,
+	type OwnerAppAccess,
+} from "@/apps.server"
 import { listOrganizations } from "@/auth.server"
 import type { PlatformDb } from "@/database"
 import type { AppId } from "@/database/models/public/App"
 
 export async function getAgent(
 	artifacts: Artifacts,
-	{ app, identity }: AppAccess,
+	{ app, identity }: OwnerAppAccess,
 	issuer: string,
 	name: string,
 ) {

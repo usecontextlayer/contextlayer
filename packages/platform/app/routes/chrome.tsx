@@ -14,7 +14,7 @@ import { assignAppConnection } from "@/app-connections.server"
 import { getAppResources, listAppConnections } from "@/app-resources.server"
 import { appTargetSchema } from "@/apps.schema"
 import { resolveAppForViewing } from "@/apps.server"
-import { type AuthIdentity, getCurrentUser } from "@/auth.server"
+import { getCurrentUser, type OwnerIdentity } from "@/auth.server"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
@@ -62,7 +62,7 @@ const chromeActionSchema = z.discriminatedUnion("intent", [
 
 async function getChromeApp(
 	{ params, context }: Pick<Route.LoaderArgs, "params" | "context">,
-	identity: AuthIdentity,
+	identity: OwnerIdentity,
 ) {
 	const access = await resolveAppForViewing(
 		context.get(databaseContext),

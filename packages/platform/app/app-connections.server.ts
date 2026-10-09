@@ -2,7 +2,7 @@ import type { Resources } from "@usecontextlayer/shared/slate"
 import type { z } from "zod"
 import type { assignmentSchema } from "@/app-connections.schema"
 import type { App } from "@/apps.schema"
-import type { AppAccess } from "@/apps.server"
+import type { OwnerAppAccess } from "@/apps.server"
 import type { PlatformDb } from "@/database"
 import type {
 	AppConnectionAssignmentOwnerId,
@@ -20,7 +20,7 @@ function assignmentOwner(owner: Owner) {
 
 export async function assignAppConnection(
 	db: PlatformDb,
-	access: AppAccess,
+	access: OwnerAppAccess,
 	issuer: string,
 	assignment: z.infer<typeof assignmentSchema>,
 	resources: Resources,
