@@ -1,7 +1,11 @@
 import { createMiddleware } from "hono/factory"
 import { type App, appTargetSchema } from "@/apps.schema"
-import { type AppAccess, resolveAppForViewing } from "@/apps.server"
-import type { AuthenticatedEnv, IdentityEnv } from "@/auth.middleware"
+import { type AppAccess, type OwnerAppAccess, resolveAppForViewing } from "@/apps.server"
+import type {
+	AuthenticatedEnv,
+	IdentityEnv,
+	OwnerAuthenticatedEnv,
+} from "@/auth.middleware"
 import type { AuthIdentity } from "@/auth.server"
 
 export type ViewingEnv = IdentityEnv & {
@@ -10,6 +14,11 @@ export type ViewingEnv = IdentityEnv & {
 export type AuthenticatedViewingEnv = ViewingEnv &
 	AuthenticatedEnv & {
 		Variables: { appAccess: AppAccess }
+	}
+
+export type OwnerViewingEnv = AuthenticatedViewingEnv &
+	OwnerAuthenticatedEnv & {
+		Variables: { appAccess: OwnerAppAccess }
 	}
 
 export const appViewingErrorStatus = {

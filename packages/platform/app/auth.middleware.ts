@@ -1,27 +1,30 @@
+import { isAPIError } from "better-auth/api"
 import type { Context } from "hono"
 import { accepts } from "hono/accepts"
 import { except } from "hono/combine"
 import { getCookie } from "hono/cookie"
 import { csrf } from "hono/csrf"
 import { createMiddleware } from "hono/factory"
-import { errors } from "jose"
-import { z } from "zod"
+import type { z } from "zod"
 import type { resolveAppQuerySchema } from "@/apps.schema"
 import {
 	type AuthIdentity,
 	authenticateAccessToken,
 	authenticateSession,
-	type NativeAuthIdentity,
+	type OwnerIdentity,
 } from "@/auth.server"
 import type { PlatformEnv } from "@/context"
 import { authenticateMcpRequest } from "@/mcp.server"
 
 export type IdentityEnv = PlatformEnv & { Variables: { identity: AuthIdentity | null } }
+export type OwnerIdentityEnv = IdentityEnv & {
+	Variables: { identity: OwnerIdentity | null }
+}
 export type AuthenticatedEnv = IdentityEnv & {
 	Variables: { identity: AuthIdentity }
 }
-export type NativeAuthenticatedEnv = AuthenticatedEnv & {
-	Variables: { identity: NativeAuthIdentity }
+export type OwnerAuthenticatedEnv = AuthenticatedEnv & {
+	Variables: { identity: OwnerIdentity }
 }
 
 function createRequireAuth({ signInRedirect = false } = {}) {
@@ -56,31 +59,26 @@ export const requireCsrf = except(
 	csrf(),
 )
 
-async function getRequestIdentity(
-	c: Context<IdentityEnv>,
+async function getRequestIdentity<E extends IdentityEnv>(
+	c: Context<E>,
 	{ viewerCookie }: { viewerCookie: boolean },
 ) {
-	const token = c.req.header("authorization")?.match(/^Bearer (.+)$/i)?.[1]
 	const session = viewerCookie ? getCookie(c, "ctx-viewer-auth") : undefined
 	const cookie = c.req.header("cookie")
-	const credential = token
-		? ({ token, type: "access-token" } as const)
-		: session
-			? ({ token: session, type: "session" } as const)
-			: cookie
-				? ({ cookie, type: "cookie" } as const)
-				: null
-	let user = null
-	if (credential?.type === "access-token") {
+	if (c.req.header("authorization") !== undefined) {
 		try {
-			user = await authenticateAccessToken(credential.token, c.var.config.CTX_AUTH_ISSUER)
+			return await authenticateAccessToken(c.req.raw, c.var.config.CTX_AUTH_ISSUER)
 		} catch (error) {
-			if (!(error instanceof errors.JOSEError || error instanceof z.ZodError)) throw error
+			if (isAPIError(error) && [401, 403].includes(error.statusCode)) return null
+			throw error
 		}
-	} else if (credential) {
-		user = await authenticateSession(credential, c.var.config.CTX_AUTH_ISSUER)
 	}
-	return user && credential ? { credential, user } : null
+	const credential = session
+		? ({ token: session, type: "session" } as const)
+		: cookie
+			? ({ cookie, type: "cookie" } as const)
+			: null
+	return credential ? authenticateSession(credential, c.var.config.CTX_AUTH_ISSUER) : null
 }
 
 export const identifyUser = createMiddleware<IdentityEnv>(async (c, next) => {
@@ -88,23 +86,10 @@ export const identifyUser = createMiddleware<IdentityEnv>(async (c, next) => {
 	await next()
 })
 
-export function identifyViewer(c: Context<IdentityEnv>) {
-	return getRequestIdentity(c, { viewerCookie: true })
-}
-
-export async function getAppViewerIdentity(
-	c: Context<IdentityEnv>,
+export async function getAppViewerIdentity<E extends IdentityEnv>(
+	c: Context<E>,
 	input: z.infer<typeof resolveAppQuerySchema>,
 ) {
-	if (input.pathname !== "/mcp") return identifyViewer(c)
-	const user = await authenticateMcpRequest(
-		c.req.raw,
-		input.hostname,
-		c.var.config.CTX_AUTH_ISSUER,
-	)
-	const token = c.req.header("authorization")?.match(/^Bearer (.+)$/i)?.[1]
-	return {
-		credential: { token: z.string().min(1).parse(token), type: "access-token" as const },
-		user,
-	}
+	if (input.pathname !== "/mcp") return getRequestIdentity(c, { viewerCookie: true })
+	return authenticateMcpRequest(c.req.raw, input.hostname, c.var.config.CTX_AUTH_ISSUER)
 }

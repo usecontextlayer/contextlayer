@@ -10,6 +10,8 @@ import { startNext, startVite, startWrangler } from "@usecontextlayer/dev-env/se
 import { execa, execaNode } from "execa"
 import { z } from "zod"
 
+process.once("SIGINT", () => process.exit(0))
+
 const root = resolve(import.meta.dirname, "..")
 const webRoot = resolve(root, "../web")
 const addresses = await assignDevelopmentPorts(root)

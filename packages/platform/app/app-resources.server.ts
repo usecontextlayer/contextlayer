@@ -9,7 +9,7 @@ import { getAppConnectionAssignments } from "@/app-connections.server"
 import { readAppDeclarations } from "@/app-declarations.server"
 import { type AppActor, getAppActor } from "@/app-members.server"
 import type { App } from "@/apps.schema"
-import type { AppAccess } from "@/apps.server"
+import type { AppAccess, OwnerAppAccess } from "@/apps.server"
 import type { PlatformDb } from "@/database"
 import type { AppConnectionAssignmentSlug } from "@/database/models/public/AppConnectionAssignment"
 import { getAppOwner, getCredentialOwner } from "@/owner"
@@ -120,7 +120,7 @@ function getAppResourceAssignments(
 
 export async function listAppResources(
 	db: PlatformDb,
-	access: AppAccess,
+	access: OwnerAppAccess,
 	resources: Resources,
 ) {
 	return {
@@ -136,7 +136,7 @@ export async function listAppResources(
 
 export async function listAppConnections(
 	db: PlatformDb,
-	access: AppAccess,
+	access: OwnerAppAccess,
 	resources: Resources,
 ) {
 	const configured = await listAppResources(db, access, resources)

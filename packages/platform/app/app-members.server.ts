@@ -1,6 +1,6 @@
 import { appMemberSchema } from "@/app-members.schema"
 import { setupApp } from "@/app-setup.server"
-import type { AppAccess } from "@/apps.server"
+import type { OwnerAppAccess } from "@/apps.server"
 import type { PlatformEnv } from "@/context"
 import type { PlatformDb } from "@/database"
 import type { AppId } from "@/database/models/public/App"
@@ -30,7 +30,7 @@ export async function joinApp(
 	artifacts: Artifacts,
 	databases: PlatformEnv["Bindings"]["DATABASES"],
 	agents: PlatformEnv["Bindings"]["AGENTS"],
-	{ app, identity }: AppAccess,
+	{ app, identity }: OwnerAppAccess,
 ) {
 	const member = appMemberSchema.parse({ app_id: app.id, user_id: identity.user.id })
 	await db

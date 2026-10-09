@@ -1,8 +1,8 @@
-import { type AuthIdentity, listOrganizations } from "@/auth.server"
+import { listOrganizations, type OwnerIdentity } from "@/auth.server"
 import type { Owner } from "@/owner"
 
 export async function authorizeOwner(
-	identity: AuthIdentity,
+	identity: OwnerIdentity,
 	issuer: string,
 	owner: Owner,
 ) {

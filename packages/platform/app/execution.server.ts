@@ -23,9 +23,8 @@ async function getViewerAccess(
 ) {
 	const id = appSchema.shape.id.parse(appId)
 	const credential = { token: viewerSessionToken, type: "session" } as const
-	const user = await authenticateSession(credential, config.CTX_AUTH_ISSUER)
-	if (!user) return { allowed: false, reason: "sign-in-required" } as const
-	const identity = { credential, user }
+	const identity = await authenticateSession(credential, config.CTX_AUTH_ISSUER)
+	if (!identity) return { allowed: false, reason: "sign-in-required" } as const
 	const access = await resolveAppForViewing(db, { id }, identity, config.CTX_AUTH_ISSUER)
 	if (!access.allowed) return access
 	const billing = await checkAppBilling(db, config, access.app)
