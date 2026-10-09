@@ -1,5 +1,6 @@
 {
 	"compatibility_date": "2026-10-02",
+	"compatibility_flags": ["enable_ctx_exports"],
 	"main": "index.ts",
 	"name": "contextlayer-execution-caller-test",
 	"services": [
