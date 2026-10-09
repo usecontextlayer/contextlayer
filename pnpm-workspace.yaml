@@ -17,6 +17,7 @@ verifyDepsBeforeRun: false
 # Enable a disabled script only with evidence that its build is required.
 allowBuilds:
   '@mongodb-js/zstd': false
+  '@polar-sh/cli': true
   core-js-pure: false
   node-liblzma: false
   workerd: false

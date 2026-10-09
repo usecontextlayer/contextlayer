@@ -48,22 +48,29 @@ export function prepareAppResourceConfiguration(
 	}
 	return {
 		connections: Object.fromEntries(
-			Object.entries(withOwners(resources.connections)).map(([slug, requirement]) => {
-				const assignment = assignments.find(
-					(row) =>
-						row.slug === slug &&
-						row.owner_type === requirement.owner.type &&
-						row.owner_id === requirement.owner.id,
-				)
-				return [
-					slug,
-					{ ...requirement, connection_id: assignment?.connection_id ?? null },
-				]
-			}),
+			Object.entries(resources.connections).map(([slug, requirement]) => [
+				slug,
+				prepareAppConnection(app, viewer, slug, requirement, assignments),
+			]),
 		),
 		databases: prepareAppDatabaseConfiguration(app, viewer, resources.databases),
 		secrets: withOwners(resources.secrets),
 	}
+}
+
+export function prepareAppConnection(
+	app: App,
+	viewer: { id: string } | null,
+	slug: string,
+	requirement: Resources["connections"][string],
+	assignments: Awaited<ReturnType<typeof getAppConnectionAssignments>>,
+) {
+	const owner = getCredentialOwner(requirement.mode, app, viewer)
+	const assignment = assignments.find(
+		(row) =>
+			row.slug === slug && row.owner_type === owner.type && row.owner_id === owner.id,
+	)
+	return { ...requirement, connection_id: assignment?.connection_id ?? null, owner }
 }
 
 export function prepareAppDatabaseConfiguration(
@@ -96,11 +103,19 @@ export async function getAppResourceConfiguration(
 	viewer: { id: string } | null,
 	resources: Resources,
 ) {
-	const assignments = await getAppConnectionAssignments(db, app.id, [
+	const assignments = await getAppResourceAssignments(db, app, viewer)
+	return prepareAppResourceConfiguration(app, viewer, resources, assignments)
+}
+
+function getAppResourceAssignments(
+	db: PlatformDb,
+	app: App,
+	viewer: { id: string } | null,
+) {
+	return getAppConnectionAssignments(db, app.id, [
 		getAppOwner(app),
 		...(viewer ? [{ id: viewer.id, type: "user" } as const] : []),
 	])
-	return prepareAppResourceConfiguration(app, viewer, resources, assignments)
 }
 
 export async function listAppResources(
@@ -143,22 +158,22 @@ export async function resolveAppConnection(
 	const declared = selected.connections[slug]
 	if (!declared) return { allowed: false, reason: "not-declared" } as const
 	const actor = await getAppActor(db, access.app.id, access.identity.user)
-	const required = {
+	const resolved = resolveAppResourceActor(actor, {
 		connections: { [slug]: declared },
 		databases: {},
 		secrets: {},
-	}
-	const resolved = resolveAppResourceActor(actor, required)
+	})
 	if (!resolved.allowed) return resolved
-	const configuration = await getAppResourceConfiguration(
-		db,
+	const assignments = await getAppResourceAssignments(db, access.app, resolved.viewer)
+	const connection = prepareAppConnection(
 		access.app,
 		resolved.viewer,
-		required,
+		slug,
+		declared,
+		assignments,
 	)
-	const connection = configuration.connections[slug]
-	if (!connection || connection.connection_id === null)
-		return { allowed: false, reason: "not-found" } as const
+	if (connection.connection_id === null)
+		return { allowed: false, reason: "connection-required", slug } as const
 	const { connection_id, owner, ...requirement } = connection
 	return { allowed: true, connection_id, owner, requirement } as const
 }

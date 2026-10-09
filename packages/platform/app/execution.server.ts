@@ -7,7 +7,7 @@ import { queryAppDatabase } from "@/app-databases.server"
 import { appSchema } from "@/apps.schema"
 import { resolveAppForViewing } from "@/apps.server"
 import { authenticateSession } from "@/auth.server"
-import { checkAppSubscription } from "@/billing.server"
+import { checkAppBilling } from "@/billing.server"
 import type { PlatformEnv } from "@/context"
 import { createPlatformDb, type PlatformDb } from "@/database"
 import { type PlatformConfig, parsePlatformEnv } from "@/env"
@@ -28,8 +28,8 @@ async function getViewerAccess(
 	const identity = { credential, user }
 	const access = await resolveAppForViewing(db, { id }, identity, config.CTX_AUTH_ISSUER)
 	if (!access.allowed) return access
-	if (!(await checkAppSubscription(db, access.app)))
-		return { allowed: false, reason: "subscription-required" } as const
+	const billing = await checkAppBilling(db, config, access.app)
+	if (!billing.allowed) return billing
 	return { allowed: true, app: access.app, identity } as const
 }
 

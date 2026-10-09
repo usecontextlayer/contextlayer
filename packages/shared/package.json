@@ -3,8 +3,6 @@
 		"@modelcontextprotocol/core": "2.3.1",
 		"@polar-sh/sdk": "1.0.1",
 		"drizzle-orm": "0.45.3",
-		"hono": "^4.13.3",
-		"jose": "^6.2.9",
 		"zod": "^4.6.5"
 	},
 	"devDependencies": {
@@ -14,10 +12,6 @@
 		"vitest": "^4.1.11"
 	},
 	"exports": {
-		".": {
-			"import": "./dist/index.mjs",
-			"types": "./dist/index.d.mts"
-		},
 		"./app-connections": {
 			"import": "./dist/app-connections.mjs",
 			"types": "./dist/app-connections.d.mts"
@@ -37,14 +31,6 @@
 		"./connections": {
 			"import": "./dist/connections.mjs",
 			"types": "./dist/connections.d.mts"
-		},
-		"./ctx-machine-token": {
-			"import": "./dist/ctx-machine-token.mjs",
-			"types": "./dist/ctx-machine-token.d.mts"
-		},
-		"./ctx-token-provider": {
-			"import": "./dist/ctx-token-provider.mjs",
-			"types": "./dist/ctx-token-provider.d.mts"
 		},
 		"./database-worker": {
 			"import": "./dist/database-worker.mjs",
@@ -70,10 +56,6 @@
 			"import": "./dist/slate.mjs",
 			"types": "./dist/slate.d.mts"
 		},
-		"./testing": {
-			"import": "./dist/testing.mjs",
-			"types": "./dist/testing.d.mts"
-		},
 		"./tools": {
 			"import": "./dist/tools.mjs",
 			"types": "./dist/tools.d.mts"
@@ -83,7 +65,6 @@
 			"types": "./dist/tools-worker.d.mts"
 		}
 	},
-	"main": "./dist/index.mjs",
 	"name": "@usecontextlayer/shared",
 	"private": true,
 	"scripts": {
@@ -94,6 +75,5 @@
 		"tsc": "npx tsc -b tsconfig.json"
 	},
 	"type": "module",
-	"types": "./dist/index.d.mts",
 	"version": "0.14.3"
 }

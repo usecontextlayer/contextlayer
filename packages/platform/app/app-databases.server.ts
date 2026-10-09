@@ -21,11 +21,10 @@ export async function queryAppDatabase(
 	const selected = resourcesForConsumer(snapshot.resources, { type: "app" })
 	const requirement = selected.databases[input.slug]
 	if (!requirement) return { allowed: false, reason: "not-declared" } as const
-	const requirements = { [input.slug]: requirement }
 	const actor = await getAppActor(db, app.id, identity.user)
 	const resolved = resolveAppResourceActor(actor, {
 		connections: {},
-		databases: requirements,
+		databases: { [input.slug]: requirement },
 		secrets: {},
 	})
 	if (!resolved.allowed) return resolved

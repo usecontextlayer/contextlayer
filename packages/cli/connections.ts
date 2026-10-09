@@ -38,14 +38,14 @@ export async function assignAppConnection(
 		const url = new URL("/api/connections", env.CTX_PLATFORM_URL)
 		url.searchParams.set("toolkit", requirement.toolkit)
 		const response = await fetch(url, {
-			headers: { authorization: `Bearer ${await getAccessToken()}` },
+			headers: { authorization: `Bearer ${await getAccessToken(env)}` },
 		})
 		if (!response.ok)
 			throw new Error(`Personal connection list failed: HTTP ${response.status}`)
 		const { connections } = connectionsSchema.parse(await response.json())
 		if (connections.length === 0)
 			throw new Error(
-				`No personal ${requirement.toolkit} accounts. Run ctx connections add ${requirement.toolkit}.`,
+				`No personal ${requirement.toolkit} accounts. Run npx @usecontextlayer/cli connections add ${requirement.toolkit}, approve access in your browser, then rerun this assignment.`,
 			)
 		if (connectionId === undefined) {
 			const selected = await select({
@@ -69,6 +69,7 @@ export async function assignAppConnection(
 		}
 		await saveLocalConnection(slug, connectionId)
 		console.log(`${slug} → ${connectionId}`)
+		console.log("Start or restart pnpm dev to use this assignment.")
 		return
 	}
 	const response = await fetch(
@@ -79,7 +80,7 @@ export async function assignAppConnection(
 		{
 			body: JSON.stringify({ connection_id: connectionId, slug }),
 			headers: {
-				authorization: `Bearer ${await getAccessToken()}`,
+				authorization: `Bearer ${await getAccessToken(env)}`,
 				"content-type": "application/json",
 			},
 			method: "POST",
@@ -125,7 +126,7 @@ export async function listAppConnections(target: string) {
 		{
 			body: JSON.stringify({}),
 			headers: {
-				authorization: `Bearer ${await getAccessToken()}`,
+				authorization: `Bearer ${await getAccessToken(env)}`,
 				"content-type": "application/json",
 			},
 			method: "POST",
@@ -147,7 +148,7 @@ export async function listAppConnections(target: string) {
 }
 
 export async function addConnection(toolkit: string, org: string | undefined) {
-	const headers = { authorization: `Bearer ${await getAccessToken()}` }
+	const headers = { authorization: `Bearer ${await getAccessToken(env)}` }
 	const owner = await resolveOwner(org, headers)
 	const response = await fetch(
 		new URL(`/api/connections/${ownerPath(owner)}`, env.CTX_PLATFORM_URL),
@@ -167,12 +168,20 @@ export async function addConnection(toolkit: string, org: string | undefined) {
 		.parse(await response.json())
 	console.log(`Open this link to authorize the Owner's account:\n${redirect_url}`)
 	console.log(
-		`After authorization, run ctx connections${org ? ` --org ${org}` : ""} list to see the Owner's account.`,
+		"After approving access in your browser, assign the account to an app's declared connection slug.",
+	)
+	if (!org) {
+		console.log(
+			"From your app directory, choose your account for a slug in public/slate.json:\n  npx @usecontextlayer/cli connection local assign <slug>",
+		)
+	}
+	console.log(
+		`For a hosted app, get the account ID and assign it:\n  npx @usecontextlayer/cli connections${org ? ` --org '${org.replaceAll("'", "'\\''")}'` : ""} list\n  npx @usecontextlayer/cli connection <AppID-or-hostname> assign <slug> <connection_id>`,
 	)
 }
 
 export async function listConnections(org: string | undefined) {
-	const headers = { authorization: `Bearer ${await getAccessToken()}` }
+	const headers = { authorization: `Bearer ${await getAccessToken(env)}` }
 	const owner = await resolveOwner(org, headers)
 	const response = await fetch(
 		new URL(`/api/connections/${ownerPath(owner)}`, env.CTX_PLATFORM_URL),

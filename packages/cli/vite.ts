@@ -60,7 +60,7 @@ export async function getLocalResourcesBindings() {
 			? ({
 					appId: await getLocalAppId(),
 					connections,
-					credential: { token: await getAccessToken(), type: "access-token" as const },
+					credential: { token: await getAccessToken(env), type: "access-token" as const },
 				} satisfies LocalToolsProps)
 			: undefined,
 		proxyConfigPath,

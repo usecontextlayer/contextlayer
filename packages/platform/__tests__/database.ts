@@ -1,0 +1,21 @@
+import { provisionEphemeralDatabases } from "@usecontextlayer/dev-env/database"
+import { readDevelopmentEnv } from "@usecontextlayer/dev-env/env"
+import { test as base } from "vitest"
+import { createPlatformDb } from "@/database"
+import { migrateToLatest } from "@/database/migrate"
+
+export const test = base
+	.extend("addresses", { scope: "file" }, () => readDevelopmentEnv())
+	.extend("databases", async ({ addresses }, { onCleanup }) => {
+		const databases = await provisionEphemeralDatabases(
+			addresses.CTX_PLATFORM_DATABASE_URL,
+			{ migrators: { ctx_platform_test: migrateToLatest } },
+		)
+		onCleanup(() => databases.dropAll())
+		return databases
+	})
+	.extend("db", async ({ databases }, { onCleanup }) => {
+		const db = createPlatformDb(databases.urls.ctx_platform_test)
+		onCleanup(() => db.destroy())
+		return db
+	})

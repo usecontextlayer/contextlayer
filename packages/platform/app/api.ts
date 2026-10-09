@@ -58,7 +58,7 @@ import {
 	requireCsrf,
 } from "@/auth.middleware"
 import type { AuthIdentity } from "@/auth.server"
-import { checkAppSubscription, saveCustomerState } from "@/billing.server"
+import { checkAppBilling, enrollFreeCustomer, saveCustomerState } from "@/billing.server"
 import {
 	authorizeConnectionSchema,
 	connectionLinkSchema,
@@ -80,6 +80,7 @@ import {
 } from "@/secrets.schema"
 import { dropSharedSecret, setSharedSecret } from "@/secrets.server"
 import {
+	connectionRequiredSchema,
 	connectionToolCallSchema,
 	connectionToolParamsSchema,
 	toolResultSchema,
@@ -109,6 +110,13 @@ export function createApi() {
 		}
 		if (payload.type === "customer.state_changed") {
 			await saveCustomerState(c.var.db, payload.data, payload.timestamp)
+		}
+		if (payload.type === "customer.created" && payload.data.external_id) {
+			const polar = createPolarCore({
+				accessToken: c.var.config.POLAR_ACCESS_TOKEN,
+				environment: c.var.config.POLAR_ENVIRONMENT,
+			})
+			await enrollFreeCustomer(polar, payload.data.id, c.var.config.POLAR_FREE_PRODUCT_ID)
 		}
 		return c.body(null, 204)
 	})
@@ -144,7 +152,10 @@ export function createApi() {
 					description: "App ID authorized for viewing by this caller",
 				},
 				401: { description: "Sign-in is required to view this private app" },
-				402: { description: "The app owner needs an active subscription" },
+				402: {
+					content: { "text/plain": { schema: z.string() } },
+					description: "The owner needs a plan or has exhausted their Free clips",
+				},
 				403: { description: "This user cannot view this private app" },
 				404: { description: "No app has this public hostname" },
 			},
@@ -168,11 +179,9 @@ export function createApi() {
 				c.var.config.CTX_AUTH_ISSUER,
 			)
 			if (!result.allowed) return c.body(null, appViewingErrorStatus[result.reason])
-			if (
-				input.pathname !== "/slate.json" &&
-				!(await checkAppSubscription(c.var.db, result.app))
-			) {
-				return c.body(null, 402)
+			if (input.pathname !== "/slate.json") {
+				const billing = await checkAppBilling(c.var.db, c.var.config, result.app)
+				if (!billing.allowed) return c.text(billing.message, 402)
 			}
 			return c.json({ id: result.app.id, owner: getAppOwner(result.app) }, 200)
 		},
@@ -290,9 +299,8 @@ export function createApi() {
 				c.env.ARTIFACTS,
 				c.env.DATABASES,
 				c.env.AGENTS,
-				c.var.config.CTX_APPS_DOMAIN,
+				c.var.config,
 				c.var.identity,
-				c.var.config.CTX_AUTH_ISSUER,
 				c.req.valid("json"),
 			)
 			if (!app) return c.body(null, 404)
@@ -455,7 +463,10 @@ export function createApi() {
 				401: {
 					description: "A native web session or ContextLayer access token is required",
 				},
-				402: { description: "The app owner needs an active subscription" },
+				402: {
+					content: { "text/plain": { schema: z.string() } },
+					description: "The owner needs a plan or has exhausted their Free clips",
+				},
 				403: { description: "App viewing is forbidden" },
 				404: { description: "App not found" },
 			},
@@ -470,11 +481,15 @@ export function createApi() {
 				c.req.valid("json"),
 			)
 			if (!result.allowed) {
+				if (
+					result.reason === "subscription-required" ||
+					result.reason === "credits-exhausted"
+				)
+					return c.text(result.message, 402)
 				const status = {
 					forbidden: 403,
 					"not-found": 404,
 					"sign-in-required": 401,
-					"subscription-required": 402,
 				} as const
 				return c.body(null, status[result.reason])
 			}
@@ -669,6 +684,10 @@ export function createApi() {
 						"App viewing is forbidden, the app is public, or viewer resources require membership",
 				},
 				404: { description: "App or published agent not found" },
+				409: {
+					content: { "application/json": { schema: connectionRequiredSchema } },
+					description: "The agent's declared connection needs an account assignment",
+				},
 			},
 			security,
 		}),
@@ -680,8 +699,11 @@ export function createApi() {
 				c.var.appAccess,
 				{ ...c.req.valid("json"), name: c.req.valid("param").name },
 			)
-			if (!result.allowed)
+			if (!result.allowed) {
+				if (result.reason === "connection-required")
+					return c.json({ reason: result.reason, slug: result.slug }, 409)
 				return c.body(null, result.reason === "membership-required" ? 403 : 404)
+			}
 			return c.json(result.job, 202)
 		},
 	)

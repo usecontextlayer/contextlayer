@@ -1,8 +1,9 @@
 import type { z } from "zod"
-import { getAppResources, resolveAppConnection } from "@/app-resources.server"
+import { readAppDeclarations } from "@/app-declarations.server"
+import { resolveAppConnection } from "@/app-resources.server"
 import { type AppAccess, resolveAppForViewing } from "@/apps.server"
 import type { NativeAuthIdentity } from "@/auth.server"
-import { checkAppSubscription } from "@/billing.server"
+import { checkAppBilling } from "@/billing.server"
 import { createConnectionSession } from "@/connections.server"
 import type { PlatformDb } from "@/database"
 import type { PlatformConfig } from "@/env"
@@ -15,8 +16,10 @@ export async function callTool(
 	call: z.infer<typeof toolCallSchema>,
 	artifacts: Artifacts,
 ) {
-	const resources = await getAppResources(access, artifacts)
-	const resolved = await resolveAppConnection(db, access, call.slug, resources)
+	const snapshot = await readAppDeclarations(artifacts, access.app.id)
+	if (snapshot.state === "no-commit")
+		return { allowed: false, reason: "not-declared" } as const
+	const resolved = await resolveAppConnection(db, access, call.slug, snapshot.resources)
 	if (!resolved.allowed) return resolved
 	const session = await createConnectionSession(
 		apiKey,
@@ -44,8 +47,8 @@ export async function callConnectionTool(
 		config.CTX_AUTH_ISSUER,
 	)
 	if (!access.allowed) return access
-	if (!(await checkAppSubscription(db, access.app)))
-		return { allowed: false, reason: "subscription-required" } as const
+	const billing = await checkAppBilling(db, config, access.app)
+	if (!billing.allowed) return billing
 	const session = await createConnectionSession(
 		config.COMPOSIO_API_KEY,
 		{ id: identity.user.id, type: "user" },

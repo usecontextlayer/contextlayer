@@ -3,7 +3,7 @@ import { assignmentSchema } from "@/app-connections.schema"
 import { appSchema } from "@/apps.schema"
 import { personalConnectionsQuerySchema } from "@/connections.schema"
 
-export { toolResultSchema } from "@usecontextlayer/shared/tools"
+export { connectionRequiredSchema, toolResultSchema } from "@usecontextlayer/shared/tools"
 
 export const toolExecutionSchema = z.strictObject({
 	arguments: z.record(z.string(), z.unknown()),

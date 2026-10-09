@@ -2,7 +2,15 @@
 	"$schema": "https://turbo.build/schema.json",
 	// Pass runtime configuration through without adding it to cache keys.
 	// TMPDIR preserves the caller's temporary-directory location.
-	"globalPassThroughEnv": ["CTX*", "TWILIO*", "COMPOSIO_API_KEY", "POLAR_*", "TMPDIR"],
+	"globalPassThroughEnv": [
+		"CTX*",
+		"TWILIO*",
+		"COMPOSIO_API_KEY",
+		"POLAR_*",
+		"BETTER_AUTH_URL",
+		"DATABASE_URL",
+		"TMPDIR"
+	],
 	"tasks": {
 		"//#format.verify": {
 			"cache": false
@@ -18,6 +26,10 @@
 		},
 		"clean": {
 			"cache": false
+		},
+		"db.latest": {
+			"cache": false,
+			"dependsOn": ["^build"]
 		},
 		"dev": {
 			"cache": false,
@@ -38,10 +50,12 @@
 			"outputs": []
 		},
 		"test:integration:browser": {
+			"cache": false,
 			"dependsOn": ["^build"],
 			"outputs": []
 		},
 		"test:integration:claude": {
+			"cache": false,
 			"dependsOn": ["build"],
 			"outputs": [],
 			// Real Claude integration tests receive their runtime OAuth credential
@@ -49,6 +63,7 @@
 			"passThroughEnv": ["CLAUDE_CODE_OAUTH_TOKEN"]
 		},
 		"test:integration:node": {
+			"cache": false,
 			"dependsOn": ["^build"],
 			"outputs": []
 		},

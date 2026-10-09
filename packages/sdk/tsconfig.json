@@ -11,7 +11,13 @@
 	},
 	"exclude": ["dist", "dist-types", "vitest.config.ts"],
 	"extends": "../../tsconfig.base.json",
-	"include": ["*.ts", "*.tsx", "components/**/*.tsx", "package.json"],
+	"include": [
+		"*.ts",
+		"*.tsx",
+		"__tests__/**/*.ts",
+		"components/**/*.tsx",
+		"package.json"
+	],
 	"references": [
 		{
 			"path": "../cli"

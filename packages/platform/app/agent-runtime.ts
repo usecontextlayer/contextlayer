@@ -81,7 +81,7 @@ export class AppAgent extends Think<PlatformEnv["Bindings"]> {
 				execute: async ({ slug, sql, params }) => {
 					const run = agentRunSchema.parse(this.getConfig())
 					const database = run.databases[slug]
-					if (!database) throw new Error(`No database requirement for "${slug}"`)
+					if (!database) throw new Error("not-declared")
 					return this.env.DATABASES.getByName(database.instance_name).query(sql, params)
 				},
 				inputSchema: databaseQuerySchema,
@@ -189,7 +189,7 @@ export class AppAgent extends Think<PlatformEnv["Bindings"]> {
 					)
 					return
 				}
-				throw new Error("Published scheduled agent connection assignment not found")
+				throw new Error(`connection-required: ${prepared.slug}`)
 			}
 			await this.start(prepared.run, "schedule")
 		} finally {

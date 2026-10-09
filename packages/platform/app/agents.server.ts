@@ -66,7 +66,7 @@ export function prepareAgentRun(
 	const connections: AgentRun["connections"] = {}
 	for (const [slug, connection] of Object.entries(configuration.connections)) {
 		if (connection.connection_id === null)
-			return { allowed: false, reason: "connection-assignment-missing" } as const
+			return { allowed: false, reason: "connection-required", slug } as const
 		connections[slug] = {
 			connection_id: connection.connection_id,
 			owner: connection.owner,
