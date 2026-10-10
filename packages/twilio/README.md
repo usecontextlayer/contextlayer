@@ -1,6 +1,6 @@
 # @usecontextlayer/twilio
 
-ContextLayer's Twilio-side functionality, deployed as ONE Serverless service by design: every function this package accretes lands in the same service, feature-prefixed by path. Today that is the founder-contact call gate — four Functions implementing the keypress answer screen behind Slate's "Talk to founder" button (the whisper asks for 1, any key accepts — the gate's job is that voicemail can't press anything).
+ContextLayer's Twilio-side functionality, deployed as ONE Serverless service by design: every function this package accretes lands in the same service, feature-prefixed by path. Today that is the founder-contact call gate — four Functions implementing the keypress answer screen behind ContextLayer's "Talk to founder" button (the whisper asks for 1, any key accepts — the gate's job is that voicemail can't press anything).
 
 ## The deployed service
 
@@ -16,10 +16,12 @@ The `deploy` script is the canonical command. Twilio deployment is explicit and 
 doppler run -p <project> -c <config> -- pnpm --filter @usecontextlayer/twilio run deploy
 ```
 
-Replace `<project>` and `<config>` with the Doppler config holding the Twilio credentials; run `doppler me` first to verify the ContextLayer workplace. The explicit `run` matters: bare `pnpm deploy` is pnpm's own builtin, not this script. The script pins `--service-sid` (CI has no `.twiliodeployinfo`; the pin is what stops a credentialed run from ever creating a second service) and `--environment production` (the domain suffix names the environment — the toolkit's bare `--production` flag would target a DIFFERENT, suffix-less environment). Credentials come from `TWILIO_ACCOUNT_SID` + `TWILIO_API_KEY_SID`/`TWILIO_API_KEY_SECRET` env — the toolkit ignores `TWILIO_API_KEY`-style env vars, hence the explicit `--username/--password` flags in the script.
+Replace `<project>` and `<config>` with the Doppler config holding the Twilio credentials; run `doppler me` first to verify the ContextLayer workplace. The explicit `run` matters: bare `pnpm deploy` is pnpm's own builtin, not this script. The script pins `--service-sid` (CI has no `.twiliodeployinfo`; the pin is what stops a credentialed run from ever creating a second service). It also pins `--environment production`: the domain suffix names the environment, while the toolkit's `--production` flag targets a suffix-less environment. See [Twilio's configuration reference](https://www.twilio.com/docs/labs/serverless-toolkit/configuration).
 
-## Environment variables (the deployed service's, not this repo's)
+Supply `TWILIO_API_KEY_SID` and `TWILIO_API_KEY_SECRET` through the selected Doppler config. The script passes them explicitly as `--username` and `--password`; standalone `twilio-run` reads these flags rather than `TWILIO_API_KEY`-style variables. See its [credential resolution](https://github.com/twilio-labs/serverless-toolkit/blob/main/packages/twilio-run/src/config/utils/credentials.ts).
 
-- One service means ONE env namespace shared by every feature here; every deploy UPSERTS the service env from the local `.env` — absent keys survive; retiring one takes a Variables DELETE against the Serverless API, not just dropping the line.
+## Environment variables in the deployed Functions
+
+- All Functions in the same Serverless environment share its variables. Deployment creates or updates variables from the local `.env`; absent keys survive. Retiring a variable requires deleting it through the Serverless API, not just dropping the line. See the toolkit's [variable update implementation](https://github.com/twilio-labs/serverless-toolkit/blob/main/packages/serverless-api/src/api/variables.ts).
 - `CTX_FOUNDER_CELL` (the number the gate dials) is the one variable today. Use the selected Doppler config for deployment; keep the resource name consistent across consumers.
 - The caller ID the founder's phone shows (the 831) is hardcoded in `functions/founder-call.protected.js`: a public infrastructure constant of the same class as the service-sid pin, and required because the customer leg is a browser client (`from = client:founder_call` is invalid for PSTN dialing).

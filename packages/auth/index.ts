@@ -28,10 +28,10 @@ app.get("/start", async (c) => {
 		returnTo.port ||
 		returnTo.username ||
 		returnTo.password ||
-		labels.slice(1).join(".") !== env.CTX_APPS_DOMAIN ||
+		labels.slice(1).join(".") !== env.CTX_SLATES_DOMAIN ||
 		labels[0] === "auth"
 	) {
-		return c.text("Invalid app URL", 400)
+		return c.text("Invalid slate URL", 400)
 	}
 	const state = crypto.randomUUID()
 	setCookie(c, transactionCookie, JSON.stringify({ returnTo: returnTo.href, state }), {
@@ -63,7 +63,7 @@ app.get("/callback", async (c) => {
 	deleteCookie(c, transactionCookie, cookieOptions)
 	setCookie(c, "ctx-viewer-auth", session.token, {
 		...cookieOptions,
-		domain: env.CTX_APPS_DOMAIN,
+		domain: env.CTX_SLATES_DOMAIN,
 		expires: session.expiresAt,
 	})
 	c.header("Cache-Control", "no-store")

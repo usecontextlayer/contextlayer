@@ -1,8 +1,8 @@
 import { glob, readFile } from "node:fs/promises"
 import { dirname, join, relative } from "node:path"
 import { RESOURCE_MIME_TYPE } from "@modelcontextprotocol/ext-apps/server"
+import { declarationSchema } from "@usecontextlayer/shared/declaration"
 import { MCP_MANIFEST_PATH, mcpManifestSchema } from "@usecontextlayer/shared/mcp"
-import { slateSchema } from "@usecontextlayer/shared/slate"
 import { build, createServer, createServerModuleRunner, type Plugin } from "vite"
 import { viteSingleFile } from "vite-plugin-singlefile"
 import { z } from "zod"
@@ -25,21 +25,21 @@ export function mcpApps(): Plugin {
 			const tools = []
 			for await (const file of glob("mcp/*/index.ts", { cwd: root })) {
 				const { tool } = await runner.import<McpToolModule>(join(root, file))
-				const slate = slateSchema.parse(
+				const declaration = declarationSchema.parse(
 					JSON.parse(await readFile(join(root, dirname(file), "slate.json"), "utf8")),
 				)
 				if (
-					Object.keys(slate.connections).length ||
-					Object.keys(slate.databases).length ||
-					Object.keys(slate.secrets).length
+					Object.keys(declaration.connections).length ||
+					Object.keys(declaration.databases).length ||
+					Object.keys(declaration.secrets).length
 				) {
 					throw new Error(`${file}: MCP resource consumers are not implemented yet`)
 				}
 				tools.push({
 					...tool,
+					declaration,
 					inputSchema: z.toJSONSchema(tool.inputSchema),
 					outputSchema: tool.outputSchema ? z.toJSONSchema(tool.outputSchema) : undefined,
-					slate,
 				})
 			}
 			const assets = []

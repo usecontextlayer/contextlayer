@@ -9,7 +9,7 @@ import {
 import { ingestEvents } from "@polar-sh/sdk/2026-10/services/events"
 import { test } from "@tests/integration"
 import { expect } from "vitest"
-import { appSchema } from "@/apps.schema"
+import { slateSchema } from "@/slates.schema"
 
 test("signed Free enrollment grants credits and exhaustion denies runtime access", async ({
 	developmentDb: db,
@@ -33,9 +33,9 @@ test("signed Free enrollment grants credits and exhaustion denies runtime access
 			type,
 		})
 		scenario.defer(() => deleteCustomers(polar)(customer.id))
-		const app = appSchema.parse(
+		const slate = slateSchema.parse(
 			await db
-				.insertInto("app")
+				.insertInto("slate")
 				.values({
 					owner_organization_id: type === "team" ? externalId : null,
 					owner_user_id: type === "individual" ? externalId : null,
@@ -46,7 +46,7 @@ test("signed Free enrollment grants credits and exhaustion denies runtime access
 				.executeTakeFirstOrThrow(),
 		)
 		scenario.defer(async () => {
-			await db.deleteFrom("app").where("id", "=", app.id).execute()
+			await db.deleteFrom("slate").where("id", "=", slate.id).execute()
 		})
 		await expect
 			.poll(
@@ -69,7 +69,7 @@ test("signed Free enrollment grants credits and exhaustion denies runtime access
 		expect((await listPaymentMethodsCustomers(polar)(customer.id)).items).toEqual([])
 		const resolve = (pathname: string) =>
 			new URL(
-				`/api/apps/resolve?${new URLSearchParams({ hostname: app.public_hostname, pathname })}`,
+				`/api/slates/resolve?${new URLSearchParams({ hostname: slate.public_hostname, pathname })}`,
 				origin,
 			)
 		expect((await fetch(resolve("/"))).status).toBe(200)
@@ -77,7 +77,7 @@ test("signed Free enrollment grants credits and exhaustion denies runtime access
 			events: [
 				{
 					external_customer_id: externalId,
-					metadata: { clips, user_code_worker_id: app.id },
+					metadata: { clips, user_code_worker_id: slate.id },
 					name: "tool_call",
 				},
 			],
@@ -105,8 +105,8 @@ test("signed Free enrollment grants credits and exhaustion denies runtime access
 			new URL("/api/connections/unassigned/tools/call", origin),
 			{
 				body: JSON.stringify({
-					app_id: app.id,
 					arguments: {},
+					slate_id: slate.id,
 					tool: "EXAMPLE",
 					toolkit: "gmail",
 				}),

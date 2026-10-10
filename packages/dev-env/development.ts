@@ -11,9 +11,9 @@ import { z } from "zod"
 import { readDopplerEnv } from "@/doppler"
 import {
 	type DevelopmentEnv,
-	readAppOAuthEnv,
 	readDevelopmentIdentityEnv,
 	readPolarEnv,
+	readSlateOAuthEnv,
 } from "@/env"
 import { readPolarCatalog, readPolarWebhookSecret } from "@/polar"
 
@@ -36,7 +36,7 @@ export async function readDevelopmentServiceEnv(
 	webEnv: WebDevelopmentEnv,
 	addresses: DevelopmentEnv,
 ) {
-	const appOAuthEnv = readAppOAuthEnv(webEnv)
+	const slateOAuthEnv = readSlateOAuthEnv(webEnv)
 	const platformSecrets = await readDopplerEnv(root, "platform", "dev")
 	const polarEnv = readPolarEnv(platformSecrets)
 	const polar = createPolarCore({
@@ -52,7 +52,7 @@ export async function readDevelopmentServiceEnv(
 		platformEnv: {
 			...platformSecrets,
 			...polarEnv,
-			...appOAuthEnv,
+			...slateOAuthEnv,
 			CLOUDFLARE_ENV: "test",
 			CTX_AUTH_ISSUER: issuer,
 			CTX_PLATFORM_DATABASE_URL: addresses.CTX_PLATFORM_DATABASE_URL,
@@ -63,7 +63,7 @@ export async function readDevelopmentServiceEnv(
 		polarEnv,
 		webEnv: {
 			...webEnv,
-			...appOAuthEnv,
+			...slateOAuthEnv,
 			POLAR_ACCESS_TOKEN: polarEnv.POLAR_ACCESS_TOKEN,
 			POLAR_ENVIRONMENT: polarEnv.POLAR_ENVIRONMENT,
 		},

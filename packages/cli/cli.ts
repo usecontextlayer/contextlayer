@@ -5,20 +5,20 @@ import { Argument, Command } from "commander"
 import { execa } from "execa"
 import { z } from "zod"
 import { runLocalAgent } from "@/agents"
-import { joinApp } from "@/app"
 import { getAccessToken, getCurrentUser, LoginRequiredError, login } from "@/auth"
 import {
-	addConnection,
-	assignAppConnection,
+	assignSlateConnection,
+	connectAccount,
 	connectionAssignmentSchema,
-	listAppConnections,
 	listConnections,
+	listSlateConnections,
 } from "@/connections"
 import { env } from "@/env"
-import { gitCredential, setupGit } from "@/git-credential"
+import { configureGit, gitCredential } from "@/git-credential"
 import { ownerOptionsSchema } from "@/owner"
 import { version } from "@/package.json"
 import { dropSecret, secretNameSchema, secretOptionsSchema, setSecret } from "@/secrets"
+import { joinSlate } from "@/slate"
 
 const program = new Command().name("ctx").description("ContextLayer CLI").version(version)
 program.addHelpText(
@@ -44,9 +44,9 @@ async function requireLogin(command: Command) {
 program
 	.command("init <directory>")
 	.description(
-		"Create a private ContextLayer app on main with React Router, Tailwind, and shadcn; requires login, Node.js 24+, pnpm, and Git author identity; sets the Git remote and prints how to start and publish the app",
+		"Create a private ContextLayer slate on main with React Router, Tailwind, and shadcn; requires login, Node.js 24+, pnpm, and Git author identity; sets the Git remote and prints how to start and deploy the slate",
 	)
-	.option("--org <slug>", "Create the app under an organization you belong to")
+	.option("--org <slug>", "Create the slate under an organization you belong to")
 	.hook("preAction", requireLogin)
 	.action(async (directory: string, options: { org?: string }) => {
 		const input = z
@@ -160,13 +160,13 @@ program
 		process.exitCode = migrationTool.exitCode
 		if (migrationTool.exitCode !== 0) return
 		const packagePath = join(directory, "package.json")
-		const projectPackage = z
+		const checkoutPackage = z
 			.looseObject({ scripts: z.record(z.string(), z.string()) })
 			.parse(JSON.parse(await readFile(packagePath, "utf8")))
-		projectPackage.scripts["db:migration"] = "drizzle-kit generate --custom"
-		await writeFile(packagePath, `${JSON.stringify(projectPackage, null, 2)}\n`)
+		checkoutPackage.scripts["db:migration"] = "drizzle-kit generate --custom"
+		await writeFile(packagePath, `${JSON.stringify(checkoutPackage, null, 2)}\n`)
 
-		const response = await fetch(new URL("/api/apps", env.CTX_PLATFORM_URL), {
+		const response = await fetch(new URL("/api/slates", env.CTX_PLATFORM_URL), {
 			body: JSON.stringify(input),
 			headers: {
 				authorization: `Bearer ${accessToken}`,
@@ -174,11 +174,11 @@ program
 			},
 			method: "POST",
 		})
-		if (!response.ok) throw new Error(`App creation failed: HTTP ${response.status}`)
-		const app = z
+		if (!response.ok) throw new Error(`Slate creation failed: HTTP ${response.status}`)
+		const slate = z
 			.object({ id: z.uuid(), public_hostname: z.hostname() })
 			.parse(await response.json())
-		const remote = new URL(`/git/${app.id}`, env.CTX_PLATFORM_URL)
+		const remote = new URL(`/git/${slate.id}`, env.CTX_PLATFORM_URL)
 		const git = await execa("git", ["remote", "add", "origin", remote.href], {
 			cwd: directory,
 			reject: false,
@@ -188,16 +188,16 @@ program
 		if (git.exitCode !== 0) return
 
 		console.log(`
-ContextLayer app created: ${app.id}
-Dashboard: ${new URL(`/dashboard/apps/${app.id}`, env.CTX_PLATFORM_URL).href}
-Hosted URL: https://${app.public_hostname}/ (available after deployment)
+ContextLayer slate created: ${slate.id}
+Dashboard: ${new URL(`/dashboard/slates/${slate.id}`, env.CTX_PLATFORM_URL).href}
+Hosted URL: https://${slate.public_hostname}/ (available after deployment)
 
 Start locally:
   cd '${directory.replaceAll("'", "'\\''")}'
   pnpm dev
 Open the local URL printed by the development server.
 
-Publish your changes:
+Deploy your changes:
   git add .
   git commit
   git push -u origin main
@@ -213,7 +213,7 @@ program
 	)
 	.action(async () => {
 		await login(env)
-		await setupGit(new URL(import.meta.url))
+		await configureGit(new URL(import.meta.url))
 		console.log("Git credentials configured for ContextLayer.")
 	})
 program
@@ -234,29 +234,31 @@ program
 
 program
 	.command("join")
-	.argument("<target>", "AppID, public hostname, or local (run from the app root)")
+	.argument("<target>", "SlateID, public hostname, or local (run from the checkout root)")
 	.description(
-		"Join a private app you can view using ctx login, enabling member-scoped unattended work; returns app and user IDs",
+		"Join a private slate you can view using ctx login, enabling member-scoped unattended work; returns slate and user IDs",
 	)
 	.hook("preAction", requireLogin)
 	.action(async (target) => {
-		await joinApp(z.union([z.literal("local"), z.uuid(), z.hostname()]).parse(target))
+		await joinSlate(z.union([z.literal("local"), z.uuid(), z.hostname()]).parse(target))
 	})
 
 const connections = program
 	.command("connections")
 	.description(
-		"Manage Owner-owned connected accounts or list app and agent connection requirements; local reads only the current folder and its saved development choices",
+		"Manage Owner-owned connected accounts or list app and agent connections and assignments; local reads only the current checkout and its saved development assignments",
 	)
 	.option(
-		"--org <org_slug>",
-		"Manage this organization's connections; defaults to the signed-in user",
+		"--org <slug>",
+		"Manage this organization's connected accounts; defaults to the signed-in user",
 	)
 	.argument(
 		"[target]",
-		"AppID or public hostname (pushed requirements), or local (current folder; no platform request)",
+		"SlateID or public hostname (pushed requirements), or local (current checkout; no platform request)",
 	)
-	.addArgument(new Argument("[operation]", "App connection operation").choices(["list"]))
+	.addArgument(
+		new Argument("[operation]", "Slate connection operation").choices(["list"]),
+	)
 	.hook("preAction", async (command, actionCommand) => {
 		if (actionCommand !== command || command.args[0] !== "local") {
 			await requireLogin(actionCommand)
@@ -265,13 +267,13 @@ const connections = program
 	.action(async (target, operation) => {
 		if (!target || !operation)
 			connections.error("Expected: ctx connections <target> list")
-		await listAppConnections(target)
+		await listSlateConnections(target)
 	})
 
 connections
 	.command("list")
 	.description(
-		"List the selected Owner's Composio accounts with their toolkit, identity, and status",
+		"List the selected Owner's connected accounts with their toolkit, identity, and status",
 	)
 	.action(async (_options, command: Command) => {
 		const options = ownerOptionsSchema.parse(command.optsWithGlobals())
@@ -281,24 +283,24 @@ connections
 connections
 	.command("add <toolkit>")
 	.description(
-		"Authorize the selected Owner's account in your browser (for example, gmail), then assign it to an app's declared connection slug with ctx connection",
+		"Connect the selected Owner's account in your browser (for example, gmail), then assign the connected account to a slate's declared connection with ctx connection",
 	)
 	.action(async (toolkit, _options, command: Command) => {
 		const options = ownerOptionsSchema.parse(command.optsWithGlobals())
-		await addConnection(z.string().min(1).parse(toolkit), options.org)
+		await connectAccount(z.string().min(1).parse(toolkit), options.org)
 	})
 
 program
 	.command("connection")
 	.description(
-		"Bind a declared slug: local saves your personal account in .contextlayer/connections.json; AppID/hostname saves a hosted assignment under its declared Owner",
+		"Assign a connected account to a declared connection: local saves a personal connected account assignment in .contextlayer/connections.json; SlateID/hostname saves a hosted assignment under its declared Owner",
 	)
-	.argument("<target>", "AppID, public hostname, or local (run from the app root)")
+	.argument("<target>", "SlateID, public hostname, or local (run from the checkout root)")
 	.addArgument(new Argument("<operation>").choices(["assign"]))
-	.argument("<slug>", "Connection slug declared in your Slate (for example, work-email)")
+	.argument("<slug>", "Connection slug declared in slate.json (for example, work-email)")
 	.argument(
 		"[connection_id]",
-		"Connected account ID; omit locally to choose your accounts for the declared toolkit; required for hosted targets",
+		"Connected account ID; omit locally to assign a connected account for the declared toolkit interactively; required for hosted targets",
 	)
 	.hook("preAction", requireLogin)
 	.action(async (target, _operation, slug, connectionId) => {
@@ -307,17 +309,17 @@ program
 			slug,
 			target,
 		})
-		await assignAppConnection(input.target, input.slug, input.connection_id)
+		await assignSlateConnection(input.target, input.slug, input.connection_id)
 	})
 
 program
 	.command("agent")
-	.addArgument(new Argument("<target>", "Run from the app root").choices(["local"]))
+	.addArgument(new Argument("<target>", "Run from the checkout root").choices(["local"]))
 	.addArgument(new Argument("<operation>").choices(["run"]))
 	.argument("<name>", "Agent directory under agents/")
 	.argument("<prompt>", "Task to send as the user message")
 	.description(
-		"Run agents/<name>/instructions.md locally with Claude Agent SDK and native Claude authentication; no platform server or ctx login required",
+		"Run agents/<name>/instructions.md locally with Claude Agent SDK and native Claude authentication; Vite startup also requires ctx login when the app declares connections",
 	)
 	.action(async (_target, _operation, name, prompt) => {
 		const input = z
@@ -334,10 +336,7 @@ const secrets = program
 	.description(
 		"Save or drop Owner-owned shared secrets through the authenticated platform",
 	)
-	.option(
-		"--org <org_slug>",
-		"Use this organization's Owner; defaults to the signed-in user",
-	)
+	.option("--org <slug>", "Use this organization's Owner; defaults to the signed-in user")
 	.hook("preAction", requireLogin)
 
 secrets

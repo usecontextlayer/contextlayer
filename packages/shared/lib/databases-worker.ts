@@ -11,8 +11,8 @@ export class Databases extends WorkerEntrypoint<
 	ToolsProps
 > {
 	async query(slug: string, sql: string, params: SqlValue[] = []) {
-		const { appId, credential } = this.ctx.props
-		const result = await this.env.EXECUTION.queryDatabase(appId, credential.token, {
+		const { slateId, credential } = this.ctx.props
+		const result = await this.env.EXECUTION.queryDatabase(slateId, credential.token, {
 			params,
 			slug,
 			sql,

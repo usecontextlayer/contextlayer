@@ -9,22 +9,22 @@ import {
 	requireDashboardAuth,
 } from "@/auth.middleware"
 import {
-	appsContext,
 	artifactsContext,
 	configContext,
 	databaseContext,
 	identityContext,
+	slatesContext,
 } from "@/context"
 import { createPlatformDb } from "@/database"
 import { parsePlatformEnv } from "@/env"
 import { createGitApp } from "@/git.server"
 
-export { AppDatabase } from "@usecontextlayer/shared/database-worker"
-export { AppAgent } from "@/agent-runtime"
+export { SlateDatabase } from "@usecontextlayer/shared/database-worker"
+export { SlateAgent } from "@/agent-runtime"
 export { Execution } from "@/execution.server"
-export { Publication } from "@/publication.server"
+export { Provisioning } from "@/provisioning.server"
 
-const publicDashboardPaths = ["/dashboard/chrome/apps/*", "/dashboard/__manifest"]
+const publicDashboardPaths = ["/dashboard/chrome/slates/*", "/dashboard/__manifest"]
 
 export default await createHonoServer<OwnerIdentityEnv>({
 	configure(app) {
@@ -39,12 +39,12 @@ export default await createHonoServer<OwnerIdentityEnv>({
 				c.executionCtx.waitUntil(db.destroy())
 			}
 		})
-		app.use("/dashboard/chrome/apps/*", async (c, next) => {
+		app.use("/dashboard/chrome/slates/*", async (c, next) => {
 			const local = new URL(c.req.url).hostname === "localhost"
 			await next()
 			c.header(
 				"Content-Security-Policy",
-				`frame-ancestors https://*.${c.var.config.CTX_APPS_DOMAIN}${local ? " http://localhost:*" : ""}; base-uri 'none'; object-src 'none'; form-action 'self' https://connect.composio.dev https://dashboard.composio.dev`,
+				`frame-ancestors https://*.${c.var.config.CTX_SLATES_DOMAIN}${local ? " http://localhost:*" : ""}; base-uri 'none'; object-src 'none'; form-action 'self' https://connect.composio.dev https://dashboard.composio.dev`,
 			)
 		})
 		app.route("/api", createApi())
@@ -58,7 +58,7 @@ export default await createHonoServer<OwnerIdentityEnv>({
 	getLoadContext(c) {
 		const context = new RouterContextProvider()
 		context.set(databaseContext, c.var.db)
-		context.set(appsContext, c.env.APPS)
+		context.set(slatesContext, c.env.SLATES)
 		context.set(artifactsContext, c.env.ARTIFACTS)
 		context.set(identityContext, c.var.identity ?? null)
 		context.set(configContext, c.var.config)

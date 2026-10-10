@@ -1,52 +1,52 @@
-import type { AppResourceConfiguration } from "@usecontextlayer/shared/app-resources"
-import { resourcesForConsumer } from "@usecontextlayer/shared/slate"
+import { resourcesForConsumer } from "@usecontextlayer/shared/declaration"
+import type { SlateResourceConfiguration } from "@usecontextlayer/shared/slate-resources"
 import { getAgentByName } from "agents/routing"
 import type { z } from "zod"
 import { getAgentInstanceName } from "@/agent-instance"
-import type { AppAgent } from "@/agent-runtime"
+import type { SlateAgent } from "@/agent-runtime"
 import type { AgentActor, AgentRun, AgentRunRequest, agentSchema } from "@/agents.schema"
-import { readAppDeclarations } from "@/app-declarations.server"
-import { getAppActor } from "@/app-members.server"
-import {
-	getAppResourceConfiguration,
-	resolveAppResourceActor,
-} from "@/app-resources.server"
-import type { App } from "@/apps.schema"
-import {
-	type AppAccess,
-	authorizeAppManagement,
-	type OwnerAppAccess,
-} from "@/apps.server"
 import { listOrganizations } from "@/auth.server"
 import type { PlatformDb } from "@/database"
-import type { AppId } from "@/database/models/public/App"
+import type { SlateId } from "@/database/models/public/Slate"
+import { readSlateDeclarations } from "@/slate-declarations.server"
+import { getSlateActor } from "@/slate-members.server"
+import {
+	getSlateResourceConfiguration,
+	resolveSlateResourceActor,
+} from "@/slate-resources.server"
+import type { Slate } from "@/slates.schema"
+import {
+	authorizeSlateManagement,
+	type OwnerSlateAccess,
+	type SlateAccess,
+} from "@/slates.server"
 
 export async function getAgent(
 	artifacts: Artifacts,
-	{ app, identity }: OwnerAppAccess,
+	{ slate, identity }: OwnerSlateAccess,
 	issuer: string,
 	name: string,
 ) {
-	const organizations = app.owner_organization_id
+	const organizations = slate.owner_organization_id
 		? await listOrganizations(identity, issuer)
 		: []
 	// Public viewing does not grant access to authored source.
-	const authorization = authorizeAppManagement(
-		app,
+	const authorization = authorizeSlateManagement(
+		slate,
 		identity,
-		organizations.some((organization) => organization.id === app.owner_organization_id),
+		organizations.some((organization) => organization.id === slate.owner_organization_id),
 	)
 	if (!authorization.allowed) return authorization
-	return readAgent(artifacts, app.id, name)
+	return readAgent(artifacts, slate.id, name)
 }
 
 async function readAgent(
 	artifacts: Artifacts,
-	appId: AppId,
+	slateId: SlateId,
 	name: string,
 	revision = "main",
 ) {
-	using repo = await artifacts.get(appId)
+	using repo = await artifacts.get(slateId)
 	const [commit] = await repo.log({ limit: 1, ref: revision })
 	if (!commit) return { allowed: false, reason: "not-found" } as const
 	const instructions = await repo.readFile({
@@ -61,10 +61,10 @@ async function readAgent(
 }
 
 export function prepareAgentRun(
-	app: App,
+	slate: Slate,
 	actor: AgentActor,
 	agent: z.infer<typeof agentSchema>,
-	configuration: AppResourceConfiguration,
+	configuration: SlateResourceConfiguration,
 	{ name, prompt }: AgentRunRequest,
 ) {
 	const connections: AgentRun["connections"] = {}
@@ -80,7 +80,6 @@ export function prepareAgentRun(
 	const run: AgentRun = {
 		actor,
 		agent: { commit: agent.commit, instructions: agent.instructions, name },
-		appId: app.id,
 		connections,
 		databases: Object.fromEntries(
 			Object.entries(configuration.databases).map(([slug, database]) => [
@@ -95,6 +94,7 @@ export function prepareAgentRun(
 				requirement.owner,
 			]),
 		),
+		slateId: slate.id,
 	}
 	return { allowed: true, run } as const
 }
@@ -102,57 +102,61 @@ export function prepareAgentRun(
 export async function getAgentRun(
 	db: PlatformDb,
 	artifacts: Artifacts,
-	app: App,
+	slate: Slate,
 	actor: AgentActor,
 	input: AgentRunRequest,
 ) {
-	const snapshot = await readAppDeclarations(artifacts, app.id)
+	const snapshot = await readSlateDeclarations(artifacts, slate.id)
 	if (snapshot.state === "no-commit")
 		return { allowed: false, reason: "agent-definition-missing" } as const
-	const result = await readAgent(artifacts, app.id, input.name, snapshot.commit)
+	const result = await readAgent(artifacts, slate.id, input.name, snapshot.commit)
 	if (!result.allowed)
 		return { allowed: false, reason: "agent-definition-missing" } as const
 	const resources = resourcesForConsumer(snapshot.resources, {
 		name: input.name,
 		type: "agent",
 	})
-	const relationship = await getAppActor(db, app.id, actor.type === "user" ? actor : null)
-	const resolved = resolveAppResourceActor(relationship, resources)
-	if (!resolved.allowed) return resolved
-	const configuration = await getAppResourceConfiguration(
+	const relationship = await getSlateActor(
 		db,
-		app,
+		slate.id,
+		actor.type === "user" ? actor : null,
+	)
+	const resolved = resolveSlateResourceActor(relationship, resources)
+	if (!resolved.allowed) return resolved
+	const configuration = await getSlateResourceConfiguration(
+		db,
+		slate,
 		resolved.viewer,
 		resources,
 	)
-	return prepareAgentRun(app, actor, result.agent, configuration, input)
+	return prepareAgentRun(slate, actor, result.agent, configuration, input)
 }
 
 export async function startAgentRun(
-	agents: DurableObjectNamespace<AppAgent>,
+	agents: DurableObjectNamespace<SlateAgent>,
 	run: AgentRun,
 ) {
 	const agent = await getAgentByName(
 		agents,
-		getAgentInstanceName(run.appId, run.agent.name, run.actor),
+		getAgentInstanceName(run.slateId, run.agent.name, run.actor),
 	)
 	return agent.start(run, "api")
 }
 
 export async function getAgentJob(
-	agents: DurableObjectNamespace<AppAgent>,
-	app: App,
+	agents: DurableObjectNamespace<SlateAgent>,
+	slate: Slate,
 	name: string,
 	id: string,
 	instanceName: string,
 ) {
 	const agent = await getAgentByName(agents, instanceName)
-	return agent.inspect(app.id, name, id)
+	return agent.inspect(slate.id, name, id)
 }
 
 export async function listAgentJobs(
-	agents: DurableObjectNamespace<AppAgent>,
-	{ app, identity }: AppAccess,
+	agents: DurableObjectNamespace<SlateAgent>,
+	{ slate, identity }: SlateAccess,
 	name: string,
 ) {
 	const actors: AgentActor[] = [{ type: "app" }, { id: identity.user.id, type: "user" }]
@@ -160,9 +164,9 @@ export async function listAgentJobs(
 		actors.map(async (actor) => {
 			const agent = await getAgentByName(
 				agents,
-				getAgentInstanceName(app.id, name, actor),
+				getAgentInstanceName(slate.id, name, actor),
 			)
-			return agent.listJobs(app.id, name)
+			return agent.listJobs(slate.id, name)
 		}),
 	)
 	return jobs.flat()
@@ -171,14 +175,14 @@ export async function listAgentJobs(
 export async function startAgentJob(
 	db: PlatformDb,
 	artifacts: Artifacts,
-	agents: DurableObjectNamespace<AppAgent>,
-	access: AppAccess,
+	agents: DurableObjectNamespace<SlateAgent>,
+	access: SlateAccess,
 	input: AgentRunRequest,
 ) {
 	const prepared = await getAgentRun(
 		db,
 		artifacts,
-		access.app,
+		access.slate,
 		{ id: access.identity.user.id, type: "user" },
 		input,
 	)

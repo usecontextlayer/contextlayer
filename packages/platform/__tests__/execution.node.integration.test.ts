@@ -6,9 +6,9 @@ import { getStateExternalCustomers } from "@polar-sh/sdk/2026-10/services/custom
 import { listEvents } from "@polar-sh/sdk/2026-10/services/events"
 import { executionTest as test } from "@tests/integration"
 import { signInViewer } from "@usecontextlayer/dev-env/viewer"
-import { appResourcesSchema } from "@usecontextlayer/shared/app-resources"
 import { connectionsSchema } from "@usecontextlayer/shared/connections"
 import type { Databases } from "@usecontextlayer/shared/databases-worker"
+import { slateResourcesSchema } from "@usecontextlayer/shared/slate-resources"
 import type {
 	HostedExecution,
 	Tools,
@@ -17,10 +17,10 @@ import type {
 import { execa } from "execa"
 import { expect } from "vitest"
 import { z } from "zod"
-import { appSchema } from "@/apps.schema"
 import { saveCustomerState } from "@/billing.server"
+import { slateSchema } from "@/slates.schema"
 
-test("native resource capabilities enforce access and report exact app-owner tool usage", {
+test("native resource capabilities enforce access and report exact slate-Owner tool usage", {
 	timeout: 660_000,
 }, async ({
 	cliEnv,
@@ -42,7 +42,7 @@ test("native resource capabilities enforce access and report exact app-owner too
 	const connection = connections.find(({ status }) => status === "ACTIVE")
 	assert(
 		connection,
-		"Authorize Gmail for the local development user with pnpm dev:ctx connections add gmail, then approve the link in your browser.",
+		"Connect a Gmail account for the local development user with pnpm dev:ctx connections add gmail, then approve the link in your browser.",
 	)
 	const { ARTIFACTS, DATABASES } = await worker.getEnv()
 	await using resources = new AsyncDisposableStack()
@@ -83,16 +83,16 @@ test("native resource capabilities enforce access and report exact app-owner too
 		[{}, identity.user.id],
 		[{ organization_slug: organization.slug }, organization.id],
 	] as const) {
-		const created = await fetch(`${origin}/api/apps`, post(body))
+		const created = await fetch(`${origin}/api/slates`, post(body))
 		expect(created.status).toBe(201)
-		const app = appSchema.parse(await created.json())
-		expect(app.owner_user_id ?? app.owner_organization_id).toBe(ownerId)
+		const slate = slateSchema.parse(await created.json())
+		expect(slate.owner_user_id ?? slate.owner_organization_id).toBe(ownerId)
 		resources.defer(async () => {
-			await ARTIFACTS.delete(app.id)
+			await ARTIFACTS.delete(slate.id)
 		})
 		const viewerHeaders = await signInViewer({
 			authURL: webEnv.CTX_VIEWER_AUTH_URL,
-			returnTo: `https://${app.public_hostname}/`,
+			returnTo: `https://${slate.public_hostname}/`,
 			webHeaders: webSession.headers,
 		})
 		const viewerToken = decodeURIComponent(
@@ -101,11 +101,11 @@ test("native resource capabilities enforce access and report exact app-owner too
 		)
 		assert(viewerToken)
 		const props = {
-			appId: app.id,
 			credential: { token: viewerToken, type: "session" },
+			slateId: slate.id,
 		} as const
 		const blocked = await fetch(
-			`${origin}/api/apps/resolve?${new URLSearchParams({ hostname: app.public_hostname, pathname: "/" })}`,
+			`${origin}/api/slates/resolve?${new URLSearchParams({ hostname: slate.public_hostname, pathname: "/" })}`,
 			{ headers: viewerHeaders },
 		)
 		expect(blocked.status).toBe(402)
@@ -114,24 +114,24 @@ test("native resource capabilities enforce access and report exact app-owner too
 		const refusal = { allowed: false, message, reason: "subscription-required" }
 		expect(
 			await callExecution("callTool", [
-				app.id,
+				slate.id,
 				viewerToken,
 				{ arguments: {}, slug: "mail", tool: "GMAIL_GET_PROFILE" },
 			]),
 		).toEqual(refusal)
 		expect(
 			await callExecution("queryDatabase", [
-				app.id,
+				slate.id,
 				viewerToken,
 				{ slug: "drafts", sql: "SELECT * FROM updates" },
 			]),
 		).toEqual(refusal)
 
 		await saveCustomerState(db, await getStateExternalCustomers(polar)(ownerId), null)
-		const project = join(directory, app.id)
-		await mkdir(join(project, "public"), { recursive: true })
+		const checkout = join(directory, slate.id)
+		await mkdir(join(checkout, "public"), { recursive: true })
 		await writeFile(
-			join(project, "public/slate.json"),
+			join(checkout, "public/slate.json"),
 			JSON.stringify({
 				connections: { mail: { mode: "viewer", toolkit: "gmail" } },
 				databases: { drafts: { mode: "viewer" }, reports: { mode: "owner" } },
@@ -140,16 +140,16 @@ test("native resource capabilities enforce access and report exact app-owner too
 		for (const slug of ["drafts", "reports"]) {
 			await cp(
 				new URL("../../cli/template/databases/updates/migrations", import.meta.url),
-				join(project, "databases", slug, "migrations"),
+				join(checkout, "databases", slug, "migrations"),
 				{ recursive: true },
 			)
 		}
-		const execute = execa({ cwd: project })
+		const execute = execa({ cwd: checkout })
 		const git = (...args: string[]) =>
 			execute("git", args, {
 				env: {
 					...cliEnv,
-					GIT_CONFIG_GLOBAL: join(project, "gitconfig"),
+					GIT_CONFIG_GLOBAL: join(checkout, "gitconfig"),
 					GIT_TERMINAL_PROMPT: "0",
 				},
 			})
@@ -163,13 +163,13 @@ test("native resource capabilities enforce access and report exact app-owner too
 		await git("init", "-b", "main")
 		await git("config", "user.name", "Execution Test")
 		await git("config", "user.email", "execution-test@example.com")
-		await git("remote", "add", "origin", `${origin}/git/${app.id}`)
+		await git("remote", "add", "origin", `${origin}/git/${slate.id}`)
 		await git("add", "public", "databases")
 		await git("-c", "commit.gpgsign=false", "commit", "-m", "Declare app resources")
 		await git("push", "origin", "main")
 		expect(
 			await callExecution("callTool", [
-				app.id,
+				slate.id,
 				viewerToken,
 				{ arguments: {}, slug: "other", tool: "EXAMPLE" },
 			]),
@@ -187,7 +187,7 @@ test("native resource capabilities enforce access and report exact app-owner too
 		const undeclared = await callCapability("tools", props, ["other", "EXAMPLE", {}])
 		expect(undeclared.status).toBe(400)
 		expect(await undeclared.json()).toEqual({ error: "not-declared" })
-		await db.deleteFrom("app_member").where("app_id", "=", app.id).execute()
+		await db.deleteFrom("slate_member").where("slate_id", "=", slate.id).execute()
 		const membership = await callCapability("tools", props, [
 			"mail",
 			"GMAIL_GET_PROFILE",
@@ -201,34 +201,36 @@ test("native resource capabilities enforce access and report exact app-owner too
 		])
 		expect(databaseMembership.status).toBe(400)
 		expect(await databaseMembership.json()).toEqual({ error: "membership-required" })
-		const joined = await fetch(`${origin}/api/apps/${app.id}/join`, {
+		const joined = await fetch(`${origin}/api/slates/${slate.id}/join`, {
 			headers,
 			method: "POST",
 		})
 		expect(joined.status).toBe(200)
-		expect(await joined.json()).toEqual({ app_id: app.id, user_id: user.id })
+		expect(await joined.json()).toEqual({ slate_id: slate.id, user_id: user.id })
 		const assigned = await fetch(
-			`${origin}/api/apps/${app.id}/connections/assign`,
+			`${origin}/api/slates/${slate.id}/connections/assign`,
 			post({ connection_id: connection.id, slug: "mail" }),
 		)
 		expect(assigned.status).toBe(200)
 		const configuration = await fetch(
-			`${origin}/api/apps/${app.id}/resources/list`,
+			`${origin}/api/slates/${slate.id}/resources/list`,
 			post({}),
 		)
 		expect(configuration.status).toBe(200)
-		const { resources: configured } = appResourcesSchema.parse(await configuration.json())
+		const { resources: configured } = slateResourcesSchema.parse(
+			await configuration.json(),
+		)
 		for (const slug of ["drafts", "reports"]) {
 			const database = configured.databases[slug]
 			assert(database)
 			expect(database.owner).toEqual(
 				slug === "drafts" || ownerId === user.id
-					? { id: user.id, type: "user" }
+					? { id: user.id, type: "personal" }
 					: { id: organization.id, type: "organization" },
 			)
 			await DATABASES.getByName(database.instance_name).query(
 				"INSERT INTO updates (id, kind, body, created_at) VALUES (?, ?, ?, ?)",
-				["native-proof", "proof", app.id, 1],
+				["native-proof", "proof", slate.id, 1],
 			)
 			const response = await callCapability("databases", props, [
 				slug,
@@ -237,7 +239,7 @@ test("native resource capabilities enforce access and report exact app-owner too
 			expect(response.status).toBe(200)
 			expect(await response.json()).toMatchObject({
 				columns: ["id", "body"],
-				rows: [["native-proof", app.id]],
+				rows: [["native-proof", slate.id]],
 			})
 		}
 		const toolResponse = await callCapability("tools", props, [
@@ -255,7 +257,7 @@ test("native resource capabilities enforce access and report exact app-owner too
 				async () => {
 					const events = await listEvents(polar)({
 						external_customer_id: ownerId,
-						metadata: { user_code_worker_id: app.id },
+						metadata: { user_code_worker_id: slate.id },
 					})
 					return events.items
 						.filter((event) => event.source === "user")

@@ -6,7 +6,6 @@ import { getCookie } from "hono/cookie"
 import { csrf } from "hono/csrf"
 import { createMiddleware } from "hono/factory"
 import type { z } from "zod"
-import type { resolveAppQuerySchema } from "@/apps.schema"
 import {
 	type AuthIdentity,
 	authenticateAccessToken,
@@ -15,6 +14,7 @@ import {
 } from "@/auth.server"
 import type { PlatformEnv } from "@/context"
 import { authenticateMcpRequest } from "@/mcp.server"
+import type { resolveSlateQuerySchema } from "@/slates.schema"
 
 export type IdentityEnv = PlatformEnv & { Variables: { identity: AuthIdentity | null } }
 export type OwnerIdentityEnv = IdentityEnv & {
@@ -86,9 +86,9 @@ export const identifyUser = createMiddleware<IdentityEnv>(async (c, next) => {
 	await next()
 })
 
-export async function getAppViewerIdentity<E extends IdentityEnv>(
+export async function getSlateViewerIdentity<E extends IdentityEnv>(
 	c: Context<E>,
-	input: z.infer<typeof resolveAppQuerySchema>,
+	input: z.infer<typeof resolveSlateQuerySchema>,
 ) {
 	if (input.pathname !== "/mcp") return getRequestIdentity(c, { viewerCookie: true })
 	return authenticateMcpRequest(c.req.raw, input.hostname, c.var.config.CTX_AUTH_ISSUER)

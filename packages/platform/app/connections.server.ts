@@ -20,7 +20,7 @@ export async function createConnectionSession(
 	})
 }
 
-export async function authorizeConnection(
+export async function connectAccount(
 	config: PlatformConfig,
 	identity: OwnerIdentity,
 	owner: Owner,

@@ -10,7 +10,7 @@ interface LocalBindings {
 	TOOLS: ToolsBinding
 }
 
-interface AppProps {
+interface SlateWorkerProps {
 	databases: Databases
 	tools: ToolsBinding
 	mcpTool?: string
@@ -25,11 +25,11 @@ export interface McpToolModule {
 	handler(args: unknown, tools: Tools): CallToolResult | Promise<CallToolResult>
 }
 
-export type App = Required<
-	Pick<ExportedHandler<LocalBindings, unknown, unknown, AppProps>, "fetch">
+export type SlateWorker = Required<
+	Pick<ExportedHandler<LocalBindings, unknown, unknown, SlateWorkerProps>, "fetch">
 >
 
-export function createApp({
+export function createSlateWorker({
 	build,
 	mode,
 	development,
@@ -39,7 +39,7 @@ export function createApp({
 	mode: string
 	development: boolean
 	mcp?: Record<string, McpToolModule>
-}): App {
+}): SlateWorker {
 	const requestHandler = createRequestHandler(build, mode)
 	return {
 		async fetch(request, env, ctx) {

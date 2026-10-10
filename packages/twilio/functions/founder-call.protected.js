@@ -1,9 +1,9 @@
-// Voice webhook for the "Slate founder call" TwiML App: a browser client
-// (slate's Voice SDK Device) connects, and this dials the founder's cell with
+// Voice webhook for the founder-call TwiML App: a browser client
+// (ContextLayer's Voice SDK Device) connects, and this dials the founder's cell with
 // the keypress answer gate riding on the callee leg (founder-call-whisper).
 // answerOnBridge defers the bridge until the gate accepts — a voicemail
 // pickup never counts as an answer. No early media reaches the browser leg:
-// the customer's ring phase is silent (slate's animated ellipsis is the
+// the customer's ring phase is silent (ContextLayer's animated ellipsis is the
 // feedback there).
 exports.handler = (context, _event, callback) => {
 	const response = new Twilio.twiml.VoiceResponse()

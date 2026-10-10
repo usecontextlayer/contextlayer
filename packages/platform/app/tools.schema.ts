@@ -1,7 +1,7 @@
 import { z } from "@hono/zod-openapi"
-import { assignmentSchema } from "@/app-connections.schema"
-import { appSchema } from "@/apps.schema"
 import { personalConnectionsQuerySchema } from "@/connections.schema"
+import { assignmentSchema } from "@/slate-connections.schema"
+import { slateSchema } from "@/slates.schema"
 
 export { connectionRequiredSchema, toolResultSchema } from "@usecontextlayer/shared/tools"
 
@@ -15,7 +15,7 @@ export const toolCallSchema = toolExecutionSchema.extend({
 })
 
 export const connectionToolCallSchema = toolExecutionSchema.extend({
-	app_id: appSchema.shape.id,
+	slate_id: slateSchema.shape.id,
 	toolkit: personalConnectionsQuerySchema.shape.toolkit,
 })
 

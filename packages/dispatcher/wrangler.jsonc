@@ -4,7 +4,7 @@
 	"compatibility_date": "2026-10-02",
 	"dispatch_namespaces": [
 		{
-			"binding": "APPS",
+			"binding": "SLATES",
 			"namespace": "contextlayer-prod",
 			"remote": true
 		}
@@ -13,7 +13,7 @@
 		"test": {
 			"dispatch_namespaces": [
 				{
-					"binding": "APPS",
+					"binding": "SLATES",
 					"namespace": "contextlayer-test",
 					"remote": true
 				}
@@ -59,7 +59,7 @@
 		}
 	],
 	"vars": {
-		"CTX_PLATFORM_URL": "https://slate.usecontextlayer.com"
+		"CTX_PLATFORM_URL": "https://platform.usecontextlayer.com"
 	},
 	"workers_dev": false
 }

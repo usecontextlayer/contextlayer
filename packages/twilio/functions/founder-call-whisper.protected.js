@@ -9,7 +9,7 @@ exports.handler = (_context, _event, callback) => {
 		numDigits: 1,
 		timeout: 8,
 	})
-	gather.say("Customer call from Slate. Press 1 to accept.")
+	gather.say("Customer call from ContextLayer. Press 1 to accept.")
 	response.hangup()
 	callback(null, response)
 }

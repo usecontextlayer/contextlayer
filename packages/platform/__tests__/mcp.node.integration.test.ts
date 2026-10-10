@@ -11,35 +11,35 @@ import { execa } from "execa"
 import { expect } from "vitest"
 import { unstable_readConfig } from "wrangler"
 import { z } from "zod"
-import { appSchema } from "@/apps.schema"
 import { saveCustomerState } from "@/billing.server"
+import { slateSchema } from "@/slates.schema"
 
 const test = base
-	.extend("app", async ({ identity, platform }, { onCleanup }) => {
-		const created = await fetch(`${platform.origin}/api/apps`, {
+	.extend("slate", async ({ identity, platform }, { onCleanup }) => {
+		const created = await fetch(`${platform.origin}/api/slates`, {
 			headers: identity.headers,
 			method: "POST",
 		})
 		expect(created.status).toBe(201)
-		const app = appSchema.parse(await created.json())
+		const slate = slateSchema.parse(await created.json())
 		const { ARTIFACTS } = await platform.worker.getEnv()
 		onCleanup(async () => {
-			await ARTIFACTS.delete(app.id)
+			await ARTIFACTS.delete(slate.id)
 		})
-		return app
+		return slate
 	})
-	.extend("mcpHeaders", ({ app, serviceEnv, webSession }) =>
+	.extend("mcpHeaders", ({ slate, serviceEnv, webSession }) =>
 		authorizeMcp({
 			clientId: "https://claude.ai/oauth/claude-code-client-metadata",
 			issuer: serviceEnv.issuer,
 			redirectUri: "http://127.0.0.1:51234/callback",
-			resource: `https://${app.public_hostname}/mcp`,
+			resource: `https://${slate.public_hostname}/mcp`,
 			webHeaders: webSession.headers,
 		}),
 	)
 
-test("native dispatcher and platform bind MCP to the app and reject cookie fallback", async ({
-	app,
+test("native dispatcher and platform bind MCP to the slate and reject cookie fallback", async ({
+	slate,
 	db,
 	dispatcher,
 	identity,
@@ -51,8 +51,8 @@ test("native dispatcher and platform bind MCP to the app and reject cookie fallb
 }) => {
 	const worker = dispatcher.worker
 	const headers = Object.fromEntries(mcpHeaders)
-	const resource = `https://${app.public_hostname}/mcp`
-	const metadataUrl = `https://${app.public_hostname}/.well-known/oauth-protected-resource/mcp`
+	const resource = `https://${slate.public_hostname}/mcp`
+	const metadataUrl = `https://${slate.public_hostname}/.well-known/oauth-protected-resource/mcp`
 	const metadata = await worker.fetch(metadataUrl)
 	expect(metadata.status).toBe(200)
 	expect(await metadata.json()).toMatchObject({
@@ -63,7 +63,7 @@ test("native dispatcher and platform bind MCP to the app and reject cookie fallb
 	const viewerHeaders = Object.fromEntries(
 		await signInViewer({
 			authURL: webEnv.CTX_VIEWER_AUTH_URL,
-			returnTo: `https://${app.public_hostname}/`,
+			returnTo: `https://${slate.public_hostname}/`,
 			webHeaders: webSession.headers,
 		}),
 	)
@@ -76,10 +76,10 @@ test("native dispatcher and platform bind MCP to the app and reject cookie fallb
 	// Identity and private viewing succeed; this fixture has no subscription state.
 	expect((await worker.fetch(resource, { headers })).status).toBe(402)
 	const other = await db
-		.insertInto("app")
+		.insertInto("slate")
 		.values({
 			owner_user_id: identity.user.id,
-			public_hostname: `${crypto.randomUUID()}.${platform.env.CTX_APPS_DOMAIN}`,
+			public_hostname: `${crypto.randomUUID()}.${platform.env.CTX_SLATES_DOMAIN}`,
 			visibility: "private",
 		})
 		.returningAll()
@@ -87,18 +87,18 @@ test("native dispatcher and platform bind MCP to the app and reject cookie fallb
 	expect(
 		(await worker.fetch(`https://${other.public_hostname}/mcp`, { headers })).status,
 	).toBe(401)
-	expect((await platform.worker.fetch("/api/apps", { headers })).status).toBe(401)
+	expect((await platform.worker.fetch("/api/slates", { headers })).status).toBe(401)
 	expect(
 		(
 			await platform.worker.fetch(
-				`/api/apps/resolve?hostname=${app.public_hostname}&pathname=/slate.json`,
+				`/api/slates/resolve?hostname=${slate.public_hostname}&pathname=/slate.json`,
 				{ headers: viewerHeaders },
 			)
 		).status,
 	).toBe(200)
 })
 
-test("private organization member reaches billing through app-bound MCP authorization", async ({
+test("private organization member reaches billing through slate-bound MCP authorization", async ({
 	dispatcher,
 	identity,
 	organization,
@@ -106,24 +106,24 @@ test("private organization member reaches billing through app-bound MCP authoriz
 	serviceEnv,
 	webSession,
 }) => {
-	const created = await fetch(`${platform.origin}/api/apps`, {
+	const created = await fetch(`${platform.origin}/api/slates`, {
 		body: JSON.stringify({ organization_slug: organization.slug }),
 		headers: { ...identity.headers, "content-type": "application/json" },
 		method: "POST",
 	})
 	expect(created.status).toBe(201)
-	const app = appSchema.parse(await created.json())
+	const slate = slateSchema.parse(await created.json())
 	const { ARTIFACTS } = await platform.worker.getEnv()
 	await using resources = new AsyncDisposableStack()
 	resources.defer(async () => {
-		await ARTIFACTS.delete(app.id)
+		await ARTIFACTS.delete(slate.id)
 	})
-	expect(app).toMatchObject({
+	expect(slate).toMatchObject({
 		owner_organization_id: organization.id,
 		owner_user_id: null,
 		visibility: "private",
 	})
-	const resource = `https://${app.public_hostname}/mcp`
+	const resource = `https://${slate.public_hostname}/mcp`
 	const headers = await authorizeMcp({
 		clientId: "https://claude.ai/oauth/claude-code-client-metadata",
 		issuer: serviceEnv.issuer,
@@ -139,7 +139,7 @@ test("private organization member reaches billing through app-bound MCP authoriz
 
 test("discovers a View and invokes an authored Worker once through native MCP", {
 	timeout: 300_000,
-}, async ({ app, db, directory, dispatcher, identity, mcpHeaders, serviceEnv }) => {
+}, async ({ slate, db, directory, dispatcher, identity, mcpHeaders, serviceEnv }) => {
 	const polar = createPolarCore({
 		accessToken: serviceEnv.polarEnv.POLAR_ACCESS_TOKEN,
 		environment: serviceEnv.polarEnv.POLAR_ENVIRONMENT,
@@ -169,7 +169,7 @@ test("discovers a View and invokes an authored Worker once through native MCP", 
 			account_id: accountId,
 			compatibility_date: config.compatibility_date,
 			main: "./workers/app.ts",
-			name: app.id,
+			name: slate.id,
 		}),
 	)
 	const execute = execa({
@@ -197,7 +197,7 @@ test("discovers a View and invokes an authored Worker once through native MCP", 
 				"dispatch-namespaces",
 				"scripts",
 				"delete",
-				app.id,
+				slate.id,
 				"--dispatch-namespace",
 				namespace,
 				"--force",
@@ -208,7 +208,7 @@ test("discovers a View and invokes an authored Worker once through native MCP", 
 	const client = new Client({ name: "native-mcp-integration", version: "1" })
 	resources.defer(() => client.close())
 	await client.connect(
-		new StreamableHTTPClientTransport(new URL(`https://${app.public_hostname}/mcp`), {
+		new StreamableHTTPClientTransport(new URL(`https://${slate.public_hostname}/mcp`), {
 			fetch: dispatcher.worker.fetch.bind(dispatcher.worker) as unknown as typeof fetch,
 			requestInit: { headers: mcpHeaders },
 		}),

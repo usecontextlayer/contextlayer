@@ -106,7 +106,7 @@ const { ipcOutput } = await Promise.race([
 ])
 const clientId = z.string().min(1).parse(ipcOutput[0])
 console.log(`Web: ${web.url}`)
-console.log(`Platform: ${new URL("/dashboard/personal/apps", platform.url)}`)
+console.log(`Platform: ${new URL("/dashboard/personal/slates", platform.url)}`)
 console.log(`Viewer auth: ${auth.url}`)
 console.log(`Dispatcher: ${dispatcher.url}`)
 console.log(`CLI issuer: ${issuer}`)

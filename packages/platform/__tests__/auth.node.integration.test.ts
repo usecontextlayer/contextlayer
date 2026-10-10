@@ -1,57 +1,57 @@
 import { test as base } from "@tests/integration"
 import { signInViewer } from "@usecontextlayer/dev-env/viewer"
 import { expect } from "vitest"
-import { appSchema } from "@/apps.schema"
+import { slateSchema } from "@/slates.schema"
 
 const test = base
-	.extend("app", async ({ webSession, platform }, { onCleanup }) => {
+	.extend("slate", async ({ webSession, platform }, { onCleanup }) => {
 		const headers = new Headers(webSession.headers)
 		headers.set("origin", platform.origin)
 		headers.set("content-type", "application/json")
-		const created = await fetch(`${platform.origin}/api/apps`, {
+		const created = await fetch(`${platform.origin}/api/slates`, {
 			body: JSON.stringify({}),
 			headers,
 			method: "POST",
 		})
 		expect(created.status).toBe(201)
-		const app = appSchema.parse(await created.json())
+		const slate = slateSchema.parse(await created.json())
 		const { ARTIFACTS } = await platform.worker.getEnv()
 		onCleanup(async () => {
-			await ARTIFACTS.delete(app.id)
+			await ARTIFACTS.delete(slate.id)
 		})
-		return app
+		return slate
 	})
-	.extend("viewerHeaders", ({ app, webEnv, webSession }) =>
+	.extend("viewerHeaders", ({ slate, webEnv, webSession }) =>
 		signInViewer({
 			authURL: webEnv.CTX_VIEWER_AUTH_URL,
-			returnTo: `https://${app.public_hostname}/`,
+			returnTo: `https://${slate.public_hostname}/`,
 			webHeaders: webSession.headers,
 		}),
 	)
 
 test("viewer cookies authenticate runtime requests but not management APIs", async ({
-	app,
+	slate,
 	webSession,
 	platform: { origin },
 	viewerHeaders,
 }) => {
-	const resolve = `${origin}/api/apps/resolve?hostname=${app.public_hostname}&pathname=/slate.json`
+	const resolve = `${origin}/api/slates/resolve?hostname=${slate.public_hostname}&pathname=/slate.json`
 	expect((await fetch(resolve)).status).toBe(401)
 	expect((await fetch(resolve, { headers: viewerHeaders })).status).toBe(200)
 
-	const owner = `user/${webSession.user.id}`
+	const owner = `personal/${webSession.user.id}`
 	for (const [method, path] of [
-		["GET", "/apps"],
-		["POST", "/apps"],
-		["PATCH", `/apps/${app.id}`],
-		["GET", `/apps/${app.id}/agents/example`],
+		["GET", "/slates"],
+		["POST", "/slates"],
+		["PATCH", `/slates/${slate.id}`],
+		["GET", `/slates/${slate.id}/agents/example`],
 		["GET", `/connections/${owner}`],
 		["POST", `/connections/${owner}`],
 		["GET", "/connections?toolkit=gmail"],
 		["POST", "/connections/ca_example/tools/call"],
-		["POST", `/apps/${app.id}/resources/list`],
-		["POST", `/apps/${app.id}/connections/list`],
-		["POST", `/apps/${app.id}/connections/assign`],
+		["POST", `/slates/${slate.id}/resources/list`],
+		["POST", `/slates/${slate.id}/connections/list`],
+		["POST", `/slates/${slate.id}/connections/assign`],
 		["PUT", `/secrets/${owner}/example`],
 		["DELETE", `/secrets/${owner}/example`],
 	]) {
@@ -64,7 +64,7 @@ test("viewer cookies authenticate runtime requests but not management APIs", asy
 })
 
 test("hosted execution is a native capability rather than a public HTTP operation", async ({
-	app,
+	slate,
 	identity,
 	platform: { origin },
 	viewerHeaders,
@@ -73,8 +73,8 @@ test("hosted execution is a native capability rather than a public HTTP operatio
 	const schema = (await (await fetch(`${origin}/api/openapi.json`)).json()) as {
 		paths: Record<string, unknown>
 	}
-	expect(schema.paths).not.toHaveProperty("/apps/{target}/tools/call")
-	expect(schema.paths).not.toHaveProperty("/apps/{target}/databases/query")
+	expect(schema.paths).not.toHaveProperty("/slates/{target}/tools/call")
+	expect(schema.paths).not.toHaveProperty("/slates/{target}/databases/query")
 	const nativeHeaders = new Headers(webSession.headers)
 	nativeHeaders.set("origin", origin)
 	for (const [headers, expected] of [
@@ -85,7 +85,7 @@ test("hosted execution is a native capability rather than a public HTTP operatio
 		for (const operation of ["tools/call", "databases/query"]) {
 			expect(
 				(
-					await fetch(`${origin}/api/apps/${app.id}/${operation}`, {
+					await fetch(`${origin}/api/slates/${slate.id}/${operation}`, {
 						headers,
 						method: "POST",
 					})
@@ -96,12 +96,12 @@ test("hosted execution is a native capability rather than a public HTTP operatio
 })
 
 test("native session mutations require the same origin while CLI tokens can join directly", async ({
-	app,
+	slate,
 	identity,
 	platform: { origin },
 	webSession,
 }) => {
-	const join = `${origin}/api/apps/${app.id}/join`
+	const join = `${origin}/api/slates/${slate.id}/join`
 	const nativeHeaders = new Headers(webSession.headers)
 	nativeHeaders.delete("origin")
 	expect((await fetch(join, { headers: nativeHeaders, method: "POST" })).status).toBe(403)
@@ -109,12 +109,15 @@ test("native session mutations require the same origin while CLI tokens can join
 	for (const headers of [nativeHeaders, identity.headers]) {
 		const response = await fetch(join, { headers, method: "POST" })
 		expect(response.status).toBe(200)
-		expect(await response.json()).toEqual({ app_id: app.id, user_id: identity.user.id })
+		expect(await response.json()).toEqual({
+			slate_id: slate.id,
+			user_id: identity.user.id,
+		})
 	}
 })
 
-test("native sessions and CLI tokens can manage apps and accept only scoped resource inputs", async ({
-	app,
+test("native sessions and CLI tokens can manage slates and accept only scoped resource inputs", async ({
+	slate,
 	identity,
 	platform: { origin },
 	webSession,
@@ -123,21 +126,21 @@ test("native sessions and CLI tokens can manage apps and accept only scoped reso
 		const headers = new Headers(credentials)
 		headers.set("origin", origin)
 		headers.set("content-type", "application/json")
-		const response = await fetch(`${origin}/api/apps/${app.id}`, {
+		const response = await fetch(`${origin}/api/slates/${slate.id}`, {
 			body: JSON.stringify({ visibility: "private" }),
 			headers,
 			method: "PATCH",
 		})
 		expect(response.status).toBe(200)
-		expect(await response.json()).toMatchObject({ id: app.id, visibility: "private" })
+		expect(await response.json()).toMatchObject({ id: slate.id, visibility: "private" })
 		expect((await fetch(`${origin}/api/connections`, { headers })).status).toBe(400)
 		expect(
 			(await fetch(`${origin}/api/connections?toolkit=gmail&owner_id=other`, { headers }))
 				.status,
 		).toBe(400)
 		const concreteCall = {
-			app_id: app.id,
 			arguments: {},
+			slate_id: slate.id,
 			tool: "READ",
 			toolkit: "gmail",
 		}
@@ -152,7 +155,7 @@ test("native sessions and CLI tokens can manage apps and accept only scoped reso
 			(await callConnection({ ...concreteCall, resources: { connections: {} } })).status,
 		).toBe(400)
 		expect(
-			(await callConnection({ ...concreteCall, app_id: crypto.randomUUID() })).status,
+			(await callConnection({ ...concreteCall, slate_id: crypto.randomUUID() })).status,
 		).toBe(404)
 		for (const [path, body] of [
 			["resources/list", {}],
@@ -161,7 +164,7 @@ test("native sessions and CLI tokens can manage apps and accept only scoped reso
 		] as const) {
 			expect(
 				(
-					await fetch(`${origin}/api/apps/${app.id}/${path}`, {
+					await fetch(`${origin}/api/slates/${slate.id}/${path}`, {
 						body: JSON.stringify({ ...body, resources: { connections: {} } }),
 						headers,
 						method: "POST",
@@ -172,16 +175,16 @@ test("native sessions and CLI tokens can manage apps and accept only scoped reso
 	}
 })
 
-test("personal account execution requires permission to view its app", async ({
-	app,
+test("personal connected account execution requires permission to view its slate", async ({
+	slate,
 	db,
 	identity,
 	platform: { origin },
 }) => {
 	await db
-		.updateTable("app")
+		.updateTable("slate")
 		.set({ owner_user_id: crypto.randomUUID() })
-		.where("id", "=", app.id)
+		.where("id", "=", slate.id)
 		.execute()
 	const headers = new Headers(identity.headers)
 	headers.set("content-type", "application/json")
@@ -189,8 +192,8 @@ test("personal account execution requires permission to view its app", async ({
 		(
 			await fetch(`${origin}/api/connections/ca_example/tools/call`, {
 				body: JSON.stringify({
-					app_id: app.id,
 					arguments: {},
+					slate_id: slate.id,
 					tool: "READ",
 					toolkit: "gmail",
 				}),
@@ -201,22 +204,22 @@ test("personal account execution requires permission to view its app", async ({
 	).toBe(403)
 })
 
-test("public app resolution permits declaration paths without a subscription or sign-in", async ({
-	app,
+test("public slate resolution permits declaration paths without a subscription or sign-in", async ({
+	slate,
 	db,
 	identity,
 	platform: { origin },
 }) => {
 	await db
-		.updateTable("app")
+		.updateTable("slate")
 		.set({ visibility: "public" })
-		.where("id", "=", app.id)
+		.where("id", "=", slate.id)
 		.execute()
-	const resolve = `${origin}/api/apps/resolve?hostname=${app.public_hostname}&pathname=/slate.json`
+	const resolve = `${origin}/api/slates/resolve?hostname=${slate.public_hostname}&pathname=/slate.json`
 	const response = await fetch(resolve)
 	expect(response.status).toBe(200)
 	expect(await response.json()).toEqual({
-		id: app.id,
-		owner: { id: identity.user.id, type: "user" },
+		id: slate.id,
+		owner: { id: identity.user.id, type: "personal" },
 	})
 })

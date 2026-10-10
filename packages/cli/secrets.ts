@@ -1,6 +1,6 @@
 import { isCancel, password } from "@clack/prompts"
-import { ownerSchema } from "@usecontextlayer/shared/app-usage"
-import { secretNameSchema } from "@usecontextlayer/shared/slate"
+import { secretNameSchema } from "@usecontextlayer/shared/declaration"
+import { ownerSchema } from "@usecontextlayer/shared/slate-usage"
 import { z } from "zod"
 import { getAccessToken } from "@/auth"
 import { env } from "@/env"

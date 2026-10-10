@@ -1,4 +1,4 @@
-// This example's public/slate.json declares the connection; follow the SDK README to copy the app files and assign a Gmail account.
+// This example's public/slate.json declares the connection; follow the SDK README to copy the app files and assign a connected Gmail account.
 import { toolsContext } from "@usecontextlayer/sdk"
 import { type LoaderFunctionArgs, useLoaderData } from "react-router"
 import { z } from "zod"
@@ -32,7 +32,7 @@ export default function Home() {
 		<main className="mx-auto max-w-3xl p-8">
 			<h1 className="text-2xl font-semibold">Your Gmail inbox</h1>
 			<p className="mt-2 text-sm text-gray-500">
-				Fetched by this page's server loader through your assigned Gmail connection.
+				Fetched by this page's server loader through your connected Gmail account.
 			</p>
 			<ul className="mt-6 divide-y divide-gray-200">
 				{loaderData.messages.map((message) => (

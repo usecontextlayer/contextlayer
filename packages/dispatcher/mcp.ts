@@ -6,19 +6,22 @@ import {
 } from "@modelcontextprotocol/ext-apps/server"
 import { createMcpHandler, McpServer } from "@modelcontextprotocol/server"
 import { createPolarCore } from "@polar-sh/sdk/2026-10"
-import { recordAppUsage, type resolvedAppSchema } from "@usecontextlayer/shared/app-usage"
 import { MCP_MANIFEST_PATH, mcpManifestSchema } from "@usecontextlayer/shared/mcp"
+import {
+	recordSlateUsage,
+	type resolvedSlateSchema,
+} from "@usecontextlayer/shared/slate-usage"
 import { z } from "zod"
 import type { parseEnv } from "@/env"
 
 export async function serveMcp(
 	request: Request,
 	namespace: DispatchNamespace,
-	app: z.infer<typeof resolvedAppSchema>,
+	slate: z.infer<typeof resolvedSlateSchema>,
 	env: ReturnType<typeof parseEnv>,
 	ctx: Pick<ExecutionContext, "waitUntil">,
 ) {
-	const assetWorker = namespace.get(app.id)
+	const assetWorker = namespace.get(slate.id)
 	const response = await assetWorker.fetch(new URL(MCP_MANIFEST_PATH, request.url).href)
 	if (!response.ok) throw new Error(`MCP manifest: HTTP ${response.status}`)
 	const manifest = mcpManifestSchema.parse(await response.json())
@@ -28,16 +31,16 @@ export async function serveMcp(
 			version: "1.0.0",
 		})
 		for (const {
-			slate,
+			declaration,
 			inputSchema,
 			outputSchema,
 			name,
 			...definition
 		} of manifest.tools) {
 			if (
-				Object.keys(slate.connections).length ||
-				Object.keys(slate.databases).length ||
-				Object.keys(slate.secrets).length
+				Object.keys(declaration.connections).length ||
+				Object.keys(declaration.databases).length ||
+				Object.keys(declaration.secrets).length
 			) {
 				throw new Error(`${name}: MCP resource consumers are not implemented yet`)
 			}
@@ -53,20 +56,22 @@ export async function serveMcp(
 						: undefined,
 				},
 				async (args) => {
-					const result = await namespace.get(app.id, { props: { mcpTool: name } }).fetch(
-						new Request(request.url, {
-							body: JSON.stringify(args),
-							headers: { "content-type": "application/json" },
-							method: "POST",
-						}),
-					)
+					const result = await namespace
+						.get(slate.id, { props: { mcpTool: name } })
+						.fetch(
+							new Request(request.url, {
+								body: JSON.stringify(args),
+								headers: { "content-type": "application/json" },
+								method: "POST",
+							}),
+						)
 					if (!result.ok) throw new Error(`${name}: HTTP ${result.status}`)
 					const output = CallToolResultSchema.parse(await result.json())
 					const polar = createPolarCore({
 						accessToken: env.POLAR_ACCESS_TOKEN,
 						environment: env.POLAR_ENVIRONMENT,
 					})
-					ctx.waitUntil(recordAppUsage(polar, app, "tool_call"))
+					ctx.waitUntil(recordSlateUsage(polar, slate, "tool_call"))
 					return output
 				},
 			)

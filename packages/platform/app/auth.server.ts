@@ -80,7 +80,7 @@ export async function authenticateAccessToken(
 	request: Request,
 	issuer: string,
 ): Promise<OwnerIdentity> {
-	const resource = "https://slate.usecontextlayer.com"
+	const resource = "https://platform.usecontextlayer.com"
 	const claims = await verifyAccessTokenRequest(requestToResourceInput(request), {
 		jwksUrl: `${issuer.replace(/\/$/, "")}/jwks`,
 		requiredScopes: ["platform:access"],

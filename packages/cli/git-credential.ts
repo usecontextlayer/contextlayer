@@ -5,7 +5,7 @@ import { z } from "zod"
 import { getAccessToken } from "@/auth"
 import { env } from "@/env"
 
-export async function setupGit(cli: URL) {
+export async function configureGit(cli: URL) {
 	const scope = new URL("/git", env.CTX_PLATFORM_URL).href
 	const key = `credential.${scope}.helper`
 	const command = [process.execPath, fileURLToPath(cli), "git-credential"]

@@ -1,20 +1,20 @@
-import { resourcesForConsumer } from "@usecontextlayer/shared/slate"
+import { resourcesForConsumer } from "@usecontextlayer/shared/declaration"
 import { getAgentByName } from "agents/routing"
 import { getAgentInstanceName, getAgentUnattendedScope } from "@/agent-instance"
 import { type AgentActor, agentScheduleSchema } from "@/agents.schema"
-import type { AppDeclarationSnapshot } from "@/app-declarations.server"
 import type { PlatformEnv } from "@/context"
-import type { AppId } from "@/database/models/public/App"
+import type { SlateId } from "@/database/models/public/Slate"
+import type { SlateDeclarationSnapshot } from "@/slate-declarations.server"
 
-export async function setupAgentSchedules(
+export async function provisionAgentSchedules(
 	artifacts: Artifacts,
 	agents: PlatformEnv["Bindings"]["AGENTS"],
-	appId: AppId,
+	slateId: SlateId,
 	actors: AgentActor[],
-	snapshot: AppDeclarationSnapshot,
+	snapshot: SlateDeclarationSnapshot,
 ) {
 	const { parseSkillFrontmatter } = await import("agents/skills")
-	using repo = await artifacts.get(appId)
+	using repo = await artifacts.get(slateId)
 	for (const definition of snapshot.agentTrees) {
 		const files = (await repo.readTree(definition.hash)) as ArtifactsTreeEntry[]
 		if (!files.some((entry) => entry.name === "instructions.md" && entry.type === "blob"))
@@ -45,10 +45,10 @@ export async function setupAgentSchedules(
 		for (const actor of actors) {
 			const instance = await getAgentByName(
 				agents,
-				getAgentInstanceName(appId, definition.name, actor),
+				getAgentInstanceName(slateId, definition.name, actor),
 			)
-			await instance.registerSchedules(
-				appId,
+			await instance.provisionSchedules(
+				slateId,
 				definition.name,
 				actor,
 				(scope === "member") === (actor.type === "user") ? schedules : [],

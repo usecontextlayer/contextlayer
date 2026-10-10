@@ -1,9 +1,9 @@
 import { type Handler, Hono } from "hono"
 import { proxy } from "hono/proxy"
 import { z } from "zod"
-import { appSchema } from "@/apps.schema"
-import { getGitAccess } from "@/apps.server"
 import { type OwnerAuthenticatedEnv, requireAuth } from "@/auth.middleware"
+import { slateSchema } from "@/slates.schema"
+import { getGitAccess } from "@/slates.server"
 
 const serviceSchema = z.enum(["git-upload-pack", "git-receive-pack"])
 
@@ -11,7 +11,7 @@ export function createGitApp() {
 	const app = new Hono<OwnerAuthenticatedEnv>()
 	app.use("*", requireAuth)
 	const handle: Handler<OwnerAuthenticatedEnv> = async (c) => {
-		const id = appSchema.shape.id.parse(c.req.param("id"))
+		const id = slateSchema.shape.id.parse(c.req.param("id"))
 		const service = serviceSchema.parse(
 			c.req.method === "GET" ? c.req.query("service") : c.req.param("service"),
 		)

@@ -1,6 +1,6 @@
 import { isCancel, select } from "@clack/prompts"
-import { appConnectionsSchema } from "@usecontextlayer/shared/app-connections"
 import { connectionsSchema } from "@usecontextlayer/shared/connections"
+import { slateConnectionsSchema } from "@usecontextlayer/shared/slate-connections"
 import { z } from "zod"
 import { getAccessToken } from "@/auth"
 import { env } from "@/env"
@@ -23,7 +23,7 @@ export const connectionAssignmentSchema = z
 		}
 	})
 
-export async function assignAppConnection(
+export async function assignSlateConnection(
 	target: string,
 	slug: string,
 	connectionId: string | undefined,
@@ -41,30 +41,30 @@ export async function assignAppConnection(
 			headers: { authorization: `Bearer ${await getAccessToken(env)}` },
 		})
 		if (!response.ok)
-			throw new Error(`Personal connection list failed: HTTP ${response.status}`)
+			throw new Error(`Personal connected account list failed: HTTP ${response.status}`)
 		const { connections } = connectionsSchema.parse(await response.json())
 		if (connections.length === 0)
 			throw new Error(
-				`No personal ${requirement.toolkit} accounts. Run npx @usecontextlayer/cli connections add ${requirement.toolkit}, approve access in your browser, then rerun this assignment.`,
+				`No personal connected accounts for ${requirement.toolkit}. Run npx @usecontextlayer/cli connections add ${requirement.toolkit} to connect an account in your browser, then rerun this assignment.`,
 			)
 		if (connectionId === undefined) {
-			const selected = await select({
-				message: `Your ${requirement.toolkit} account for ${slug}`,
+			const accountId = await select({
+				message: `Assign a connected ${requirement.toolkit} account to ${slug}`,
 				options: connections.map((connection) => ({
 					label: `${connection.display_name ?? connection.alias ?? connection.id} (${connection.id}; ${connection.status})`,
 					value: connection.id,
 				})),
 				output: process.stderr,
 			})
-			if (isCancel(selected)) {
+			if (isCancel(accountId)) {
 				process.exitCode = 130
 				return
 			}
-			connectionId = selected
+			connectionId = accountId
 		}
 		if (!connections.some(({ id }) => id === connectionId)) {
 			throw new Error(
-				`Account ${connectionId} is not one of your ${requirement.toolkit} accounts`,
+				`Connected account ${connectionId} is not one of your connected ${requirement.toolkit} accounts`,
 			)
 		}
 		await saveLocalConnection(slug, connectionId)
@@ -74,7 +74,7 @@ export async function assignAppConnection(
 	}
 	const response = await fetch(
 		new URL(
-			`/api/apps/${encodeURIComponent(target)}/connections/assign`,
+			`/api/slates/${encodeURIComponent(target)}/connections/assign`,
 			env.CTX_PLATFORM_URL,
 		),
 		{
@@ -94,7 +94,7 @@ export async function assignAppConnection(
 	console.log(`${assignment.slug} → ${assignment.connection_id}`)
 }
 
-export async function listAppConnections(target: string) {
+export async function listSlateConnections(target: string) {
 	if (target === "local") {
 		const { connections } = await prepareLocalResourceConfiguration()
 		if (Object.keys(connections).length === 0) {
@@ -104,7 +104,7 @@ export async function listAppConnections(target: string) {
 		console.table(
 			Object.entries(connections).map(
 				([slug, { connection_id, consumers, mode, toolkit }]) => ({
-					connection: connection_id ?? "unassigned",
+					connected_account: connection_id ?? "unassigned",
 					consumers: consumers
 						.map((consumer) =>
 							consumer.type === "app" ? "app" : `agent:${consumer.name}`,
@@ -120,7 +120,7 @@ export async function listAppConnections(target: string) {
 	}
 	const response = await fetch(
 		new URL(
-			`/api/apps/${encodeURIComponent(target)}/connections/list`,
+			`/api/slates/${encodeURIComponent(target)}/connections/list`,
 			env.CTX_PLATFORM_URL,
 		),
 		{
@@ -133,8 +133,8 @@ export async function listAppConnections(target: string) {
 		},
 	)
 	if (!response.ok)
-		throw new Error(`App connections request failed: HTTP ${response.status}`)
-	const { connections } = appConnectionsSchema.parse(await response.json())
+		throw new Error(`Slate connections request failed: HTTP ${response.status}`)
+	const { connections } = slateConnectionsSchema.parse(await response.json())
 	if (!connections.length) {
 		console.log("No connection requirements.")
 		return
@@ -142,12 +142,12 @@ export async function listAppConnections(target: string) {
 	console.table(
 		connections.map(({ connection_id, ...requirement }) => ({
 			...requirement,
-			connection: connection_id ?? "unassigned",
+			connected_account: connection_id ?? "unassigned",
 		})),
 	)
 }
 
-export async function addConnection(toolkit: string, org: string | undefined) {
+export async function connectAccount(toolkit: string, org: string | undefined) {
 	const headers = { authorization: `Bearer ${await getAccessToken(env)}` }
 	const owner = await resolveOwner(org, headers)
 	const response = await fetch(
@@ -161,22 +161,21 @@ export async function addConnection(toolkit: string, org: string | undefined) {
 			method: "POST",
 		},
 	)
-	if (!response.ok)
-		throw new Error(`Connection authorization failed: HTTP ${response.status}`)
+	if (!response.ok) throw new Error(`Connecting account failed: HTTP ${response.status}`)
 	const { redirect_url } = z
 		.object({ redirect_url: z.url() })
 		.parse(await response.json())
-	console.log(`Open this link to authorize the Owner's account:\n${redirect_url}`)
+	console.log(`Open this link to connect the Owner's account:\n${redirect_url}`)
 	console.log(
-		"After approving access in your browser, assign the account to an app's declared connection slug.",
+		"After connecting in your browser, assign the connected account to a slate's declared connection.",
 	)
 	if (!org) {
 		console.log(
-			"From your app directory, choose your account for a slug in public/slate.json:\n  npx @usecontextlayer/cli connection local assign <slug>",
+			"From your checkout, assign your connected account to a connection declared in slate.json:\n  npx @usecontextlayer/cli connection local assign <slug>",
 		)
 	}
 	console.log(
-		`For a hosted app, get the account ID and assign it:\n  npx @usecontextlayer/cli connections${org ? ` --org '${org.replaceAll("'", "'\\''")}'` : ""} list\n  npx @usecontextlayer/cli connection <AppID-or-hostname> assign <slug> <connection_id>`,
+		`For a hosted slate, get the connected account ID and assign it:\n  npx @usecontextlayer/cli connections${org ? ` --org '${org.replaceAll("'", "'\\''")}'` : ""} list\n  npx @usecontextlayer/cli connection <SlateID-or-hostname> assign <slug> <connection_id>`,
 	)
 }
 
@@ -189,7 +188,8 @@ export async function listConnections(org: string | undefined) {
 			headers,
 		},
 	)
-	if (!response.ok) throw new Error(`Connection list failed: HTTP ${response.status}`)
+	if (!response.ok)
+		throw new Error(`Connected account list failed: HTTP ${response.status}`)
 	const { connections } = connectionsSchema.parse(await response.json())
 	if (connections.length === 0) {
 		console.log("No connected accounts.")

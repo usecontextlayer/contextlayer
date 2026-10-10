@@ -6,7 +6,7 @@ export interface Bindings {
 	POLAR_ENVIRONMENT: "sandbox" | "production"
 	CTX_PLATFORM_URL: string
 	CTX_VIEWER_AUTH_URL?: string
-	APPS: DispatchNamespace
+	SLATES: DispatchNamespace
 	EXECUTION: HostedExecution
 }
 

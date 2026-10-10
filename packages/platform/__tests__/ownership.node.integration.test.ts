@@ -1,17 +1,17 @@
 import { test } from "@tests/database"
 import { expect } from "vitest"
-import { DEFAULT_APP_VISIBILITY } from "@/apps.schema"
+import { DEFAULT_SLATE_VISIBILITY } from "@/slates.schema"
 
-test("Postgres requires exactly one user or organization owner for each app", async ({
+test("Postgres requires exactly one personal or organization Owner for each slate", async ({
 	db,
 }) => {
 	const personal = await db
-		.insertInto("app")
+		.insertInto("slate")
 		.values({
 			owner_organization_id: null,
 			owner_user_id: "user-1",
 			public_hostname: "personal.example.com",
-			visibility: DEFAULT_APP_VISIBILITY,
+			visibility: DEFAULT_SLATE_VISIBILITY,
 		})
 		.returningAll()
 		.executeTakeFirstOrThrow()
@@ -19,12 +19,12 @@ test("Postgres requires exactly one user or organization owner for each app", as
 	expect(personal.owner_organization_id).toBeNull()
 
 	const organization = await db
-		.insertInto("app")
+		.insertInto("slate")
 		.values({
 			owner_organization_id: "org-1",
 			owner_user_id: null,
 			public_hostname: "organization.example.com",
-			visibility: DEFAULT_APP_VISIBILITY,
+			visibility: DEFAULT_SLATE_VISIBILITY,
 		})
 		.returningAll()
 		.executeTakeFirstOrThrow()
@@ -33,23 +33,23 @@ test("Postgres requires exactly one user or organization owner for each app", as
 
 	await expect(
 		db
-			.insertInto("app")
+			.insertInto("slate")
 			.values({
 				owner_organization_id: null,
 				owner_user_id: null,
 				public_hostname: "unowned.example.com",
-				visibility: DEFAULT_APP_VISIBILITY,
+				visibility: DEFAULT_SLATE_VISIBILITY,
 			})
 			.execute(),
 	).rejects.toMatchObject({ code: "23514" })
 	await expect(
 		db
-			.insertInto("app")
+			.insertInto("slate")
 			.values({
 				owner_organization_id: "org-1",
 				owner_user_id: "user-1",
 				public_hostname: "two-owners.example.com",
-				visibility: DEFAULT_APP_VISIBILITY,
+				visibility: DEFAULT_SLATE_VISIBILITY,
 			})
 			.execute(),
 	).rejects.toMatchObject({ code: "23514" })

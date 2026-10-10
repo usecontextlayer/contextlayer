@@ -49,7 +49,7 @@ export function readDevelopmentIdentityEnv(
 	return developmentIdentitySchema.parse(env)
 }
 
-export function readAppOAuthEnv(env: Record<string, string>) {
+export function readSlateOAuthEnv(env: Record<string, string>) {
 	return z
 		.object({ CTX_APP_OAUTH_PROVISIONING_SECRET: z.string().trim().min(1) })
 		.parse(env)

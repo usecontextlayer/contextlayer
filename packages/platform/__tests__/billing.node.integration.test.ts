@@ -18,10 +18,10 @@ import {
 import { listProducts } from "@polar-sh/sdk/2026-10/services/products"
 import { test } from "@tests/integration"
 import { expect } from "vitest"
-import { appSchema } from "@/apps.schema"
-import { checkAppBilling, saveCustomerState } from "@/billing.server"
+import { checkSlateBilling, saveCustomerState } from "@/billing.server"
+import { slateSchema } from "@/slates.schema"
 
-test("owner subscriptions gate execution while declaration access stays available", async ({
+test("Owner subscriptions gate execution while declaration access stays available", async ({
 	db,
 	identity,
 	organization,
@@ -41,9 +41,9 @@ test("owner subscriptions gate execution while declaration access stays availabl
 		method: "POST",
 	})
 	const request = (path: string, init?: RequestInit) => fetch(new URL(path, origin), init)
-	const [personalApp, organizationApp] = (
+	const [personalSlate, organizationSlate] = (
 		await db
-			.insertInto("app")
+			.insertInto("slate")
 			.values([
 				{
 					owner_organization_id: null,
@@ -60,39 +60,41 @@ test("owner subscriptions gate execution while declaration access stays availabl
 			])
 			.returningAll()
 			.execute()
-	).map((row) => appSchema.parse(row))
-	if (!personalApp || !organizationApp) throw new Error("Expected both test apps")
+	).map((row) => slateSchema.parse(row))
+	if (!personalSlate || !organizationSlate) throw new Error("Expected both test slates")
 	const resolve = (hostname: string, pathname: string) =>
-		`/api/apps/resolve?${new URLSearchParams({ hostname, pathname })}`
-	const expectBlocked = async (app: typeof personalApp) => {
-		expect((await request(resolve(app.public_hostname, "/"))).status).toBe(402)
-		expect((await request(resolve(app.public_hostname, "/slate.json"))).status).toBe(200)
+		`/api/slates/resolve?${new URLSearchParams({ hostname, pathname })}`
+	const expectBlocked = async (slate: typeof personalSlate) => {
+		expect((await request(resolve(slate.public_hostname, "/"))).status).toBe(402)
+		expect((await request(resolve(slate.public_hostname, "/slate.json"))).status).toBe(
+			200,
+		)
 		expect(
 			(
 				await request(
 					`/api/connections/ca_example/tools/call`,
-					post({ app_id: app.id, arguments: {}, tool: "EXAMPLE", toolkit: "gmail" }),
+					post({ arguments: {}, slate_id: slate.id, tool: "EXAMPLE", toolkit: "gmail" }),
 				)
 			).status,
 		).toBe(402)
 	}
-	for (const app of [personalApp, organizationApp]) await expectBlocked(app)
-	for (const [app, owner] of [
-		[personalApp, { id: personalOwner, type: "user" }],
-		[organizationApp, { id: organizationOwner, type: "organization" }],
+	for (const slate of [personalSlate, organizationSlate]) await expectBlocked(slate)
+	for (const [slate, owner] of [
+		[personalSlate, { id: personalOwner, type: "personal" }],
+		[organizationSlate, { id: organizationOwner, type: "organization" }],
 	] as const) {
 		const state = await getStateExternalCustomers(polar)(owner.id)
 		expect(state.active_subscriptions).toEqual([
 			expect.objectContaining({ product_id: env.POLAR_FREE_PRODUCT_ID }),
 		])
 		await saveCustomerState(db, state, null)
-		const response = await request(resolve(app.public_hostname, "/"))
+		const response = await request(resolve(slate.public_hostname, "/"))
 		expect(response.status).toBe(200)
-		expect(await response.json()).toEqual({ id: app.id, owner })
-		if (app.id === personalApp.id) await expectBlocked(organizationApp)
+		expect(await response.json()).toEqual({ id: slate.id, owner })
+		if (slate.id === personalSlate.id) await expectBlocked(organizationSlate)
 	}
-	const privateApp = await db
-		.insertInto("app")
+	const privateSlate = await db
+		.insertInto("slate")
 		.values({
 			owner_user_id: personalOwner,
 			public_hostname: "private.example.com",
@@ -100,11 +102,11 @@ test("owner subscriptions gate execution while declaration access stays availabl
 		})
 		.returningAll()
 		.executeTakeFirstOrThrow()
-	expect((await request(resolve(privateApp.public_hostname, "/slate.json"))).status).toBe(
-		401,
-	)
 	expect(
-		(await request(resolve(privateApp.public_hostname, "/slate.json"), { headers }))
+		(await request(resolve(privateSlate.public_hostname, "/slate.json"))).status,
+	).toBe(401)
+	expect(
+		(await request(resolve(privateSlate.public_hostname, "/slate.json"), { headers }))
 			.status,
 	).toBe(200)
 })
@@ -159,9 +161,9 @@ test("a non-Free subscription admits execution without a live balance lookup", a
 			]),
 		})
 	await saveCustomerState(db, await getStateCustomers(polar)(customer.id), null)
-	const app = appSchema.parse(
+	const slate = slateSchema.parse(
 		await db
-			.insertInto("app")
+			.insertInto("slate")
 			.values({
 				owner_user_id: ownerId,
 				public_hostname: "paid.example.com",
@@ -171,10 +173,10 @@ test("a non-Free subscription admits execution without a live balance lookup", a
 			.executeTakeFirstOrThrow(),
 	)
 	expect(
-		await checkAppBilling(
+		await checkSlateBilling(
 			db,
 			{ ...env, POLAR_ACCESS_TOKEN: "deliberately-invalid" },
-			app,
+			slate,
 		),
 	).toEqual({ allowed: true })
 })

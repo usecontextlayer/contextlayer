@@ -10,10 +10,10 @@ import { execa } from "execa"
 import { expect } from "vitest"
 import { unstable_readConfig } from "wrangler"
 import { z } from "zod"
-import { appSchema } from "@/apps.schema"
 import { saveCustomerState } from "@/billing.server"
+import { slateSchema } from "@/slates.schema"
 
-test("real dispatch strips viewer credentials and reports exact app-owner request usage", {
+test("real dispatch strips viewer credentials and reports exact slate-Owner request usage", {
 	timeout: 660_000,
 }, async ({
 	db,
@@ -48,21 +48,21 @@ test("real dispatch strips viewer credentials and reports exact app-owner reques
 		[{ organization_slug: organization.slug }, organization.id],
 	] as const) {
 		await saveCustomerState(db, await getStateExternalCustomers(polar)(ownerId), null)
-		const created = await fetch(`${origin}/api/apps`, {
+		const created = await fetch(`${origin}/api/slates`, {
 			body: JSON.stringify(body),
 			headers: { ...headers, "content-type": "application/json" },
 			method: "POST",
 		})
 		expect(created.status).toBe(201)
-		const app = appSchema.parse(await created.json())
+		const slate = slateSchema.parse(await created.json())
 		resources.defer(async () => {
-			await ARTIFACTS.delete(app.id)
+			await ARTIFACTS.delete(slate.id)
 		})
-		expect(app.owner_user_id ?? app.owner_organization_id).toBe(ownerId)
-		const appDir = join(directory, app.id)
-		await mkdir(appDir)
+		expect(slate.owner_user_id ?? slate.owner_organization_id).toBe(ownerId)
+		const slateDir = join(directory, slate.id)
+		await mkdir(slateDir)
 		await writeFile(
-			join(appDir, "index.js"),
+			join(slateDir, "index.js"),
 			`export default {
 				async fetch(request) {
 					return Response.json({
@@ -74,17 +74,17 @@ test("real dispatch strips viewer credentials and reports exact app-owner reques
 				}
 			}`,
 		)
-		const workerConfig = join(appDir, "wrangler.json")
+		const workerConfig = join(slateDir, "wrangler.json")
 		await writeFile(
 			workerConfig,
 			JSON.stringify({
 				account_id: accountId,
 				compatibility_date: config.compatibility_date,
 				main: "index.js",
-				name: app.id,
+				name: slate.id,
 			}),
 		)
-		const execute = execa({ cwd: appDir })
+		const execute = execa({ cwd: slateDir })
 		await execute(process.execPath, [
 			wrangler,
 			"deploy",
@@ -104,7 +104,7 @@ test("real dispatch strips viewer credentials and reports exact app-owner reques
 					"dispatch-namespaces",
 					"scripts",
 					"delete",
-					app.id,
+					slate.id,
 					"--dispatch-namespace",
 					namespace,
 					"--force",
@@ -114,7 +114,7 @@ test("real dispatch strips viewer credentials and reports exact app-owner reques
 		})
 		const viewerHeaders = await signInViewer({
 			authURL: webEnv.CTX_VIEWER_AUTH_URL,
-			returnTo: `https://${app.public_hostname}/`,
+			returnTo: `https://${slate.public_hostname}/`,
 			webHeaders: webSession.headers,
 		})
 		const viewerCookie = z
@@ -122,14 +122,17 @@ test("real dispatch strips viewer credentials and reports exact app-owner reques
 			.min(1)
 			.parse(viewerHeaders.get("cookie")?.match(/(?:^|;\s*)(ctx-viewer-auth=[^;]+)/)?.[1])
 		for (const method of ["GET", "POST"]) {
-			const response = await dispatcher.worker.fetch(`https://${app.public_hostname}/`, {
-				headers: {
-					authorization: headers.authorization,
-					cookie: viewerCookie,
+			const response = await dispatcher.worker.fetch(
+				`https://${slate.public_hostname}/`,
+				{
+					headers: {
+						authorization: headers.authorization,
+						cookie: viewerCookie,
+					},
+					method,
+					...(method === "POST" ? { body: "usage test action" } : {}),
 				},
-				method,
-				...(method === "POST" ? { body: "usage test action" } : {}),
-			})
+			)
 			expect(response.status).toBe(200)
 			expect(await response.json()).toEqual({
 				authorization: null,
@@ -143,7 +146,7 @@ test("real dispatch strips viewer credentials and reports exact app-owner reques
 				async () => {
 					const events = await listEvents(polar)({
 						external_customer_id: ownerId,
-						metadata: { user_code_worker_id: app.id },
+						metadata: { user_code_worker_id: slate.id },
 					})
 					return events.items
 						.filter((event) => event.source === "user")

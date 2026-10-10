@@ -1,6 +1,6 @@
 # AGENTS
 
-This pnpm workspace contains ten packages (cli and sdk are public; the others are private): cli, sdk, db-infra, dev-env, shared, twilio, platform, build, dispatcher, and auth. Platform proxies Git to Cloudflare Artifacts and serves OpenAPI endpoints and the React Router dashboard; its operation-ownership rules live in `packages/platform/AGENTS.md`. Auth reuses web's Better Auth session on the user-code domain through a one-time-token exchange. The old product stack and deployment images have been removed. Main pushes run checks; version-tag pushes publish public npm packages.
+Read [ARCHITECTURE.md](ARCHITECTURE.md) for package ownership and [the domain model](ARCHITECTURE.md#domain-model) for canonical terminology. This file owns construction rules; [DOCS.md](DOCS.md) identifies the owner of each kind of documentation.
 
 ## Never Write to Customer Data Without Per-Write Permission
 
@@ -16,12 +16,12 @@ This rule triggers on what you are about to **do**, never on your judgment about
 
 **A permission prompt is not a safety mechanism when you are the one driving.** It exists so a human bounds an agent holding a token that can write anything in that org — for a delegated write, that prompt is the entire constraint. If you generate the call AND you answer Yes, you hold both roles and nothing is bounding anything; the prompt renders, gets approved, and looks exactly like the mechanism working. On any write to customer data, the human answers the prompt. Never you.
 
-Customer data means anything that is theirs: records in their Planner, Dataverse, mail, or calendar; their workspace content; their chats. Operating their deployment — deploying, restarting, reading — is ordinary sanctioned work and is not covered here. If you are unsure whether something is theirs, it is.
+Customer data means anything that is theirs: records in their Planner, Dataverse, mail, or calendar; content in their systems; their chats. Operating their deployment — deploying, restarting, reading — is ordinary sanctioned work and is not covered here. If you are unsure whether something is theirs, it is.
 
 **Read the companion documents when their domain comes up:**
 
 - **[`DOCS.md`](DOCS.md)** — each document’s purpose and where information belongs.
-- **`ARCHITECTURE.md`** — the package overview.
+- **[`ARCHITECTURE.md`](ARCHITECTURE.md)** — concepts, package ownership, dataflow, trust boundaries, and invariants.
 - **[`.font-awesome.md`](.font-awesome.md)** — the shared Font Awesome kit, default family/style, and import conventions for all packages.
 - **`DEVELOPING.md`** — setup, workspace commands, test prerequisites, and operational conventions. Read it before running or debugging the local environment.
 - **`node --import tsx scripts/release.ts --help`** — the version helpers and automatic commit/push/check/tag/release ladder. Workflows start on main and version-tag pushes; manual dispatch is also available.
@@ -32,7 +32,7 @@ Customer data means anything that is theirs: records in their Planner, Dataverse
 
 **THIS IS SUPER IMPORTANT!**
 
-**Pattern quality is a first-order concern in this codebase. Human maintainability depends on consistent, intentional patterns. Conceptual integriy and clarity of domain concepts is of very high importance**
+**Pattern quality is a first-order concern in this codebase. Human maintainability depends on consistent, intentional patterns. Conceptual integrity and clarity of domain concepts is of very high importance**
 
 Agents *MUST* strongly prefer existing patterns whenever they fit. *Treat this as a default behavior for implementation work, not a narrow coding guideline.*
 
@@ -60,7 +60,7 @@ This applies across the full system, including:
 - If fit is unclear or debatable, treat it as "does not fit yet" and ask the user before introducing variation.
 - Do NOT introduce a new pattern without explicit user sign-off.
 
-These rule exists to keep the codebase understandable and maintainable for humans.
+These rules exist to keep the codebase understandable and maintainable for humans.
 
 ### Clarify Early
 
@@ -122,7 +122,7 @@ For package-scoped tasks in this repo, ALWAYS use Turbo with `--filter=` selecto
 
 ### Local Development
 
-Run setup and workspace commands from `DEVELOPING.md`. Libraries expose `dev:watch` for rebuilds. Root `pnpm dev` composes local web, platform, dispatcher and viewer auth through the private development package; Turbo builds their workspace dependencies. Root `dev:watch` remains the individual platform task. Platform requires Cloudflare Artifacts configuration. The shared local Postgres instance hosts the platform database and isolated integration-test databases. Do not recreate the old product deployment images or services as part of routine setup.
+Use [DEVELOPING.md](DEVELOPING.md) for local setup, pnpm workspace commands, service prerequisites, and test workflows. Preserve the shared-machine ownership rules above when starting or stopping local services.
 
 ### Doppler
 
@@ -132,7 +132,7 @@ Env vars for deployed surfaces live in Doppler, workplace **ContextLayer** — r
 
 ### Design for Multiple Consumers
 
-**Almost every capability exposed through the platform web UI must have an OpenAPI operation that also powers the CLI and can later power MCP. Design product operations for multiple consumers from the start.** Zod defines the request and response contracts; one shared domain function owns business logic, authorization, and database calls. API handlers expose that function over HTTP, while React Router loaders/actions call it directly in-process. Keep browser rendering and interaction at the UI boundary. Native authentication protocols remain owned by Better Auth. The detailed platform conventions live in `packages/platform/AGENTS.md`.
+**Almost every capability exposed through the platform web UI must have an OpenAPI operation that also powers the CLI and can later power MCP. Design product operations for multiple consumers from the start.** Zod defines the request and response contracts; one shared domain function owns business logic, authorization, and database calls. API handlers expose that function over HTTP, while React Router loaders/actions call it directly in-process. Keep browser rendering and interaction at the UI boundary. Native authentication protocols remain owned by Better Auth. Implement product operations according to [the multiple-consumer architecture](ARCHITECTURE.md#multiple-consumers), with the platform-specific construction rules in [packages/platform/AGENTS.md](packages/platform/AGENTS.md#openapi-zod-and-shared-domain-functions).
 
 ### Libraries First
 
@@ -177,7 +177,7 @@ Do NOT silently catch and drop errors (validation, coercion, parsing, runtime, o
 
 ### Environment Variables
 
-For all TypeScript projects/packages in this repo, read environment variables through a package-local `env.ts` module rather than direct `process.env` access in feature modules.
+For all TypeScript packages in this repo, read environment variables through a package-local `env.ts` module rather than direct `process.env` access in feature modules.
 
 If the package does not already have an `env.ts`, create one first and route env access through it.
 
@@ -206,7 +206,7 @@ For TypeScript packages in `./packages`, ALWAYS use `@` aliases for internal imp
 - Do NOT use relative path imports like `../` or `../../` for internal modules.
 - Use the configured alias path instead (for example, `@/auth/session`).
 - If an alias does not exist for a needed path, add/update alias configuration first instead of using a relative import.
-- The CLI’s React Router app template keeps the framework-generated `./+types/...` imports; ordinary app-template imports use the generated app’s `~` alias. Biome permits only those generated-type relative imports in the template.
+- The CLI’s React Router app template keeps the framework-generated `./+types/...` imports; ordinary template imports use the checkout’s `~` alias. Biome permits only those generated-type relative imports in the template.
 - This rule does NOT apply to one-off scripts outside `./packages`.
 
 ### CLI Input Parsing
@@ -249,7 +249,7 @@ Tests are sorted by a **filename suffix** along two orthogonal axes defined in `
 
 A package carries a tier's config and script only when it uses that tier. Unit configs exclude the integration markers through `unitTestExclude`; only a package that actually runs browser tests may exclude that runtime's marker from its Node unit project. Misplaced tests therefore run in Node and fail instead of silently disappearing. When adding the first test of a tier, add the matching per-package config and task using the includes exported by `vitest.shared.ts`.
 
-`DEVELOPING.md` owns the run commands and prerequisites. The remaining suite has Node unit tests in shared, cli, sdk, dev-env and platform, and Node integration tests in dev-env and platform. Dispatcher behavior is exercised through the platform usage and MCP integrations with native Worker harnesses; MCP uses an SDK-built authored fixture. Browser and Claude tasks and taxonomy are retained.
+[DEVELOPING.md](DEVELOPING.md#tests-and-local-postgres) owns suite prerequisites and run commands. Preserve CI coverage when changing test placement.
 
 #### Assert on the Contract, Not the Inside
 

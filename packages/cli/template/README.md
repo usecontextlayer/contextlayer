@@ -1,37 +1,39 @@
-# Your ContextLayer app
+# Your ContextLayer slate
 
-This React Router app uses ContextLayer for connected services and is published through its Git remote.
+This slate contains an interactive React Router app, uses ContextLayer for connected services, and is deployed through its Git remote.
+
+See ContextLayer's [domain model](https://github.com/usecontextlayer/contextlayer/blob/main/ARCHITECTURE.md#domain-model) for declarations, resources, Owners, and assignments.
 
 ## Develop locally
 
-From this directory, run:
+From the checkout root, run:
 
 ```sh
 pnpm dev
 ```
 
-Open the local URL printed by the development server. Edit `app/routes/home.tsx` to build your first page. Use `pnpm typecheck` and `pnpm build` for the app's normal TypeScript and production-build commands.
+Open the local URL printed by the development server. Edit `app/routes/home.tsx` to build your first page. Use `pnpm typecheck` and `pnpm build` for the checkout's normal TypeScript and production-build commands.
 
 ## Use connected services
 
-Declare the services your app needs in `public/slate.json`. Authorization connects your account to ContextLayer; assignment binds that account to one of your app's declared connection slugs. Approve authorization in your browser, then use the local assignment chooser to select the account. An already connected account can go directly to assignment. Command help supplies the supported operations:
+Declare the connections your app needs in `public/slate.json`. Connect an account to ContextLayer in your browser, then assign the connected account to one of your app's declared connections. An already connected account can go directly to assignment. Command help supplies the supported operations:
 
 ```sh
 npx @usecontextlayer/cli connections --help
 npx @usecontextlayer/cli connection --help
 ```
 
-The installed SDK guide at `node_modules/@usecontextlayer/sdk/README.md` gives the complete Gmail sequence: copy its route and declaration, authorize Gmail when needed, assign `work-email`, and start development. Local account choices are saved in ignored `.contextlayer/connections.json`. Restart `pnpm dev` after changing declarations or local assignments.
+The installed SDK guide at `node_modules/@usecontextlayer/sdk/README.md` gives the complete Gmail sequence: copy its route and declaration, connect a Gmail account when needed, assign it to `work-email`, and start development. Local assignments are saved in ignored `.contextlayer/connections.json`. Restart `pnpm dev` after changing declarations or local assignments.
 
-## Store app data
+## Store slate data
 
-Declare database slugs in `public/slate.json` or `agents/<name>/slate.json`. Matching declarations within this app share data; each declaration selects hosted `owner` or `viewer` mode. Local development persists SQLite state in ignored `.contextlayer/databases`.
+Declare database slugs in `public/slate.json` or `agents/<name>/slate.json`, following the [resource invariants](https://github.com/usecontextlayer/contextlayer/blob/main/ARCHITECTURE.md#resource-configuration-and-execution--principles). Local development persists SQLite state in ignored `.contextlayer/databases`.
 
-Keep each database’s Drizzle configuration, query schema and migrations under `databases/<name>`. Run `pnpm db:migration --config databases/<name>/drizzle.config.ts --name <change>`, then write the blank SQL migration explicitly and update the query schema. Commit the SQL and native journal together. The query schema supplies types and does not generate the deployed database schema. The installed SDK guide documents `databasesContext` and the native Drizzle query client.
+Keep each database’s Drizzle configuration, query schema and migrations under `databases/<slug>`. Run `pnpm db:migration --config databases/<slug>/drizzle.config.ts --name <change>`, then write the blank SQL migration explicitly and update the query schema. Commit the SQL and native journal together. The query schema supplies types and does not generate the deployed database schema. The installed SDK guide documents `databasesContext` and the native Drizzle query client.
 
-Local startup applies the checkout’s migrations before queries. Hosted publication applies pending committed migrations for existing members, and joining applies the full history for a new member. Viewer-mode hosted execution requires joining; account configuration is available before joining. Agent filesystem files are scratch; use `database_query` for persistent data.
+Restart local development after adding a migration. Push committed migrations to `main` for hosted provisioning; see [database ownership and provisioning](https://github.com/usecontextlayer/contextlayer/blob/main/ARCHITECTURE.md#slate-databases-and-authored-migrations) for its lifecycle. Use `database_query` for persistent agent data.
 
-## Publish
+## Deploy
 
 Commit your changes and push the generated `main` branch:
 
@@ -41,4 +43,4 @@ git commit
 git push -u origin main
 ```
 
-ContextLayer builds and deploys the app through its native Git remote. Your dashboard and hosted URL were printed by initialization. The hosted URL becomes usable after deployment succeeds. The app starts private; sign in with your ContextLayer account to open it. Hosted account selection uses the app's ContextLayer header.
+ContextLayer builds and deploys the slate through its native Git remote. Your dashboard and hosted URL were printed by initialization. The hosted URL becomes usable after deployment succeeds. The slate starts private; sign in with your ContextLayer account to open it. Configure hosted assignments in the header of the [chrome](https://github.com/usecontextlayer/contextlayer/blob/main/ARCHITECTURE.md#slate-chrome).

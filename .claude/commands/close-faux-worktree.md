@@ -3,13 +3,13 @@ description: Land a finished faux-worktree branch — commit, conceptually rebas
 argument-hint: "[faux-worktree-dir]  (default: cwd if it matches the <repo>-<branch> convention)"
 ---
 
-Land work done in a **faux worktree** — a sibling checkout made by `setup-faux-worktree` (its own `.git`, a local clone; `git worktree` commands do NOT apply). The teardown counterpart is `close-faux-worktree` (both in `~/.local/bin`; read them if unsure — close verifies clean tree + merged-into-default, deletes the origin branch, prunes the source checkout, and `rm -rf`s the folder).
+Land work done in a **faux worktree** — a sibling checkout made by `setup-faux-worktree` (its own `.git`, a local clone; `git worktree` commands do NOT apply). The teardown counterpart is `close-faux-worktree` (both in `~/.local/bin`; read them if unsure — close verifies clean tree + merged-into-default, deletes the origin branch, prunes the source checkout, and `rm -rf`s the checkout).
 
 Every step below gates the next. Stop and discuss with the user whenever a step says so — landing is not a race.
 
 ## Step 1 — Resolve and settle the worktree
 
-Args: `$ARGUMENTS` — the faux worktree dir, or infer from cwd (folder name `<repo>-<branch>`, e.g. `contextlayer-2026-07-03-foo` → branch `2026-07-03-foo`).
+Args: `$ARGUMENTS` — the faux worktree dir, or infer from cwd (checkout name `<repo>-<branch>`, e.g. `contextlayer-2026-07-03-foo` → branch `2026-07-03-foo`).
 
 - `git status` — if anything is uncommitted, **stage it yourself** (`git add`; gitcp never stages) and commit+push with `source ~/.zshrc && gitcp`. If the `claude` call inside gitcp is credit-blocked, retry with `LLM_STAGED_MSG_CLAUDE_CMD=claude-alnu-ca` (or `-com`).
 - Confirm the branch is pushed: `git rev-parse origin/<branch>` matches HEAD.
@@ -46,7 +46,7 @@ The browser and Claude test obligations remain when their suites return. Do not 
 - **`pnpm run check` is named as the aggregate rather than by its parts, and that is the point.** It chains every `check.*` guard the repo has, so a guard added later is picked up here for free. Naming them individually is what goes stale: this ladder listed only `check.workspace-references` for the whole life of `check.tailwind-deprecations`, and nothing said so — a landing ladder that quietly stops being CI-equivalent is worse than one that never claimed to be. Two consequences worth knowing rather than rediscovering: its `tsc` is redundant with the turbo lane below and turbo serves it from cache, so it costs nothing; and its `format.fix` **mutates** where CI's `format.verify` only checks, so a formatting failure lands as a dirty tree at the final gate instead of a red lane. Read that gate's output as a real finding.
 - Account for every failure AND every skip — "pre-existing" is not an excuse. A failure inherited from main (e.g. a generated file landed unformatted) is a real finding: surface it to the user with a minimal proposed fix to carry on this branch; do not land a main you know is red.
 - Interleaved turbo logs hide failure detail — re-run the single failing task alone to read it.
-- **`--concurrency=4` is part of the lane, not a tuning knob** — `check.yml` passes it explicitly (down from turbo's stock 10) and this step is only CI-equivalent with it. Omitting it on a many-core machine invents failures that are not in the code: tasks die with a bare `ELIFECYCLE` and no diagnostic, and every one of them passes when re-run alone (2026-08-22: `slate:tsc`, `slate:test`, and `engine:test` all failed at stock concurrency and all passed in isolation, leaving one genuine failure). Suspect thrash whenever a task fails with no error text — but confirm by re-running it alone rather than assuming, since a real failure can look the same in the interleaved log.
+- **`--concurrency=4` is part of the lane, not a tuning knob** — `check.yml` passes it explicitly (down from turbo's stock 10) and this step is only CI-equivalent with it. Omitting it on a many-core machine invents failures that are not in the code: tasks die with a bare `ELIFECYCLE` and no diagnostic, and every one of them passes when re-run alone (2026-08-22: three tasks failed at stock concurrency and passed in isolation, leaving one genuine failure). The current typecheck and unit-test tasks are `tsc` and `test`. Suspect thrash whenever a task fails with no error text — but confirm by re-running it alone rather than assuming, since a real failure can look the same in the interleaved log.
 - **`npx <tool>` failing with a doubled `node_modules/node_modules/…` path is environment state, not code — and the `pnpm install --frozen-lockfile` above is a known trigger.** Some pnpm installs leave a member-local `node_modules/.bin` shim for a root-hoisted tool (tsc, tsx, vite…) with no matching member-local package dir; npm's `npx` then resolves that shim against `<repo>/node_modules` instead of `<repo>` and execs a path that does not exist. Two tells: the whole lane dies in seconds behind many identical `ELIFECYCLE Command failed` lines with nothing actually compiled, and `pnpm exec <tool> --version` succeeds where `npx <tool> --version` crashes — the shims themselves are correct, only npm's resolution is not. **A `node_modules` wipe plus clean install does NOT reliably heal it**: the reinstall regenerates the same ghosts (2026-08-15, `base-schemas` came back with ten where a healthy sibling worktree had one). Heal by deleting the ghost shims themselves — every `.bin` entry whose owning package has no dir in that member's `node_modules`, reading the owner off the shim's exec line rather than its filename (`tsc`/`tsserver` are owned by `typescript`). Check a sibling clone first: this is worktree-scoped, so a second checkout resolving `npx` fine means the repo and npm are innocent. Then re-run the lane with `--force` — a cached turbo run replays logs without ever invoking the shim, so a green board proves nothing until the cache is busted.
 - After any rebase or fix commit: `git push --force-with-lease origin <branch>` so origin's branch matches what will merge.
 
@@ -66,7 +66,7 @@ The feature's spec lives in `~/ContextLayer/internal/in-progress/`. Update its *
 
 ## Step 7 — Tear down the faux worktree
 
-From **outside** the folder (it refuses to run from within, and your shell would dangle):
+From **outside** the checkout (it refuses to run from within, and your shell would dangle):
 
     cd ~/ContextLayer && close-faux-worktree <faux-worktree-dir>
 

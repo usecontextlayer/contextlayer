@@ -5,9 +5,9 @@ const databaseSchema = z.object({
 })
 
 const sharedSecretsSchema = z.object({
-	CTX_CUSTOMER_CREDENTIALS_DOPPLER_CONFIG: z.string().min(1),
-	CTX_CUSTOMER_CREDENTIALS_DOPPLER_PROJECT: z.string().min(1),
-	CTX_CUSTOMER_CREDENTIALS_DOPPLER_TOKEN: z.string().min(1),
+	CTX_OWNER_CREDENTIALS_DOPPLER_CONFIG: z.string().min(1),
+	CTX_OWNER_CREDENTIALS_DOPPLER_PROJECT: z.string().min(1),
+	CTX_OWNER_CREDENTIALS_DOPPLER_TOKEN: z.string().min(1),
 })
 
 export function parseSharedSecretsEnv(raw: Record<string, unknown>) {
@@ -22,8 +22,8 @@ const schema = databaseSchema.extend({
 	COMPOSIO_API_KEY: z.string().min(1),
 	...sharedSecretsSchema.partial().shape,
 	CTX_APP_OAUTH_PROVISIONING_SECRET: z.string().min(1),
-	CTX_APPS_DOMAIN: z.hostname().default("contextlayer.xyz"),
 	CTX_AUTH_ISSUER: z.url().default("https://www.usecontextlayer.com/api/auth"),
+	CTX_SLATES_DOMAIN: z.hostname().default("contextlayer.xyz"),
 	POLAR_ACCESS_TOKEN: z.string().min(1),
 	POLAR_CLIPS_METER_ID: z.uuid(),
 	POLAR_ENVIRONMENT: z.enum(["sandbox", "production"]),

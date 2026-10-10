@@ -41,9 +41,9 @@ test("non-writing: secret API requires authentication and the selected Owner", a
 					}
 				: { method }
 		expect(
-			(await fetch(`${origin}/api/secrets/user/${userId}/${name}`, request)).status,
+			(await fetch(`${origin}/api/secrets/personal/${userId}/${name}`, request)).status,
 		).toBe(401)
-		for (const type of ["user", "org"]) {
+		for (const type of ["personal", "org"]) {
 			expect(
 				(
 					await fetch(`${origin}/api/secrets/${type}/not-this-owner/${name}`, {
@@ -71,7 +71,7 @@ test("non-writing: secret API requires authentication and the selected Owner", a
 		"dropSharedSecret",
 	)
 	expect(
-		(await fetch(`${origin}/api/secrets/user/${userId}/${name}`, { headers })).status,
+		(await fetch(`${origin}/api/secrets/personal/${userId}/${name}`, { headers })).status,
 	).toBe(404)
 })
 
@@ -104,7 +104,7 @@ test("non-writing: Owner connections enforce access and list through the real AP
 	} = identity
 	const { origin } = platform
 	const { slug } = organization
-	const personalUrl = `${origin}/api/connections/user/${encodeURIComponent(userId)}`
+	const personalUrl = `${origin}/api/connections/personal/${encodeURIComponent(userId)}`
 	for (const method of ["GET", "POST"]) {
 		const request =
 			method === "POST"
@@ -115,7 +115,7 @@ test("non-writing: Owner connections enforce access and list through the real AP
 					}
 				: { method }
 		expect((await fetch(personalUrl, request)).status).toBe(401)
-		for (const type of ["user", "org"]) {
+		for (const type of ["personal", "org"]) {
 			expect(
 				(
 					await fetch(`${origin}/api/connections/${type}/not-this-owner`, {
@@ -155,7 +155,7 @@ test("non-writing: Owner connections enforce access and list through the real AP
 	expect(paths["/connections/{type}/{owner_id}"]).toEqual(
 		expect.objectContaining({
 			get: expect.objectContaining({ operationId: "listConnections" }),
-			post: expect.objectContaining({ operationId: "authorizeConnection" }),
+			post: expect.objectContaining({ operationId: "connectAccount" }),
 		}),
 	)
 	expect(paths["/connections"]).toEqual(
@@ -181,18 +181,18 @@ test("live Doppler: CLI/API save, replace, isolate Owners, and drop with no valu
 	const name = `CTX_SECRET_E2E_${crypto.randomUUID().replaceAll("-", "").toUpperCase()}`
 	const orgId = organization.id
 	const providerHeaders = {
-		authorization: `Bearer ${vaultConfig.CTX_CUSTOMER_CREDENTIALS_DOPPLER_TOKEN}`,
+		authorization: `Bearer ${vaultConfig.CTX_OWNER_CREDENTIALS_DOPPLER_TOKEN}`,
 	}
 	const providerUrl = (owner: Owner) => {
 		const url = new URL("https://api.doppler.com/v3/configs/config/secret")
 		url.search = new URLSearchParams({
-			config: vaultConfig.CTX_CUSTOMER_CREDENTIALS_DOPPLER_CONFIG,
+			config: vaultConfig.CTX_OWNER_CREDENTIALS_DOPPLER_CONFIG,
 			name: secretKey(owner, name),
-			project: vaultConfig.CTX_CUSTOMER_CREDENTIALS_DOPPLER_PROJECT,
+			project: vaultConfig.CTX_OWNER_CREDENTIALS_DOPPLER_PROJECT,
 		}).toString()
 		return url
 	}
-	const personalUrl = providerUrl({ id: userId, type: "user" })
+	const personalUrl = providerUrl({ id: userId, type: "personal" })
 	const orgUrl = providerUrl({ id: orgId, type: "organization" })
 	const readRaw = async (url: URL) => {
 		const read = await fetch(url, { headers: providerHeaders })
@@ -220,10 +220,10 @@ test("live Doppler: CLI/API save, replace, isolate Owners, and drop with no valu
 	}
 	assertCli(await runCli(["secrets", "set", name, "--stdin"], values[0]), {
 		id: userId,
-		type: "user",
+		type: "personal",
 	})
 	await assertRawValue(personalUrl, values[0])
-	const personalApi = `${origin}/api/secrets/user/${encodeURIComponent(userId)}/${name}`
+	const personalApi = `${origin}/api/secrets/personal/${encodeURIComponent(userId)}/${name}`
 	expect((await fetch(personalApi, { headers })).status).toBe(404)
 	assertCli(await runCli(["secrets", "--org", slug, "set", name, "--stdin"], values[1]), {
 		id: orgId,
@@ -237,7 +237,7 @@ test("live Doppler: CLI/API save, replace, isolate Owners, and drop with no valu
 		method: "PUT",
 	})
 	expect(replaced.status).toBe(200)
-	expect(await replaced.json()).toEqual({ name, owner: { id: userId, type: "user" } })
+	expect(await replaced.json()).toEqual({ name, owner: { id: userId, type: "personal" } })
 	await assertRawValue(personalUrl, values[2])
 	await assertRawValue(orgUrl, values[1])
 	assertCli(await runCli(["secrets", "--org", slug, "set", name, "--stdin"], values[3]), {
@@ -246,7 +246,7 @@ test("live Doppler: CLI/API save, replace, isolate Owners, and drop with no valu
 	})
 	await assertRawValue(orgUrl, values[3])
 	await assertRawValue(personalUrl, values[2])
-	assertCli(await runCli(["secrets", "drop", name]), { id: userId, type: "user" })
+	assertCli(await runCli(["secrets", "drop", name]), { id: userId, type: "personal" })
 	await assertRawValue(personalUrl, null)
 	await assertRawValue(orgUrl, values[3])
 	const dropped = await fetch(
@@ -264,6 +264,6 @@ test("live Doppler: CLI/API save, replace, isolate Owners, and drop with no valu
 		expect(output.includes(value)).toBe(false)
 		expect(output.includes(JSON.stringify(value).slice(1, -1))).toBe(false)
 	}
-	expect(output.includes(vaultConfig.CTX_CUSTOMER_CREDENTIALS_DOPPLER_TOKEN)).toBe(false)
+	expect(output.includes(vaultConfig.CTX_OWNER_CREDENTIALS_DOPPLER_TOKEN)).toBe(false)
 	expect(output.includes(headers.authorization)).toBe(false)
 })

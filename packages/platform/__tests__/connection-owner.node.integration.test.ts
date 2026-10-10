@@ -1,62 +1,33 @@
-import { join } from "node:path"
 import { test } from "@tests/database"
-import { assertMigrationSucceeded, createMigrator } from "@usecontextlayer/db-infra"
-import { appConnectionsSchema } from "@usecontextlayer/shared/app-connections"
 import {
-	appSlatesSchema,
-	collectAppResources,
+	collectSlateResources,
+	declarationSchema,
 	resourcesForConsumer,
-	slateSchema,
-} from "@usecontextlayer/shared/slate"
+	slateDeclarationsSchema,
+} from "@usecontextlayer/shared/declaration"
+import { slateConnectionsSchema } from "@usecontextlayer/shared/slate-connections"
 import { sql } from "kysely"
 import { expect } from "vitest"
 import { agentRunSchema } from "@/agents.schema"
 import { prepareAgentRun } from "@/agents.server"
-import { assignmentSchema } from "@/app-connections.schema"
-import { assignAppConnection } from "@/app-connections.server"
-import { appMemberSchema } from "@/app-members.schema"
-import {
-	getAppResourceConfiguration,
-	listAppConnections,
-	listAppResources,
-	resolveAppConnection,
-} from "@/app-resources.server"
-import { appSchema } from "@/apps.schema"
 import type { OwnerIdentity } from "@/auth.server"
 import { getCredentialOwner } from "@/owner"
-
-test("existing viewer assignments survive the Owner migration", async ({ db }) => {
-	const migrator = createMigrator(db, join(import.meta.dirname, "../app/database"))
-	assertMigrationSucceeded(await migrator.migrateTo("005_polar_customer_state"))
-	const app = await db
-		.insertInto("app")
-		.values({
-			owner_organization_id: null,
-			owner_user_id: "alice",
-			public_hostname: "migration.example.com",
-			visibility: "private",
-		})
-		.returningAll()
-		.executeTakeFirstOrThrow()
-	await sql`INSERT INTO app_connection_assignment (app_id, user_id, slug, connection_id)
-		VALUES (${app.id}, 'alice', 'mail', 'original-account')`.execute(db)
-	assertMigrationSucceeded(await migrator.migrateToLatest())
-	expect(await db.selectFrom("app_connection_assignment").selectAll().execute()).toEqual([
-		{
-			app_id: app.id,
-			connection_id: "original-account",
-			owner_id: "alice",
-			owner_type: "user",
-			slug: "mail",
-		},
-	])
-})
+import { assignmentSchema } from "@/slate-connections.schema"
+import { assignSlateConnection } from "@/slate-connections.server"
+import { slateMemberSchema } from "@/slate-members.schema"
+import {
+	getSlateResourceConfiguration,
+	listSlateConnections,
+	listSlateResources,
+	resolveSlateConnection,
+} from "@/slate-resources.server"
+import { slateSchema } from "@/slates.schema"
 
 test("configuration includes agent-only connections while app execution uses its own resources", async ({
 	db,
 }) => {
-	const resources = collectAppResources(
-		appSlatesSchema.parse({
+	const resources = collectSlateResources(
+		slateDeclarationsSchema.parse({
 			agents: {
 				"daily-summary": {
 					connections: {
@@ -76,13 +47,13 @@ test("configuration includes agent-only connections while app execution uses its
 		}),
 	)
 	const alice = {
-		credential: { cookie: "unused-for-personal-app", type: "cookie" },
+		credential: { cookie: "unused-for-personal-slate", type: "cookie" },
 		type: "owner",
 		user: { id: "alice" },
 	} as const satisfies OwnerIdentity
-	const app = appSchema.parse(
+	const slate = slateSchema.parse(
 		await db
-			.insertInto("app")
+			.insertInto("slate")
 			.values({
 				owner_organization_id: null,
 				owner_user_id: "alice",
@@ -93,12 +64,12 @@ test("configuration includes agent-only connections while app execution uses its
 			.executeTakeFirstOrThrow(),
 	)
 	await db
-		.insertInto("app_member")
-		.values(appMemberSchema.parse({ app_id: app.id, user_id: "alice" }))
+		.insertInto("slate_member")
+		.values(slateMemberSchema.parse({ slate_id: slate.id, user_id: "alice" }))
 		.execute()
-	const access = { app, identity: alice }
+	const access = { identity: alice, slate }
 	expect(
-		await resolveAppConnection(
+		await resolveSlateConnection(
 			db,
 			access,
 			assignmentSchema.shape.slug.parse("mail"),
@@ -107,7 +78,7 @@ test("configuration includes agent-only connections while app execution uses its
 	).toEqual({ allowed: false, reason: "connection-required", slug: "mail" })
 	for (const slug of ["mail", "repository"]) {
 		expect(
-			await assignAppConnection(
+			await assignSlateConnection(
 				db,
 				access,
 				"https://auth.example.com",
@@ -116,13 +87,13 @@ test("configuration includes agent-only connections while app execution uses its
 			),
 		).toEqual({ allowed: true, assignment: { connection_id: `alice-${slug}`, slug } })
 	}
-	const listed = await listAppConnections(db, access, resources)
+	const listed = await listSlateConnections(db, access, resources)
 	expect(listed.connections).toEqual([
 		{
 			connection_id: "alice-mail",
 			consumers: [{ type: "app" }, { name: "daily-summary", type: "agent" }],
 			mode: "viewer",
-			owner: { id: "alice", type: "user" },
+			owner: { id: "alice", type: "personal" },
 			slug: "mail",
 			toolkit: "gmail",
 		},
@@ -133,19 +104,19 @@ test("configuration includes agent-only connections while app execution uses its
 				{ name: "nightly", type: "agent" },
 			],
 			mode: "owner",
-			owner: { id: "alice", type: "user" },
+			owner: { id: "alice", type: "personal" },
 			slug: "repository",
 			toolkit: "github",
 		},
 	])
-	expect(appConnectionsSchema.parse(listed).connections).toEqual(listed.connections)
-	const configured = await listAppResources(db, access, resources)
+	expect(slateConnectionsSchema.parse(listed).connections).toEqual(listed.connections)
+	const configured = await listSlateResources(db, access, resources)
 	expect(configured.resources.databases).toEqual({
 		drafts: {
 			consumers: [{ name: "daily-summary", type: "agent" }],
 			instance_name: expect.stringMatching(/.+/),
 			mode: "viewer",
-			owner: { id: "alice", type: "user" },
+			owner: { id: "alice", type: "personal" },
 		},
 		reports: {
 			consumers: [
@@ -154,19 +125,19 @@ test("configuration includes agent-only connections while app execution uses its
 			],
 			instance_name: expect.stringMatching(/.+/),
 			mode: "owner",
-			owner: { id: "alice", type: "user" },
+			owner: { id: "alice", type: "personal" },
 		},
 	})
-	const configuration = await getAppResourceConfiguration(
+	const configuration = await getSlateResourceConfiguration(
 		db,
-		app,
+		slate,
 		null,
 		resourcesForConsumer(resources, { name: "nightly", type: "agent" }),
 	)
 	const prepared = prepareAgentRun(
-		app,
+		slate,
 		{ type: "app" },
-		{ commit: "published-revision", instructions: "Write the nightly report." },
+		{ commit: "deployed-revision", instructions: "Write the nightly report." },
 		configuration,
 		{ name: "nightly", prompt: "Summarize the repository." },
 	)
@@ -174,29 +145,29 @@ test("configuration includes agent-only connections while app execution uses its
 	expect(agentRunSchema.parse(JSON.parse(JSON.stringify(prepared.run)))).toEqual({
 		actor: { type: "app" },
 		agent: {
-			commit: "published-revision",
+			commit: "deployed-revision",
 			instructions: "Write the nightly report.",
 			name: "nightly",
 		},
-		appId: app.id,
 		connections: {
 			repository: {
 				connection_id: "alice-repository",
-				owner: { id: "alice", type: "user" },
+				owner: { id: "alice", type: "personal" },
 				toolkit: "github",
 			},
 		},
 		databases: {
 			reports: {
 				instance_name: configuration.databases.reports?.instance_name,
-				owner: { id: "alice", type: "user" },
+				owner: { id: "alice", type: "personal" },
 			},
 		},
 		prompt: "Summarize the repository.",
-		secrets: { MODEL_API_KEY: { id: "alice", type: "user" } },
+		secrets: { MODEL_API_KEY: { id: "alice", type: "personal" } },
+		slateId: slate.id,
 	})
 	expect(
-		await resolveAppConnection(
+		await resolveSlateConnection(
 			db,
 			access,
 			assignmentSchema.shape.slug.parse("mail"),
@@ -205,7 +176,7 @@ test("configuration includes agent-only connections while app execution uses its
 	).toEqual({
 		allowed: true,
 		connection_id: "alice-mail",
-		owner: { id: "alice", type: "user" },
+		owner: { id: "alice", type: "personal" },
 		requirement: {
 			consumers: [{ type: "app" }, { name: "daily-summary", type: "agent" }],
 			mode: "viewer",
@@ -213,7 +184,7 @@ test("configuration includes agent-only connections while app execution uses its
 		},
 	})
 	expect(
-		await resolveAppConnection(
+		await resolveSlateConnection(
 			db,
 			access,
 			assignmentSchema.shape.slug.parse("repository"),
@@ -222,10 +193,10 @@ test("configuration includes agent-only connections while app execution uses its
 	).toEqual({ allowed: false, reason: "not-declared" })
 })
 
-test("resource modes select viewer and app Owner assignments through the production operations", async ({
+test("resource modes select viewer and slate Owner assignments through the hosted operations", async ({
 	db,
 }) => {
-	const slate = slateSchema.parse({
+	const declaration = declarationSchema.parse({
 		connections: {
 			company: { mode: "owner", toolkit: "gmail" },
 			personal: { mode: "viewer", toolkit: "gmail" },
@@ -235,16 +206,16 @@ test("resource modes select viewer and app Owner assignments through the product
 			PERSONAL_API_KEY: { mode: "viewer" },
 		},
 	})
-	const resources = collectAppResources({ agents: {}, app: slate })
+	const resources = collectSlateResources({ agents: {}, app: declaration })
 	const alice = {
-		credential: { cookie: "unused-for-local-personal-app", type: "cookie" },
+		credential: { cookie: "unused-for-local-personal-slate", type: "cookie" },
 		type: "owner",
 		user: { id: "alice" },
 	} as const satisfies OwnerIdentity
 	const bob = { ...alice, user: { id: "bob" } }
-	const app = appSchema.parse(
+	const slate = slateSchema.parse(
 		await db
-			.insertInto("app")
+			.insertInto("slate")
 			.values({
 				owner_organization_id: null,
 				owner_user_id: "alice",
@@ -255,13 +226,13 @@ test("resource modes select viewer and app Owner assignments through the product
 			.executeTakeFirstOrThrow(),
 	)
 	await db
-		.insertInto("app_member")
-		.values(appMemberSchema.parse({ app_id: app.id, user_id: "alice" }))
+		.insertInto("slate_member")
+		.values(slateMemberSchema.parse({ slate_id: slate.id, user_id: "alice" }))
 		.execute()
-	const access = { app, identity: alice }
+	const access = { identity: alice, slate }
 	for (const slug of ["company", "personal"]) {
 		expect(
-			await assignAppConnection(
+			await assignSlateConnection(
 				db,
 				access,
 				"https://auth.example.com",
@@ -271,19 +242,19 @@ test("resource modes select viewer and app Owner assignments through the product
 		).toEqual({ allowed: true, assignment: { connection_id: `alice-${slug}`, slug } })
 	}
 	await db
-		.insertInto("app_member")
-		.values(appMemberSchema.parse({ app_id: app.id, user_id: "bob" }))
+		.insertInto("slate_member")
+		.values(slateMemberSchema.parse({ slate_id: slate.id, user_id: "bob" }))
 		.execute()
-	await sql`INSERT INTO app_connection_assignment (app_id, owner_type, owner_id, slug, connection_id)
-		VALUES (${app.id}, 'user', 'bob', 'personal', 'bob-personal')`.execute(db)
+	await sql`INSERT INTO slate_connection_assignment (slate_id, owner_type, owner_id, slug, connection_id)
+		VALUES (${slate.id}, 'personal', 'bob', 'personal', 'bob-personal')`.execute(db)
 	expect(
-		(await listAppConnections(db, { app, identity: bob }, resources)).connections,
+		(await listSlateConnections(db, { identity: bob, slate }, resources)).connections,
 	).toEqual([
 		{
 			connection_id: "alice-company",
 			consumers: [{ type: "app" }],
 			mode: "owner",
-			owner: { id: "alice", type: "user" },
+			owner: { id: "alice", type: "personal" },
 			slug: "company",
 			toolkit: "gmail",
 		},
@@ -291,13 +262,13 @@ test("resource modes select viewer and app Owner assignments through the product
 			connection_id: "bob-personal",
 			consumers: [{ type: "app" }],
 			mode: "viewer",
-			owner: { id: "bob", type: "user" },
+			owner: { id: "bob", type: "personal" },
 			slug: "personal",
 			toolkit: "gmail",
 		},
 	])
 	expect(
-		await resolveAppConnection(
+		await resolveSlateConnection(
 			db,
 			access,
 			assignmentSchema.shape.slug.parse("company"),
@@ -306,22 +277,22 @@ test("resource modes select viewer and app Owner assignments through the product
 	).toEqual({
 		allowed: true,
 		connection_id: "alice-company",
-		owner: { id: "alice", type: "user" },
+		owner: { id: "alice", type: "personal" },
 		requirement: { consumers: [{ type: "app" }], mode: "owner", toolkit: "gmail" },
 	})
 	expect(
-		await assignAppConnection(
+		await assignSlateConnection(
 			db,
-			{ app, identity: bob },
+			{ identity: bob, slate },
 			"https://auth.example.com",
 			assignmentSchema.parse({ connection_id: "replacement", slug: "company" }),
 			resources,
 		),
 	).toEqual({ allowed: false, reason: "forbidden" })
 	expect(
-		await assignAppConnection(
+		await assignSlateConnection(
 			db,
-			{ app, identity: bob },
+			{ identity: bob, slate },
 			"https://auth.example.com",
 			assignmentSchema.parse({ connection_id: "bob-personal", slug: "personal" }),
 			resources,
@@ -331,21 +302,21 @@ test("resource modes select viewer and app Owner assignments through the product
 		assignment: { connection_id: "bob-personal", slug: "personal" },
 	})
 	expect(
-		await resolveAppConnection(
+		await resolveSlateConnection(
 			db,
-			{ app, identity: bob },
+			{ identity: bob, slate },
 			assignmentSchema.shape.slug.parse("company"),
 			resources,
 		),
 	).toEqual({
 		allowed: true,
 		connection_id: "alice-company",
-		owner: { id: "alice", type: "user" },
+		owner: { id: "alice", type: "personal" },
 		requirement: { consumers: [{ type: "app" }], mode: "owner", toolkit: "gmail" },
 	})
-	const organizationApp = appSchema.parse(
+	const organizationSlate = slateSchema.parse(
 		await db
-			.insertInto("app")
+			.insertInto("slate")
 			.values({
 				owner_organization_id: "acme",
 				owner_user_id: null,
@@ -355,13 +326,18 @@ test("resource modes select viewer and app Owner assignments through the product
 			.returningAll()
 			.executeTakeFirstOrThrow(),
 	)
-	await sql`INSERT INTO app_connection_assignment (app_id, owner_type, owner_id, slug, connection_id)
-		VALUES (${organizationApp.id}, 'organization', 'acme', 'company', 'acme-company')`.execute(
+	await sql`INSERT INTO slate_connection_assignment (slate_id, owner_type, owner_id, slug, connection_id)
+		VALUES (${organizationSlate.id}, 'organization', 'acme', 'company', 'acme-company')`.execute(
 		db,
 	)
 	expect(
-		(await listAppConnections(db, { app: organizationApp, identity: bob }, resources))
-			.connections,
+		(
+			await listSlateConnections(
+				db,
+				{ identity: bob, slate: organizationSlate },
+				resources,
+			)
+		).connections,
 	).toEqual([
 		{
 			connection_id: "acme-company",
@@ -375,17 +351,17 @@ test("resource modes select viewer and app Owner assignments through the product
 			connection_id: null,
 			consumers: [{ type: "app" }],
 			mode: "viewer",
-			owner: { id: "bob", type: "user" },
+			owner: { id: "bob", type: "personal" },
 			slug: "personal",
 			toolkit: "gmail",
 		},
 	])
 	expect(
-		Object.values(slate.secrets).map((requirement) =>
-			getCredentialOwner(requirement.mode, organizationApp, bob.user),
+		Object.values(declaration.secrets).map((requirement) =>
+			getCredentialOwner(requirement.mode, organizationSlate, bob.user),
 		),
 	).toEqual([
 		{ id: "acme", type: "organization" },
-		{ id: "bob", type: "user" },
+		{ id: "bob", type: "personal" },
 	])
 })

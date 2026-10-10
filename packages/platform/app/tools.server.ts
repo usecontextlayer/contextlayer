@@ -1,25 +1,25 @@
 import type { z } from "zod"
-import { readAppDeclarations } from "@/app-declarations.server"
-import { resolveAppConnection } from "@/app-resources.server"
-import { type AppAccess, resolveAppForViewing } from "@/apps.server"
 import type { OwnerIdentity } from "@/auth.server"
-import { checkAppBilling } from "@/billing.server"
+import { checkSlateBilling } from "@/billing.server"
 import { createConnectionSession } from "@/connections.server"
 import type { PlatformDb } from "@/database"
 import type { PlatformConfig } from "@/env"
+import { readSlateDeclarations } from "@/slate-declarations.server"
+import { resolveSlateConnection } from "@/slate-resources.server"
+import { resolveSlateForViewing, type SlateAccess } from "@/slates.server"
 import type { connectionToolCallSchema, toolCallSchema } from "@/tools.schema"
 
 export async function callTool(
 	db: PlatformDb,
 	apiKey: string,
-	access: AppAccess,
+	access: SlateAccess,
 	call: z.infer<typeof toolCallSchema>,
 	artifacts: Artifacts,
 ) {
-	const snapshot = await readAppDeclarations(artifacts, access.app.id)
+	const snapshot = await readSlateDeclarations(artifacts, access.slate.id)
 	if (snapshot.state === "no-commit")
 		return { allowed: false, reason: "not-declared" } as const
-	const resolved = await resolveAppConnection(db, access, call.slug, snapshot.resources)
+	const resolved = await resolveSlateConnection(db, access, call.slug, snapshot.resources)
 	if (!resolved.allowed) return resolved
 	const session = await createConnectionSession(
 		apiKey,
@@ -40,24 +40,24 @@ export async function callConnectionTool(
 	connectionId: string,
 	call: z.infer<typeof connectionToolCallSchema>,
 ) {
-	const access = await resolveAppForViewing(
+	const access = await resolveSlateForViewing(
 		db,
-		{ id: call.app_id },
+		{ id: call.slate_id },
 		identity,
 		config.CTX_AUTH_ISSUER,
 	)
 	if (!access.allowed) return access
-	const billing = await checkAppBilling(db, config, access.app)
+	const billing = await checkSlateBilling(db, config, access.slate)
 	if (!billing.allowed) return billing
 	const session = await createConnectionSession(
 		config.COMPOSIO_API_KEY,
-		{ id: identity.user.id, type: "user" },
+		{ id: identity.user.id, type: "personal" },
 		connectionId,
 		call.toolkit,
 	)
 	return {
 		allowed: true,
-		app: access.app,
 		result: await session.execute(call.tool, call.arguments),
+		slate: access.slate,
 	} as const
 }

@@ -1,10 +1,10 @@
-import { hasViewerResources, type Resources } from "@usecontextlayer/shared/slate"
+import { hasViewerResources, type Resources } from "@usecontextlayer/shared/declaration"
 import type { AgentActor } from "@/agents.schema"
-import type { AppId } from "@/database/models/public/App"
+import type { SlateId } from "@/database/models/public/Slate"
 
-export function getAgentInstanceName(appId: AppId, name: string, actor: AgentActor) {
+export function getAgentInstanceName(slateId: SlateId, name: string, actor: AgentActor) {
 	return JSON.stringify([
-		appId,
+		slateId,
 		name,
 		actor.type,
 		actor.type === "user" ? actor.id : null,

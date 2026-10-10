@@ -1,14 +1,14 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { resolve } from "node:path"
+import { readDatabaseMigrations } from "@usecontextlayer/shared/databases"
+import { resourcesSchema } from "@usecontextlayer/shared/declaration"
 import {
 	type LocalResourceConfiguration,
 	localResourceConfigurationSchema,
-} from "@usecontextlayer/shared/app-resources"
-import { readDatabaseMigrations } from "@usecontextlayer/shared/databases"
-import { resourcesSchema } from "@usecontextlayer/shared/slate"
+} from "@usecontextlayer/shared/slate-resources"
 import { z } from "zod"
-import { readLocalResources } from "@/app"
 import { readLocalSecret } from "@/env"
+import { readLocalResources } from "@/slate"
 
 const localConnectionsSchema = z.record(
 	resourcesSchema.shape.connections.keyType,
@@ -47,12 +47,12 @@ export async function prepareLocalResourceConfiguration(
 	directory = process.cwd(),
 ): Promise<LocalResourceConfiguration> {
 	const resources = await readLocalResources(directory)
-	const bindings = new Map(Object.entries(await readLocalConnections(directory)))
+	const assignments = new Map(Object.entries(await readLocalConnections(directory)))
 	const configuration = localResourceConfigurationSchema.parse({
 		connections: Object.fromEntries(
 			Object.entries(resources.connections).map(([slug, requirement]) => [
 				slug,
-				{ ...requirement, connection_id: bindings.get(slug) ?? null },
+				{ ...requirement, connection_id: assignments.get(slug) ?? null },
 			]),
 		),
 		databases: Object.fromEntries(
@@ -86,8 +86,8 @@ export async function saveLocalConnection(
 	connectionId: string,
 	directory = process.cwd(),
 ) {
-	const binding = localConnectionsSchema.parse({ [slug]: connectionId })
-	const connections = { ...(await readLocalConnections(directory)), ...binding }
+	const assignment = localConnectionsSchema.parse({ [slug]: connectionId })
+	const connections = { ...(await readLocalConnections(directory)), ...assignment }
 	await prepareLocalDirectory(directory)
 	await writeFile(
 		resolve(directory, ".contextlayer/connections.json"),

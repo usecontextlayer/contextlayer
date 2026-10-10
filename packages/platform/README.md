@@ -1,9 +1,3 @@
 # Platform
 
-From the repository root, start the connected local environment with:
-
-```sh
-pnpm dev
-```
-
-Follow [DEVELOPING.md](../../DEVELOPING.md#platform-development) for connected setup, the baseline browser session and saved CLI login, individual Worker startup and database commands. [Shared-secret verification](../../DEVELOPING.md#shared-secret-management-verification) owns the local and production vault setup; [ARCHITECTURE.md](../../ARCHITECTURE.md) owns platform boundaries.
+Follow [DEVELOPING.md](../../DEVELOPING.md#platform-development) to start connected local development, establish the browser session and CLI login, run individual Workers, and manage the database. [Shared-secret verification](../../DEVELOPING.md#shared-secret-management-verification) owns vault configuration. [ARCHITECTURE.md](../../ARCHITECTURE.md) owns platform boundaries and the [domain model](../../ARCHITECTURE.md#domain-model); [AGENTS.md](AGENTS.md) owns construction rules.

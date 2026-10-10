@@ -9,11 +9,6 @@ import { cn } from "cn"
 import { Fragment, useCallback, useState } from "react"
 import { data, Form, redirectDocument, useFetcher } from "react-router"
 import { z } from "zod"
-import { assignmentSchema } from "@/app-connections.schema"
-import { assignAppConnection } from "@/app-connections.server"
-import { getAppResources, listAppConnections } from "@/app-resources.server"
-import { appTargetSchema } from "@/apps.schema"
-import { resolveAppForViewing } from "@/apps.server"
 import { getCurrentUser, type OwnerIdentity } from "@/auth.server"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -41,7 +36,7 @@ import {
 } from "@/components/ui/item"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { CONNECTION_MODE_LABELS } from "@/connection-labels"
-import { authorizeConnection, listConnections, listToolkits } from "@/connections.server"
+import { connectAccount, listConnections, listToolkits } from "@/connections.server"
 import {
 	artifactsContext,
 	configContext,
@@ -50,6 +45,11 @@ import {
 } from "@/context"
 import { getCredentialOwner } from "@/owner"
 import type { Route } from "@/routes/+types/chrome"
+import { assignmentSchema } from "@/slate-connections.schema"
+import { assignSlateConnection } from "@/slate-connections.server"
+import { getSlateResources, listSlateConnections } from "@/slate-resources.server"
+import { slateTargetSchema } from "@/slates.schema"
+import { resolveSlateForViewing } from "@/slates.server"
 
 export const headers: Route.HeadersFunction = ({ actionHeaders }) => {
 	actionHeaders.set("Cache-Control", "no-store")
@@ -61,21 +61,21 @@ const chromeActionSchema = z.discriminatedUnion("intent", [
 	assignmentSchema.pick({ slug: true }).extend({ intent: z.literal("connect") }),
 ])
 
-async function getChromeApp(
+async function getChromeSlate(
 	{ params, context }: Pick<Route.LoaderArgs, "params" | "context">,
 	identity: OwnerIdentity,
 ) {
-	const access = await resolveAppForViewing(
+	const access = await resolveSlateForViewing(
 		context.get(databaseContext),
-		appTargetSchema.parse(params.target),
+		slateTargetSchema.parse(params.target),
 		identity,
 		context.get(configContext).CTX_AUTH_ISSUER,
 	)
 	if (!access.allowed)
 		throw new Response(null, { status: access.reason === "not-found" ? 404 : 403 })
-	const appAccess = { app: access.app, identity }
-	const resources = await getAppResources(appAccess, context.get(artifactsContext))
-	return { access: appAccess, resources }
+	const slateAccess = { identity, slate: access.slate }
+	const resources = await getSlateResources(slateAccess, context.get(artifactsContext))
+	return { access: slateAccess, resources }
 }
 
 export async function action({ request, params, context }: Route.ActionArgs) {
@@ -83,20 +83,20 @@ export async function action({ request, params, context }: Route.ActionArgs) {
 	if (!identity) throw new Response(null, { status: 401 })
 	const input = chromeActionSchema.safeParse(Object.fromEntries(await request.formData()))
 	if (!input.success) throw new Response("Invalid connection action", { status: 400 })
-	const { access, resources } = await getChromeApp({ context, params }, identity)
+	const { access, resources } = await getChromeSlate({ context, params }, identity)
 	if (input.data.intent === "connect") {
 		const requirement = resources.connections[input.data.slug]
 		if (!requirement) throw new Response(null, { status: 404 })
-		const result = await authorizeConnection(
+		const result = await connectAccount(
 			context.get(configContext),
 			identity,
-			getCredentialOwner(requirement.mode, access.app, identity.user),
+			getCredentialOwner(requirement.mode, access.slate, identity.user),
 			requirement.toolkit,
 		)
 		if (!result.allowed) throw new Response(null, { status: 403 })
 		return redirectDocument(result.link.redirect_url, 303)
 	}
-	const result = await assignAppConnection(
+	const result = await assignSlateConnection(
 		context.get(databaseContext),
 		access,
 		context.get(configContext).CTX_AUTH_ISSUER,
@@ -120,8 +120,8 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
 			{ headers: { "Cache-Control": "no-store" } },
 		)
 	const db = context.get(databaseContext)
-	const { access, resources } = await getChromeApp({ context, params }, identity)
-	const { connections } = await listAppConnections(db, access, resources)
+	const { access, resources } = await getChromeSlate({ context, params }, identity)
+	const { connections } = await listSlateConnections(db, access, resources)
 	const [user, toolkits] = await Promise.all([
 		getCurrentUser(identity, issuer),
 		connections.length
@@ -288,13 +288,13 @@ function ConnectionRow({
 	const fetcher = useFetcher<typeof action>()
 	const pending = fetcher.state !== "idle"
 	const [open, setOpen] = useState(false)
-	const [selection, setSelection] = useState<"saved" | "connect">("saved")
+	const [accountView, setAccountView] = useState<"assignment" | "connect">("assignment")
 	const { accountAccess, logo } = requirement
 	const title =
-		selection === "connect"
-			? "Once you’ve connected your account, refresh this page to select it."
+		accountView === "connect"
+			? "Once you’ve connected your account, refresh this page to assign it."
 			: !accountAccess.allowed
-				? "Managed by app owner"
+				? "Managed by slate Owner"
 				: accountAccess.assignment.type === "unassigned"
 					? "Not assigned"
 					: (accountAccess.assignment.account.display_name ??
@@ -340,11 +340,11 @@ function ConnectionRow({
 							className="max-w-full line-clamp-none"
 							title={title}
 						>
-							<span className={selection === "connect" ? "wrap-anywhere" : "truncate"}>
+							<span className={accountView === "connect" ? "wrap-anywhere" : "truncate"}>
 								{title}
 							</span>
 						</ItemTitle>
-						{selection === "saved" &&
+						{accountView === "assignment" &&
 							accountAccess.allowed &&
 							accountAccess.assignment.type === "assigned" && (
 								<ItemDescription className="wrap-anywhere text-right">
@@ -380,16 +380,17 @@ function ConnectionRow({
 					<div className="flex flex-col gap-4 px-3 pb-4">
 						{accountAccess.accounts.length ? (
 							<RadioGroup
-								aria-label={`Accounts for ${requirement.slug}`}
+								aria-label={`Connected accounts for ${requirement.slug}`}
 								value={
-									selection === "saved" && accountAccess.assignment.type === "assigned"
+									accountView === "assignment" &&
+									accountAccess.assignment.type === "assigned"
 										? accountAccess.assignment.account.id
 										: ""
 								}
 								disabled={pending}
 								onValueChange={(connection_id) => {
 									setOpen(false)
-									setSelection("saved")
+									setAccountView("assignment")
 									if (
 										accountAccess.assignment.type === "assigned" &&
 										connection_id === accountAccess.assignment.account.id
@@ -429,7 +430,7 @@ function ConnectionRow({
 							reloadDocument
 							onSubmit={() => {
 								setOpen(false)
-								setSelection("connect")
+								setAccountView("connect")
 							}}
 						>
 							<input

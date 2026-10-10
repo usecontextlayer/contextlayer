@@ -59,8 +59,8 @@
 			"secrets": { "required": [] },
 			"services": [
 				{
-					"binding": "PUBLICATION",
-					"entrypoint": "Publication",
+					"binding": "PROVISIONING",
+					"entrypoint": "Provisioning",
 					"service": "contextlayer-platform-test"
 				}
 			],
@@ -100,8 +100,8 @@
 	},
 	"services": [
 		{
-			"binding": "PUBLICATION",
-			"entrypoint": "Publication",
+			"binding": "PROVISIONING",
+			"entrypoint": "Provisioning",
 			"service": "contextlayer-platform"
 		}
 	],

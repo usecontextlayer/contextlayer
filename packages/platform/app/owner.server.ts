@@ -6,7 +6,7 @@ export async function authorizeOwner(
 	issuer: string,
 	owner: Owner,
 ) {
-	if (owner.type === "user") return owner.id === identity.user.id
+	if (owner.type === "personal") return owner.id === identity.user.id
 	const organizations = await listOrganizations(identity, issuer)
 	return organizations.some((organization) => organization.id === owner.id)
 }

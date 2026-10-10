@@ -30,7 +30,7 @@ export function UserMenu({ signInUrl }: { signInUrl: string }) {
 	const sessions = useListDeviceSessions(authClient)
 	const navigate = useNavigate()
 	const switchAccount = useSetActiveSession(authClient, {
-		onSuccess: () => navigate("/personal/apps", { replace: true }),
+		onSuccess: () => navigate("/personal/slates", { replace: true }),
 	})
 	const signOut = useSignOut(authClient, {
 		onSuccess: () => window.location.assign(signInUrl),

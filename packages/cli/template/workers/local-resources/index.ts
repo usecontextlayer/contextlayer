@@ -1,1 +1,6 @@
-export { AppDatabase, DatabaseSetup, Databases, Tools } from "@usecontextlayer/sdk/local"
+export {
+	DatabaseProvisioning,
+	Databases,
+	SlateDatabase,
+	Tools,
+} from "@usecontextlayer/sdk/local"

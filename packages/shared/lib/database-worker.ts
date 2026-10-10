@@ -1,7 +1,6 @@
 import { DurableObject, WorkerEntrypoint } from "cloudflare:workers"
 import { drizzle } from "drizzle-orm/durable-sqlite"
 import { migrate } from "drizzle-orm/durable-sqlite/migrator"
-import type { LocalResourceConfiguration } from "@/lib/app-resources"
 import {
 	type DatabaseMigrations,
 	databaseMigrationsSchema,
@@ -9,9 +8,10 @@ import {
 	databaseResultSchema,
 	type SqlValue,
 } from "@/lib/databases"
+import type { LocalResourceConfiguration } from "@/lib/slate-resources"
 
-export class AppDatabase extends DurableObject {
-	async setup(migrations: DatabaseMigrations) {
+export class SlateDatabase extends DurableObject {
+	async migrate(migrations: DatabaseMigrations) {
 		await migrate(drizzle(this.ctx.storage), databaseMigrationsSchema.parse(migrations))
 	}
 
@@ -28,7 +28,7 @@ export class AppDatabase extends DurableObject {
 }
 
 export class LocalDatabases extends WorkerEntrypoint<
-	{ DATABASE_STORAGE: DurableObjectNamespace<AppDatabase> },
+	{ DATABASE_STORAGE: DurableObjectNamespace<SlateDatabase> },
 	{ databases: LocalResourceConfiguration["databases"] }
 > {
 	async fetch(request: Request) {
@@ -43,13 +43,13 @@ export class LocalDatabases extends WorkerEntrypoint<
 	}
 }
 
-export class LocalDatabaseSetup extends WorkerEntrypoint<
-	{ DATABASE_STORAGE: DurableObjectNamespace<AppDatabase> },
+export class LocalDatabaseProvisioning extends WorkerEntrypoint<
+	{ DATABASE_STORAGE: DurableObjectNamespace<SlateDatabase> },
 	{ databases: LocalResourceConfiguration["databases"] }
 > {
 	async fetch() {
 		for (const database of Object.values(this.ctx.props.databases))
-			await this.env.DATABASE_STORAGE.getByName(database.instance_name).setup(
+			await this.env.DATABASE_STORAGE.getByName(database.instance_name).migrate(
 				database.migrations,
 			)
 		return new Response(null, { status: 204 })

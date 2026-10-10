@@ -1,5 +1,8 @@
 import { cloudflare } from "@cloudflare/vite-plugin"
-import { getLocalResourcesBindings, localDatabaseSetup } from "@usecontextlayer/cli/vite"
+import {
+	getLocalResourcesBindings,
+	localDatabaseProvisioning,
+} from "@usecontextlayer/cli/vite"
 import type { ConfigEnv } from "vite"
 import { mcpApps } from "@/mcp-vite"
 
@@ -43,6 +46,6 @@ export async function contextlayer({ command }: ConfigEnv) {
 			persistState: { path: ".contextlayer/databases" },
 			viteEnvironment: { name: "ssr" },
 		}),
-		bindings ? localDatabaseSetup(bindings) : undefined,
+		bindings ? localDatabaseProvisioning(bindings) : undefined,
 	]
 }

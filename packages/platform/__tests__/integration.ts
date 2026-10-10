@@ -17,7 +17,7 @@ import { createTestHarness, type TestHarnessOptions } from "wrangler"
 import type { PlatformEnv } from "@/context"
 import { createPlatformDb } from "@/database"
 import { parsePlatformEnv } from "@/env"
-import type { Publication } from "@/publication.server"
+import type { Provisioning } from "@/provisioning.server"
 
 const root = resolve(import.meta.dirname, "../../..")
 const webRoot = resolve(root, "../web")
@@ -138,7 +138,7 @@ export const dispatcherTest = test
 		),
 	}))
 
-export const publicationTest = test
+export const provisioningTest = test
 	.extend("workers", ({ workers }): WorkerConfig[] => [
 		...workers,
 		{
@@ -147,9 +147,9 @@ export const publicationTest = test
 			prebuiltWorkerDir: new URL("../../build/dist", import.meta.url),
 		},
 	])
-	.extend("publication", ({ platform }) => ({
+	.extend("provisioning", ({ platform }) => ({
 		harness: platform.harness,
-		worker: platform.harness.getWorker<{ PUBLICATION: Service<Publication> }>(
+		worker: platform.harness.getWorker<{ PROVISIONING: Service<Provisioning> }>(
 			"contextlayer-build-test",
 		),
 	}))

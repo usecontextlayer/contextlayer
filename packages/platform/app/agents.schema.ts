@@ -1,9 +1,9 @@
 import { z } from "@hono/zod-openapi"
-import { appResourceConfigurationSchema } from "@usecontextlayer/shared/app-resources"
-import { ownerSchema } from "@usecontextlayer/shared/app-usage"
-import { secretNameSchema } from "@usecontextlayer/shared/slate"
-import { appSchema, appTargetSchema } from "@/apps.schema"
+import { secretNameSchema } from "@usecontextlayer/shared/declaration"
+import { slateResourceConfigurationSchema } from "@usecontextlayer/shared/slate-resources"
+import { ownerSchema } from "@usecontextlayer/shared/slate-usage"
 import { userSchema } from "@/auth.server"
+import { slateSchema, slateTargetSchema } from "@/slates.schema"
 
 export const agentSchema = z.object({
 	commit: z.string(),
@@ -17,7 +17,7 @@ export const agentRunRequestSchema = z.strictObject({
 
 export const agentParamsSchema = z.object({
 	name: agentRunRequestSchema.shape.name,
-	target: appTargetSchema,
+	target: slateTargetSchema,
 })
 export const agentJobRequestSchema = agentRunRequestSchema.omit({ name: true })
 export const agentJobSchema = z.object({
@@ -54,14 +54,13 @@ export const agentScheduleSchema = z.object({
 
 export const scheduledAgentRunSchema = agentRunRequestSchema.extend({
 	actor: agentActorSchema,
-	appId: appSchema.shape.id,
 	schedule: agentScheduleSchema.shape.name,
+	slateId: slateSchema.shape.id,
 })
 
 export const agentRunSchema = z.strictObject({
 	actor: agentActorSchema,
 	agent: agentSchema.extend({ name: agentRunRequestSchema.shape.name }),
-	appId: appSchema.shape.id,
 	connections: z.record(
 		z.string(),
 		z.object({
@@ -71,14 +70,15 @@ export const agentRunSchema = z.strictObject({
 		}),
 	),
 	databases: z.record(
-		appResourceConfigurationSchema.shape.databases.keyType,
-		appResourceConfigurationSchema.shape.databases.valueType.pick({
+		slateResourceConfigurationSchema.shape.databases.keyType,
+		slateResourceConfigurationSchema.shape.databases.valueType.pick({
 			instance_name: true,
 			owner: true,
 		}),
 	),
 	prompt: agentRunRequestSchema.shape.prompt,
 	secrets: z.record(secretNameSchema, ownerSchema),
+	slateId: slateSchema.shape.id,
 })
 
 export type AgentRunRequest = z.infer<typeof agentRunRequestSchema>

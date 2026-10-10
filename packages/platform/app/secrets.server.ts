@@ -20,13 +20,13 @@ export async function loadSharedSecret(
 	const vaultConfig = parseSharedSecretsEnv(config)
 	const url = new URL("https://api.doppler.com/v3/configs/config/secret")
 	url.search = new URLSearchParams({
-		config: vaultConfig.CTX_CUSTOMER_CREDENTIALS_DOPPLER_CONFIG,
+		config: vaultConfig.CTX_OWNER_CREDENTIALS_DOPPLER_CONFIG,
 		name: secretKey(owner, name),
-		project: vaultConfig.CTX_CUSTOMER_CREDENTIALS_DOPPLER_PROJECT,
+		project: vaultConfig.CTX_OWNER_CREDENTIALS_DOPPLER_PROJECT,
 	}).toString()
 	const response = await fetch(url, {
 		headers: {
-			authorization: `Bearer ${vaultConfig.CTX_CUSTOMER_CREDENTIALS_DOPPLER_TOKEN}`,
+			authorization: `Bearer ${vaultConfig.CTX_OWNER_CREDENTIALS_DOPPLER_TOKEN}`,
 		},
 	})
 	if (!response.ok) throw new Error(`Secret load failed: HTTP ${response.status}`)
@@ -46,12 +46,12 @@ export async function setSharedSecret(
 	const vaultConfig = parseSharedSecretsEnv(config)
 	const response = await fetch("https://api.doppler.com/v3/configs/config/secrets", {
 		body: JSON.stringify({
-			config: vaultConfig.CTX_CUSTOMER_CREDENTIALS_DOPPLER_CONFIG,
-			project: vaultConfig.CTX_CUSTOMER_CREDENTIALS_DOPPLER_PROJECT,
+			config: vaultConfig.CTX_OWNER_CREDENTIALS_DOPPLER_CONFIG,
+			project: vaultConfig.CTX_OWNER_CREDENTIALS_DOPPLER_PROJECT,
 			secrets: { [secretKey(owner, name)]: input.value },
 		}),
 		headers: {
-			authorization: `Bearer ${vaultConfig.CTX_CUSTOMER_CREDENTIALS_DOPPLER_TOKEN}`,
+			authorization: `Bearer ${vaultConfig.CTX_OWNER_CREDENTIALS_DOPPLER_TOKEN}`,
 			"content-type": "application/json",
 		},
 		method: "POST",
@@ -71,13 +71,13 @@ export async function dropSharedSecret(
 	const vaultConfig = parseSharedSecretsEnv(config)
 	const url = new URL("https://api.doppler.com/v3/configs/config/secret")
 	url.search = new URLSearchParams({
-		config: vaultConfig.CTX_CUSTOMER_CREDENTIALS_DOPPLER_CONFIG,
+		config: vaultConfig.CTX_OWNER_CREDENTIALS_DOPPLER_CONFIG,
 		name: secretKey(owner, name),
-		project: vaultConfig.CTX_CUSTOMER_CREDENTIALS_DOPPLER_PROJECT,
+		project: vaultConfig.CTX_OWNER_CREDENTIALS_DOPPLER_PROJECT,
 	}).toString()
 	const response = await fetch(url, {
 		headers: {
-			authorization: `Bearer ${vaultConfig.CTX_CUSTOMER_CREDENTIALS_DOPPLER_TOKEN}`,
+			authorization: `Bearer ${vaultConfig.CTX_OWNER_CREDENTIALS_DOPPLER_TOKEN}`,
 		},
 		method: "DELETE",
 	})

@@ -7,23 +7,10 @@
 	},
 	"devDependencies": {
 		"@cloudflare/workers-types": "^5.20261001.1",
-		"@sentry/node": "10.74.0",
 		"tsdown": "latest",
 		"vitest": "^4.1.11"
 	},
 	"exports": {
-		"./app-connections": {
-			"import": "./dist/app-connections.mjs",
-			"types": "./dist/app-connections.d.mts"
-		},
-		"./app-resources": {
-			"import": "./dist/app-resources.mjs",
-			"types": "./dist/app-resources.d.mts"
-		},
-		"./app-usage": {
-			"import": "./dist/app-usage.mjs",
-			"types": "./dist/app-usage.d.mts"
-		},
 		"./chrome": {
 			"import": "./dist/chrome.mjs",
 			"types": "./dist/chrome.d.mts"
@@ -44,17 +31,25 @@
 			"import": "./dist/databases-worker.mjs",
 			"types": "./dist/databases-worker.d.mts"
 		},
+		"./declaration": {
+			"import": "./dist/declaration.mjs",
+			"types": "./dist/declaration.d.mts"
+		},
 		"./mcp": {
 			"import": "./dist/mcp.mjs",
 			"types": "./dist/mcp.d.mts"
 		},
-		"./sentry-event-cap": {
-			"import": "./dist/sentry-event-cap.mjs",
-			"types": "./dist/sentry-event-cap.d.mts"
+		"./slate-connections": {
+			"import": "./dist/slate-connections.mjs",
+			"types": "./dist/slate-connections.d.mts"
 		},
-		"./slate": {
-			"import": "./dist/slate.mjs",
-			"types": "./dist/slate.d.mts"
+		"./slate-resources": {
+			"import": "./dist/slate-resources.mjs",
+			"types": "./dist/slate-resources.d.mts"
+		},
+		"./slate-usage": {
+			"import": "./dist/slate-usage.mjs",
+			"types": "./dist/slate-usage.d.mts"
 		},
 		"./tools": {
 			"import": "./dist/tools.mjs",

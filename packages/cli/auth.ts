@@ -54,7 +54,7 @@ async function save(
 export async function login(env: AuthEnv) {
 	const config = await configuration(env)
 	const authorization = await oauth.initiateDeviceAuthorization(config, {
-		resource: "https://slate.usecontextlayer.com",
+		resource: "https://platform.usecontextlayer.com",
 		scope: "offline_access platform:access",
 	})
 	console.log(

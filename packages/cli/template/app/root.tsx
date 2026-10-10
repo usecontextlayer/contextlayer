@@ -11,25 +11,25 @@ export default function App() {
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
 	if (isRouteErrorResponse(error) && error.status === 409) {
-		const setup = connectionRequiredSchema.safeParse(error.data)
-		if (setup.success) {
+		const unassignedConnection = connectionRequiredSchema.safeParse(error.data)
+		if (unassignedConnection.success) {
 			return (
 				<main className="container mx-auto p-4 pt-16">
-					<h1 className="text-2xl font-semibold">Connect an account to continue</h1>
+					<h1 className="text-2xl font-semibold">Assign an account to continue</h1>
 					{import.meta.env.DEV ? (
 						<>
 							<p className="mt-3">
-								From your app directory, assign an account, then restart{" "}
+								From the checkout root, assign a connected account, then restart{" "}
 								<code>pnpm dev</code>:
 							</p>
 							<pre className="mt-4 overflow-x-auto">
-								<code>{`npx @usecontextlayer/cli connection local assign ${setup.data.slug}`}</code>
+								<code>{`npx @usecontextlayer/cli connection local assign ${unassignedConnection.data.slug}`}</code>
 							</pre>
 						</>
 					) : (
 						<p className="mt-3">
-							Open the connections menu above and choose an account, then refresh this
-							page.
+							Open the connections menu in the ContextLayer header above and assign a
+							connected account, then refresh this page.
 						</p>
 					)}
 				</main>

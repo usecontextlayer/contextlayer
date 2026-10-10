@@ -21,7 +21,7 @@ function OwnerLabel({ children }: { children: string }) {
 export function OrganizationSwitcher({ owner }: { owner: OwnerDetails }) {
 	const { authClient } = useAuth<OrganizationAuthClient>()
 	const organizations = useListOrganizations(authClient)
-	const label = owner.type === "user" ? "Personal" : owner.name
+	const label = owner.type === "personal" ? "Personal" : owner.name
 	return (
 		<div>
 			<DropdownMenu>
@@ -32,7 +32,7 @@ export function OrganizationSwitcher({ owner }: { owner: OwnerDetails }) {
 							className="h-9 px-2"
 						/>
 					}
-					aria-label="Switch workspace"
+					aria-label="Switch Owner"
 					disabled={organizations.isPending}
 				>
 					<OwnerLabel>{label}</OwnerLabel>
@@ -52,7 +52,7 @@ export function OrganizationSwitcher({ owner }: { owner: OwnerDetails }) {
 					{owner.type === "organization" && (
 						<DropdownMenuItem
 							className="h-9 px-2"
-							render={<Link to="/personal/apps" />}
+							render={<Link to="/personal/slates" />}
 						>
 							<OwnerLabel>Personal</OwnerLabel>
 						</DropdownMenuItem>
@@ -63,7 +63,7 @@ export function OrganizationSwitcher({ owner }: { owner: OwnerDetails }) {
 							<DropdownMenuItem
 								key={item.id}
 								className="h-9 px-2"
-								render={<Link to={`/org/${encodeURIComponent(item.slug)}/apps`} />}
+								render={<Link to={`/org/${encodeURIComponent(item.slug)}/slates`} />}
 							>
 								<OwnerLabel>{item.name}</OwnerLabel>
 							</DropdownMenuItem>

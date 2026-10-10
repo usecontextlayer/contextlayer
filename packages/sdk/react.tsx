@@ -10,7 +10,7 @@ function Chrome() {
 	useEffect(() => {
 		const target = window.location.hostname
 		const url = new URL(
-			`${chromePath}/apps/${encodeURIComponent(target)}`,
+			`${chromePath}/slates/${encodeURIComponent(target)}`,
 			browserEnv.CTX_PLATFORM_URL,
 		)
 		url.searchParams.set("parentOrigin", window.location.origin)

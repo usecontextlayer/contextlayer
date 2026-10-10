@@ -1,6 +1,6 @@
 import { z } from "@hono/zod-openapi"
-import { ownerSchema } from "@usecontextlayer/shared/app-usage"
-import { secretNameSchema } from "@usecontextlayer/shared/slate"
+import { secretNameSchema } from "@usecontextlayer/shared/declaration"
+import { ownerSchema } from "@usecontextlayer/shared/slate-usage"
 import { ownerParamsSchema } from "@/owner.schema"
 
 export const secretParamsSchema = ownerParamsSchema.extend({

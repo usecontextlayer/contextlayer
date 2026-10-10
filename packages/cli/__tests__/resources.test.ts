@@ -1,8 +1,8 @@
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import type { LocalResourceConfiguration } from "@usecontextlayer/shared/app-resources"
-import { resourcesForConsumer } from "@usecontextlayer/shared/slate"
+import { resourcesForConsumer } from "@usecontextlayer/shared/declaration"
+import type { LocalResourceConfiguration } from "@usecontextlayer/shared/slate-resources"
 import { afterEach, expect, expectTypeOf, test, vi } from "vitest"
 import { prepareLocalResourceConfiguration, saveLocalConnection } from "@/resources"
 
@@ -16,7 +16,7 @@ afterEach(async () => {
 	)
 })
 
-async function createApp() {
+async function createCheckout() {
 	const directory = await mkdtemp(join(tmpdir(), "ctx-local-resources-"))
 	directories.push(directory)
 	await mkdir(join(directory, "public"))
@@ -44,7 +44,7 @@ async function createApp() {
 }
 
 test("assembles local configuration before consumer selection without Git, credentials, or platform", async () => {
-	const directory = await createApp()
+	const directory = await createCheckout()
 	vi.stubEnv("CTX_LOCAL_TEST_SECRET", "local-only-value")
 	await writeFile(join(directory, ".gitignore"), "node_modules/")
 	const configuration = await prepareLocalResourceConfiguration(directory)
@@ -70,9 +70,9 @@ test("assembles local configuration before consumer selection without Git, crede
 	).rejects.toMatchObject({ code: "ENOENT" })
 })
 
-test("preserves saved choices and reads only the given app database's current declarations", async () => {
-	const directory = await createApp()
-	const other = await createApp()
+test("preserves saved assignments and reads only the given checkout's current declarations", async () => {
+	const directory = await createCheckout()
+	const other = await createCheckout()
 	vi.stubEnv("CTX_LOCAL_TEST_SECRET", undefined)
 	await saveLocalConnection("mail", "ca_mail", directory)
 	await saveLocalConnection("repository", "ca_git", directory)
@@ -103,8 +103,8 @@ test("preserves saved choices and reads only the given app database's current de
 	).rejects.toMatchObject({ code: "ENOENT" })
 })
 
-test("rejects malformed bindings and database names that escape the local database root", async () => {
-	const directory = await createApp()
+test("rejects malformed assignments and database slugs that escape the local database root", async () => {
+	const directory = await createCheckout()
 	await mkdir(join(directory, ".contextlayer"))
 	await writeFile(
 		join(directory, ".contextlayer/connections.json"),

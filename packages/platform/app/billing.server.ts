@@ -1,11 +1,11 @@
 import { createPolarCore, type models, type PolarCore } from "@polar-sh/sdk/2026-10"
 import { getStateCustomers } from "@polar-sh/sdk/2026-10/services/customers"
 import { createSubscriptions } from "@polar-sh/sdk/2026-10/services/subscriptions"
-import type { App } from "@/apps.schema"
 import type { PlatformDb } from "@/database"
 import type { PolarCustomerStateCustomerId } from "@/database/models/public/PolarCustomerState"
 import type { PlatformConfig } from "@/env"
-import { getAppOwner } from "@/owner"
+import { getSlateOwner } from "@/owner"
+import type { Slate } from "@/slates.schema"
 
 export async function enrollFreeCustomer(
 	polar: PolarCore,
@@ -41,8 +41,12 @@ export async function saveCustomerState(
 		.execute()
 }
 
-export async function checkAppBilling(db: PlatformDb, config: PlatformConfig, app: App) {
-	const owner = getAppOwner(app)
+export async function checkSlateBilling(
+	db: PlatformDb,
+	config: PlatformConfig,
+	slate: Slate,
+) {
+	const owner = getSlateOwner(slate)
 	const customer = await db
 		.selectFrom("polar_customer_state")
 		.select("state")
@@ -56,7 +60,7 @@ export async function checkAppBilling(db: PlatformDb, config: PlatformConfig, ap
 	if (!customer || !subscription)
 		return {
 			allowed: false,
-			message: `This app's owner needs an active plan. Manage billing at ${billingUrl}`,
+			message: `This slate's Owner needs an active plan. Manage billing at ${billingUrl}`,
 			reason: "subscription-required",
 		} as const
 
@@ -84,7 +88,7 @@ export async function checkAppBilling(db: PlatformDb, config: PlatformConfig, ap
 	})
 	return {
 		allowed: false,
-		message: `This app has no Free clips remaining. Free clips renew on ${renewal}. Free has no overage charges. The app's owner can upgrade at ${billingUrl}`,
+		message: `This slate has no Free clips remaining. Free clips renew on ${renewal}. Free has no overage charges. The slate's Owner can upgrade at ${billingUrl}`,
 		reason: "credits-exhausted",
 	} as const
 }

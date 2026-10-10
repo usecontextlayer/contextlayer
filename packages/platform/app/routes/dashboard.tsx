@@ -1,6 +1,4 @@
 import { Link, Outlet } from "react-router"
-import { appSchema } from "@/apps.schema"
-import { getApp, listApps } from "@/apps.server"
 import { findOrganizationBySlug } from "@/auth.server"
 import { AuthProvider } from "@/components/auth-provider"
 import { OrganizationSwitcher } from "@/components/organization-switcher"
@@ -14,6 +12,8 @@ import {
 } from "@/context"
 import type { OwnerDetails } from "@/owner"
 import type { Route } from "@/routes/+types/dashboard"
+import { slateSchema } from "@/slates.schema"
+import { getSlate, listSlates } from "@/slates.server"
 
 export async function loader({ context, request, params }: Route.LoaderArgs) {
 	const issuer = context.get(configContext).CTX_AUTH_ISSUER
@@ -22,10 +22,10 @@ export async function loader({ context, request, params }: Route.LoaderArgs) {
 	const signIn = new URL("/auth/sign-in", issuer)
 	signIn.searchParams.set("redirectTo", request.url)
 	const common = { issuer, signInUrl: signIn.href }
-	if (params.appId) {
-		const id = appSchema.shape.id.safeParse(params.appId)
-		if (!id.success) throw new Response("App not found", { status: 404 })
-		const result = await getApp(
+	if (params.slateId) {
+		const id = slateSchema.shape.id.safeParse(params.slateId)
+		if (!id.success) throw new Response("Slate not found", { status: 404 })
+		const result = await getSlate(
 			context.get(databaseContext),
 			{ id: id.data },
 			identity,
@@ -39,7 +39,7 @@ export async function loader({ context, request, params }: Route.LoaderArgs) {
 			} as const
 			throw new Response(null, { status: status[result.reason] })
 		}
-		return { ...common, app: result.app, owner: result.owner, page: "app" as const }
+		return { ...common, owner: result.owner, page: "slate" as const, slate: result.slate }
 	}
 	const organization = params.organizationSlug
 		? await findOrganizationBySlug(identity, issuer, params.organizationSlug)
@@ -48,18 +48,18 @@ export async function loader({ context, request, params }: Route.LoaderArgs) {
 		throw new Response("Organization not found", { status: 404 })
 	const owner: OwnerDetails = organization
 		? { ...organization, type: "organization" }
-		: { id: identity.user.id, type: "user" }
+		: { id: identity.user.id, type: "personal" }
 	return {
 		...common,
-		apps: await listApps(
+		owner,
+		page: "slates" as const,
+		slates: await listSlates(
 			context.get(databaseContext),
 			context.get(artifactsContext),
 			identity,
 			issuer,
 			owner,
 		),
-		owner,
-		page: "apps" as const,
 	}
 }
 
@@ -68,7 +68,7 @@ export type DashboardData = Awaited<ReturnType<typeof loader>>
 export default function Dashboard({ loaderData }: Route.ComponentProps) {
 	const { issuer, owner, signInUrl } = loaderData
 	const dashboardUrl =
-		owner.type === "organization" ? `/org/${owner.slug}/apps` : "/personal/apps"
+		owner.type === "organization" ? `/org/${owner.slug}/slates` : "/personal/slates"
 	return (
 		<AuthProvider issuer={issuer}>
 			<header className="border-b">

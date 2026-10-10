@@ -1,7 +1,7 @@
 import { createAnthropic } from "@ai-sdk/anthropic"
 import { Think, type TurnConfig } from "@cloudflare/think"
-import { ownerSchema } from "@usecontextlayer/shared/app-usage"
 import { databaseQuerySchema } from "@usecontextlayer/shared/databases"
+import { ownerSchema } from "@usecontextlayer/shared/slate-usage"
 import { type ToolSet, tool } from "ai"
 import { z } from "zod"
 import {
@@ -15,29 +15,29 @@ import {
 	scheduledAgentRunSchema,
 } from "@/agents.schema"
 import { getAgentRun } from "@/agents.server"
-import { appSchema } from "@/apps.schema"
 import { createConnectionSession } from "@/connections.server"
 import type { PlatformEnv } from "@/context"
 import { createPlatformDb } from "@/database"
-import type { AppId } from "@/database/models/public/App"
+import type { SlateId } from "@/database/models/public/Slate"
 import { parseDatabaseEnv } from "@/env"
 import { loadSharedSecret } from "@/secrets.server"
+import { slateSchema } from "@/slates.schema"
 
-export class AppAgent extends Think<PlatformEnv["Bindings"]> {
+export class SlateAgent extends Think<PlatformEnv["Bindings"]> {
 	maxSteps = 20
 	workspaceBash = false
 	waitForMcpConnections = true
 
 	private get container() {
 		const container = this.ctx.container
-		if (!container) throw new Error("AppAgent container binding is not configured")
+		if (!container) throw new Error("SlateAgent container binding is not configured")
 		return container
 	}
 
 	getSystemPrompt() {
 		return [
 			super.getSystemPrompt(),
-			"You run tasks for ContextLayer apps. Use bash to run real Linux commands and work with files in your sandbox. Use database_query with a declared database slug and parameterized SQL to query and save persistent data. Call PRAGMA table_info or inspect sqlite_master to discover its schema. Database writes persist immediately and are shared with the app and other jobs using that resource. Files in the sandbox are scratch space. Never print credentials or put them in your documents or messages.",
+			"You run tasks for ContextLayer slates. Use bash to run real Linux commands and work with files in your sandbox. Use database_query with a declared database slug and parameterized SQL to query and save persistent data. Call PRAGMA table_info or inspect sqlite_master to discover its schema. Database writes persist immediately and are shared with the app and other jobs using that resource. Files in the sandbox are scratch space. Never print credentials or put them in your documents or messages.",
 			agentRunSchema.parse(this.getConfig()).agent.instructions,
 		].join("\n\n")
 	}
@@ -137,8 +137,8 @@ export class AppAgent extends Think<PlatformEnv["Bindings"]> {
 		}
 	}
 
-	async registerSchedules(
-		appId: AppId,
+	async provisionSchedules(
+		slateId: SlateId,
 		name: string,
 		actor: AgentActor,
 		schedules: AgentSchedule[],
@@ -149,10 +149,10 @@ export class AppAgent extends Think<PlatformEnv["Bindings"]> {
 		for (const schedule of schedules) {
 			await this.schedule(schedule.cron, "runScheduled", {
 				actor,
-				appId,
 				name,
 				prompt: schedule.prompt,
 				schedule: schedule.name,
+				slateId,
 			})
 		}
 	}
@@ -162,17 +162,17 @@ export class AppAgent extends Think<PlatformEnv["Bindings"]> {
 		const config = parseDatabaseEnv(this.env)
 		const db = createPlatformDb(config.CTX_PLATFORM_DATABASE_URL)
 		try {
-			const app = appSchema.parse(
+			const slate = slateSchema.parse(
 				await db
-					.selectFrom("app")
+					.selectFrom("slate")
 					.selectAll()
-					.where("id", "=", scheduled.appId)
+					.where("id", "=", scheduled.slateId)
 					.executeTakeFirstOrThrow(),
 			)
 			const prepared = await getAgentRun(
 				db,
 				this.env.ARTIFACTS,
-				app,
+				slate,
 				scheduled.actor,
 				scheduled,
 			)
@@ -181,8 +181,8 @@ export class AppAgent extends Think<PlatformEnv["Bindings"]> {
 					prepared.reason === "agent-definition-missing" ||
 					prepared.reason === "membership-required"
 				) {
-					await this.registerSchedules(
-						scheduled.appId,
+					await this.provisionSchedules(
+						scheduled.slateId,
 						scheduled.name,
 						scheduled.actor,
 						[],
@@ -197,21 +197,21 @@ export class AppAgent extends Think<PlatformEnv["Bindings"]> {
 		}
 	}
 
-	async listJobs(appId: AppId, name: string): Promise<AgentJob[]> {
+	async listJobs(slateId: SlateId, name: string): Promise<AgentJob[]> {
 		const submissions = await this.listSubmissions()
 		const jobs: AgentJob[] = []
 		for (const submission of submissions) {
-			const job = await this.inspect(appId, name, submission.submissionId)
+			const job = await this.inspect(slateId, name, submission.submissionId)
 			if (job) jobs.push(job)
 		}
 		return jobs
 	}
 
-	async inspect(appId: AppId, name: string, id: string): Promise<AgentJob | null> {
+	async inspect(slateId: SlateId, name: string, id: string): Promise<AgentJob | null> {
 		const submission = await this.inspectSubmission(id)
 		if (!submission) return null
 		const run = agentRunSchema.parse(this.getConfig())
-		if (run.appId !== appId || run.agent.name !== name) return null
+		if (run.slateId !== slateId || run.agent.name !== name) return null
 		const message = submission.messageId
 			? await this.session.getMessage(submission.messageId)
 			: null

@@ -3,7 +3,7 @@
 	"durable_objects": {
 		"bindings": [
 			{
-				"class_name": "AppDatabase",
+				"class_name": "SlateDatabase",
 				"name": "DATABASE_STORAGE"
 			}
 		]
@@ -11,7 +11,7 @@
 	"main": "index.ts",
 	"migrations": [
 		{
-			"new_sqlite_classes": ["AppDatabase"],
+			"new_sqlite_classes": ["SlateDatabase"],
 			"tag": "v1"
 		}
 	],
