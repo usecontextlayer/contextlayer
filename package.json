@@ -18,6 +18,7 @@
 	"engines": {
 		"node": ">=24.0.0"
 	},
+	"license": "BUSL-1.1",
 	"name": "@usecontextlayer",
 	"packageManager": "pnpm@11.22.0",
 	"private": true,

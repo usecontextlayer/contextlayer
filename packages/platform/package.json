@@ -59,6 +59,7 @@
 	"engines": {
 		"node": ">=24.19.0"
 	},
+	"license": "BUSL-1.1",
 	"name": "@usecontextlayer/platform",
 	"private": true,
 	"scripts": {

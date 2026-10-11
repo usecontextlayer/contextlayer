@@ -60,6 +60,7 @@
 			"types": "./dist/tools-worker.d.mts"
 		}
 	},
+	"license": "MIT",
 	"name": "@usecontextlayer/shared",
 	"private": true,
 	"scripts": {

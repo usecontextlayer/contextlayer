@@ -39,6 +39,7 @@
 		"dist"
 	],
 	"homepage": "https://www.usecontextlayer.com",
+	"license": "MIT",
 	"name": "@usecontextlayer/cli",
 	"repository": {
 		"directory": "packages/cli",

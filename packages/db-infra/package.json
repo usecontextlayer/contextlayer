@@ -17,6 +17,7 @@
 			"types": "./dist/index.d.mts"
 		}
 	},
+	"license": "BUSL-1.1",
 	"main": "./dist/index.mjs",
 	"name": "@usecontextlayer/db-infra",
 	"private": true,

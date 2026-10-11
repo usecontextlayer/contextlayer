@@ -50,6 +50,7 @@
 		"dist",
 		"examples"
 	],
+	"license": "MIT",
 	"name": "@usecontextlayer/sdk",
 	"peerDependencies": {
 		"@cloudflare/vite-plugin": "^1.62.4",

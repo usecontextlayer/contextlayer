@@ -8,6 +8,7 @@
 		"typescript": "latest",
 		"wrangler": "^4.146.0"
 	},
+	"license": "BUSL-1.1",
 	"name": "@usecontextlayer/auth",
 	"private": true,
 	"scripts": {
