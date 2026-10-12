@@ -20,11 +20,8 @@ export function resolveSlateResourceActor(actor: SlateActor, resources: Resource
 	return { allowed: true, viewer: actor.type === "app" ? null : actor } as const
 }
 
-export async function getSlateResources(access: SlateAccess, artifacts: Artifacts) {
-	const snapshot = await readSlateDeclarations(artifacts, access.slate.id)
-	if (snapshot.state === "no-commit")
-		throw new Error("Slate repository main commit not found")
-	return snapshot.resources
+export function getSlateResources(access: SlateAccess, artifacts: Artifacts) {
+	return readSlateDeclarations(artifacts, access.slate.id)
 }
 
 export function prepareSlateResourceConfiguration(

@@ -1,6 +1,7 @@
 import { isCancel, select } from "@clack/prompts"
 import { connectionsSchema } from "@usecontextlayer/shared/connections"
 import { slateConnectionsSchema } from "@usecontextlayer/shared/slate-connections"
+import { noCommitSchema } from "@usecontextlayer/shared/slate-resources"
 import { z } from "zod"
 import { getAccessToken } from "@/auth"
 import { env } from "@/env"
@@ -86,6 +87,10 @@ export async function assignSlateConnection(
 			method: "POST",
 		},
 	)
+	if (response.status === 409 && noCommitSchema.safeParse(await response.json()).success)
+		throw new Error(
+			"Nothing has been pushed to this slate yet. Push to main before configuring hosted resources.",
+		)
 	if (!response.ok)
 		throw new Error(`Connection assignment failed: HTTP ${response.status}`)
 	const assignment = z
@@ -132,6 +137,10 @@ export async function listSlateConnections(target: string) {
 			method: "POST",
 		},
 	)
+	if (response.status === 409 && noCommitSchema.safeParse(await response.json()).success)
+		throw new Error(
+			"Nothing has been pushed to this slate yet. Push to main before configuring hosted resources.",
+		)
 	if (!response.ok)
 		throw new Error(`Slate connections request failed: HTTP ${response.status}`)
 	const { connections } = slateConnectionsSchema.parse(await response.json())

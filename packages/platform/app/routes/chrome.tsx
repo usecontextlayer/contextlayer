@@ -74,8 +74,8 @@ async function getChromeSlate(
 	if (!access.allowed)
 		throw new Response(null, { status: access.reason === "not-found" ? 404 : 403 })
 	const slateAccess = { identity, slate: access.slate }
-	const resources = await getSlateResources(slateAccess, context.get(artifactsContext))
-	return { access: slateAccess, resources }
+	const snapshot = await getSlateResources(slateAccess, context.get(artifactsContext))
+	return { access: slateAccess, snapshot }
 }
 
 export async function action({ request, params, context }: Route.ActionArgs) {
@@ -83,7 +83,9 @@ export async function action({ request, params, context }: Route.ActionArgs) {
 	if (!identity) throw new Response(null, { status: 401 })
 	const input = chromeActionSchema.safeParse(Object.fromEntries(await request.formData()))
 	if (!input.success) throw new Response("Invalid connection action", { status: 400 })
-	const { access, resources } = await getChromeSlate({ context, params }, identity)
+	const { access, snapshot } = await getChromeSlate({ context, params }, identity)
+	if (!snapshot.allowed) return data({ reason: snapshot.reason }, { status: 409 })
+	const { resources } = snapshot
 	if (input.data.intent === "connect") {
 		const requirement = resources.connections[input.data.slug]
 		if (!requirement) throw new Response(null, { status: 404 })
@@ -116,12 +118,21 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
 	const identity = context.get(identityContext)
 	if (!identity)
 		return data(
-			{ connections: [], parentOrigin, unconfiguredCount: 0, user: null },
+			{ parentOrigin, user: null },
 			{ headers: { "Cache-Control": "no-store" } },
 		)
 	const db = context.get(databaseContext)
-	const { access, resources } = await getChromeSlate({ context, params }, identity)
-	const { connections } = await listSlateConnections(db, access, resources)
+	const { access, snapshot } = await getChromeSlate({ context, params }, identity)
+	if (!snapshot.allowed)
+		return data(
+			{
+				configuration: snapshot,
+				parentOrigin,
+				user: await getCurrentUser(identity, issuer),
+			},
+			{ headers: { "Cache-Control": "no-store" } },
+		)
+	const { connections } = await listSlateConnections(db, access, snapshot.resources)
 	const [user, toolkits] = await Promise.all([
 		getCurrentUser(identity, issuer),
 		connections.length
@@ -171,19 +182,23 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
 	)
 	return data(
 		{
-			connections: requirements,
+			configuration: {
+				allowed: true as const,
+				connections: requirements,
+				unconfiguredCount: connections.filter(
+					({ connection_id }) => connection_id === null,
+				).length,
+			},
 			parentOrigin,
-			unconfiguredCount: connections.filter(({ connection_id }) => connection_id === null)
-				.length,
 			user,
 		},
 		{ headers: { "Cache-Control": "no-store" } },
 	)
 }
 
-export default function Chrome({
-	loaderData: { user, connections, parentOrigin, unconfiguredCount },
-}: Route.ComponentProps) {
+export default function Chrome({ loaderData }: Route.ComponentProps) {
+	const { user, parentOrigin } = loaderData
+	const configuration = loaderData.user ? loaderData.configuration : undefined
 	const observeHeader = useCallback(
 		(element: HTMLElement | null) => {
 			if (!element) return
@@ -206,7 +221,12 @@ export default function Chrome({
 						contextlayer
 					</span>
 					<span className="flex min-w-0 self-stretch">
-						{user && (
+						{configuration && !configuration.allowed && (
+							<span className="self-center px-3 text-[13px]/4">
+								Nothing has been pushed to this slate yet.
+							</span>
+						)}
+						{configuration?.allowed && (
 							<CollapsibleTrigger
 								render={
 									<Button
@@ -216,15 +236,21 @@ export default function Chrome({
 								}
 							>
 								<FontAwesomeIcon
-									icon={unconfiguredCount === 0 ? faCheck : faTriangleExclamation}
+									icon={
+										configuration.unconfiguredCount === 0
+											? faCheck
+											: faTriangleExclamation
+									}
 									className={
-										unconfiguredCount === 0 ? "text-green-600" : "text-orange-600"
+										configuration.unconfiguredCount === 0
+											? "text-green-600"
+											: "text-orange-600"
 									}
 									aria-hidden="true"
 								/>
-								{unconfiguredCount === 0
+								{configuration.unconfiguredCount === 0
 									? "all connections configured"
-									: `${unconfiguredCount} connection${unconfiguredCount === 1 ? "" : "s"} to configure`}
+									: `${configuration.unconfiguredCount} connection${configuration.unconfiguredCount === 1 ? "" : "s"} to configure`}
 							</CollapsibleTrigger>
 						)}
 						<span className="flex min-w-0 items-center gap-2 border-l border-slate-200 py-[3px] pr-3 pl-[3px] text-[13px]/4 font-normal">
@@ -253,19 +279,19 @@ export default function Chrome({
 						</span>
 					</span>
 				</div>
-				{user && (
+				{configuration?.allowed && (
 					<CollapsibleContent
 						keepMounted
 						className="h-(--collapsible-panel-height) overflow-hidden bg-slate-100 transition-[height] duration-200 ease-out data-ending-style:h-0 data-starting-style:h-0 motion-reduce:transition-none"
 					>
 						<ItemGroup className="gap-0 border-b border-slate-200 px-2 py-2">
-							{connections.map((requirement, index) => (
+							{configuration.connections.map((requirement, index) => (
 								<Fragment key={requirement.slug}>
 									{index > 0 && <ItemSeparator />}
 									<ConnectionRow requirement={requirement} />
 								</Fragment>
 							))}
-							{connections.length === 0 && (
+							{configuration.connections.length === 0 && (
 								<Item>
 									<ItemContent>
 										<ItemDescription>No connection requirements.</ItemDescription>
@@ -283,7 +309,10 @@ export default function Chrome({
 function ConnectionRow({
 	requirement,
 }: {
-	requirement: Route.ComponentProps["loaderData"]["connections"][number]
+	requirement: Extract<
+		Extract<Route.ComponentProps["loaderData"], { user: object }>["configuration"],
+		{ allowed: true }
+	>["connections"][number]
 }) {
 	const fetcher = useFetcher<typeof action>()
 	const pending = fetcher.state !== "idle"

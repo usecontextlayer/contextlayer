@@ -3,17 +3,19 @@ import {
 	declarationSchema,
 	type SlateDeclarations,
 } from "@usecontextlayer/shared/declaration"
+import { noCommitSchema } from "@usecontextlayer/shared/slate-resources"
 import type { SlateId } from "@/database/models/public/Slate"
 
 export type SlateDeclarationSnapshot = Extract<
 	Awaited<ReturnType<typeof readSlateDeclarations>>,
-	{ state: "snapshot" }
+	{ allowed: true }
 >
 
 export async function readSlateDeclarations(artifacts: Artifacts, slateId: SlateId) {
 	using repo = await artifacts.get(slateId)
 	const [commit] = await repo.log({ limit: 1, ref: "main" })
-	if (!commit) return { state: "no-commit" } as const
+	if (!commit)
+		return { allowed: false, reason: noCommitSchema.shape.reason.value } as const
 
 	const root = (await repo.readTree(commit.treeHash)) as ArtifactsTreeEntry[]
 	const directory = root.find((entry) => entry.name === "agents" && entry.type === "tree")
@@ -36,10 +38,10 @@ export async function readSlateDeclarations(artifacts: Artifacts, slateId: Slate
 	}
 	return {
 		agentTrees,
+		allowed: true as const,
 		commit: commit.hash,
 		declarations,
 		resources: collectSlateResources(declarations),
-		state: "snapshot" as const,
 	}
 }
 

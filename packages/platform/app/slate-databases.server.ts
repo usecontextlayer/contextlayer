@@ -16,8 +16,7 @@ export async function querySlateDatabase(
 	input: z.infer<typeof databaseQuerySchema>,
 ) {
 	const snapshot = await readSlateDeclarations(artifacts, slate.id)
-	if (snapshot.state === "no-commit")
-		return { allowed: false, reason: "not-declared" } as const
+	if (!snapshot.allowed) return { allowed: false, reason: "not-declared" } as const
 	const selected = resourcesForConsumer(snapshot.resources, { type: "app" })
 	const requirement = selected.databases[input.slug]
 	if (!requirement) return { allowed: false, reason: "not-declared" } as const

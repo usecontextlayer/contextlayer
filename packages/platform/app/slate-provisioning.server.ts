@@ -14,7 +14,7 @@ export async function provisionSlate(
 	actors: AgentActor[],
 ) {
 	const snapshot = await readSlateDeclarations(artifacts, slate.id)
-	if (snapshot.state === "no-commit") return
+	if (!snapshot.allowed) return
 	const instances = new Map<string, string>()
 	for (const actor of actors) {
 		if (actor.type !== "user") continue

@@ -107,7 +107,7 @@ export async function getAgentRun(
 	input: AgentRunRequest,
 ) {
 	const snapshot = await readSlateDeclarations(artifacts, slate.id)
-	if (snapshot.state === "no-commit")
+	if (!snapshot.allowed)
 		return { allowed: false, reason: "agent-definition-missing" } as const
 	const result = await readAgent(artifacts, slate.id, input.name, snapshot.commit)
 	if (!result.allowed)

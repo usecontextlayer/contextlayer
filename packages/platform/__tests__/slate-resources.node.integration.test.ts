@@ -14,6 +14,57 @@ import { slateSchema } from "@/slates.schema"
 
 const execFile = promisify(execFileCallback)
 
+test("hosted resources report no commit through the API, CLI and chrome", async ({
+	cliEnv,
+	identity,
+	platform,
+}) => {
+	const { origin, worker } = platform
+	const { headers } = identity
+	const { ARTIFACTS } = await worker.getEnv()
+	await using artifacts = new AsyncDisposableStack()
+	const post = (body: unknown) => ({
+		body: JSON.stringify(body),
+		headers: { ...headers, "content-type": "application/json" },
+		method: "POST",
+	})
+	const created = await fetch(`${origin}/api/slates`, post({}))
+	expect(created.status).toBe(201)
+	const slate = slateSchema.parse(await created.json())
+	artifacts.defer(async () => {
+		await ARTIFACTS.delete(slate.id)
+	})
+	for (const [operation, body] of [
+		["resources/list", {}],
+		["connections/list", {}],
+		["connections/assign", { connection_id: "test-account", slug: "mail" }],
+	] as const) {
+		const response = await fetch(
+			`${origin}/api/slates/${slate.id}/${operation}`,
+			post(body),
+		)
+		expect(response.status).toBe(409)
+		expect(await response.json()).toEqual({ reason: "no-commit" })
+	}
+	const message = "Nothing has been pushed to this slate yet."
+	const cli = join(import.meta.dirname, "../../cli/dist/cli.mjs")
+	for (const args of [
+		["connections", slate.id, "list"],
+		["connection", slate.id, "assign", "mail", "test-account"],
+	]) {
+		await expect(
+			execFile(process.execPath, [cli, ...args], {
+				env: { ...process.env, ...cliEnv },
+			}),
+		).rejects.toMatchObject({ code: 1, stderr: expect.stringContaining(message) })
+	}
+	const chromeUrl = new URL(`/dashboard/chrome/slates/${slate.id}`, origin)
+	chromeUrl.searchParams.set("parentOrigin", `https://${slate.public_hostname}`)
+	const chrome = await fetch(chromeUrl, { headers: { ...headers, accept: "text/html" } })
+	expect(chrome.status).toBe(200)
+	expect(await chrome.text()).toContain(message)
+})
+
 test("hosted configuration uses pushed declarations independently of developer-local configuration", async ({
 	cliEnv,
 	db,

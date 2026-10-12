@@ -17,8 +17,7 @@ export async function callTool(
 	artifacts: Artifacts,
 ) {
 	const snapshot = await readSlateDeclarations(artifacts, access.slate.id)
-	if (snapshot.state === "no-commit")
-		return { allowed: false, reason: "not-declared" } as const
+	if (!snapshot.allowed) return { allowed: false, reason: "not-declared" } as const
 	const resolved = await resolveSlateConnection(db, access, call.slug, snapshot.resources)
 	if (!resolved.allowed) return resolved
 	const session = await createConnectionSession(

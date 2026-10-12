@@ -3,6 +3,8 @@ import { databaseMigrationsSchema } from "@/lib/databases"
 import { resourcesSchema } from "@/lib/declaration"
 import { ownerSchema } from "@/lib/slate-usage"
 
+export const noCommitSchema = z.object({ reason: z.literal("no-commit") })
+
 export const slateResourceConfigurationSchema = resourcesSchema.extend({
 	connections: z.record(
 		resourcesSchema.shape.connections.keyType,

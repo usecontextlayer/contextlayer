@@ -1,5 +1,7 @@
 import { createRoute, OpenAPIHono, type RouteConfig, z } from "@hono/zod-openapi"
 import { createPolarCore, webhooks } from "@polar-sh/sdk/2026-10"
+import type { Resources } from "@usecontextlayer/shared/declaration"
+import { noCommitSchema } from "@usecontextlayer/shared/slate-resources"
 import {
 	recordSlateUsage,
 	resolvedSlateSchema,
@@ -103,6 +105,11 @@ const security: NonNullable<RouteConfig["security"]> = [
 	{ webCookie: [] },
 	{ localWebCookie: [] },
 ]
+
+const noCommitResponse = {
+	content: { "application/json": { schema: noCommitSchema } },
+	description: "Nothing has been pushed to the slate's main branch yet",
+}
 
 export function createApi() {
 	const api = new OpenAPIHono<OwnerIdentityEnv>()
@@ -823,7 +830,20 @@ export function createApi() {
 			return c.json(result.slate, 200)
 		},
 	)
-	slateOperations.openapi(
+	const resourceOperations = new OpenAPIHono<
+		OwnerViewingEnv & { Variables: { resources: Resources } }
+	>()
+	resourceOperations.on(
+		"POST",
+		["/resources/list", "/connections/list", "/connections/assign"],
+		async (c, next) => {
+			const result = await getSlateResources(c.var.slateAccess, c.env.ARTIFACTS)
+			if (!result.allowed) return c.json({ reason: result.reason }, 409)
+			c.set("resources", result.resources)
+			await next()
+		},
+	)
+	resourceOperations.openapi(
 		createRoute({
 			method: "post",
 			operationId: "listSlateResources",
@@ -847,15 +867,18 @@ export function createApi() {
 					description: "Slate viewing is forbidden",
 				},
 				404: { description: "Slate not found" },
+				409: noCommitResponse,
 			},
 			security,
 		}),
 		async (c) => {
-			const resources = await getSlateResources(c.var.slateAccess, c.env.ARTIFACTS)
-			return c.json(await listSlateResources(c.var.db, c.var.slateAccess, resources), 200)
+			return c.json(
+				await listSlateResources(c.var.db, c.var.slateAccess, c.var.resources),
+				200,
+			)
 		},
 	)
-	slateOperations.openapi(
+	resourceOperations.openapi(
 		createRoute({
 			method: "post",
 			operationId: "listSlateConnections",
@@ -880,16 +903,20 @@ export function createApi() {
 					description: "Slate viewing is forbidden",
 				},
 				404: { description: "Slate not found" },
+				409: noCommitResponse,
 			},
 			security,
 		}),
 		async (c) => {
-			const resources = await getSlateResources(c.var.slateAccess, c.env.ARTIFACTS)
-			const result = await listSlateConnections(c.var.db, c.var.slateAccess, resources)
+			const result = await listSlateConnections(
+				c.var.db,
+				c.var.slateAccess,
+				c.var.resources,
+			)
 			return c.json(result, 200)
 		},
 	)
-	slateOperations.openapi(
+	resourceOperations.openapi(
 		createRoute({
 			method: "post",
 			operationId: "assignSlateConnection",
@@ -912,22 +939,23 @@ export function createApi() {
 				},
 				403: { description: "Slate viewing or Owner connection management is forbidden" },
 				404: { description: "Slate or connection requirement not found" },
+				409: noCommitResponse,
 			},
 			security,
 		}),
 		async (c) => {
-			const resources = await getSlateResources(c.var.slateAccess, c.env.ARTIFACTS)
 			const result = await assignSlateConnection(
 				c.var.db,
 				c.var.slateAccess,
 				c.var.config.CTX_AUTH_ISSUER,
 				c.req.valid("json"),
-				resources,
+				c.var.resources,
 			)
 			if (!result.allowed) return c.body(null, result.reason === "forbidden" ? 403 : 404)
 			return c.json(result.assignment, 200)
 		},
 	)
+	slateOperations.route("/", resourceOperations)
 	api.route("/slates/:target", slateOperations)
 	api.doc31("/openapi.json", {
 		info: { title: "ContextLayer Platform", version: "0.1.0" },
