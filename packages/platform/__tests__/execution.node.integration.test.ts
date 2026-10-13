@@ -1,8 +1,8 @@
 import assert from "node:assert/strict"
+import { randomUUID } from "node:crypto"
 import { cp, mkdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { createPolarCore } from "@polar-sh/sdk/2026-10"
-import { getStateExternalCustomers } from "@polar-sh/sdk/2026-10/services/customers"
 import { listEvents } from "@polar-sh/sdk/2026-10/services/events"
 import { executionTest as test } from "@tests/integration"
 import { signInViewer } from "@usecontextlayer/dev-env/viewer"
@@ -17,7 +17,6 @@ import type {
 import { execa } from "execa"
 import { expect } from "vitest"
 import { z } from "zod"
-import { saveCustomerState } from "@/billing.server"
 import { slateSchema } from "@/slates.schema"
 
 test("native resource capabilities enforce access and report exact slate-Owner tool usage", {
@@ -79,6 +78,15 @@ test("native resource capabilities enforce access and report exact slate-Owner t
 		accessToken: serviceEnv.polarEnv.POLAR_ACCESS_TOKEN,
 		environment: serviceEnv.polarEnv.POLAR_ENVIRONMENT,
 	})
+	const slateWithoutPolarCustomer = await db
+		.insertInto("slate")
+		.values({
+			owner_user_id: randomUUID(),
+			public_hostname: "missing-customer.example.com",
+			visibility: "public",
+		})
+		.returningAll()
+		.executeTakeFirstOrThrow()
 	for (const [body, ownerId] of [
 		[{}, identity.user.id],
 		[{ organization_slug: organization.slug }, organization.id],
@@ -105,7 +113,7 @@ test("native resource capabilities enforce access and report exact slate-Owner t
 			slateId: slate.id,
 		} as const
 		const blocked = await fetch(
-			`${origin}/api/slates/resolve?${new URLSearchParams({ hostname: slate.public_hostname, pathname: "/" })}`,
+			`${origin}/api/slates/resolve?${new URLSearchParams({ hostname: slateWithoutPolarCustomer.public_hostname, pathname: "/" })}`,
 			{ headers: viewerHeaders },
 		)
 		expect(blocked.status).toBe(402)
@@ -114,20 +122,19 @@ test("native resource capabilities enforce access and report exact slate-Owner t
 		const refusal = { allowed: false, message, reason: "subscription-required" }
 		expect(
 			await callExecution("callTool", [
-				slate.id,
+				slateWithoutPolarCustomer.id,
 				viewerToken,
 				{ arguments: {}, slug: "mail", tool: "GMAIL_GET_PROFILE" },
 			]),
 		).toEqual(refusal)
 		expect(
 			await callExecution("queryDatabase", [
-				slate.id,
+				slateWithoutPolarCustomer.id,
 				viewerToken,
 				{ slug: "drafts", sql: "SELECT * FROM updates" },
 			]),
 		).toEqual(refusal)
 
-		await saveCustomerState(db, await getStateExternalCustomers(polar)(ownerId), null)
 		const checkout = join(directory, slate.id)
 		await mkdir(join(checkout, "public"), { recursive: true })
 		await writeFile(

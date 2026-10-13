@@ -11,7 +11,7 @@ import { test } from "@tests/integration"
 import { expect } from "vitest"
 import { slateSchema } from "@/slates.schema"
 
-test("signed Free enrollment grants credits and exhaustion denies runtime access", async ({
+test("signed Free enrollment grants credits and exhaustion denies runtime access after state refresh", async ({
 	developmentDb: db,
 	identity,
 	serviceEnv,
@@ -92,6 +92,11 @@ test("signed Free enrollment grants credits and exhaustion denies runtime access
 				{ interval: 1000, timeout: 60_000 },
 			)
 			.toBe(0)
+		await db
+			.updateTable("polar_customer_state")
+			.set({ refreshed_at: new Date(Date.now() - 2 * 60 * 60 * 1000) })
+			.where("external_id", "=", externalId)
+			.execute()
 		const exhausted = await fetch(resolve("/"))
 		expect(exhausted.status).toBe(402)
 		const message = await exhausted.text()

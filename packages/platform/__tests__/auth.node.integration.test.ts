@@ -118,10 +118,20 @@ test("native session mutations require the same origin while CLI tokens can join
 
 test("native sessions and CLI tokens can manage slates and accept only scoped resource inputs", async ({
 	slate,
+	db,
 	identity,
 	platform: { origin },
 	webSession,
 }) => {
+	const slateWithoutPolarCustomer = await db
+		.insertInto("slate")
+		.values({
+			owner_user_id: crypto.randomUUID(),
+			public_hostname: "missing-customer.example.com",
+			visibility: "public",
+		})
+		.returningAll()
+		.executeTakeFirstOrThrow()
 	for (const credentials of [webSession.headers, identity.headers]) {
 		const headers = new Headers(credentials)
 		headers.set("origin", origin)
@@ -140,7 +150,7 @@ test("native sessions and CLI tokens can manage slates and accept only scoped re
 		).toBe(400)
 		const concreteCall = {
 			arguments: {},
-			slate_id: slate.id,
+			slate_id: slateWithoutPolarCustomer.id,
 			tool: "READ",
 			toolkit: "gmail",
 		}
@@ -204,7 +214,7 @@ test("personal connected account execution requires permission to view its slate
 	).toBe(403)
 })
 
-test("public slate resolution permits declaration paths without a subscription or sign-in", async ({
+test("public slate resolution permits declaration paths without sign-in", async ({
 	slate,
 	db,
 	identity,

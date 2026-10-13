@@ -2,7 +2,6 @@ import { mkdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { createPolarCore } from "@polar-sh/sdk/2026-10"
-import { getStateExternalCustomers } from "@polar-sh/sdk/2026-10/services/customers"
 import { listEvents } from "@polar-sh/sdk/2026-10/services/events"
 import { dispatcherTest as test } from "@tests/integration"
 import { signInViewer } from "@usecontextlayer/dev-env/viewer"
@@ -10,13 +9,11 @@ import { execa } from "execa"
 import { expect } from "vitest"
 import { unstable_readConfig } from "wrangler"
 import { z } from "zod"
-import { saveCustomerState } from "@/billing.server"
 import { slateSchema } from "@/slates.schema"
 
 test("real dispatch strips viewer credentials and reports exact slate-Owner request usage", {
 	timeout: 660_000,
 }, async ({
-	db,
 	directory,
 	dispatcher,
 	identity,
@@ -47,7 +44,6 @@ test("real dispatch strips viewer credentials and reports exact slate-Owner requ
 		[{}, user.id],
 		[{ organization_slug: organization.slug }, organization.id],
 	] as const) {
-		await saveCustomerState(db, await getStateExternalCustomers(polar)(ownerId), null)
 		const created = await fetch(`${origin}/api/slates`, {
 			body: JSON.stringify(body),
 			headers: { ...headers, "content-type": "application/json" },

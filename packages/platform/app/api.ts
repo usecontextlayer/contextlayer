@@ -127,7 +127,7 @@ export function createApi() {
 			throw error
 		}
 		if (payload.type === "customer.state_changed") {
-			await saveCustomerState(c.var.db, payload.data, payload.timestamp)
+			await saveCustomerState(c.var.db, payload.data)
 		}
 		if (payload.type === "customer.created" && payload.data.external_id) {
 			const polar = createPolarCore({
@@ -832,17 +832,14 @@ export function createApi() {
 	)
 	const resourceOperations = new OpenAPIHono<
 		OwnerViewingEnv & { Variables: { resources: Resources } }
-	>()
-	resourceOperations.on(
-		"POST",
-		["/resources/list", "/connections/list", "/connections/assign"],
-		async (c, next) => {
-			const result = await getSlateResources(c.var.slateAccess, c.env.ARTIFACTS)
-			if (!result.allowed) return c.json({ reason: result.reason }, 409)
-			c.set("resources", result.resources)
-			await next()
+	>({
+		defaultHook: async (result, c) => {
+			if (!result.success || result.target !== "json") return
+			const snapshot = await getSlateResources(c.var.slateAccess, c.env.ARTIFACTS)
+			if (!snapshot.allowed) return c.json({ reason: snapshot.reason }, 409)
+			c.set("resources", snapshot.resources)
 		},
-	)
+	})
 	resourceOperations.openapi(
 		createRoute({
 			method: "post",

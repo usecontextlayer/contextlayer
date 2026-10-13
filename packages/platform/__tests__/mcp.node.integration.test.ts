@@ -2,8 +2,6 @@ import { cp, symlink, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client"
-import { createPolarCore } from "@polar-sh/sdk/2026-10"
-import { getStateExternalCustomers } from "@polar-sh/sdk/2026-10/services/customers"
 import { dispatcherTest as base } from "@tests/integration"
 import { authorizeMcp } from "@usecontextlayer/dev-env/mcp"
 import { signInViewer } from "@usecontextlayer/dev-env/viewer"
@@ -11,7 +9,6 @@ import { execa } from "execa"
 import { expect } from "vitest"
 import { unstable_readConfig } from "wrangler"
 import { z } from "zod"
-import { saveCustomerState } from "@/billing.server"
 import { slateSchema } from "@/slates.schema"
 
 const test = base
@@ -73,8 +70,14 @@ test("native dispatcher and platform bind MCP to the slate and reject cookie fal
 		`resource_metadata="${metadataUrl}"`,
 	)
 	expect(challenge.headers.get("location")).toBeNull()
-	// Identity and private viewing succeed; this fixture has no subscription state.
-	expect((await worker.fetch(resource, { headers })).status).toBe(402)
+	expect(
+		(
+			await platform.worker.fetch(
+				`/api/slates/resolve?hostname=${slate.public_hostname}&pathname=/mcp`,
+				{ headers },
+			)
+		).status,
+	).toBe(200)
 	const other = await db
 		.insertInto("slate")
 		.values({
@@ -98,8 +101,7 @@ test("native dispatcher and platform bind MCP to the slate and reject cookie fal
 	).toBe(200)
 })
 
-test("private organization member reaches billing through slate-bound MCP authorization", async ({
-	dispatcher,
+test("private organization member passes billing through slate-bound MCP authorization", async ({
 	identity,
 	organization,
 	platform,
@@ -132,20 +134,18 @@ test("private organization member reaches billing through slate-bound MCP author
 		webHeaders: webSession.headers,
 	})
 	expect(
-		(await dispatcher.worker.fetch(resource, { headers: Object.fromEntries(headers) }))
-			.status,
-	).toBe(402)
+		(
+			await platform.worker.fetch(
+				`/api/slates/resolve?hostname=${slate.public_hostname}&pathname=/mcp`,
+				{ headers: Object.fromEntries(headers) },
+			)
+		).status,
+	).toBe(200)
 })
 
 test("discovers a View and invokes an authored Worker once through native MCP", {
 	timeout: 300_000,
-}, async ({ slate, db, directory, dispatcher, identity, mcpHeaders, serviceEnv }) => {
-	const polar = createPolarCore({
-		accessToken: serviceEnv.polarEnv.POLAR_ACCESS_TOKEN,
-		environment: serviceEnv.polarEnv.POLAR_ENVIRONMENT,
-	})
-	const state = await getStateExternalCustomers(polar)(identity.user.id)
-	await saveCustomerState(db, state, null)
+}, async ({ slate, directory, dispatcher, mcpHeaders }) => {
 	await cp(new URL("./fixtures/mcp", import.meta.url), directory, { recursive: true })
 	await cp(
 		new URL("../../cli/template/workers/local-resources", import.meta.url),

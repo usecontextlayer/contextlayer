@@ -21,7 +21,7 @@ export default interface PolarCustomerStateTable {
 
 	state: ColumnType<models.CustomerState, models.CustomerState, models.CustomerState>
 
-	event_timestamp: ColumnType<Date | null, Date | string | null, Date | string | null>
+	refreshed_at: ColumnType<Date, Date | string | undefined, Date | string>
 }
 
 export type PolarCustomerState = Selectable<PolarCustomerStateTable>

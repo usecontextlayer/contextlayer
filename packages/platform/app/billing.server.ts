@@ -1,11 +1,19 @@
-import { createPolarCore, type models, type PolarCore } from "@polar-sh/sdk/2026-10"
-import { getStateCustomers } from "@polar-sh/sdk/2026-10/services/customers"
+import {
+	createPolarCore,
+	errors,
+	type models,
+	type PolarCore,
+} from "@polar-sh/sdk/2026-10"
+import { getStateExternalCustomers } from "@polar-sh/sdk/2026-10/services/customers"
 import { createSubscriptions } from "@polar-sh/sdk/2026-10/services/subscriptions"
+import { sql } from "kysely"
 import type { PlatformDb } from "@/database"
 import type { PolarCustomerStateCustomerId } from "@/database/models/public/PolarCustomerState"
 import type { PlatformConfig } from "@/env"
 import { getSlateOwner } from "@/owner"
 import type { Slate } from "@/slates.schema"
+
+const CUSTOMER_STATE_MAX_AGE_MS = 60 * 60 * 1000
 
 export async function enrollFreeCustomer(
 	polar: PolarCore,
@@ -18,27 +26,23 @@ export async function enrollFreeCustomer(
 	})
 }
 
-export async function saveCustomerState(
-	db: PlatformDb,
-	state: models.CustomerState,
-	eventTimestamp: string | null,
-) {
-	await db
+export async function saveCustomerState(db: PlatformDb, state: models.CustomerState) {
+	return db
 		.insertInto("polar_customer_state")
 		.values({
 			customer_id: state.id as PolarCustomerStateCustomerId,
-			event_timestamp: eventTimestamp,
 			external_id: state.external_id ?? null,
 			state,
 		})
 		.onConflict((conflict) =>
 			conflict.column("customer_id").doUpdateSet((eb) => ({
-				event_timestamp: eb.ref("excluded.event_timestamp"),
 				external_id: eb.ref("excluded.external_id"),
+				refreshed_at: sql`now()`,
 				state: eb.ref("excluded.state"),
 			})),
 		)
-		.execute()
+		.returning(["state", "refreshed_at"])
+		.executeTakeFirstOrThrow()
 }
 
 export async function checkSlateBilling(
@@ -47,11 +51,25 @@ export async function checkSlateBilling(
 	slate: Slate,
 ) {
 	const owner = getSlateOwner(slate)
-	const customer = await db
+	let customer = await db
 		.selectFrom("polar_customer_state")
-		.select("state")
+		.select(["state", "refreshed_at"])
 		.where("external_id", "=", owner.id)
 		.executeTakeFirst()
+	if (
+		!customer ||
+		Date.now() - customer.refreshed_at.getTime() > CUSTOMER_STATE_MAX_AGE_MS
+	) {
+		const polar = createPolarCore({
+			accessToken: config.POLAR_ACCESS_TOKEN,
+			environment: config.POLAR_ENVIRONMENT,
+		})
+		const state = await getStateExternalCustomers(polar)(owner.id).catch((error) => {
+			if (error instanceof errors.ResourceNotFound) return undefined
+			throw error
+		})
+		customer = state ? await saveCustomerState(db, state) : undefined
+	}
 	const billingUrl = new URL(
 		owner.type === "organization" ? "/settings/organizations" : "/settings/billing",
 		config.CTX_AUTH_ISSUER,
@@ -72,12 +90,7 @@ export async function checkSlateBilling(
 	)
 		return { allowed: true } as const
 
-	const polar = createPolarCore({
-		accessToken: config.POLAR_ACCESS_TOKEN,
-		environment: config.POLAR_ENVIRONMENT,
-	})
-	const state = await getStateCustomers(polar)(customer.state.id)
-	const meter = state.active_meters.find(
+	const meter = customer.state.active_meters.find(
 		(active) => active.meter_id === config.POLAR_CLIPS_METER_ID,
 	)
 	if (meter && meter.balance > 0) return { allowed: true } as const
