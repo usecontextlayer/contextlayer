@@ -19,7 +19,6 @@ export async function contextlayer({ command }: ConfigEnv) {
 				},
 			],
 			config: {
-				assets: { run_worker_first: ["/*", "!/mcp.json", "!/mcp-ui/*"] },
 				...(bindings
 					? {
 							services: [
