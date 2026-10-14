@@ -120,6 +120,9 @@
 		}
 	],
 	"name": "contextlayer-platform",
+	"observability": {
+		"enabled": true
+	},
 	"routes": [
 		{
 			"custom_domain": true,
