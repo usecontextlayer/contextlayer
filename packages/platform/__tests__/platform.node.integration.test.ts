@@ -278,6 +278,8 @@ test("slate ownership protects viewing, joining, listing, and native Git source 
 	})
 	expect((await getSlates()).slates).toContainEqual({ ...slate, latest_commit: revision })
 	expect((await fetch(connectionList, listRequest)).status).toBe(200)
+	const entry = await fetch(`${origin}/dashboard`, { headers, redirect: "manual" })
+	expect(entry.headers.get("Location")).toBe("/dashboard/personal/slates")
 	const page = await fetch(`${origin}/dashboard/personal/slates`, { headers })
 	expect(page.status).toBe(200)
 	const html = await page.text()
