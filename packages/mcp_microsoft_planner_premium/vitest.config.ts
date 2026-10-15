@@ -8,7 +8,7 @@ export default defineProject({
 	test: {
 		exclude: unitTestExclude,
 		include: unitTestInclude,
-		name: "@usecontextlayer/planner",
+		name: "@usecontextlayer/mcp_microsoft_planner_premium",
 		root: fileURLToPath(new URL(".", import.meta.url)),
 	},
 })

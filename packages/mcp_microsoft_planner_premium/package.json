@@ -12,7 +12,7 @@
 		"vitest": "^4.1.11",
 		"wrangler": "^4.146.0"
 	},
-	"name": "@usecontextlayer/planner",
+	"name": "@usecontextlayer/mcp_microsoft_planner_premium",
 	"private": true,
 	"scripts": {
 		"build": "wrangler deploy --env=\"\" --dry-run --outdir dist",

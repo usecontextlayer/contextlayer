@@ -4,7 +4,7 @@
 	"compatibility_date": "2026-10-02",
 	"compatibility_flags": ["nodejs_compat"],
 	"main": "index.ts",
-	"name": "contextlayer-planner",
+	"name": "contextlayer-mcp-microsoft-planner-premium",
 	"observability": {
 		"enabled": true
 	},
