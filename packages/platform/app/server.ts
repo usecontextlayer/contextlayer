@@ -10,6 +10,7 @@ import {
 } from "@/auth.middleware"
 import {
 	artifactsContext,
+	bindingsContext,
 	configContext,
 	databaseContext,
 	identityContext,
@@ -62,6 +63,7 @@ export default await createHonoServer<OwnerIdentityEnv>({
 		context.set(artifactsContext, c.env.ARTIFACTS)
 		context.set(identityContext, c.var.identity ?? null)
 		context.set(configContext, c.var.config)
+		context.set(bindingsContext, c.env)
 		return context
 	},
 })

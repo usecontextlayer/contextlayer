@@ -2,7 +2,10 @@ import { readDatabaseMigrations } from "@usecontextlayer/shared/databases"
 import { provisionAgentSchedules } from "@/agent-schedules.server"
 import type { AgentActor } from "@/agents.schema"
 import type { PlatformEnv } from "@/context"
-import { readSlateDeclarations } from "@/slate-declarations.server"
+import {
+	readSlateDeclarations,
+	type SlateDeclarationSnapshot,
+} from "@/slate-declarations.server"
 import { prepareSlateDatabaseConfiguration } from "@/slate-resources.server"
 import type { Slate } from "@/slates.schema"
 
@@ -12,16 +15,21 @@ export async function provisionSlate(
 	agents: PlatformEnv["Bindings"]["AGENTS"],
 	slate: Slate,
 	actors: AgentActor[],
+	declarations?: SlateDeclarationSnapshot,
 ) {
-	const snapshot = await readSlateDeclarations(artifacts, slate.id)
+	const snapshot = declarations ?? (await readSlateDeclarations(artifacts, slate.id))
 	if (!snapshot.allowed) return
 	const instances = new Map<string, string>()
 	for (const actor of actors) {
-		if (actor.type !== "user") continue
 		const configuration = prepareSlateDatabaseConfiguration(
 			slate,
-			actor,
-			snapshot.resources.databases,
+			actor.type === "user" ? actor : null,
+			Object.fromEntries(
+				Object.entries(snapshot.resources.databases).filter(
+					([, requirement]) =>
+						requirement.mode === (actor.type === "app" ? "owner" : "viewer"),
+				),
+			),
 		)
 		for (const [slug, { instance_name }] of Object.entries(configuration))
 			instances.set(instance_name, slug)

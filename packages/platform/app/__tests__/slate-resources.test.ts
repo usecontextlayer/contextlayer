@@ -5,10 +5,7 @@ import {
 } from "@usecontextlayer/shared/declaration"
 import { slateResourceConfigurationSchema } from "@usecontextlayer/shared/slate-resources"
 import { expect, test } from "vitest"
-import {
-	prepareSlateResourceConfiguration,
-	resolveSlateResourceActor,
-} from "@/slate-resources.server"
+import { prepareSlateResourceConfiguration } from "@/slate-resources.server"
 import { slateSchema } from "@/slates.schema"
 
 test.each([
@@ -83,46 +80,3 @@ test.each([
 		}
 	},
 )
-
-test.each([
-	{ connections: { mail: { mode: "viewer", toolkit: "gmail" } } },
-	{ connections: {}, databases: { personal: { mode: "viewer" } } },
-	{ connections: {}, secrets: { PERSONAL_KEY: { mode: "viewer" } } },
-	{
-		connections: { repository: { mode: "owner", toolkit: "github" } },
-		databases: { personal: { mode: "viewer" }, reports: { mode: "owner" } },
-	},
-])("viewer requirements resolve only for a slate member: %j", (declaration) => {
-	const resources = collectSlateResources(
-		slateDeclarationsSchema.parse({ agents: {}, app: declaration }),
-	)
-	for (const actor of [{ type: "app" }, { id: "bob", type: "viewer" }] as const)
-		expect(resolveSlateResourceActor(actor, resources)).toEqual({
-			allowed: false,
-			reason: "membership-required",
-		})
-	const member = { id: "bob", type: "member" } as const
-	expect(resolveSlateResourceActor(member, resources)).toEqual({
-		allowed: true,
-		viewer: member,
-	})
-})
-
-test("a non-member can resolve resources in owner mode without joining", () => {
-	const resources = collectSlateResources(
-		slateDeclarationsSchema.parse({
-			agents: {},
-			app: {
-				connections: { repository: { mode: "owner", toolkit: "github" } },
-				databases: { reports: { mode: "owner" } },
-				secrets: { API_KEY: { mode: "owner" } },
-			},
-		}),
-	)
-	const viewer = { id: "bob", type: "viewer" } as const
-	expect(resolveSlateResourceActor(viewer, resources)).toEqual({ allowed: true, viewer })
-	expect(resolveSlateResourceActor({ type: "app" }, resources)).toEqual({
-		allowed: true,
-		viewer: null,
-	})
-})

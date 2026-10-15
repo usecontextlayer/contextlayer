@@ -1,11 +1,11 @@
 import { createRoute, OpenAPIHono, type RouteConfig, z } from "@hono/zod-openapi"
 import { createPolarCore, webhooks } from "@polar-sh/sdk/2026-10"
-import type { Resources } from "@usecontextlayer/shared/declaration"
 import { noCommitSchema } from "@usecontextlayer/shared/slate-resources"
 import {
 	recordSlateUsage,
 	resolvedSlateSchema,
 } from "@usecontextlayer/shared/slate-usage"
+import { secretRequiredSchema } from "@usecontextlayer/shared/tools"
 import { isAPIError } from "better-auth/api"
 import {
 	agentJobParamsSchema,
@@ -58,8 +58,7 @@ import {
 	slateConnectionsSchema,
 } from "@/slate-connections.schema"
 import { assignSlateConnection } from "@/slate-connections.server"
-import { slateMemberSchema } from "@/slate-members.schema"
-import { joinSlate } from "@/slate-members.server"
+import type { SlateDeclarationSnapshot } from "@/slate-declarations.server"
 import {
 	slateResourcesRequestSchema,
 	slateResourcesSchema,
@@ -69,6 +68,7 @@ import {
 	listSlateConnections,
 	listSlateResources,
 } from "@/slate-resources.server"
+import { setSlateSecret } from "@/slate-secrets.server"
 import {
 	type AuthenticatedViewingEnv,
 	type OwnerViewingEnv,
@@ -318,8 +318,6 @@ export function createApi() {
 			const slate = await createSlate(
 				c.var.db,
 				c.env.ARTIFACTS,
-				c.env.DATABASES,
-				c.env.AGENTS,
 				c.var.config,
 				c.var.identity,
 				c.req.valid("json"),
@@ -599,42 +597,6 @@ export function createApi() {
 	slateOperations.use("*", requireAuth, requireSlateViewing)
 	slateOperations.openapi(
 		createRoute({
-			method: "post",
-			operationId: "joinSlate",
-			path: "/join",
-			request: { params: z.object({ target: slateTargetSchema }) },
-			responses: {
-				200: {
-					content: { "application/json": { schema: slateMemberSchema } },
-					description:
-						"The authenticated user's slate membership, enabling unattended participation",
-				},
-				400: { description: "Invalid slate target" },
-				401: { description: "A valid ContextLayer login is required" },
-				403: {
-					description:
-						"Public slates cannot be joined, or private slate viewing is forbidden",
-				},
-				404: { description: "Slate not found" },
-			},
-			security,
-		}),
-		async (c) => {
-			if (c.var.slateAccess.slate.visibility === "public") return c.body(null, 403)
-			return c.json(
-				await joinSlate(
-					c.var.db,
-					c.env.ARTIFACTS,
-					c.env.DATABASES,
-					c.env.AGENTS,
-					c.var.slateAccess,
-				),
-				200,
-			)
-		},
-	)
-	slateOperations.openapi(
-		createRoute({
 			method: "get",
 			operationId: "getAgent",
 			path: "/agents/{name}",
@@ -700,30 +662,31 @@ export function createApi() {
 				400: { description: "Invalid slate target, agent name, or prompt" },
 				401: { description: "A valid ContextLayer login is required" },
 				403: {
-					description:
-						"Slate viewing is forbidden, the slate is public, or viewer resources require membership",
+					description: "Slate viewing is forbidden or the slate is public",
 				},
 				404: { description: "Slate or deployed agent not found" },
 				409: {
-					content: { "application/json": { schema: connectionRequiredSchema } },
-					description:
-						"The agent's declared connection needs a connected account assigned",
+					content: {
+						"application/json": {
+							schema: z.union([connectionRequiredSchema, secretRequiredSchema]),
+						},
+					},
+					description: "A required connection assignment or personal secret is missing",
 				},
 			},
 			security,
 		}),
 		async (c) => {
-			const result = await startAgentJob(
-				c.var.db,
-				c.env.ARTIFACTS,
-				c.env.AGENTS,
-				c.var.slateAccess,
-				{ ...c.req.valid("json"), name: c.req.valid("param").name },
-			)
+			const result = await startAgentJob(c.var.db, c.env, c.var.slateAccess, {
+				...c.req.valid("json"),
+				name: c.req.valid("param").name,
+			})
 			if (!result.allowed) {
+				if (result.reason === "secret-required")
+					return c.json({ name: result.name, reason: result.reason }, 409)
 				if (result.reason === "connection-required")
 					return c.json({ reason: result.reason, slug: result.slug }, 409)
-				return c.body(null, result.reason === "membership-required" ? 403 : 404)
+				return c.body(null, result.reason === "forbidden" ? 403 : 404)
 			}
 			return c.json(result.job, 202)
 		},
@@ -834,13 +797,13 @@ export function createApi() {
 		},
 	)
 	const resourceOperations = new OpenAPIHono<
-		OwnerViewingEnv & { Variables: { resources: Resources } }
+		OwnerViewingEnv & { Variables: { snapshot: SlateDeclarationSnapshot } }
 	>({
 		defaultHook: async (result, c) => {
 			if (!result.success || result.target !== "json") return
 			const snapshot = await getSlateResources(c.var.slateAccess, c.env.ARTIFACTS)
 			if (!snapshot.allowed) return c.json({ reason: snapshot.reason }, 409)
-			c.set("resources", snapshot.resources)
+			c.set("snapshot", snapshot)
 		},
 	})
 	resourceOperations.openapi(
@@ -873,7 +836,7 @@ export function createApi() {
 		}),
 		async (c) => {
 			return c.json(
-				await listSlateResources(c.var.db, c.var.slateAccess, c.var.resources),
+				await listSlateResources(c.var.db, c.var.slateAccess, c.var.snapshot.resources),
 				200,
 			)
 		},
@@ -911,7 +874,7 @@ export function createApi() {
 			const result = await listSlateConnections(
 				c.var.db,
 				c.var.slateAccess,
-				c.var.resources,
+				c.var.snapshot.resources,
 			)
 			return c.json(result, 200)
 		},
@@ -946,13 +909,53 @@ export function createApi() {
 		async (c) => {
 			const result = await assignSlateConnection(
 				c.var.db,
+				c.env,
 				c.var.slateAccess,
 				c.var.config.CTX_AUTH_ISSUER,
 				c.req.valid("json"),
-				c.var.resources,
+				c.var.snapshot,
 			)
 			if (!result.allowed) return c.body(null, result.reason === "forbidden" ? 403 : 404)
 			return c.json(result.assignment, 200)
+		},
+	)
+	resourceOperations.openapi(
+		createRoute({
+			method: "put",
+			operationId: "setSlateSecret",
+			path: "/secrets/{name}",
+			request: {
+				body: {
+					content: { "application/json": { schema: setSecretRequestSchema } },
+					required: true,
+				},
+				params: z.object({ name: secretSchema.shape.name, target: slateTargetSchema }),
+			},
+			responses: {
+				200: {
+					content: { "application/json": { schema: secretSchema } },
+					description: "Saved secret's Owner and name; completes slate setup when ready",
+				},
+				400: { description: "Invalid secret name or value" },
+				401: { description: "A valid ContextLayer login is required" },
+				403: { description: "Slate viewing or secret Owner management is forbidden" },
+				404: { description: "Slate or secret requirement not found" },
+				409: noCommitResponse,
+			},
+			security,
+		}),
+		async (c) => {
+			const result = await setSlateSecret(
+				c.var.db,
+				c.env,
+				c.var.config,
+				c.var.slateAccess,
+				c.req.valid("param").name,
+				c.req.valid("json"),
+				c.var.snapshot,
+			)
+			if (!result.allowed) return c.body(null, result.reason === "forbidden" ? 403 : 404)
+			return c.json(result.secret, 200)
 		},
 	)
 	slateOperations.route("/", resourceOperations)

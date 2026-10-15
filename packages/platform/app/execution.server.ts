@@ -52,13 +52,7 @@ export class Execution
 		try {
 			const access = await getViewerAccess(db, config, slateId, viewerSessionToken)
 			if (!access.allowed) return access
-			const result = await callTool(
-				db,
-				config.COMPOSIO_API_KEY,
-				access,
-				call,
-				this.env.ARTIFACTS,
-			)
+			const result = await callTool(db, this.env, access, call)
 			if (!result.allowed) return result
 			this.ctx.waitUntil(
 				recordSlateUsage(
@@ -87,13 +81,7 @@ export class Execution
 		try {
 			const access = await getViewerAccess(db, config, slateId, viewerSessionToken)
 			if (!access.allowed) return access
-			return await querySlateDatabase(
-				db,
-				this.env.ARTIFACTS,
-				this.env.DATABASES,
-				access,
-				query,
-			)
+			return await querySlateDatabase(db, this.env, access, query)
 		} finally {
 			await db.destroy()
 		}

@@ -1,17 +1,18 @@
 import type { ToolConfig } from "@modelcontextprotocol/ext-apps/server"
 import type { CallToolResult } from "@modelcontextprotocol/server"
+import type { DatabasesBinding } from "@usecontextlayer/shared/databases"
 import type { ToolsBinding } from "@usecontextlayer/shared/tools"
 import { createRequestHandler, RouterContextProvider } from "react-router"
 import type { z } from "zod"
 import { type Databases, databasesContext, type Tools, toolsContext } from "@/index"
 
 interface LocalBindings {
-	DATABASES: Databases
+	DATABASES: DatabasesBinding
 	TOOLS: ToolsBinding
 }
 
 interface SlateWorkerProps {
-	databases: Databases
+	databases: DatabasesBinding
 	tools: ToolsBinding
 	mcpTool?: string
 }
@@ -52,9 +53,22 @@ export function createSlateWorker({
 				return Response.json(await module.handler(args, createTools(ctx.props.tools)))
 			}
 			const context = new RouterContextProvider()
-			context.set(databasesContext, development ? env.DATABASES : ctx.props.databases)
+			context.set(
+				databasesContext,
+				createDatabases(development ? env.DATABASES : ctx.props.databases),
+			)
 			context.set(toolsContext, createTools(development ? env.TOOLS : ctx.props.tools))
 			return requestHandler(request, context)
+		},
+	}
+}
+
+function createDatabases(binding: DatabasesBinding): Databases {
+	return {
+		async query(...args) {
+			const result = await binding.query(...args)
+			if (result instanceof Response) throw result
+			return result
 		},
 	}
 }

@@ -162,18 +162,9 @@ export class SlateAgent extends Think<PlatformEnv["Bindings"]> {
 					.where("id", "=", scheduled.slateId)
 					.executeTakeFirstOrThrow(),
 			)
-			const prepared = await getAgentRun(
-				db,
-				this.env.ARTIFACTS,
-				slate,
-				scheduled.actor,
-				scheduled,
-			)
+			const prepared = await getAgentRun(db, this.env, slate, scheduled.actor, scheduled)
 			if (!prepared.allowed) {
-				if (
-					prepared.reason === "agent-definition-missing" ||
-					prepared.reason === "membership-required"
-				) {
+				if (prepared.reason === "agent-definition-missing") {
 					await this.provisionSchedules(
 						scheduled.slateId,
 						scheduled.name,
@@ -182,7 +173,13 @@ export class SlateAgent extends Think<PlatformEnv["Bindings"]> {
 					)
 					return
 				}
-				throw new Error(`connection-required: ${prepared.slug}`)
+				throw new Error(
+					prepared.reason === "secret-required"
+						? `secret-required: ${prepared.name}`
+						: prepared.reason === "connection-required"
+							? `connection-required: ${prepared.slug}`
+							: prepared.reason,
+				)
 			}
 			await this.start(prepared.run, "schedule")
 		} finally {

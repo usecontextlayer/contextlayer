@@ -1,4 +1,4 @@
-import { connectionRequiredSchema } from "@usecontextlayer/sdk"
+import { connectionRequiredSchema, secretRequiredSchema } from "@usecontextlayer/sdk"
 import { isRouteErrorResponse, Outlet } from "react-router"
 import type { Route } from "./+types/root"
 import "~/app.css"
@@ -11,6 +11,17 @@ export default function App() {
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
 	if (isRouteErrorResponse(error) && error.status === 409) {
+		const missingSecret = secretRequiredSchema.safeParse(error.data)
+		if (missingSecret.success)
+			return (
+				<main className="container mx-auto p-4 pt-16">
+					<h1 className="text-2xl font-semibold">Set a secret to continue</h1>
+					<p className="mt-3">
+						Your personal secret <code>{missingSecret.data.name}</code> is required by
+						this slate.
+					</p>
+				</main>
+			)
 		const unassignedConnection = connectionRequiredSchema.safeParse(error.data)
 		if (unassignedConnection.success) {
 			return (

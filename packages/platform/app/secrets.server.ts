@@ -12,6 +12,22 @@ export function secretKey(owner: Owner, name: string) {
 	return `OWNER_${owner.type.toUpperCase()}_${id}_${name}`
 }
 
+export async function listSharedSecretNames(config: PlatformBindings) {
+	const vault = parseSharedSecretsEnv(config)
+	const url = new URL("https://api.doppler.com/v3/configs/config/secrets/names")
+	url.search = new URLSearchParams({
+		config: vault.CTX_OWNER_CREDENTIALS_DOPPLER_CONFIG,
+		project: vault.CTX_OWNER_CREDENTIALS_DOPPLER_PROJECT,
+	}).toString()
+	const response = await fetch(url, {
+		headers: { authorization: `Bearer ${vault.CTX_OWNER_CREDENTIALS_DOPPLER_TOKEN}` },
+	})
+	if (!response.ok) throw new Error(`Secret names load failed: HTTP ${response.status}`)
+	return new Set(
+		z.object({ names: z.array(z.string()) }).parse(await response.json()).names,
+	)
+}
+
 export async function loadSharedSecret(
 	config: PlatformBindings,
 	owner: Owner,

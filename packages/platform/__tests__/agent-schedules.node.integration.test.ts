@@ -58,15 +58,11 @@ test("members' deployed cron jobs use viewer resources and retain results after 
 				.selectAll()
 				.where("slate_id", "=", slate.id)
 				.execute(),
-		).toEqual([{ slate_id: slate.id, user_id: user.id }])
+		).toEqual([])
 	}
 	const [joinedBeforeProvisioning, joinedAfterProvisioning] = slates
 	if (!joinedBeforeProvisioning || !joinedAfterProvisioning)
 		throw new Error("Expected scheduled test slates")
-	await db
-		.deleteFrom("slate_member")
-		.where("slate_id", "=", joinedAfterProvisioning.id)
-		.execute()
 	const missing = await fetch(
 		`${origin}/api/slates/${joinedBeforeProvisioning.id}/agents/missing/jobs`,
 		post({ prompt: "Read-only proof." }),
@@ -139,20 +135,18 @@ test("members' deployed cron jobs use viewer resources and retain results after 
 			`${origin}/api/slates/${slate.id}/agents/daily-summary/jobs`,
 			post({ prompt: "Read-only proof." }),
 		)
-		expect(refusal.status).toBe(index === 0 ? 409 : 403)
-		if (index === 0)
-			expect(await refusal.json()).toEqual({
-				reason: "connection-required",
-				slug: "mail",
-			})
-		expect(
-			(
-				await fetch(
-					`${origin}/api/slates/${slate.id}/connections/assign`,
-					post({ connection_id: account.id, slug: "mail" }),
-				)
-			).status,
-		).toBe(200)
+		expect(refusal.status).toBe(409)
+		expect(await refusal.json()).toEqual({ reason: "connection-required", slug: "mail" })
+		if (index === 0) {
+			expect(
+				(
+					await fetch(
+						`${origin}/api/slates/${slate.id}/connections/assign`,
+						post({ connection_id: account.id, slug: "mail" }),
+					)
+				).status,
+			).toBe(200)
+		}
 		const inventory = await fetch(
 			`${origin}/api/slates/${slate.id}/resources/list`,
 			post({}),
@@ -184,15 +178,12 @@ test("members' deployed cron jobs use viewer resources and retain results after 
 			slate,
 		})
 	}
-	const joined = await fetch(`${origin}/api/slates/${joinedAfterProvisioning.id}/join`, {
-		headers,
-		method: "POST",
-	})
-	expect(joined.status).toBe(200)
-	expect(await joined.json()).toEqual({
-		slate_id: joinedAfterProvisioning.id,
-		user_id: user.id,
-	})
+	const completedSetup = await fetch(
+		`${origin}/api/slates/${joinedAfterProvisioning.id}/connections/assign`,
+		post({ connection_id: account.id, slug: "mail" }),
+	)
+	expect(completedSetup.status).toBe(200)
+	expect(await completedSetup.json()).toEqual({ connection_id: account.id, slug: "mail" })
 	expect(await checkouts[1]?.memberInstance.listSchedules()).toHaveLength(1)
 	const firing = new Date(Math.ceil(Date.now() / 60_000) * 60_000 + 60_000)
 	const cron = `${firing.getUTCMinutes()} ${firing.getUTCHours()} ${firing.getUTCDate()} ${firing.getUTCMonth() + 1} *`

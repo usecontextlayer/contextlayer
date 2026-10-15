@@ -1,5 +1,5 @@
-import type { Resources } from "@usecontextlayer/shared/declaration"
 import type { z } from "zod"
+import type { PlatformEnv } from "@/context"
 import type { PlatformDb } from "@/database"
 import type {
 	SlateConnectionAssignmentOwnerId,
@@ -8,6 +8,8 @@ import type {
 import { getCredentialOwner, type Owner } from "@/owner"
 import { authorizeOwner } from "@/owner.server"
 import type { assignmentSchema } from "@/slate-connections.schema"
+import type { SlateDeclarationSnapshot } from "@/slate-declarations.server"
+import { prepareSlateResourceExecution } from "@/slate-resources.server"
 import type { Slate } from "@/slates.schema"
 import type { OwnerSlateAccess } from "@/slates.server"
 
@@ -20,12 +22,13 @@ function assignmentOwner(owner: Owner) {
 
 export async function assignSlateConnection(
 	db: PlatformDb,
+	bindings: PlatformEnv["Bindings"],
 	access: OwnerSlateAccess,
 	issuer: string,
 	assignment: z.infer<typeof assignmentSchema>,
-	resources: Resources,
+	snapshot: SlateDeclarationSnapshot,
 ) {
-	const requirement = resources.connections[assignment.slug]
+	const requirement = snapshot.resources.connections[assignment.slug]
 	if (!requirement) return { allowed: false, reason: "not-found" } as const
 	const owner = getCredentialOwner(requirement.mode, access.slate, access.identity.user)
 	if (
@@ -43,6 +46,14 @@ export async function assignSlateConnection(
 		)
 		.returning(["slug", "connection_id"])
 		.executeTakeFirstOrThrow()
+	await prepareSlateResourceExecution(
+		db,
+		bindings,
+		access.slate,
+		{ id: access.identity.user.id, type: "user" },
+		snapshot,
+		snapshot.resources,
+	)
 	return { allowed: true, assignment: saved } as const
 }
 

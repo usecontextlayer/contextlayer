@@ -5,6 +5,11 @@ export const connectionRequiredSchema = z.object({
 	slug: z.string().min(1),
 })
 
+export const secretRequiredSchema = z.object({
+	name: z.string().min(1),
+	reason: z.literal("secret-required"),
+})
+
 export const toolResultSchema = z.object({
 	data: z.record(z.string(), z.unknown()),
 	error: z.string().nullable(),

@@ -52,3 +52,7 @@ export type DatabaseResult = z.infer<typeof databaseResultSchema>
 export interface Databases {
 	query(slug: string, sql: string, params?: SqlValue[]): Promise<DatabaseResult>
 }
+
+export interface DatabasesBinding {
+	query(...args: Parameters<Databases["query"]>): Promise<DatabaseResult | Response>
+}

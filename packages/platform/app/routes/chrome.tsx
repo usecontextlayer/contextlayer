@@ -5,8 +5,9 @@ import {
 	faTriangleExclamation,
 } from "@awesome.me/kit-e146ba5a27/icons/slab/regular"
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome"
+import type { ResourceConsumer } from "@usecontextlayer/shared/declaration"
 import { cn } from "cn"
-import { Fragment, useCallback, useState } from "react"
+import { Fragment, useCallback, useEffect, useRef, useState } from "react"
 import { data, Form, redirectDocument, useFetcher } from "react-router"
 import { z } from "zod"
 import { getCurrentUser, type OwnerIdentity } from "@/auth.server"
@@ -22,9 +23,11 @@ import {
 	Field,
 	FieldContent,
 	FieldDescription,
+	FieldError,
 	FieldLabel,
 	FieldTitle,
 } from "@/components/ui/field"
+import { Input } from "@/components/ui/input"
 import {
 	Item,
 	ItemActions,
@@ -39,15 +42,19 @@ import { CONNECTION_MODE_LABELS } from "@/connection-labels"
 import { connectAccount, listConnections, listToolkits } from "@/connections.server"
 import {
 	artifactsContext,
+	bindingsContext,
 	configContext,
 	databaseContext,
 	identityContext,
 } from "@/context"
 import { getCredentialOwner } from "@/owner"
 import type { Route } from "@/routes/+types/chrome"
+import { secretSchema, setSecretRequestSchema } from "@/secrets.schema"
+import { listSharedSecretNames, secretKey } from "@/secrets.server"
 import { assignmentSchema } from "@/slate-connections.schema"
 import { assignSlateConnection } from "@/slate-connections.server"
-import { getSlateResources, listSlateConnections } from "@/slate-resources.server"
+import { getSlateResources, listSlateResources } from "@/slate-resources.server"
+import { setSlateSecret } from "@/slate-secrets.server"
 import { slateTargetSchema } from "@/slates.schema"
 import { resolveSlateForViewing } from "@/slates.server"
 
@@ -59,6 +66,10 @@ export const headers: Route.HeadersFunction = ({ actionHeaders }) => {
 const chromeActionSchema = z.discriminatedUnion("intent", [
 	assignmentSchema.extend({ intent: z.literal("assign") }),
 	assignmentSchema.pick({ slug: true }).extend({ intent: z.literal("connect") }),
+	setSecretRequestSchema.extend({
+		intent: z.literal("set-secret"),
+		name: secretSchema.shape.name,
+	}),
 ])
 
 async function getChromeSlate(
@@ -81,11 +92,30 @@ async function getChromeSlate(
 export async function action({ request, params, context }: Route.ActionArgs) {
 	const identity = context.get(identityContext)
 	if (!identity) throw new Response(null, { status: 401 })
-	const input = chromeActionSchema.safeParse(Object.fromEntries(await request.formData()))
-	if (!input.success) throw new Response("Invalid connection action", { status: 400 })
+	const form = await request.formData()
+	const input = chromeActionSchema.safeParse(Object.fromEntries(form))
+	if (!input.success) {
+		if (form.get("intent") === "set-secret")
+			return data({ error: "Enter a secret value." }, { status: 400 })
+		throw new Response("Invalid connection action", { status: 400 })
+	}
 	const { access, snapshot } = await getChromeSlate({ context, params }, identity)
 	if (!snapshot.allowed) return data({ reason: snapshot.reason }, { status: 409 })
 	const { resources } = snapshot
+	if (input.data.intent === "set-secret") {
+		const result = await setSlateSecret(
+			context.get(databaseContext),
+			context.get(bindingsContext),
+			context.get(configContext),
+			access,
+			input.data.name,
+			{ value: input.data.value },
+			snapshot,
+		)
+		if (!result.allowed)
+			throw new Response(null, { status: result.reason === "not-found" ? 404 : 403 })
+		return result.secret
+	}
 	if (input.data.intent === "connect") {
 		const requirement = resources.connections[input.data.slug]
 		if (!requirement) throw new Response(null, { status: 404 })
@@ -100,10 +130,11 @@ export async function action({ request, params, context }: Route.ActionArgs) {
 	}
 	const result = await assignSlateConnection(
 		context.get(databaseContext),
+		context.get(bindingsContext),
 		access,
 		context.get(configContext).CTX_AUTH_ISSUER,
 		{ connection_id: input.data.connection_id, slug: input.data.slug },
-		resources,
+		snapshot,
 	)
 	if (!result.allowed)
 		throw new Response(null, { status: result.reason === "not-found" ? 404 : 403 })
@@ -132,7 +163,22 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
 			},
 			{ headers: { "Cache-Control": "no-store" } },
 		)
-	const { connections } = await listSlateConnections(db, access, snapshot.resources)
+	const { resources } = await listSlateResources(db, access, snapshot.resources)
+	const connections = Object.entries(resources.connections).map(([slug, connection]) => ({
+		...connection,
+		slug,
+	}))
+	const viewerSecrets = Object.entries(resources.secrets).filter(
+		([, secret]) => secret.mode === "viewer",
+	)
+	const secretNames = viewerSecrets.length
+		? await listSharedSecretNames(context.get(bindingsContext))
+		: new Set<string>()
+	const secrets = viewerSecrets.map(([name, secret]) => ({
+		...secret,
+		configured: secretNames.has(secretKey(secret.owner, name)),
+		name,
+	}))
 	const [user, toolkits] = await Promise.all([
 		getCurrentUser(identity, issuer),
 		connections.length
@@ -185,9 +231,10 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
 			configuration: {
 				allowed: true as const,
 				connections: requirements,
-				unconfiguredCount: connections.filter(
-					({ connection_id }) => connection_id === null,
-				).length,
+				secrets,
+				unconfiguredCount:
+					connections.filter(({ connection_id }) => connection_id === null).length +
+					secrets.filter(({ configured }) => !configured).length,
 			},
 			parentOrigin,
 			user,
@@ -248,9 +295,13 @@ export default function Chrome({ loaderData }: Route.ComponentProps) {
 									}
 									aria-hidden="true"
 								/>
-								{configuration.unconfiguredCount === 0
-									? "all connections configured"
-									: `${configuration.unconfiguredCount} connection${configuration.unconfiguredCount === 1 ? "" : "s"} to configure`}
+								{configuration.secrets.length
+									? configuration.unconfiguredCount === 0
+										? "Setup complete"
+										: `${configuration.unconfiguredCount} input${configuration.unconfiguredCount === 1 ? "" : "s"} to configure`
+									: configuration.unconfiguredCount === 0
+										? "all connections configured"
+										: `${configuration.unconfiguredCount} connection${configuration.unconfiguredCount === 1 ? "" : "s"} to configure`}
 							</CollapsibleTrigger>
 						)}
 						<span className="flex min-w-0 items-center gap-2 border-l border-slate-200 py-[3px] pr-3 pl-[3px] text-[13px]/4 font-normal">
@@ -291,13 +342,22 @@ export default function Chrome({ loaderData }: Route.ComponentProps) {
 									<ConnectionRow requirement={requirement} />
 								</Fragment>
 							))}
-							{configuration.connections.length === 0 && (
-								<Item>
-									<ItemContent>
-										<ItemDescription>No connection requirements.</ItemDescription>
-									</ItemContent>
-								</Item>
-							)}
+							{configuration.secrets.map((requirement, index) => (
+								<Fragment key={requirement.name}>
+									{(configuration.connections.length > 0 || index > 0) && (
+										<ItemSeparator />
+									)}
+									<SecretRow requirement={requirement} />
+								</Fragment>
+							))}
+							{configuration.connections.length === 0 &&
+								configuration.secrets.length === 0 && (
+									<Item>
+										<ItemContent>
+											<ItemDescription>No connection requirements.</ItemDescription>
+										</ItemContent>
+									</Item>
+								)}
 						</ItemGroup>
 					</CollapsibleContent>
 				)}
@@ -348,16 +408,7 @@ function ConnectionRow({
 						<ItemTitle>{requirement.slug}</ItemTitle>
 						<ItemDescription className="line-clamp-none">
 							{CONNECTION_MODE_LABELS[requirement.mode]}
-							<span className="mt-1 flex flex-wrap items-center gap-1.5">
-								{requirement.consumers.map((consumer) => (
-									<Badge
-										key={consumer.type === "app" ? "app" : `agent:${consumer.name}`}
-										variant="outline"
-									>
-										{consumer.type === "app" ? "app" : `agent: ${consumer.name}`}
-									</Badge>
-								))}
-							</span>
+							<ResourceConsumers consumers={requirement.consumers} />
 						</ItemDescription>
 					</ItemContent>
 				</div>
@@ -487,6 +538,122 @@ function ConnectionRow({
 					</div>
 				</CollapsibleContent>
 			)}
+		</Collapsible>
+	)
+}
+
+function ResourceConsumers({ consumers }: { consumers: ResourceConsumer[] }) {
+	return (
+		<span className="mt-1 flex flex-wrap items-center gap-1.5">
+			{consumers.map((consumer) => (
+				<Badge
+					key={consumer.type === "app" ? "app" : `agent:${consumer.name}`}
+					variant="outline"
+				>
+					{consumer.type === "app" ? "app" : `agent: ${consumer.name}`}
+				</Badge>
+			))}
+		</span>
+	)
+}
+
+function SecretRow({
+	requirement,
+}: {
+	requirement: Extract<
+		Extract<Route.ComponentProps["loaderData"], { user: object }>["configuration"],
+		{ allowed: true }
+	>["secrets"][number]
+}) {
+	const fetcher = useFetcher<typeof action>()
+	const pending = fetcher.state !== "idle"
+	const form = useRef<HTMLFormElement>(null)
+	const error = fetcher.data && "error" in fetcher.data ? fetcher.data.error : null
+	useEffect(() => {
+		if (fetcher.state === "idle" && fetcher.data && "owner" in fetcher.data)
+			form.current?.reset()
+	}, [fetcher.state, fetcher.data])
+	return (
+		<Collapsible>
+			<Item className="justify-between">
+				<ItemContent className="min-w-0">
+					<ItemTitle className="wrap-anywhere">{requirement.name}</ItemTitle>
+					<ItemDescription className="line-clamp-none">
+						Personal secret
+						<ResourceConsumers consumers={requirement.consumers} />
+					</ItemDescription>
+				</ItemContent>
+				<div className="flex shrink-0 items-center gap-2.5">
+					<ItemTitle className={pending ? "opacity-50" : undefined}>
+						{requirement.configured ? "Saved" : "Not supplied"}
+					</ItemTitle>
+					<ItemActions>
+						<CollapsibleTrigger
+							render={
+								<Button
+									variant="ghost"
+									size="icon"
+								/>
+							}
+							disabled={pending}
+							aria-label={`Configure secret ${requirement.name}`}
+						>
+							<FontAwesomeIcon
+								icon={faGear}
+								className="text-base"
+								aria-hidden="true"
+							/>
+						</CollapsibleTrigger>
+					</ItemActions>
+				</div>
+			</Item>
+			<CollapsibleContent>
+				<fetcher.Form
+					ref={form}
+					method="post"
+					className="flex flex-col items-start gap-3 px-3 pb-4 sm:flex-row sm:items-end"
+					aria-busy={pending}
+				>
+					<input
+						type="hidden"
+						name="intent"
+						value="set-secret"
+					/>
+					<input
+						type="hidden"
+						name="name"
+						value={requirement.name}
+					/>
+					<Field
+						className="max-w-xl"
+						data-invalid={!!error}
+					>
+						<FieldLabel htmlFor={`secret-${requirement.name}`}>Secret value</FieldLabel>
+						<Input
+							id={`secret-${requirement.name}`}
+							name="value"
+							type="password"
+							autoComplete="new-password"
+							required
+							disabled={pending}
+							aria-invalid={!!error}
+							aria-describedby={`secret-description-${requirement.name}`}
+						/>
+						<FieldDescription id={`secret-description-${requirement.name}`}>
+							Saved for your account and shared with your other slates that request this
+							secret.
+						</FieldDescription>
+						{error && <FieldError>{error}</FieldError>}
+					</Field>
+					<Button
+						type="submit"
+						variant="outline"
+						disabled={pending}
+					>
+						{pending ? "Saving…" : "Save secret"}
+					</Button>
+				</fetcher.Form>
+			</CollapsibleContent>
 		</Collapsible>
 	)
 }

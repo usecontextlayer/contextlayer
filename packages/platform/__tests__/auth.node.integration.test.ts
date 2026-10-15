@@ -95,24 +95,37 @@ test("hosted execution is a native capability rather than a public HTTP operatio
 	}
 })
 
-test("native session mutations require the same origin while CLI tokens can join directly", async ({
+test("native session mutations require the same origin while CLI tokens can update directly", async ({
 	slate,
 	identity,
 	platform: { origin },
 	webSession,
 }) => {
-	const join = `${origin}/api/slates/${slate.id}/join`
+	const update = `${origin}/api/slates/${slate.id}`
 	const nativeHeaders = new Headers(webSession.headers)
 	nativeHeaders.delete("origin")
-	expect((await fetch(join, { headers: nativeHeaders, method: "POST" })).status).toBe(403)
+	nativeHeaders.set("content-type", "application/json")
+	expect(
+		(
+			await fetch(update, {
+				body: JSON.stringify({ visibility: "private" }),
+				headers: nativeHeaders,
+				method: "PATCH",
+			})
+		).status,
+	).toBe(403)
 	nativeHeaders.set("origin", origin)
 	for (const headers of [nativeHeaders, identity.headers]) {
-		const response = await fetch(join, { headers, method: "POST" })
-		expect(response.status).toBe(200)
-		expect(await response.json()).toEqual({
-			slate_id: slate.id,
-			user_id: identity.user.id,
+		const response = await fetch(update, {
+			body: JSON.stringify({ visibility: "private" }),
+			headers: {
+				...Object.fromEntries(new Headers(headers)),
+				"content-type": "application/json",
+			},
+			method: "PATCH",
 		})
+		expect(response.status).toBe(200)
+		expect(await response.json()).toMatchObject({ id: slate.id, visibility: "private" })
 	}
 })
 

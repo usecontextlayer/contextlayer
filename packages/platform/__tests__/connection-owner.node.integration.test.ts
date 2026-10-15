@@ -12,14 +12,12 @@ import { agentRunSchema } from "@/agents.schema"
 import { prepareAgentRun } from "@/agents.server"
 import type { OwnerIdentity } from "@/auth.server"
 import { getCredentialOwner } from "@/owner"
-import { assignmentSchema } from "@/slate-connections.schema"
-import { assignSlateConnection } from "@/slate-connections.server"
 import { slateMemberSchema } from "@/slate-members.schema"
 import {
 	getSlateResourceConfiguration,
 	listSlateConnections,
 	listSlateResources,
-	resolveSlateConnection,
+	resolveSlateResourceConfiguration,
 } from "@/slate-resources.server"
 import { slateSchema } from "@/slates.schema"
 
@@ -69,24 +67,20 @@ test("configuration includes agent-only connections while app execution uses its
 		.execute()
 	const access = { identity: alice, slate }
 	expect(
-		await resolveSlateConnection(
-			db,
-			access,
-			assignmentSchema.shape.slug.parse("mail"),
-			resources,
+		resolveSlateResourceConfiguration(
+			await getSlateResourceConfiguration(
+				db,
+				slate,
+				alice.user,
+				resourcesForConsumer(resources, { type: "app" }),
+			),
+			new Set(),
 		),
 	).toEqual({ allowed: false, reason: "connection-required", slug: "mail" })
-	for (const slug of ["mail", "repository"]) {
-		expect(
-			await assignSlateConnection(
-				db,
-				access,
-				"https://auth.example.com",
-				assignmentSchema.parse({ connection_id: `alice-${slug}`, slug }),
-				resources,
-			),
-		).toEqual({ allowed: true, assignment: { connection_id: `alice-${slug}`, slug } })
-	}
+	await sql`INSERT INTO slate_connection_assignment (slate_id, owner_type, owner_id, slug, connection_id)
+ VALUES (${slate.id}, 'personal', 'alice', 'mail', 'alice-mail'), (${slate.id}, 'personal', 'alice', 'repository', 'alice-repository')`.execute(
+		db,
+	)
 	const listed = await listSlateConnections(db, access, resources)
 	expect(listed.connections).toEqual([
 		{
@@ -110,6 +104,25 @@ test("configuration includes agent-only connections while app execution uses its
 		},
 	])
 	expect(slateConnectionsSchema.parse(listed).connections).toEqual(listed.connections)
+	const appResources = resolveSlateResourceConfiguration(
+		await getSlateResourceConfiguration(
+			db,
+			slate,
+			alice.user,
+			resourcesForConsumer(resources, { type: "app" }),
+		),
+		new Set(),
+	)
+	if (!appResources.allowed) throw new Error("Expected assigned app resources")
+	expect(appResources.configuration.connections).toEqual({
+		mail: {
+			connection_id: "alice-mail",
+			consumers: [{ type: "app" }, { name: "daily-summary", type: "agent" }],
+			mode: "viewer",
+			owner: { id: "alice", type: "personal" },
+			toolkit: "gmail",
+		},
+	})
 	const configured = await listSlateResources(db, access, resources)
 	expect(configured.resources.databases).toEqual({
 		drafts: {
@@ -134,15 +147,16 @@ test("configuration includes agent-only connections while app execution uses its
 		null,
 		resourcesForConsumer(resources, { name: "nightly", type: "agent" }),
 	)
+	const resolved = resolveSlateResourceConfiguration(configuration, new Set())
+	if (!resolved.allowed) throw new Error("Expected complete scheduled resources")
 	const prepared = prepareAgentRun(
 		slate,
 		{ type: "app" },
 		{ commit: "deployed-revision", instructions: "Write the nightly report." },
-		configuration,
+		resolved.configuration,
 		{ name: "nightly", prompt: "Summarize the repository." },
 	)
-	if (!prepared.allowed) throw new Error("Expected a prepared scheduled run")
-	expect(agentRunSchema.parse(JSON.parse(JSON.stringify(prepared.run)))).toEqual({
+	expect(agentRunSchema.parse(JSON.parse(JSON.stringify(prepared)))).toEqual({
 		actor: { type: "app" },
 		agent: {
 			commit: "deployed-revision",
@@ -166,34 +180,9 @@ test("configuration includes agent-only connections while app execution uses its
 		secrets: { MODEL_API_KEY: { id: "alice", type: "personal" } },
 		slateId: slate.id,
 	})
-	expect(
-		await resolveSlateConnection(
-			db,
-			access,
-			assignmentSchema.shape.slug.parse("mail"),
-			resources,
-		),
-	).toEqual({
-		allowed: true,
-		connection_id: "alice-mail",
-		owner: { id: "alice", type: "personal" },
-		requirement: {
-			consumers: [{ type: "app" }, { name: "daily-summary", type: "agent" }],
-			mode: "viewer",
-			toolkit: "gmail",
-		},
-	})
-	expect(
-		await resolveSlateConnection(
-			db,
-			access,
-			assignmentSchema.shape.slug.parse("repository"),
-			resources,
-		),
-	).toEqual({ allowed: false, reason: "not-declared" })
 })
 
-test("resource modes select viewer and slate Owner assignments through the hosted operations", async ({
+test("resource modes select viewer and slate Owner assignments in hosted configuration", async ({
 	db,
 }) => {
 	const declaration = declarationSchema.parse({
@@ -229,18 +218,10 @@ test("resource modes select viewer and slate Owner assignments through the hoste
 		.insertInto("slate_member")
 		.values(slateMemberSchema.parse({ slate_id: slate.id, user_id: "alice" }))
 		.execute()
-	const access = { identity: alice, slate }
-	for (const slug of ["company", "personal"]) {
-		expect(
-			await assignSlateConnection(
-				db,
-				access,
-				"https://auth.example.com",
-				assignmentSchema.parse({ connection_id: `alice-${slug}`, slug }),
-				resources,
-			),
-		).toEqual({ allowed: true, assignment: { connection_id: `alice-${slug}`, slug } })
-	}
+	await sql`INSERT INTO slate_connection_assignment (slate_id, owner_type, owner_id, slug, connection_id)
+ VALUES (${slate.id}, 'personal', 'alice', 'company', 'alice-company'), (${slate.id}, 'personal', 'alice', 'personal', 'alice-personal')`.execute(
+		db,
+	)
 	await db
 		.insertInto("slate_member")
 		.values(slateMemberSchema.parse({ slate_id: slate.id, user_id: "bob" }))
@@ -267,53 +248,6 @@ test("resource modes select viewer and slate Owner assignments through the hoste
 			toolkit: "gmail",
 		},
 	])
-	expect(
-		await resolveSlateConnection(
-			db,
-			access,
-			assignmentSchema.shape.slug.parse("company"),
-			resources,
-		),
-	).toEqual({
-		allowed: true,
-		connection_id: "alice-company",
-		owner: { id: "alice", type: "personal" },
-		requirement: { consumers: [{ type: "app" }], mode: "owner", toolkit: "gmail" },
-	})
-	expect(
-		await assignSlateConnection(
-			db,
-			{ identity: bob, slate },
-			"https://auth.example.com",
-			assignmentSchema.parse({ connection_id: "replacement", slug: "company" }),
-			resources,
-		),
-	).toEqual({ allowed: false, reason: "forbidden" })
-	expect(
-		await assignSlateConnection(
-			db,
-			{ identity: bob, slate },
-			"https://auth.example.com",
-			assignmentSchema.parse({ connection_id: "bob-personal", slug: "personal" }),
-			resources,
-		),
-	).toEqual({
-		allowed: true,
-		assignment: { connection_id: "bob-personal", slug: "personal" },
-	})
-	expect(
-		await resolveSlateConnection(
-			db,
-			{ identity: bob, slate },
-			assignmentSchema.shape.slug.parse("company"),
-			resources,
-		),
-	).toEqual({
-		allowed: true,
-		connection_id: "alice-company",
-		owner: { id: "alice", type: "personal" },
-		requirement: { consumers: [{ type: "app" }], mode: "owner", toolkit: "gmail" },
-	})
 	const organizationSlate = slateSchema.parse(
 		await db
 			.insertInto("slate")

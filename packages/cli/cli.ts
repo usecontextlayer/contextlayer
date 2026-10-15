@@ -18,7 +18,6 @@ import { configureGit, gitCredential } from "@/git-credential"
 import { ownerOptionsSchema } from "@/owner"
 import { version } from "@/package.json"
 import { dropSecret, secretNameSchema, secretOptionsSchema, setSecret } from "@/secrets"
-import { joinSlate } from "@/slate"
 
 const program = new Command().name("ctx").description("ContextLayer CLI").version(version)
 program.addHelpText(
@@ -246,17 +245,6 @@ program
 	.description("Show your ContextLayer user ID verified by the auth server")
 	.action(async (_options, command: Command) => {
 		console.log((await authenticate(command)).id)
-	})
-
-program
-	.command("join")
-	.argument("<target>", "SlateID, public hostname, or local (run from the checkout root)")
-	.description(
-		"Join a private slate you can view using ctx login, enabling member-scoped unattended work; returns slate and user IDs",
-	)
-	.hook("preAction", requireLogin)
-	.action(async (target) => {
-		await joinSlate(z.union([z.literal("local"), z.uuid(), z.hostname()]).parse(target))
 	})
 
 const connections = program

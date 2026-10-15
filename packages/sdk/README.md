@@ -97,7 +97,7 @@ If the declared connection has no assignment yet, the generated app's error boun
 
 ## Handling tool errors
 
-For a custom error boundary, use React Router's `isRouteErrorResponse(error)` and the SDK's `connectionRequiredSchema.safeParse(error.data)` to recognize the HTTP 409 payload `{ reason: "connection-required", slug }`. The generated root already handles this response. See the [execution boundary](https://github.com/usecontextlayer/contextlayer/blob/main/ARCHITECTURE.md#resource-configuration-and-execution--principles) for authorization and credential handling.
+For a custom error boundary, use React Router's `isRouteErrorResponse(error)` and the SDK's `connectionRequiredSchema.safeParse(error.data)` to recognize the HTTP 409 payload `{ reason: "connection-required", slug }`. Use `secretRequiredSchema.safeParse(error.data)` for `{ reason: "secret-required", name }` when a viewer-mode secret is missing. The generated root handles both responses. Hosted database queries use the same setup-response transport as tools; the SDK throws the native Response so React Router can render it. See the [execution boundary](https://github.com/usecontextlayer/contextlayer/blob/main/ARCHITECTURE.md#resource-configuration-and-execution--principles) for authorization and credential handling.
 
 ## Vite and Worker configuration
 

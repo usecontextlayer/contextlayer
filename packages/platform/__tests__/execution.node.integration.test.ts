@@ -4,7 +4,7 @@ import { cp, mkdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { createPolarCore } from "@polar-sh/sdk/2026-10"
 import { listEvents } from "@polar-sh/sdk/2026-10/services/events"
-import { executionTest as test } from "@tests/integration"
+import { provisioningTest as test } from "@tests/integration"
 import { signInViewer } from "@usecontextlayer/dev-env/viewer"
 import { connectionsSchema } from "@usecontextlayer/shared/connections"
 import type { Databases } from "@usecontextlayer/shared/databases-worker"
@@ -29,6 +29,7 @@ test("native resource capabilities enforce access and report exact slate-Owner t
 	identity,
 	organization,
 	platform,
+	provisioning,
 	serviceEnv,
 	webEnv,
 	webSession,
@@ -44,6 +45,7 @@ test("native resource capabilities enforce access and report exact slate-Owner t
 		"Connect a Gmail account for the local development user with pnpm dev:ctx connections add gmail, then approve the link in your browser.",
 	)
 	const { ARTIFACTS, DATABASES } = await worker.getEnv()
+	const { PROVISIONING } = await provisioning.worker.getEnv()
 	await using resources = new AsyncDisposableStack()
 	const post = (body: unknown) => ({
 		body: JSON.stringify(body),
@@ -174,6 +176,7 @@ test("native resource capabilities enforce access and report exact slate-Owner t
 		await git("add", "public", "databases")
 		await git("-c", "commit.gpgsign=false", "commit", "-m", "Declare app resources")
 		await git("push", "origin", "main")
+		await PROVISIONING.provision(slate.id)
 		expect(
 			await callExecution("callTool", [
 				slate.id,
@@ -200,25 +203,38 @@ test("native resource capabilities enforce access and report exact slate-Owner t
 			"GMAIL_GET_PROFILE",
 			{ user_id: "me" },
 		])
-		expect(membership.status).toBe(400)
-		expect(await membership.json()).toEqual({ error: "membership-required" })
+		expect(membership.status).toBe(409)
+		expect(await membership.json()).toEqual({
+			reason: "connection-required",
+			slug: "mail",
+		})
 		const databaseMembership = await callCapability("databases", props, [
 			"drafts",
 			"SELECT id, body FROM updates ORDER BY created_at",
 		])
-		expect(databaseMembership.status).toBe(400)
-		expect(await databaseMembership.json()).toEqual({ error: "membership-required" })
-		const joined = await fetch(`${origin}/api/slates/${slate.id}/join`, {
-			headers,
-			method: "POST",
+		expect(databaseMembership.status).toBe(409)
+		expect(await databaseMembership.json()).toEqual({
+			reason: "connection-required",
+			slug: "mail",
 		})
-		expect(joined.status).toBe(200)
-		expect(await joined.json()).toEqual({ slate_id: slate.id, user_id: user.id })
 		const assigned = await fetch(
 			`${origin}/api/slates/${slate.id}/connections/assign`,
 			post({ connection_id: connection.id, slug: "mail" }),
 		)
 		expect(assigned.status).toBe(200)
+		const opened = await callCapability("databases", props, [
+			"drafts",
+			"SELECT id FROM updates",
+		])
+		expect(opened.status).toBe(200)
+		expect(await opened.json()).toMatchObject({ rows: [] })
+		expect(
+			await db
+				.selectFrom("slate_member")
+				.selectAll()
+				.where("slate_id", "=", slate.id)
+				.execute(),
+		).toEqual([{ slate_id: slate.id, user_id: user.id }])
 		const configuration = await fetch(
 			`${origin}/api/slates/${slate.id}/resources/list`,
 			post({}),

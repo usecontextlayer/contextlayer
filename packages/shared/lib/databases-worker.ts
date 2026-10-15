@@ -17,6 +17,8 @@ export class Databases extends WorkerEntrypoint<
 			slug,
 			sql,
 		})
-		return databaseResultSchema.parse(readHostedExecutionResult(result))
+		const value = readHostedExecutionResult(result)
+		if (value instanceof Response) return value
+		return databaseResultSchema.parse(value)
 	}
 }

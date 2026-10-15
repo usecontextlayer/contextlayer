@@ -7,7 +7,11 @@ import { expect, test } from "vitest"
 import { getAgentUnattendedScope } from "@/agent-instance"
 import { agentRunRequestSchema, agentRunSchema } from "@/agents.schema"
 import { prepareAgentRun } from "@/agents.server"
-import { prepareSlateResourceConfiguration } from "@/slate-resources.server"
+import { secretKey } from "@/secrets.server"
+import {
+	prepareSlateResourceConfiguration,
+	resolveSlateResourceConfiguration,
+} from "@/slate-resources.server"
 import { slateSchema } from "@/slates.schema"
 
 test.each([
@@ -72,15 +76,18 @@ test.each([
 		),
 		[],
 	)
-	const prepared = prepareAgentRun(
+	const resolved = resolveSlateResourceConfiguration(
+		configuration,
+		new Set([secretKey({ id: "bob", type: "personal" }, "PERSONAL_API_KEY")]),
+	)
+	if (!resolved.allowed) throw new Error("Expected complete resource configuration")
+	const run = prepareAgentRun(
 		slate,
 		{ id: "bob", type: "user" },
 		{ commit: "deployed-revision", instructions: "Return a company brief.\n" },
-		configuration,
+		resolved.configuration,
 		agentRunRequestSchema.parse({ name: "brief", prompt: "Research Acme." }),
 	)
-	if (!prepared.allowed) throw new Error("Expected a prepared run")
-	const run = prepared.run
 	expect(run).toEqual({
 		actor: { id: "bob", type: "user" },
 		agent: {
@@ -107,10 +114,7 @@ test.each([
 		slateId: "00000000-0000-4000-8000-000000000001",
 	})
 	expect(agentRunSchema.parse(JSON.parse(JSON.stringify(run)))).toEqual(run)
-	const scheduled = prepareAgentRun(
-		slate,
-		{ type: "app" },
-		{ commit: "deployed-revision", instructions: "Return a company brief.\n" },
+	const scheduledResources = resolveSlateResourceConfiguration(
 		prepareSlateResourceConfiguration(
 			slate,
 			null,
@@ -131,10 +135,17 @@ test.each([
 			),
 			[],
 		),
+		new Set(),
+	)
+	if (!scheduledResources.allowed)
+		throw new Error("Expected complete scheduled resources")
+	const unattended = prepareAgentRun(
+		slate,
+		{ type: "app" },
+		{ commit: "deployed-revision", instructions: "Return a company brief.\n" },
+		scheduledResources.configuration,
 		{ name: "brief", prompt: "Scheduled research." },
 	)
-	if (!scheduled.allowed) throw new Error("Expected a prepared scheduled run")
-	const unattended = scheduled.run
 	expect(unattended.actor).toEqual({ type: "app" })
 	expect(unattended.databases).toEqual({ reports: run.databases.reports })
 	expect(unattended.secrets).toEqual({ ANTHROPIC_API_KEY: owner })
@@ -163,13 +174,9 @@ test("a required connection without an assignment refuses preparation with its o
 		),
 		[],
 	)
-	expect(
-		prepareAgentRun(
-			slate,
-			{ id: "bob", type: "user" },
-			{ commit: "deployed-revision", instructions: "Return a company brief.\n" },
-			configuration,
-			{ name: "brief", prompt: "Research Acme." },
-		),
-	).toEqual({ allowed: false, reason: "connection-required", slug: "mail" })
+	expect(resolveSlateResourceConfiguration(configuration, new Set())).toEqual({
+		allowed: false,
+		reason: "connection-required",
+		slug: "mail",
+	})
 })

@@ -1,5 +1,4 @@
 import { resourcesForConsumer } from "@usecontextlayer/shared/declaration"
-import type { SlateResourceConfiguration } from "@usecontextlayer/shared/slate-resources"
 import { getAgentByName } from "agents/routing"
 import { z } from "zod"
 import { getAgentInstanceName } from "@/agent-instance"
@@ -13,13 +12,13 @@ import {
 	type agentSchema,
 } from "@/agents.schema"
 import { listOrganizations } from "@/auth.server"
+import type { PlatformEnv } from "@/context"
 import type { PlatformDb } from "@/database"
 import type { SlateId } from "@/database/models/public/Slate"
 import { readSlateDeclarations } from "@/slate-declarations.server"
-import { getSlateActor } from "@/slate-members.server"
 import {
-	getSlateResourceConfiguration,
-	resolveSlateResourceActor,
+	prepareSlateResourceExecution,
+	type ResolvedSlateResourceConfiguration,
 } from "@/slate-resources.server"
 import type { Slate } from "@/slates.schema"
 import {
@@ -71,13 +70,11 @@ export function prepareAgentRun(
 	slate: Slate,
 	actor: AgentActor,
 	agent: z.infer<typeof agentSchema>,
-	configuration: SlateResourceConfiguration,
+	configuration: ResolvedSlateResourceConfiguration,
 	{ name, prompt }: AgentRunRequest,
 ) {
 	const connections: AgentRun["connections"] = {}
 	for (const [slug, connection] of Object.entries(configuration.connections)) {
-		if (connection.connection_id === null)
-			return { allowed: false, reason: "connection-required", slug } as const
 		connections[slug] = {
 			connection_id: connection.connection_id,
 			owner: connection.owner,
@@ -103,40 +100,44 @@ export function prepareAgentRun(
 		),
 		slateId: slate.id,
 	}
-	return { allowed: true, run } as const
+	return run
 }
 
 export async function getAgentRun(
 	db: PlatformDb,
-	artifacts: Artifacts,
+	bindings: PlatformEnv["Bindings"],
 	slate: Slate,
 	actor: AgentActor,
 	input: AgentRunRequest,
 ) {
-	const snapshot = await readSlateDeclarations(artifacts, slate.id)
+	const snapshot = await readSlateDeclarations(bindings.ARTIFACTS, slate.id)
 	if (!snapshot.allowed)
 		return { allowed: false, reason: "agent-definition-missing" } as const
-	const result = await readAgent(artifacts, slate.id, input.name, snapshot.commit)
+	const result = await readAgent(
+		bindings.ARTIFACTS,
+		slate.id,
+		input.name,
+		snapshot.commit,
+	)
 	if (!result.allowed)
 		return { allowed: false, reason: "agent-definition-missing" } as const
 	const resources = resourcesForConsumer(snapshot.resources, {
 		name: input.name,
 		type: "agent",
 	})
-	const relationship = await getSlateActor(
+	const resolved = await prepareSlateResourceExecution(
 		db,
-		slate.id,
-		actor.type === "user" ? actor : null,
-	)
-	const resolved = resolveSlateResourceActor(relationship, resources)
-	if (!resolved.allowed) return resolved
-	const configuration = await getSlateResourceConfiguration(
-		db,
+		bindings,
 		slate,
-		resolved.viewer,
+		actor,
+		snapshot,
 		resources,
 	)
-	return prepareAgentRun(slate, actor, result.agent, configuration, input)
+	if (!resolved.allowed) return resolved
+	return {
+		allowed: true,
+		run: prepareAgentRun(slate, actor, result.agent, resolved.configuration, input),
+	} as const
 }
 
 export async function startAgentRun(
@@ -183,19 +184,18 @@ export async function listAgentJobs(
 
 export async function startAgentJob(
 	db: PlatformDb,
-	artifacts: Artifacts,
-	agents: DurableObjectNamespace<SlateAgent>,
+	bindings: PlatformEnv["Bindings"],
 	access: SlateAccess,
 	input: AgentRunRequest,
 ) {
 	const prepared = await getAgentRun(
 		db,
-		artifacts,
+		bindings,
 		access.slate,
 		{ id: access.identity.user.id, type: "user" },
 		input,
 	)
 	if (!prepared.allowed) return prepared
-	const job = await startAgentRun(agents, prepared.run)
+	const job = await startAgentRun(bindings.AGENTS, prepared.run)
 	return { allowed: true, job } as const
 }

@@ -5,19 +5,104 @@ import {
 	resourcesForConsumer,
 } from "@usecontextlayer/shared/declaration"
 import type { SlateResourceConfiguration } from "@usecontextlayer/shared/slate-resources"
+import type { AgentActor } from "@/agents.schema"
+import type { PlatformEnv } from "@/context"
 import type { PlatformDb } from "@/database"
 import type { SlateConnectionAssignmentSlug } from "@/database/models/public/SlateConnectionAssignment"
 import { getCredentialOwner, getSlateOwner } from "@/owner"
+import { listSharedSecretNames, secretKey } from "@/secrets.server"
 import { getSlateConnectionAssignments } from "@/slate-connections.server"
-import { readSlateDeclarations } from "@/slate-declarations.server"
-import { getSlateActor, type SlateActor } from "@/slate-members.server"
+import {
+	readSlateDeclarations,
+	type SlateDeclarationSnapshot,
+} from "@/slate-declarations.server"
+import { addSlateMember, isSlateMember } from "@/slate-members.server"
 import type { Slate } from "@/slates.schema"
 import type { OwnerSlateAccess, SlateAccess } from "@/slates.server"
 
-export function resolveSlateResourceActor(actor: SlateActor, resources: Resources) {
-	if (actor.type !== "member" && hasViewerResources(resources))
-		return { allowed: false, reason: "membership-required" } as const
-	return { allowed: true, viewer: actor.type === "app" ? null : actor } as const
+export function resolveSlateResourceConfiguration(
+	configuration: SlateResourceConfiguration,
+	secretNames: ReadonlySet<string>,
+) {
+	const connections: Record<
+		string,
+		SlateResourceConfiguration["connections"][string] & { connection_id: string }
+	> = {}
+	for (const [slug, connection] of Object.entries(configuration.connections)) {
+		if (connection.connection_id === null)
+			return { allowed: false, reason: "connection-required", slug } as const
+		connections[slug] = { ...connection, connection_id: connection.connection_id }
+	}
+	for (const [name, secret] of Object.entries(configuration.secrets)) {
+		if (secret.mode === "viewer" && !secretNames.has(secretKey(secret.owner, name)))
+			return { allowed: false, name, reason: "secret-required" } as const
+	}
+	return { allowed: true, configuration: { ...configuration, connections } } as const
+}
+
+export type ResolvedSlateResourceConfiguration = Extract<
+	ReturnType<typeof resolveSlateResourceConfiguration>,
+	{ allowed: true }
+>["configuration"]
+
+export async function prepareSlateResourceExecution(
+	db: PlatformDb,
+	bindings: PlatformEnv["Bindings"],
+	slate: Slate,
+	actor: AgentActor,
+	snapshot: SlateDeclarationSnapshot,
+	resources: Resources,
+) {
+	const user = actor.type === "user" ? actor : null
+	if ((!user || slate.visibility === "public") && hasViewerResources(resources))
+		return { allowed: false, reason: "forbidden" } as const
+	const joining =
+		user !== null &&
+		slate.visibility === "private" &&
+		!(await isSlateMember(db, slate.id, user))
+	const configuration = await getSlateResourceConfiguration(
+		db,
+		slate,
+		user,
+		joining ? snapshot.resources : resources,
+	)
+	const secretNames = Object.values(configuration.secrets).some(
+		(secret) => secret.mode === "viewer",
+	)
+		? await listSharedSecretNames(bindings)
+		: new Set<string>()
+	const resolved = resolveSlateResourceConfiguration(configuration, secretNames)
+	if (!resolved.allowed) return resolved
+	if (joining)
+		await addSlateMember(
+			db,
+			bindings.ARTIFACTS,
+			bindings.DATABASES,
+			bindings.AGENTS,
+			slate,
+			user,
+			snapshot,
+		)
+	return {
+		allowed: true,
+		configuration: {
+			connections: Object.fromEntries(
+				Object.entries(resolved.configuration.connections).filter(
+					([slug]) => slug in resources.connections,
+				),
+			),
+			databases: Object.fromEntries(
+				Object.entries(resolved.configuration.databases).filter(
+					([slug]) => slug in resources.databases,
+				),
+			),
+			secrets: Object.fromEntries(
+				Object.entries(resolved.configuration.secrets).filter(
+					([name]) => name in resources.secrets,
+				),
+			),
+		},
+	} as const
 }
 
 export function getSlateResources(access: SlateAccess, artifacts: Artifacts) {
@@ -147,30 +232,30 @@ export async function listSlateConnections(
 
 export async function resolveSlateConnection(
 	db: PlatformDb,
+	bindings: PlatformEnv["Bindings"],
 	access: SlateAccess,
 	slug: SlateConnectionAssignmentSlug,
-	resources: Resources,
+	snapshot: SlateDeclarationSnapshot,
 ) {
-	const selected = resourcesForConsumer(resources, { type: "app" })
+	const selected = resourcesForConsumer(snapshot.resources, { type: "app" })
 	const declared = selected.connections[slug]
 	if (!declared) return { allowed: false, reason: "not-declared" } as const
-	const actor = await getSlateActor(db, access.slate.id, access.identity.user)
-	const resolved = resolveSlateResourceActor(actor, {
-		connections: { [slug]: declared },
-		databases: {},
-		secrets: {},
-	})
-	if (!resolved.allowed) return resolved
-	const assignments = await getSlateResourceAssignments(db, access.slate, resolved.viewer)
-	const connection = prepareSlateConnection(
+	const resolved = await prepareSlateResourceExecution(
+		db,
+		bindings,
 		access.slate,
-		resolved.viewer,
-		slug,
-		declared,
-		assignments,
+		{ id: access.identity.user.id, type: "user" },
+		snapshot,
+		{
+			connections: { [slug]: declared },
+			databases: {},
+			secrets: {},
+		},
 	)
-	if (connection.connection_id === null)
-		return { allowed: false, reason: "connection-required", slug } as const
+	if (!resolved.allowed) return resolved
+	const connection = resolved.configuration.connections[
+		slug
+	] as ResolvedSlateResourceConfiguration["connections"][string]
 	const { connection_id, owner, ...requirement } = connection
 	return { allowed: true, connection_id, owner, requirement } as const
 }

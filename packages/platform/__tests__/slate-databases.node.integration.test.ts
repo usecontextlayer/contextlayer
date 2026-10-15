@@ -1,8 +1,11 @@
+import assert from "node:assert/strict"
 import { execFile as execFileCallback } from "node:child_process"
 import { cp, mkdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { promisify } from "node:util"
 import { provisioningTest as test } from "@tests/integration"
+import { DEVELOPMENT_ORGANIZATION_SLUG } from "@usecontextlayer/dev-env/env"
+import { signInViewer } from "@usecontextlayer/dev-env/viewer"
 import {
 	type SlateResourceConfiguration,
 	slateResourcesSchema,
@@ -12,15 +15,16 @@ import { expect } from "vitest"
 import { z } from "zod"
 import { getAgentInstanceName } from "@/agent-instance"
 import { scheduledAgentRunSchema } from "@/agents.schema"
+import { organizationSchema } from "@/auth.server"
 import { type Slate, slateSchema } from "@/slates.schema"
 
 const execFile = promisify(execFileCallback)
-test("join and post-deploy provisioning cover only members' declared app and agent databases", async ({
-	cliEnv,
+test("deploy provisions slate-owned databases and existing members' personal databases", async ({
 	db,
 	directory: dir,
-	identity,
-	organization,
+	execution,
+	serviceEnv,
+	webSession,
 	platform,
 	provisioning,
 }) => {
@@ -30,7 +34,18 @@ test("join and post-deploy provisioning cover only members' declared app and age
 		method: "POST",
 	})
 	const { origin, worker } = platform
-	const { headers, user } = identity
+	const { user } = webSession
+	const headers = { ...Object.fromEntries(webSession.headers), origin }
+	const memberships = await fetch(
+		new URL("/api/platform/organizations", platform.env.CTX_AUTH_ISSUER),
+		{ headers },
+	)
+	expect(memberships.status).toBe(200)
+	const organization = z
+		.object({ organizations: z.array(organizationSchema) })
+		.parse(await memberships.json())
+		.organizations.find((item) => item.slug === DEVELOPMENT_ORGANIZATION_SLUG)
+	assert(organization)
 	const organizationSlug = organization.slug
 	const organizationId = organization.id
 	const { ARTIFACTS } = await worker.getEnv()
@@ -51,27 +66,18 @@ test("join and post-deploy provisioning cover only members' declared app and age
 	const [joinedBeforeProvisioning, joinedAfterProvisioning] = slates
 	if (!joinedBeforeProvisioning || !joinedAfterProvisioning)
 		throw new Error("Expected database test slates")
-	await db
-		.deleteFrom("slate_member")
-		.where("slate_id", "=", joinedAfterProvisioning.id)
-		.execute()
 	const { DATABASES, AGENTS } = await worker.getEnv()
 	const { PROVISIONING } = await provisioning.worker.getEnv()
 	const gitEnv = {
 		...process.env,
-		...cliEnv,
+		GIT_CONFIG_COUNT: "2",
 		GIT_CONFIG_GLOBAL: join(dir, "gitconfig"),
+		GIT_CONFIG_KEY_0: "http.extraHeader",
+		GIT_CONFIG_KEY_1: "http.extraHeader",
+		GIT_CONFIG_VALUE_0: `Cookie: ${webSession.headers.get("cookie")}`,
+		GIT_CONFIG_VALUE_1: `Origin: ${origin}`,
 		GIT_TERMINAL_PROMPT: "0",
 	}
-	const cli = join(import.meta.dirname, "../../cli/dist/cli.mjs")
-	await execFile(
-		"git",
-		["config", "--global", `credential.${origin}/git.helper`, `${cli} git-credential`],
-		{
-			cwd: dir,
-			env: gitEnv,
-		},
-	)
 	const checkouts = []
 	const readConfiguration = async (slate: Slate) => {
 		const response = await fetch(
@@ -82,15 +88,34 @@ test("join and post-deploy provisioning cover only members' declared app and age
 		const { resources } = slateResourcesSchema.parse(await response.json())
 		return resources
 	}
-	const joinMember = async (slate: Slate) => {
-		const response = await fetch(`${origin}/api/slates/${slate.id}/join`, {
-			headers,
+	const firstUse = async (slate: Slate) => {
+		const viewerHeaders = await signInViewer({
+			authURL: serviceEnv.addresses.CTX_VIEWER_AUTH_URL.origin,
+			returnTo: `https://${slate.public_hostname}/`,
+			webHeaders: webSession.headers,
+		})
+		const token = decodeURIComponent(
+			viewerHeaders.get("cookie")?.match(/ctx-viewer-auth=([^;]+)/)?.[1] ?? "",
+		)
+		assert(token)
+		const response = await execution.worker.fetch("http://execution/databases", {
+			body: JSON.stringify([
+				{ credential: { token, type: "session" }, slateId: slate.id },
+				["drafts", "SELECT * FROM updates", []],
+			]),
+			headers: { "content-type": "application/json" },
 			method: "POST",
 		})
-		expect(response.status).toBe(200)
-		expect(await response.json()).toEqual({ slate_id: slate.id, user_id: user.id })
+		expect(response.status, await response.clone().text()).toBe(200)
+		expect(await response.json()).toMatchObject({ rows: [] })
+		expect(
+			await db
+				.selectFrom("slate_member")
+				.selectAll()
+				.where("slate_id", "=", slate.id)
+				.execute(),
+		).toEqual([{ slate_id: slate.id, user_id: user.id }])
 	}
-	await joinMember(joinedBeforeProvisioning)
 	for (const slate of slates) {
 		const checkout = join(dir, slate.id)
 		await mkdir(join(checkout, "agents/daily-summary/schedules"), { recursive: true })
@@ -158,6 +183,7 @@ test("join and post-deploy provisioning cover only members' declared app and age
 			await expect(
 				DATABASES.getByName(instance_name).query("SELECT * FROM updates"),
 			).rejects.toThrow()
+		if (slate.id === joinedBeforeProvisioning.id) await firstUse(slate)
 		await PROVISIONING.provision(slate.id)
 		const instance = await getAgentByName(
 			AGENTS,
@@ -169,13 +195,14 @@ test("join and post-deploy provisioning cover only members' declared app and age
 		checkouts.push({ checkout, configuration, git, instance, scheduleFile, slate })
 	}
 	for (const { slate, configuration } of checkouts) {
-		for (const { instance_name } of Object.values(configuration.databases)) {
+		for (const { instance_name, mode } of Object.values(configuration.databases)) {
 			const query = DATABASES.getByName(instance_name).query("SELECT * FROM updates")
-			if (slate.id === joinedAfterProvisioning.id) await expect(query).rejects.toThrow()
+			if (slate.id === joinedAfterProvisioning.id && mode === "viewer")
+				await expect(query).rejects.toThrow()
 			else expect((await query).rows).toEqual([])
 		}
 	}
-	await joinMember(joinedAfterProvisioning)
+	await firstUse(joinedAfterProvisioning)
 	for (const { configuration, instance } of checkouts) {
 		expect(await instance.listSchedules()).toHaveLength(1)
 		for (const { instance_name } of Object.values(configuration.databases))
@@ -201,7 +228,6 @@ test("join and post-deploy provisioning cover only members' declared app and age
 			checkouts[1]?.configuration.databases[slug]?.instance_name,
 		)
 	for (const { slate, checkout, git, scheduleFile, instance } of checkouts) {
-		await joinMember(slate)
 		await execFile(
 			join(import.meta.dirname, "../../cli/node_modules/.bin/drizzle-kit"),
 			[

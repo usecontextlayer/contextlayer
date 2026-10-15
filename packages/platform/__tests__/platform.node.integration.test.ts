@@ -10,7 +10,7 @@ import { listedSlateSchema, slateSchema } from "@/slates.schema"
 
 const execFile = promisify(execFileCallback)
 
-test("slate ownership protects viewing, joining, listing, and native Git source access", async ({
+test("slate ownership protects viewing, listing, and native Git source access", async ({
 	cliEnv,
 	db,
 	directory: dir,
@@ -40,14 +40,13 @@ test("slate ownership protects viewing, joining, listing, and native Git source 
 	expect(slate.owner_user_id).toBe(user.id)
 	expect(slate.owner_organization_id).toBeNull()
 	expect(slate.visibility).toBe("private")
-	const member = { slate_id: slate.id, user_id: user.id }
 	expect(
 		await db
 			.selectFrom("slate_member")
 			.selectAll()
 			.where("slate_id", "=", slate.id)
 			.execute(),
-	).toEqual([member])
+	).toEqual([])
 	const organizationCreated = await fetch(`${origin}/api/slates`, {
 		body: JSON.stringify({
 			organization_slug: organization.slug,
@@ -68,25 +67,7 @@ test("slate ownership protects viewing, joining, listing, and native Git source 
 			.selectAll()
 			.where("slate_id", "=", organizationSlate.id)
 			.execute(),
-	).toEqual([{ slate_id: organizationSlate.id, user_id: user.id }])
-	const organizationJoin = await fetch(
-		`${origin}/api/slates/${organizationSlate.id}/join`,
-		{
-			headers,
-			method: "POST",
-		},
-	)
-	expect(organizationJoin.status).toBe(200)
-	expect(await organizationJoin.json()).toEqual({
-		slate_id: organizationSlate.id,
-		user_id: user.id,
-	})
-	const joinUrl = `${origin}/api/slates/${slate.id}/join`
-	expect((await fetch(joinUrl, { method: "POST" })).status).toBe(401)
-	await db.deleteFrom("slate_member").where("slate_id", "=", slate.id).execute()
-	const joined = await fetch(joinUrl, { headers, method: "POST" })
-	expect(joined.status).toBe(200)
-	expect(await joined.json()).toEqual(member)
+	).toEqual([])
 	expect(slate.id).toMatch(/^[0-9a-f-]{36}$/)
 	expect(slate.public_hostname).toMatch(/^[a-z-]+\.contextlayer\.xyz$/)
 	expect((await getSlates()).slates).toContainEqual({ ...slate, latest_commit: null })
@@ -126,9 +107,6 @@ test("slate ownership protects viewing, joining, listing, and native Git source 
 				.executeTakeFirstOrThrow(),
 		).toEqual({ visibility })
 		expect((await fetch(resolveUrl)).status).toBe(visibility === "public" ? 200 : 401)
-		expect((await fetch(joinUrl, { headers, method: "POST" })).status).toBe(
-			visibility === "public" ? 403 : 200,
-		)
 	}
 	expect((await fetch(refs)).status).toBe(401)
 	expect((await fetch(refs)).headers.get("WWW-Authenticate")).toContain("Bearer")
@@ -162,16 +140,14 @@ test("slate ownership protects viewing, joining, listing, and native Git source 
 	expect((await fetch(visibilityUrl, visibilityRequest)).status).toBe(403)
 	expect((await fetch(connectionList, listRequest)).status).toBe(403)
 	expect((await fetch(agentUrl, { headers })).status).toBe(403)
-	for (const operation of ["connections/assign", "join"]) {
-		expect(
-			(
-				await fetch(`${origin}/api/slates/${slate.id}/${operation}`, {
-					headers,
-					method: "POST",
-				})
-			).status,
-		).toBe(403)
-	}
+	expect(
+		(
+			await fetch(`${origin}/api/slates/${slate.id}/connections/assign`, {
+				headers,
+				method: "POST",
+			})
+		).status,
+	).toBe(403)
 	expect((await getSlates()).slates).toEqual([
 		{ ...organizationSlate, latest_commit: null },
 	])
@@ -181,7 +157,6 @@ test("slate ownership protects viewing, joining, listing, and native Git source 
 		.where("id", "=", slate.id)
 		.execute()
 	expect((await fetch(resolveUrl)).status).toBe(200)
-	expect((await fetch(joinUrl, { headers, method: "POST" })).status).toBe(403)
 	expect((await fetch(agentUrl, { headers })).status).toBe(403)
 	expect(
 		(
@@ -224,24 +199,6 @@ test("slate ownership protects viewing, joining, listing, and native Git source 
 	)
 	await git("init", "-b", "main")
 	await git("remote", "add", "origin", gitUrl)
-	await db.deleteFrom("slate_member").where("slate_id", "=", slate.id).execute()
-	for (const target of [slate.id, slate.public_hostname, "local"]) {
-		const joined = await execFile(process.execPath, [cli, "join", target], {
-			cwd: dir,
-			env: {
-				...process.env,
-				...cliEnv,
-			},
-		})
-		expect(JSON.parse(joined.stdout)).toEqual(member)
-	}
-	expect(
-		await db
-			.selectFrom("slate_member")
-			.selectAll()
-			.where("slate_id", "=", slate.id)
-			.execute(),
-	).toEqual([member])
 	await git("config", "user.name", "Platform Test")
 	await git("config", "user.email", "platform-test@example.com")
 	await writeFile(join(dir, "README.md"), "# My slate\n")
@@ -300,7 +257,6 @@ test("slate ownership protects viewing, joining, listing, and native Git source 
 		.parse(await (await fetch(`${origin}/api/openapi.json`)).json())
 	expect(schema.paths["/slates"].get.operationId).toBe("listSlates")
 	expect(schema.paths["/slates/{target}/agents/{name}"].get.operationId).toBe("getAgent")
-	expect(schema.paths["/slates/{target}/join"].post.operationId).toBe("joinSlate")
 	await git("clone", "--branch", "main", `${origin}/git/${slateId}`, "cloned")
 	expect(
 		(

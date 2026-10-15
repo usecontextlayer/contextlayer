@@ -32,7 +32,8 @@ export default {
 			if (method === "/databases") {
 				const [props, args] =
 					await request.json<[ToolsProps, Parameters<Databases["query"]>]>()
-				return Response.json(await entrypoints.Databases({ props }).query(...args))
+				const result = await entrypoints.Databases({ props }).query(...args)
+				return result instanceof Response ? result : Response.json(result)
 			}
 		} catch (error) {
 			if (error instanceof Error)

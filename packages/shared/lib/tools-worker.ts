@@ -2,11 +2,16 @@ import { WorkerEntrypoint } from "cloudflare:workers"
 import type { z } from "zod"
 import type { DatabaseResult, databaseQuerySchema } from "@/lib/databases"
 import type { LocalResourceConfiguration } from "@/lib/slate-resources"
-import { connectionRequiredSchema, toolResultSchema } from "@/lib/tools"
+import {
+	connectionRequiredSchema,
+	type secretRequiredSchema,
+	toolResultSchema,
+} from "@/lib/tools"
 
 export type HostedExecutionResult<T> =
 	| { allowed: true; result: T }
 	| ({ allowed: false } & z.infer<typeof connectionRequiredSchema>)
+	| ({ allowed: false } & z.infer<typeof secretRequiredSchema>)
 	| {
 			allowed: false
 			message: string
@@ -14,15 +19,19 @@ export type HostedExecutionResult<T> =
 	  }
 	| {
 			allowed: false
-			reason:
-				| "membership-required"
-				| "not-declared"
-				| "not-found"
-				| "sign-in-required"
-				| "forbidden"
+			reason: "not-declared" | "not-found" | "sign-in-required" | "forbidden"
 	  }
 
-export function readHostedExecutionResult<T>(result: HostedExecutionResult<T>): T {
+export function readHostedExecutionResult<T>(
+	result: HostedExecutionResult<T>,
+): T | Response {
+	if (!result.allowed && result.reason === "connection-required")
+		return connectionRequiredResponse(result.slug)
+	if (!result.allowed && result.reason === "secret-required")
+		return Response.json(
+			{ name: result.name, reason: result.reason },
+			{ status: 409, statusText: "Secret required" },
+		)
 	if (!result.allowed)
 		throw new Error("message" in result ? result.message : result.reason)
 	return result.result
@@ -60,9 +69,9 @@ export class Tools extends WorkerEntrypoint<{ EXECUTION: HostedExecution }, Tool
 			slug,
 			tool: toolSlug,
 		})
-		if (!result.allowed && result.reason === "connection-required")
-			return connectionRequiredResponse(result.slug)
-		return readToolResult(toolResultSchema.parse(readHostedExecutionResult(result)))
+		const value = readHostedExecutionResult(result)
+		if (value instanceof Response) return value
+		return readToolResult(toolResultSchema.parse(value))
 	}
 }
 

@@ -6,12 +6,10 @@ import {
 	listOrganizations,
 	type OwnerIdentity,
 } from "@/auth.server"
-import type { PlatformEnv } from "@/context"
 import type { PlatformDb } from "@/database"
 import type { SlateId } from "@/database/models/public/Slate"
 import type { PlatformConfig } from "@/env"
 import type { Owner, OwnerDetails } from "@/owner"
-import { joinSlate } from "@/slate-members.server"
 import { provisionSlateOAuth } from "@/slate-oauth.server"
 import {
 	type CreateSlateRequest,
@@ -150,8 +148,6 @@ function authorizeSlateOwnership<T extends AuthIdentity>(
 export async function createSlate(
 	db: PlatformDb,
 	artifacts: Artifacts,
-	databases: PlatformEnv["Bindings"]["DATABASES"],
-	agents: PlatformEnv["Bindings"]["AGENTS"],
 	config: Pick<
 		PlatformConfig,
 		"CTX_SLATES_DOMAIN" | "CTX_AUTH_ISSUER" | "CTX_APP_OAUTH_PROVISIONING_SECRET"
@@ -188,7 +184,6 @@ export async function createSlate(
 			.executeTakeFirstOrThrow()
 		await artifacts.create(slate.id, { setDefaultBranch: "main" })
 		const saved = slateSchema.parse(slate)
-		await joinSlate(trx, artifacts, databases, agents, { identity, slate: saved })
 		await provisionSlateOAuth(
 			saved,
 			config.CTX_AUTH_ISSUER,

@@ -1,50 +1,55 @@
 import type { PlatformEnv } from "@/context"
 import type { PlatformDb } from "@/database"
 import type { SlateId } from "@/database/models/public/Slate"
+import type { SlateDeclarationSnapshot } from "@/slate-declarations.server"
 import { slateMemberSchema } from "@/slate-members.schema"
 import { provisionSlate } from "@/slate-provisioning.server"
-import type { OwnerSlateAccess } from "@/slates.server"
+import type { Slate } from "@/slates.schema"
 
-export type SlateActor =
-	| { type: "app" }
-	| { type: "viewer"; id: string }
-	| { type: "member"; id: string }
-
-export async function getSlateActor(
+export async function isSlateMember(
 	db: PlatformDb,
 	slateId: SlateId,
-	user: { id: string } | null,
-): Promise<SlateActor> {
-	if (!user) return { type: "app" }
+	user: { id: string },
+) {
 	const member = await db
 		.selectFrom("slate_member")
 		.select("user_id")
 		.where("slate_id", "=", slateId)
 		.where("user_id", "=", slateMemberSchema.shape.user_id.parse(user.id))
 		.executeTakeFirst()
-	return { id: user.id, type: member ? "member" : "viewer" }
+	return member !== undefined
 }
 
-export async function joinSlate(
+export async function addSlateMember(
 	db: PlatformDb,
 	artifacts: Artifacts,
 	databases: PlatformEnv["Bindings"]["DATABASES"],
 	agents: PlatformEnv["Bindings"]["AGENTS"],
-	{ slate, identity }: OwnerSlateAccess,
+	slate: Slate,
+	user: { id: string },
+	snapshot: SlateDeclarationSnapshot,
 ) {
 	const member = slateMemberSchema.parse({
 		slate_id: slate.id,
-		user_id: identity.user.id,
+		user_id: user.id,
 	})
-	await db
-		.insertInto("slate_member")
-		.values(member)
-		.onConflict((conflict) => conflict.columns(["slate_id", "user_id"]).doNothing())
-		.execute()
-	await provisionSlate(artifacts, databases, agents, slate, [
-		{ id: identity.user.id, type: "user" },
-	])
-	return member
+	await db.transaction().execute(async (trx) => {
+		const inserted = await trx
+			.insertInto("slate_member")
+			.values(member)
+			.onConflict((conflict) => conflict.columns(["slate_id", "user_id"]).doNothing())
+			.returning("user_id")
+			.executeTakeFirst()
+		if (inserted)
+			await provisionSlate(
+				artifacts,
+				databases,
+				agents,
+				slate,
+				[{ id: user.id, type: "user" }],
+				snapshot,
+			)
+	})
 }
 
 export async function listSlateMembers(db: PlatformDb, slateId: SlateId) {
