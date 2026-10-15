@@ -2,6 +2,7 @@ node_modules/
 packages/*/node_modules/
 .turbo/
 .vercel/
+.wrangler/
 .doublecheck/
 .playwright-mcp
 .playwright-cli

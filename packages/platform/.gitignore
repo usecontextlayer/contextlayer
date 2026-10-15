@@ -1,5 +1,4 @@
 /build/
 /.react-router/
-/.wrangler/
 /.dev.vars*
 /.env*
