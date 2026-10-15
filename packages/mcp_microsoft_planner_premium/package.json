@@ -12,6 +12,7 @@
 		"vitest": "^4.1.11",
 		"wrangler": "^4.146.0"
 	},
+	"license": "MIT",
 	"name": "@usecontextlayer/mcp_microsoft_planner_premium",
 	"private": true,
 	"scripts": {
@@ -21,5 +22,5 @@
 		"tsc": "tsc --noEmit"
 	},
 	"type": "module",
-	"version": "0.14.3"
+	"version": "0.16.2"
 }
