@@ -20,13 +20,36 @@ export const agentParamsSchema = z.object({
 	target: slateTargetSchema,
 })
 export const agentJobRequestSchema = agentRunRequestSchema.omit({ name: true })
-export const agentJobSchema = z.object({
+export const agentJobSummarySchema = z.object({
+	completed_at: z
+		.number()
+		.describe("Think completion time, in Unix milliseconds")
+		.optional(),
+	created_at: z.number().describe("Think submission creation time, in Unix milliseconds"),
 	error: z.string().optional(),
 	id: z.uuid(),
 	instance_name: z.string().min(1),
-	result: z.string().nullable(),
 	source: z.enum(["api", "schedule"]),
+	started_at: z
+		.number()
+		.describe("Think turn start time, in Unix milliseconds")
+		.optional(),
 	status: z.enum(["pending", "running", "completed", "aborted", "skipped", "error"]),
+})
+export const agentJobSchema = agentJobSummarySchema.extend({
+	message: z
+		.object({
+			id: z.string(),
+			metadata: z.unknown().optional(),
+			parts: z
+				.array(z.looseObject({ type: z.string() }))
+				.describe("AI SDK message parts in their original order"),
+			role: z.string(),
+		})
+		.nullable()
+		.describe(
+			"Assistant message as saved by Think. Null until Think persists a message.",
+		),
 })
 export const agentJobParamsSchema = agentParamsSchema.extend({
 	id: agentJobSchema.shape.id,
@@ -84,6 +107,7 @@ export const agentRunSchema = z.strictObject({
 export type AgentRunRequest = z.infer<typeof agentRunRequestSchema>
 export type AgentRun = z.infer<typeof agentRunSchema>
 export type AgentJob = z.infer<typeof agentJobSchema>
+export type AgentJobSummary = z.infer<typeof agentJobSummarySchema>
 export type AgentActor = z.infer<typeof agentActorSchema>
 export type AgentSchedule = z.infer<typeof agentScheduleSchema>
 export type ScheduledAgentRun = z.infer<typeof scheduledAgentRunSchema>

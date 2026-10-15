@@ -1,15 +1,14 @@
 import { createAnthropic } from "@ai-sdk/anthropic"
-import { Think, type TurnConfig } from "@cloudflare/think"
+import { Think, type ThinkSubmissionInspection, type TurnConfig } from "@cloudflare/think"
 import { databaseQuerySchema } from "@usecontextlayer/shared/databases"
 import { ownerSchema } from "@usecontextlayer/shared/slate-usage"
 import { type ToolSet, tool } from "ai"
 import { z } from "zod"
 import {
 	type AgentActor,
-	type AgentJob,
+	type AgentJobSummary,
 	type AgentRun,
 	type AgentSchedule,
-	agentJobSchema,
 	agentRunSchema,
 	type ScheduledAgentRun,
 	scheduledAgentRunSchema,
@@ -104,7 +103,7 @@ export class SlateAgent extends Think<PlatformEnv["Bindings"]> {
 			throw new Error("Agent scratch workspace setup failed")
 	}
 
-	async start(input: AgentRun, source: AgentJob["source"]): Promise<AgentJob> {
+	async start(input: AgentRun, source: AgentJobSummary["source"]) {
 		const run = agentRunSchema.parse(input)
 		await this.configure(run)
 		for (const [slug, connection] of Object.entries(run.connections)) {
@@ -128,13 +127,7 @@ export class SlateAgent extends Think<PlatformEnv["Bindings"]> {
 			],
 			{ metadata: { source }, submissionId: crypto.randomUUID() },
 		)
-		return {
-			id: submission.submissionId,
-			instance_name: this.name,
-			result: null,
-			source,
-			status: submission.status,
-		}
+		return this.summarizeSubmission(submission)
 	}
 
 	async provisionSchedules(
@@ -197,17 +190,28 @@ export class SlateAgent extends Think<PlatformEnv["Bindings"]> {
 		}
 	}
 
-	async listJobs(slateId: SlateId, name: string): Promise<AgentJob[]> {
-		const submissions = await this.listSubmissions()
-		const jobs: AgentJob[] = []
-		for (const submission of submissions) {
-			const job = await this.inspect(slateId, name, submission.submissionId)
-			if (job) jobs.push(job)
+	private summarizeSubmission(submission: ThinkSubmissionInspection) {
+		return {
+			completed_at: submission.completedAt,
+			created_at: submission.createdAt,
+			error: submission.error,
+			id: submission.submissionId,
+			instance_name: this.name,
+			source: submission.metadata?.source,
+			started_at: submission.startedAt,
+			status: submission.status,
 		}
-		return jobs
 	}
 
-	async inspect(slateId: SlateId, name: string, id: string): Promise<AgentJob | null> {
+	async listJobs(slateId: SlateId, name: string) {
+		const submissions = await this.listSubmissions()
+		if (submissions.length === 0) return []
+		const run = agentRunSchema.parse(this.getConfig())
+		if (run.slateId !== slateId || run.agent.name !== name) return []
+		return submissions.map((submission) => this.summarizeSubmission(submission))
+	}
+
+	async inspect(slateId: SlateId, name: string, id: string) {
 		const submission = await this.inspectSubmission(id)
 		if (!submission) return null
 		const run = agentRunSchema.parse(this.getConfig())
@@ -215,17 +219,6 @@ export class SlateAgent extends Think<PlatformEnv["Bindings"]> {
 		const message = submission.messageId
 			? await this.session.getMessage(submission.messageId)
 			: null
-		return {
-			error: submission.error,
-			id: submission.submissionId,
-			instance_name: this.name,
-			result:
-				message?.parts
-					.filter((part) => part.type === "text")
-					.map((part) => part.text)
-					.join("\n") ?? null,
-			source: agentJobSchema.shape.source.parse(submission.metadata?.source),
-			status: submission.status,
-		}
+		return { ...this.summarizeSubmission(submission), message }
 	}
 }

@@ -9,7 +9,13 @@ import { getAgentByName } from "agents/routing"
 import { expect } from "vitest"
 import { z } from "zod"
 import { getAgentInstanceName } from "@/agent-instance"
-import { type AgentJob, agentJobSchema, scheduledAgentRunSchema } from "@/agents.schema"
+import {
+	type AgentJob,
+	type AgentJobSummary,
+	agentJobSchema,
+	agentJobSummarySchema,
+	scheduledAgentRunSchema,
+} from "@/agents.schema"
 import { slateSchema } from "@/slates.schema"
 
 const execFile = promisify(execFileCallback)
@@ -215,11 +221,11 @@ test("members' deployed cron jobs use viewer resources and retain results after 
 			slateId: slate.id,
 		})
 	}
-	const jobs = z.object({ jobs: z.array(agentJobSchema) })
-	const saved: { url: string; job: AgentJob }[] = []
+	const jobs = z.object({ jobs: z.array(agentJobSummarySchema.strict()) })
+	const saved: { url: string; job: AgentJobSummary }[] = []
 	for (const { slate } of checkouts) {
 		const url = `${origin}/api/slates/${slate.id}/agents/daily-summary/jobs`
-		let completed: AgentJob | undefined
+		let completed: AgentJobSummary | undefined
 		await expect
 			.poll(
 				async () => {
@@ -241,7 +247,6 @@ test("members' deployed cron jobs use viewer resources and retain results after 
 		})
 		expect(completed?.error).toBeUndefined()
 		expect(completed?.status).toBe("completed")
-		expect(completed?.result?.length).toBeGreaterThan(0)
 		if (!completed) throw new Error("Expected a completed scheduled job")
 		expect(completed.instance_name).toBe(
 			getAgentInstanceName(slate.id, "daily-summary", { id: user.id, type: "user" }),
@@ -256,10 +261,10 @@ test("members' deployed cron jobs use viewer resources and retain results after 
 		}),
 	)
 	expect(submitted.status).toBe(202)
-	const apiJob = agentJobSchema.parse(await submitted.json())
+	const apiJob = agentJobSummarySchema.strict().parse(await submitted.json())
 	expect(apiJob.source).toBe("api")
 	expect(apiJob.instance_name).toBe(saved[0]?.job.instance_name)
-	const detailUrl = (url: string, job: AgentJob) =>
+	const detailUrl = (url: string, job: AgentJobSummary) =>
 		`${url}/${job.id}?instance_name=${encodeURIComponent(job.instance_name)}`
 	let completedApi: AgentJob | undefined
 	await expect
@@ -275,22 +280,34 @@ test("members' deployed cron jobs use viewer resources and retain results after 
 		.toBeOneOf(["completed", "error", "aborted"])
 	expect(completedApi?.error).toBeUndefined()
 	expect(completedApi?.status).toBe("completed")
-	expect(completedApi?.result?.length).toBeGreaterThan(0)
 	if (!completedApi) throw new Error("Expected a completed API job")
-	saved.push({ job: completedApi, url: apiUrl })
+	saved.push({ job: agentJobSummarySchema.parse(completedApi), url: apiUrl })
 	await platform.harness.update((current) => current)
+	const bindings = await worker.getEnv()
 	for (const { job, url } of saved) {
 		const response = await fetch(detailUrl(url, job), { headers })
 		expect(response.status).toBe(200)
-		expect(agentJobSchema.parse(await response.json())).toEqual(job)
+		const detail = agentJobSchema
+			.required({ completed_at: true, started_at: true })
+			.parse(await response.json())
+		expect(detail).toMatchObject(job)
+		expect(detail.started_at).toBeGreaterThanOrEqual(detail.created_at)
+		expect(detail.completed_at).toBeGreaterThanOrEqual(detail.started_at)
+		expect(detail.message?.role).toBe("assistant")
+		expect(detail.message?.parts.length).toBeGreaterThan(0)
 		const listed = await fetch(url, { headers })
 		expect(listed.status).toBe(200)
 		expect(jobs.parse(await listed.json()).jobs).toContainEqual(job)
 	}
-	const { DATABASES } = await worker.getEnv()
+	const listed = await fetch(apiUrl, { headers })
+	expect(listed.status).toBe(200)
+	expect(jobs.parse(await listed.json()).jobs.map((job) => job.id)).toEqual([
+		completedApi.id,
+		saved[0]?.job.id,
+	])
 	for (const { slate, databases } of checkouts) {
 		for (const database of Object.values(databases)) {
-			const rows = await DATABASES.getByName(database.instance_name).query(
+			const rows = await bindings.DATABASES.getByName(database.instance_name).query(
 				"SELECT id, body FROM updates ORDER BY created_at",
 			)
 			expect(rows.rows).toEqual(

@@ -12,6 +12,7 @@ import {
 	agentJobQuerySchema,
 	agentJobRequestSchema,
 	agentJobSchema,
+	agentJobSummarySchema,
 	agentParamsSchema,
 	agentSchema,
 } from "@/agents.schema"
@@ -693,8 +694,8 @@ export function createApi() {
 			},
 			responses: {
 				202: {
-					content: { "application/json": { schema: agentJobSchema } },
-					description: "Accepted agent job with its ID and native Think status",
+					content: { "application/json": { schema: agentJobSummarySchema } },
+					description: "Accepted agent job summary",
 				},
 				400: { description: "Invalid slate target, agent name, or prompt" },
 				401: { description: "A valid ContextLayer login is required" },
@@ -736,7 +737,7 @@ export function createApi() {
 			responses: {
 				200: {
 					content: { "application/json": { schema: agentJobSchema } },
-					description: "Native Think job status and saved assistant text result",
+					description: "Native Think job status, timing, and saved assistant message",
 				},
 				400: { description: "Invalid slate target, agent name, or job ID" },
 				401: { description: "A valid ContextLayer login is required" },
@@ -767,10 +768,12 @@ export function createApi() {
 			responses: {
 				200: {
 					content: {
-						"application/json": { schema: z.object({ jobs: z.array(agentJobSchema) }) },
+						"application/json": {
+							schema: z.object({ jobs: z.array(agentJobSummarySchema) }),
+						},
 					},
 					description:
-						"App and signed-in user's agent jobs, including scheduled executions",
+						"Newest job summaries without messages from the app and signed-in user's actor instances, including scheduled executions: up to Think's default of 50 per instance, merged newest first by created_at (descending job ID breaks ties)",
 				},
 				400: { description: "Invalid slate target or agent name" },
 				401: { description: "A valid ContextLayer login is required" },

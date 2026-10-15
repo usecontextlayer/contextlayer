@@ -1,10 +1,17 @@
 import { resourcesForConsumer } from "@usecontextlayer/shared/declaration"
 import type { SlateResourceConfiguration } from "@usecontextlayer/shared/slate-resources"
 import { getAgentByName } from "agents/routing"
-import type { z } from "zod"
+import { z } from "zod"
 import { getAgentInstanceName } from "@/agent-instance"
 import type { SlateAgent } from "@/agent-runtime"
-import type { AgentActor, AgentRun, AgentRunRequest, agentSchema } from "@/agents.schema"
+import {
+	type AgentActor,
+	type AgentRun,
+	type AgentRunRequest,
+	agentJobSchema,
+	agentJobSummarySchema,
+	type agentSchema,
+} from "@/agents.schema"
 import { listOrganizations } from "@/auth.server"
 import type { PlatformDb } from "@/database"
 import type { SlateId } from "@/database/models/public/Slate"
@@ -140,7 +147,7 @@ export async function startAgentRun(
 		agents,
 		getAgentInstanceName(run.slateId, run.agent.name, run.actor),
 	)
-	return agent.start(run, "api")
+	return agentJobSummarySchema.parse(await agent.start(run, "api"))
 }
 
 export async function getAgentJob(
@@ -151,7 +158,7 @@ export async function getAgentJob(
 	instanceName: string,
 ) {
 	const agent = await getAgentByName(agents, instanceName)
-	return agent.inspect(slate.id, name, id)
+	return agentJobSchema.nullable().parse(await agent.inspect(slate.id, name, id))
 }
 
 export async function listAgentJobs(
@@ -166,10 +173,12 @@ export async function listAgentJobs(
 				agents,
 				getAgentInstanceName(slate.id, name, actor),
 			)
-			return agent.listJobs(slate.id, name)
+			return z.array(agentJobSummarySchema).parse(await agent.listJobs(slate.id, name))
 		}),
 	)
-	return jobs.flat()
+	return jobs
+		.flat()
+		.sort((a, b) => b.created_at - a.created_at || b.id.localeCompare(a.id))
 }
 
 export async function startAgentJob(
