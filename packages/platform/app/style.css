@@ -1,14 +1,14 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "@fontsource-variable/geist";
+@import "@fontsource-variable/outfit";
 @import "@fontsource/fugaz-one/latin-400.css";
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
 	--font-heading: var(--font-sans);
-	--font-sans: "Geist Variable", sans-serif;
+	--font-sans: "Outfit Variable", sans-serif;
 	--font-logo: "Fugaz One", sans-serif;
 	--color-sidebar-ring: var(--sidebar-ring);
 	--color-sidebar-border: var(--sidebar-border);
@@ -128,5 +128,8 @@
 	}
 	html {
 		@apply font-sans;
+		/* 16.5px at the browser's default 16px, matching the website. Every rem scales with it;
+		   a percentage, not px, so a reader's own font-size setting still applies. */
+		font-size: 103.125%;
 	}
 }

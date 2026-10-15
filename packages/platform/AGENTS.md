@@ -18,7 +18,7 @@ For example, `GET /api/slates` and the slate-listing loader should both call `li
 
 Use pure shadcn/ui with the `base-nova` style. Add components through the shadcn CLI and compose them with standard Tailwind layout utilities. Keep the preset's tokens and component styling; do not introduce a parallel custom visual system.
 
-Use Fugaz One at weight 400 for the lowercase `contextlayer` wordmark through `font-logo`, matching the website. Use Geist for dashboard text. Use Font Awesome Slab Regular icons through the official React component and npm kit, with the box icon for slates. See [the shared Font Awesome configuration](../../.font-awesome.md) for imports and setup.
+Use Fugaz One at weight 400 for the lowercase `contextlayer` wordmark through `font-logo`, matching the website. Use Outfit for dashboard text. Use Font Awesome Slab Regular icons through the official React component and npm kit, with the box icon for slates. See [the shared Font Awesome configuration](../../.font-awesome.md) for imports and setup.
 
 ## Slate identity and storage
 
