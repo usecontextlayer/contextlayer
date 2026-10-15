@@ -1,6 +1,7 @@
 // The Worker's own OAuth contract, driven through the production Hono app.
 // Token exchange and refresh need a real Microsoft sign-in; no token response is
 // invented here and none of these tests sends a request outside the app.
+import { UnsecuredJWT } from "jose"
 import { describe, expect, it } from "vitest"
 import type { Bindings } from "@/env"
 import app from "@/index"
@@ -12,6 +13,53 @@ const bindings = {
 	CTX_ENTRA_TENANT: "organizations",
 } satisfies Bindings
 const origin = "https://planner.example"
+
+describe("MCP HTTP authentication", () => {
+	it("challenges a missing token with reachable resource metadata", async () => {
+		const response = await app.request(`${origin}/mcp`, { method: "POST" }, bindings)
+		expect(response.status).toBe(401)
+		expect(await response.json()).toMatchObject({ error: "invalid_token" })
+		const metadataUrl = `${origin}/.well-known/oauth-protected-resource/mcp`
+		expect(response.headers.get("WWW-Authenticate")).toContain(
+			`resource_metadata="${metadataUrl}"`,
+		)
+		const metadata = await app.request(metadataUrl, {}, bindings)
+		expect(metadata.status).toBe(200)
+		expect(await metadata.json()).toMatchObject({
+			authorization_servers: [origin],
+			resource: `${origin}/mcp`,
+		})
+	})
+
+	it.each([
+		{
+			audience: bindings.CTX_DATAVERSE_ORG_URL,
+			expiresAt: 0,
+			name: "expired token",
+		},
+		{
+			audience: "https://another-org.crm.dynamics.com",
+			expiresAt: "1h",
+			name: "token for another org",
+		},
+	])("rejects $name at the HTTP edge", async ({ audience, expiresAt }) => {
+		const token = new UnsecuredJWT({
+			appid: bindings.CTX_ENTRA_CLIENT_ID,
+			scp: "user_impersonation",
+		})
+			.setAudience(audience)
+			.setExpirationTime(expiresAt)
+			.encode()
+		const response = await app.request(
+			`${origin}/mcp`,
+			{ headers: { Authorization: `Bearer ${token}` }, method: "POST" },
+			bindings,
+		)
+		expect(response.status).toBe(401)
+		expect(response.headers.get("WWW-Authenticate")).toContain('error="invalid_token"')
+		expect(await response.json()).toMatchObject({ error: "invalid_token" })
+	})
+})
 
 describe("Composio DCR OAuth", () => {
 	it("advertises the Worker endpoints and delegated Dataverse scopes", async () => {

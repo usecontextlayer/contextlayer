@@ -131,8 +131,8 @@ function toResponse(interaction: Interaction): Response {
 /**
  * Stand up an org that replays one recorded chain. Caller closes it.
  *
- * `replaying` is omitted only by a test that drives NO recorded traffic (schema,
- * argument-validation, and no-linked-account tests): a request against a chainless
+ * `replaying` is omitted only by a test that drives NO recorded traffic (discovery
+ * and argument-validation tests): a request against a chainless
  * org fails loudly.
  */
 export async function serveRecordedOrg(options: {

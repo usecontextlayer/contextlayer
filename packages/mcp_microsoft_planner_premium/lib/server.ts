@@ -1,100 +1,36 @@
-// The Premium Planner (Project-for-the-web) MCP server running as a
-// Cloudflare Worker. Standard MCP over HTTP: the CHATTING
-// USER's delegated Dataverse token arrives per request in `Authorization`, and
-// everything else derives from it — the org URL comes off the token's `aud` claim,
-// so the tools need no org or credential configuration. The Worker's OAuth routes
-// have their own deployment configuration in `env.ts`.
-//
-// THE EDGE, and only the edge. What lives here is what MCP makes us care about: the
-// advertised schemas, the descriptions a model reads, the mapping from tool
-// arguments to domain values, and the JSON that goes back. Sequencing the API is
-// `operation-set.ts`; the wire is `schedule-api.ts`.
-//
-// THE SURFACE IS THE API'S OWN MODEL, not a CRUD shape laid over it. Submit and wait
-// stay separate because execution is asynchronous; the OperationSet stays visible
-// because it is the transaction and quota unit.
-//
-// A dumb wrapper on purpose: write arguments carry Dataverse GUIDs verbatim plus
-// the human-readable labels the permission prompt shows. `list_projects` supplies
-// the project pairs; writes do no name→id resolution or lookup reads. The ONE exception is deliberate
-// and local — a record created in this same submission has no GUID for the caller to
-// know, so it is addressed by a submission-local `ref` that this file mints an id
-// for. That is not a lookup: nothing is read, and the ids come back in the receipt.
-//
-// Edge validation prevents failures that the service reports only after consuming a
-// set, and silent rewrites that it accepts as successful. The comments on each rule
-// state which behavior it guards.
+// Microsoft owns the entity fields, OData bindings and action parameters exposed
+// here. The HTTP entrypoint supplies a request-scoped Dataverse client; this file
+// validates supported native payloads and supplies MCP descriptions and results.
+// Operation-set sequencing belongs to operation-set.ts, HTTP to schedule-api.ts.
 
 import { randomUUID } from "node:crypto"
 import { McpServer } from "@modelcontextprotocol/server"
-import { decodeJwt } from "jose"
 import { z } from "zod"
 import {
 	MAX_WAIT_SECONDS,
 	submitOperationSet,
 	waitForOperationSet,
 } from "@/lib/operation-set"
-import {
-	createProjectBucket,
-	createProjectTask,
-	createResourceAssignment,
-	createScheduleApiClient,
-	createTaskLabel,
-	deleteRecord,
-	type ScheduleApiClient,
-	type StagedWrite,
-	updateProjectBucket,
-	updateProjectLabel,
-	updateProjectTask,
-} from "@/lib/schedule-api"
+import type { ScheduleApiClient, StagedWrite } from "@/lib/schedule-api"
 import packageJson from "@/package.json"
 
-// Derived from the package's release-managed version, never a hand-kept literal.
-const SERVER_VERSION = packageJson.version
-
-/** The most operations one OperationSet will carry. The service's own ceiling. */
 const MAX_OPERATIONS = 200
 
-/**
- * A Dataverse row as the tools take it: the GUID does the work, the name is what the
- * human reads in the permission prompt. They are ONE object because they are one concept
- * — which makes "an id without its label" unrepresentable in the advertised schema,
- * rather than a runtime check that fires after a human has already approved.
- *
- * `guid()`, NOT `uuid()`: Dataverse GUIDs are not RFC-4122, so msdyn_* ids routinely
- * carry a non-version nibble (`…-f011-…`) that zod's `uuid()` rejects — a `uuid()`
- * here silently fails every real write at argument validation. `guid()` still
- * enforces the 8-4-4-4-12 shape. Do not tighten.
- */
-const existing = (what: string, idColumn: string) =>
-	z.strictObject({
-		id: z.guid().describe(`${what} Dataverse GUID (${idColumn})`),
-		name: z.string().min(1).describe(`${what} name, for the human approving this action`),
-	})
+// Dataverse GUIDs can contain a non-version nibble (…-f011-…); uuid() rejects
+// those real IDs. guid() enforces Microsoft's 8-4-4-4-12 shape without that rule.
+const guid = z.guid()
+// Input transforms generate IDs without advertising a fixed JSON Schema default.
+const createId = guid.optional().transform((value) => value ?? randomUUID())
+const binding = (entitySet: string) => z.templateLiteral([`/${entitySet}(`, guid, ")"])
 
-/**
- * A record being created in THIS submission, addressed by the caller's own label.
- *
- * It exists because record ids are client-supplied upstream, which is the whole
- * reason a task can be created into a bucket created alongside it. Rather than ask a
- * model to mint GUIDs and keep them unique, the caller names the new record and this
- * file mints the id — returning the mapping in the receipt.
- */
-const pending = z.strictObject({
-	ref: z
-		.string()
-		.min(1)
-		.describe(
-			"The `ref` of a record created in this same submission — how a task names a bucket that does not exist yet",
-		),
-})
+// Same-call refs are package metadata, not Dataverse columns. Native binding
+// strings pass through; a ref is resolved to one before anything reaches Microsoft.
+const pending = z.strictObject({ ref: z.string().min(1) })
+const taskBinding = z.union([binding("msdyn_projecttasks"), pending])
+const bucketBinding = z.union([binding("msdyn_projectbuckets"), pending])
+const ref = z.string().min(1).optional()
 
-const reference = (what: string, idColumn: string) =>
-	z.union([existing(what, idColumn), pending])
-
-type Reference = z.output<ReturnType<typeof reference>>
-
-/** Require a full UTC timestamp because date-only input can land on a different working day. */
+// Date-only input is interpreted at midnight and can land on the previous working day.
 const instant = z.iso
 	.datetime()
 	.regex(
@@ -102,93 +38,78 @@ const instant = z.iso
 		"must be a full UTC timestamp like 2026-08-28T17:00:00Z — a bare date is read as midnight and lands on the previous working day",
 	)
 
-const taskRef = () => reference("task", "msdyn_projecttaskid")
-const bucketRef = () => reference("bucket", "msdyn_projectbucketid")
-
-const taskCreate = z.strictObject({
-	bucket: bucketRef().describe("The bucket the task goes in"),
-	description: z
-		.string()
+const taskFields = z.strictObject({
+	msdyn_description: z.string().optional().describe("Body text for the task"),
+	msdyn_finish: instant.optional().describe("When the task is due"),
+	msdyn_priority: z
+		.number()
+		.int()
+		.min(0)
+		.max(10)
 		.optional()
-		.describe("Body text for the task, shown under its name"),
-	finish: instant.optional().describe("When the task is due"),
-	kind: z.literal("task"),
-	name: z.string().min(1).describe("The new task's name"),
-	outline_level: z
+		.describe("0-10; 5 is the default"),
+	msdyn_start: instant.optional().describe("When work on the task starts"),
+	msdyn_subject: z.string().min(1).describe("The task's name"),
+})
+
+const taskCreate = taskFields.extend({
+	"@odata.type": z.literal("Microsoft.Dynamics.CRM.msdyn_projecttask"),
+	msdyn_outlinelevel: z
 		.number()
 		.int()
 		.min(1)
 		.default(1)
 		.describe(
-			"1 for a top-level task. A subtask is its parent's level plus one — use the parent's Dataverse msdyn_outlinelevel.",
+			"1 for a top-level task. A subtask is its parent's msdyn_outlinelevel plus one.",
 		),
-	parent_task: taskRef().optional().describe("Makes this a subtask of that task"),
-	priority: z.number().int().min(0).max(10).optional().describe("0-10; 5 is the default"),
-	ref: z
-		.string()
-		.min(1)
-		.optional()
-		.describe(
-			"Name this task so other operations here can reference it, and so the receipt returns its id",
-		),
-	start: instant.optional().describe("When work on the task starts"),
+	"msdyn_parenttask@odata.bind": taskBinding.optional(),
+	"msdyn_project@odata.bind": binding("msdyn_projects"),
+	"msdyn_projectbucket@odata.bind": bucketBinding,
+	msdyn_projecttaskid: createId,
+	ref,
 })
 
-// `display_order` is deliberately unsupported; the recorder probe owns the service
-// claim behind the omission.
+// Display order is unsupported: the recorder's create/update probes establish
+// that the scheduling service does not honor it.
 const bucketCreate = z.strictObject({
-	kind: z.literal("bucket"),
-	name: z.string().min(1).describe("The new bucket's name"),
-	ref: z
-		.string()
-		.min(1)
-		.optional()
-		.describe("Name this bucket so tasks in this same submission can go into it"),
+	"@odata.type": z.literal("Microsoft.Dynamics.CRM.msdyn_projectbucket"),
+	msdyn_name: z.string().min(1),
+	"msdyn_project@odata.bind": binding("msdyn_projects"),
+	msdyn_projectbucketid: createId,
+	ref,
 })
 
 const taskLabelCreate = z.strictObject({
-	kind: z.literal("task_label"),
-	// A label is never created — every project is born with twenty-five, unnamed — so
-	// this one can only name an existing row, never a `ref`.
-	label: existing("label", "msdyn_projectlabelid").describe(
-		"The label to put on the task",
-	),
-	task: taskRef().describe("The task getting the label"),
+	"@odata.type": z.literal("Microsoft.Dynamics.CRM.msdyn_projecttasktolabel"),
+	// Labels already exist on the project; only the task may be a same-call ref.
+	"msdyn_ProjectLabelId@odata.bind": binding("msdyn_projectlabels"),
+	"msdyn_ProjectTaskId@odata.bind": taskBinding,
+	msdyn_projecttasktolabelid: createId,
 })
 
 const assignmentCreate = z.strictObject({
-	kind: z.literal("assignment"),
-	// The person is named by their project-team membership, not by a user or a
-	// bookable resource: membership of THIS project is what an assignment attaches to.
-	member: existing("project team member", "msdyn_projectteamid").describe(
-		"The team member to assign, from msdyn_projectteams",
-	),
-	name: z
-		.string()
-		.min(1)
-		.describe("A label for the assignment, shown to the human in the permission prompt"),
-	task: taskRef().describe(
-		"The task to assign. A task that has subtasks CANNOT be assigned to — the service refuses it.",
+	"@odata.type": z.literal("Microsoft.Dynamics.CRM.msdyn_resourceassignment"),
+	msdyn_name: z.string().min(1),
+	"msdyn_projectid@odata.bind": binding("msdyn_projects"),
+	// An assignment names membership in this project, not a user or bookable resource.
+	"msdyn_projectteamid@odata.bind": binding("msdyn_projectteams"),
+	msdyn_resourceassignmentid: createId,
+	"msdyn_taskid@odata.bind": taskBinding.describe(
+		"The task to assign. The service refuses assignments to tasks that have subtasks.",
 	),
 })
 
-const taskUpdate = z
-	.strictObject({
-		bucket: bucketRef()
-			.optional()
-			.describe("Move the task to this bucket, in the same project"),
-		description: z.string().optional(),
-		duration: z
+const taskUpdate = taskFields
+	.partial()
+	.extend({
+		"@odata.type": z.literal("Microsoft.Dynamics.CRM.msdyn_projecttask"),
+		msdyn_duration: z
 			.number()
 			.optional()
 			.describe("Working days. Writing this moves the finish."),
-		effort: z.number().optional().describe("Hours of work"),
-		finish: instant.optional(),
-		kind: z.literal("task"),
-		name: z.string().min(1).optional().describe("Rename the task to this"),
-		parent_task: taskRef().optional(),
-		priority: z.number().int().min(0).max(10).optional(),
-		progress: z
+		msdyn_effort: z.number().optional().describe("Hours of work"),
+		"msdyn_parenttask@odata.bind": taskBinding.optional(),
+		msdyn_progress: z
 			.number()
 			.min(0)
 			.max(1)
@@ -196,107 +117,82 @@ const taskUpdate = z
 			.describe(
 				"Fraction complete, 0-1 — 0.55 is 55%, and 1 is done. NOT a percentage: 55 is rejected.",
 			),
-		start: instant.optional(),
-		task: taskRef().describe("The task to change"),
+		"msdyn_projectbucket@odata.bind": bucketBinding.optional(),
+		msdyn_projecttaskid: z.union([guid, pending]),
 	})
 	.refine(
 		(input) =>
-			input.bucket !== undefined ||
-			input.description !== undefined ||
-			input.duration !== undefined ||
-			input.effort !== undefined ||
-			input.finish !== undefined ||
-			input.name !== undefined ||
-			input.parent_task !== undefined ||
-			input.priority !== undefined ||
-			input.progress !== undefined ||
-			input.start !== undefined,
-		{
-			message: "Nothing to update — a task update needs at least one changed field.",
-		},
+			Object.keys(input).some(
+				(field) => field !== "@odata.type" && field !== "msdyn_projecttaskid",
+			),
+		{ message: "Nothing to update — a task update needs at least one changed field." },
 	)
 
-// `display_order` is deliberately unsupported; the recorder's update display-order
-// probe owns the service claim behind the omission.
 const bucketUpdate = z.strictObject({
-	bucket: bucketRef().describe("The bucket to change"),
-	kind: z.literal("bucket"),
-	name: z.string().min(1).describe("Rename the bucket to this"),
+	"@odata.type": z.literal("Microsoft.Dynamics.CRM.msdyn_projectbucket"),
+	msdyn_name: z.string().min(1),
+	msdyn_projectbucketid: z.union([guid, pending]),
 })
 
-// `color_index` is deliberately unsupported; the recorder probe owns the service
-// claim behind the omission.
+// Color is unsupported by the recorded scheduling API. An empty label text is
+// supported and retires the label; do not apply task/bucket nonempty-name rules.
 const labelUpdate = z.strictObject({
-	kind: z.literal("label"),
-	label: existing("label", "msdyn_projectlabelid"),
-	text: z
-		.string()
-		.describe(
-			"The label's name. A project's labels start unnamed; clearing the text retires one.",
-		),
+	"@odata.type": z.literal("Microsoft.Dynamics.CRM.msdyn_projectlabel"),
+	msdyn_projectlabelid: guid,
+	msdyn_projectlabeltext: z.string(),
 })
 
-// Only existing records are deletable. Buckets are deliberately absent because
-// deleting one also deletes its tasks, which the permission prompt cannot disclose.
+// Deleting a bucket also deletes its tasks, which the permission prompt cannot
+// disclose. Only the existing supported deletion types are exposed.
+const deleteOperationSchema = z.discriminatedUnion("@odata.type", [
+	z.strictObject({
+		"@odata.type": z.literal("Microsoft.Dynamics.CRM.msdyn_projecttask"),
+		msdyn_projecttaskid: guid,
+	}),
+	z.strictObject({
+		"@odata.type": z.literal("Microsoft.Dynamics.CRM.msdyn_projecttasktolabel"),
+		msdyn_projecttasktolabelid: guid,
+	}),
+	z.strictObject({
+		"@odata.type": z.literal("Microsoft.Dynamics.CRM.msdyn_resourceassignment"),
+		msdyn_resourceassignmentid: guid,
+	}),
+])
 
-const taskDelete = z.strictObject({
-	kind: z.literal("task"),
-	task: existing("task", "msdyn_projecttaskid"),
-})
-
-const taskLabelDelete = z.strictObject({
-	kind: z.literal("task_label"),
-	link: existing("task-label link", "msdyn_projecttasktolabelid"),
-})
-
-const assignmentDelete = z.strictObject({
-	assignment: existing("assignment", "msdyn_resourceassignmentid"),
-	kind: z.literal("assignment"),
-})
-
-const createOperationSchema = z.discriminatedUnion("kind", [
+const createOperationSchema = z.discriminatedUnion("@odata.type", [
 	taskCreate,
 	bucketCreate,
 	taskLabelCreate,
 	assignmentCreate,
 ])
-const updateOperationSchema = z.discriminatedUnion("kind", [
+const updateOperationSchema = z.discriminatedUnion("@odata.type", [
 	taskUpdate,
 	bucketUpdate,
 	labelUpdate,
 ])
-const deleteOperationSchema = z.discriminatedUnion("kind", [
-	taskDelete,
-	taskLabelDelete,
-	assignmentDelete,
-])
 
-/**
- * One submission, as the tool takes it.
- *
- * Defined at module scope so `Submission` derives from the exact schema and cannot
- * drift. The refinements enforce cross-field and service-boundary invariants that the
- * individual field schemas cannot express.
- */
 const submissionSchema = z
 	.strictObject({
-		creates: z.array(createOperationSchema).default([]).describe("Records to create"),
-		deletes: z
-			.array(deleteOperationSchema)
+		creates: z
+			.array(createOperationSchema)
 			.default([])
-			.describe(
-				"Records to remove. Buckets cannot be deleted here — removing one takes every task in it.",
-			),
-		description: z
+			.describe("Native entities to create"),
+		Description: z
 			.string()
 			.min(1)
 			.describe("What this set does, in the words of the person approving it"),
-		project: existing("project", "msdyn_projectid"),
-		updates: z.array(updateOperationSchema).default([]).describe("Records to change"),
+		deletes: z
+			.array(deleteOperationSchema)
+			.default([])
+			.describe("Native entity identities to remove; bucket deletion is not exposed"),
+		ProjectId: guid.describe("The project's msdyn_projectid, returned by list_projects"),
+		updates: z
+			.array(updateOperationSchema)
+			.default([])
+			.describe("Native entities containing only the fields to change"),
 	})
-	// A set with nothing in it is refused at execute AND left OPEN — the one execute
-	// failure that strands a slot against a ten-set-per-user quota with no API to find it
-	// again. Checked before a set is ever minted.
+	// An empty set is rejected at execute but stranded open against the ten-set
+	// quota, with no API to find it again. Refuse it before minting a set.
 	.refine(
 		(input) => input.creates.length + input.updates.length + input.deletes.length > 0,
 		{ message: "Nothing to do — a set needs at least one create, update or delete." },
@@ -307,261 +203,153 @@ const submissionSchema = z
 			MAX_OPERATIONS,
 		{ message: `An operation set carries at most ${MAX_OPERATIONS} operations.` },
 	)
-	// Field schemas cannot enforce start <= finish. Compare parsed instants here because
-	// the service otherwise accepts the write and can silently persist a different
-	// schedule; fractional-second spellings are variable-width.
+	// The service accepts inverted dates but silently recomputes a different
+	// schedule. Parsed instants also compare variable-width fractional seconds correctly.
 	.refine(
 		(input) =>
-			[...input.creates, ...input.updates].every((operation) => {
-				const start = "start" in operation ? operation.start : undefined
-				const finish = "finish" in operation ? operation.finish : undefined
+			[...input.creates, ...input.updates].every((entity) => {
+				if (entity["@odata.type"] !== "Microsoft.Dynamics.CRM.msdyn_projecttask")
+					return true
 				return (
-					start === undefined ||
-					finish === undefined ||
-					Date.parse(start) <= Date.parse(finish)
+					entity.msdyn_start === undefined ||
+					entity.msdyn_finish === undefined ||
+					Date.parse(entity.msdyn_start) <= Date.parse(entity.msdyn_finish)
 				)
 			}),
 		{
 			message:
-				"finish is before start — the service accepts this, silently recomputes the finish from the duration, and still reports the set completed, so the board would end up holding dates you did not send",
+				"msdyn_finish is before msdyn_start — the service accepts this, silently recomputes the finish from the duration, and still reports the set completed, so the project would end up holding dates you did not send",
 		},
 	)
 
-/**
- * The caller's Dataverse credentials, recovered entirely from the request: the
- * delegated token in `Authorization`, and the org URL from its `aud` claim (`aud` IS
- * the `https://<org>.crm.dynamics.com` origin).
- */
-function scheduleApiFromRequest(request: Request | undefined): ScheduleApiClient {
-	const authorization = request?.headers.get("authorization")
-	if (typeof authorization !== "string" || !authorization.startsWith("Bearer ")) {
-		throw new Error(
-			"No Dataverse access token reached the planner server — the chatting user has no linked Microsoft account with Dataverse scope. Link (or re-link) the Microsoft account, then retry.",
-		)
+type Submission = z.output<typeof submissionSchema>
+type CreatedReference = z.output<typeof taskCreate> | z.output<typeof bucketCreate>
+type Operation =
+	| Submission["creates"][number]
+	| Submission["updates"][number]
+	| Submission["deletes"][number]
+
+function collectReferences(
+	creates: Submission["creates"],
+): Map<string, CreatedReference> {
+	const references = new Map<string, CreatedReference>()
+	for (const entity of creates) {
+		if ("ref" in entity && entity.ref !== undefined) {
+			if (references.has(entity.ref))
+				throw new Error(
+					`Two creates in this submission share the ref '${entity.ref}' — a ref names exactly one record.`,
+				)
+			references.set(entity.ref, entity)
+		}
 	}
-	const accessToken = authorization.slice("Bearer ".length)
-	const aud = decodeJwt(accessToken).aud
-	const audUrl = typeof aud === "string" ? URL.parse(aud) : null
-	if (!audUrl || (audUrl.protocol !== "https:" && audUrl.protocol !== "http:")) {
-		throw new Error(
-			`The Dataverse access token's aud claim is not an org URL (got ${JSON.stringify(aud)}) — the token was minted for the wrong resource.`,
-		)
-	}
-	return createScheduleApiClient({ accessToken, orgUrl: audUrl.origin })
+	return references
 }
 
-const toolResult = (payload: Record<string, unknown>) => ({
-	content: [{ text: JSON.stringify(payload), type: "text" as const }],
+function resolveReference(
+	field: string,
+	reference: z.output<typeof pending>,
+	references: Map<string, CreatedReference>,
+): string {
+	const entity = references.get(reference.ref)
+	if (entity === undefined)
+		throw new Error(
+			`Nothing in this submission is created with the ref '${reference.ref}'. A ref must name a create in the same call.`,
+		)
+	const expectedType =
+		field === "msdyn_projectbucket@odata.bind" || field === "msdyn_projectbucketid"
+			? "Microsoft.Dynamics.CRM.msdyn_projectbucket"
+			: "Microsoft.Dynamics.CRM.msdyn_projecttask"
+	if (entity["@odata.type"] !== expectedType)
+		throw new Error(
+			`The ref '${reference.ref}' names ${entity["@odata.type"]}, but this field needs ${expectedType}.`,
+		)
+	if (entity["@odata.type"] === "Microsoft.Dynamics.CRM.msdyn_projectbucket")
+		return field === "msdyn_projectbucketid"
+			? entity.msdyn_projectbucketid
+			: `/msdyn_projectbuckets(${entity.msdyn_projectbucketid})`
+	return field === "msdyn_projecttaskid"
+		? entity.msdyn_projecttaskid
+		: `/msdyn_projecttasks(${entity.msdyn_projecttaskid})`
+}
+
+// The schemas allow objects only for same-call refs. Every Microsoft
+// field name and every supplied native value passes through unchanged.
+function nativeEntity(
+	operation: Operation,
+	references: Map<string, CreatedReference>,
+): Record<string, unknown> {
+	const entity: Record<string, unknown> = {}
+	const fields: [string, string | number | z.output<typeof pending> | undefined][] =
+		Object.entries(operation)
+	for (const [field, value] of fields) {
+		if (field !== "ref")
+			entity[field] =
+				typeof value === "object" ? resolveReference(field, value, references) : value
+	}
+	return entity
+}
+
+const toolResult = (...records: Record<string, unknown>[]) => ({
+	content: records.map((record) => ({
+		text: JSON.stringify(record),
+		type: "text" as const,
+	})),
 })
 
-type Submission = z.output<typeof submissionSchema>
-
-type PlannedCreate = { create: z.output<typeof createOperationSchema>; id: string }
-type ReferencedCreate = { id: string; kind: "bucket" | "task" }
-
-function assertNever(value: never, where: string): never {
-	throw new Error(`Unhandled ${where}: ${JSON.stringify(value)}`)
-}
-
-/**
- * Every create paired with its id, and the subset the caller named.
- *
- * Mint each create id exactly once before mapping any writes. Client-supplied primary
- * keys let operations in the same set reference each other; only caller-named refs
- * enter `createsByRef`.
- */
-function planCreates(requested: z.output<typeof createOperationSchema>[]): {
-	createsByRef: Map<string, ReferencedCreate>
-	plannedCreates: PlannedCreate[]
-} {
-	const createsByRef = new Map<string, ReferencedCreate>()
-	const plannedCreates = requested.map((create) => {
-		const id = randomUUID()
-		if (
-			(create.kind === "bucket" || create.kind === "task") &&
-			create.ref !== undefined
-		) {
-			if (createsByRef.has(create.ref)) {
-				throw new Error(
-					`Two creates in this submission share the ref '${create.ref}' — a ref names exactly one record.`,
-				)
-			}
-			createsByRef.set(create.ref, { id, kind: create.kind })
-		}
-		return { create, id }
-	})
-	return { createsByRef, plannedCreates }
-}
-
-function resolveReferenceId(
-	createsByRef: Map<string, ReferencedCreate>,
-	reference: Reference,
-	expectedKind: ReferencedCreate["kind"],
-): string {
-	if ("id" in reference) return reference.id
-	const created = createsByRef.get(reference.ref)
-	if (created === undefined) {
-		throw new Error(
-			`Nothing in this submission is created with the ref '${reference.ref}'. A ref must name a create in the same call; an existing record is named by { id, name }.`,
-		)
-	}
-	if (created.kind !== expectedKind) {
-		throw new Error(
-			`The ref '${reference.ref}' names a ${created.kind}, but this field needs a ${expectedKind}.`,
-		)
-	}
-	return created.id
-}
-
-function writesOf(
-	submission: Submission,
-	plannedCreates: PlannedCreate[],
-	createsByRef: Map<string, ReferencedCreate>,
-): StagedWrite[] {
-	const resolveId = (reference: Reference, kind: ReferencedCreate["kind"]) =>
-		resolveReferenceId(createsByRef, reference, kind)
-	const projectId = submission.project.id
-
-	const staged: StagedWrite[] = []
-	for (const { create, id: newId } of plannedCreates) {
-		if (create.kind === "task") {
-			staged.push(
-				createProjectTask({
-					bucketId: resolveId(create.bucket, "bucket"),
-					description: create.description,
-					finish: create.finish,
-					outlineLevel: create.outline_level,
-					parentTaskId:
-						create.parent_task === undefined
-							? undefined
-							: resolveId(create.parent_task, "task"),
-					priority: create.priority,
-					projectId,
-					start: create.start,
-					subject: create.name,
-					taskId: newId,
-				}),
-			)
-		} else if (create.kind === "bucket") {
-			staged.push(createProjectBucket({ bucketId: newId, name: create.name, projectId }))
-		} else if (create.kind === "task_label") {
-			staged.push(
-				createTaskLabel({
-					labelId: create.label.id,
-					linkId: newId,
-					taskId: resolveId(create.task, "task"),
-				}),
-			)
-		} else if (create.kind === "assignment") {
-			staged.push(
-				createResourceAssignment({
-					assignmentId: newId,
-					name: create.name,
-					projectId,
-					projectTeamId: create.member.id,
-					taskId: resolveId(create.task, "task"),
-				}),
-			)
-		} else {
-			assertNever(create, "create operation")
-		}
-	}
-
-	for (const update of submission.updates) {
-		if (update.kind === "task") {
-			staged.push(
-				updateProjectTask({
-					bucketId:
-						update.bucket === undefined ? undefined : resolveId(update.bucket, "bucket"),
-					description: update.description,
-					duration: update.duration,
-					effort: update.effort,
-					finish: update.finish,
-					parentTaskId:
-						update.parent_task === undefined
-							? undefined
-							: resolveId(update.parent_task, "task"),
-					priority: update.priority,
-					progress: update.progress,
-					start: update.start,
-					subject: update.name,
-					taskId: resolveId(update.task, "task"),
-				}),
-			)
-		} else if (update.kind === "bucket") {
-			staged.push(
-				updateProjectBucket({
-					bucketId: resolveId(update.bucket, "bucket"),
-					name: update.name,
-				}),
-			)
-		} else if (update.kind === "label") {
-			staged.push(updateProjectLabel({ labelId: update.label.id, text: update.text }))
-		} else {
-			assertNever(update, "update operation")
-		}
-	}
-
-	for (const deleteOperation of submission.deletes) {
-		if (deleteOperation.kind === "task")
-			staged.push(deleteRecord({ id: deleteOperation.task.id, kind: "task" }))
-		else if (deleteOperation.kind === "task_label")
-			staged.push(deleteRecord({ id: deleteOperation.link.id, kind: "taskLabel" }))
-		else if (deleteOperation.kind === "assignment")
-			staged.push(deleteRecord({ id: deleteOperation.assignment.id, kind: "assignment" }))
-		else assertNever(deleteOperation, "delete operation")
-	}
-
-	return staged
-}
-
-export function createMcpServer(): McpServer {
+export function createMcpServer(api: ScheduleApiClient): McpServer {
 	const server = new McpServer({
 		name: "microsoft-planner-premium",
-		version: SERVER_VERSION,
+		version: packageJson.version,
 	})
-
 	server.registerTool(
 		"list_projects",
 		{
 			annotations: { readOnlyHint: true },
 			description:
-				"List the organization's Premium Planner projects visible to the chatting user. Returns projects as { id, name } pairs; pass the chosen pair as project to submit_operation_set. This tool only reads Dataverse.",
+				"List the organization's Premium Planner projects visible to the chatting user. Returns the native Dataverse value array with msdyn_projectid and msdyn_subject. Use the chosen msdyn_projectid as ProjectId in submit_operation_set. This tool only reads Dataverse.",
 			inputSchema: z.strictObject({}),
 		},
-		async (_input, extra) => {
-			const projects = await scheduleApiFromRequest(extra.http?.req).listProjects()
-			return toolResult({ projects })
-		},
+		async () => toolResult(await api.listProjects()),
 	)
 
 	server.registerTool(
 		"submit_operation_set",
 		{
 			description: [
-				"Change a Premium Planner (Project for the web) board. One call is one OPERATION SET — the scheduling service's own unit of work: a transaction over many operations, all against ONE project, applied together or not at all.",
-				"Put everything one intent needs into a single call. Creating a bucket and the tasks that go in it, or renaming a task and setting its dates and assigning it, is one set and one approval — not several. A task can go into a bucket created in the SAME call by giving that bucket a `ref` and naming it.",
-				"Use list_projects to get the project pair. Supply each other record's Dataverse id with its matching name, which the human sees in the approval arguments. `description` is yours to write, so summarize the set in that human's words.",
-				"Changing a task's dates can move OTHER tasks: tasks are auto-scheduled, so a task that has dependents drags them along, and the set reports only that it completed.",
-				"Returns an operation_set_id — a RECEIPT, not a confirmation: the set has been accepted, not applied. Pass it to wait_for_operation_set to learn whether it landed.",
+				"Change a Premium Planner (Project for the web) project. One call is one OPERATION SET — the scheduling service's transaction over many operations against ONE project, applied together or not at all.",
+				"Put everything one intent needs into a single call and approval. Use Microsoft's native entity fields, @odata.type and OData binding strings. The top-level ProjectId and Description are Microsoft's action parameters; Description must summarize the changes in the human's words.",
+				"Task and bucket creates may have a ref, which is local metadata removed before submission. A native binding property or update primary ID may instead contain { ref } to name a task or bucket created in this call. Omitted create IDs are generated and named refs are returned in created.",
+				"Changing task dates can reschedule dependent tasks; the set reports only whether it completed.",
+				"Returns Microsoft's OperationSetId — a RECEIPT, not confirmation that changes applied. Pass it to wait_for_operation_set.",
 			].join(" "),
 			inputSchema: submissionSchema,
 		},
-		async (submission, extra) => {
-			const { createsByRef, plannedCreates } = planCreates(submission.creates)
-			const operationSetId = await submitOperationSet(
-				scheduleApiFromRequest(extra.http?.req),
-				{
-					description: submission.description,
-					projectId: submission.project.id,
-					writes: writesOf(submission, plannedCreates, createsByRef),
-				},
-			)
+		async (submission) => {
+			const references = collectReferences(submission.creates)
+			const writes: StagedWrite[] = []
+			for (const [verb, operations] of [
+				["create", submission.creates],
+				["update", submission.updates],
+				["delete", submission.deletes],
+			] as const) {
+				for (const operation of operations)
+					writes.push({ entity: nativeEntity(operation, references), verb })
+			}
+			const receipt = await submitOperationSet(api, {
+				Description: submission.Description,
+				ProjectId: submission.ProjectId,
+				writes,
+			})
 			return toolResult({
+				...receipt,
 				created: Object.fromEntries(
-					[...createsByRef].map(([ref, created]) => [ref, created.id]),
+					[...references].map(([ref, entity]) => [
+						ref,
+						entity["@odata.type"] === "Microsoft.Dynamics.CRM.msdyn_projecttask"
+							? entity.msdyn_projecttaskid
+							: entity.msdyn_projectbucketid,
+					]),
 				),
-				operation_set_id: operationSetId,
 			})
 		},
 	)
@@ -570,33 +358,24 @@ export function createMcpServer(): McpServer {
 		"wait_for_operation_set",
 		{
 			description:
-				"Find out what became of a submitted set. Takes the operation_set_id returned by submit_operation_set and reads it once. While the status is executing, it polls until the set becomes terminal or the window closes; any other status returns immediately. Reports the scheduling service's own status: completed, failed (with its reason), executing, open, or abandoned. Note that 'completed' means the service applied the set without error — it is not a promise that a field holds the value you sent.",
+				"Read a submitted operation set. Polls only while msdyn_status is executing, until the set settles or the window closes. Returns the native operation-set row: msdyn_operationsetid, numeric msdyn_status (192350000 open, 192350001 executing, 192350002 abandoned, 192350003 completed, 192350004 failed), and _msdyn_psserrorlog_value when present. A failed set adds a second content record with native msdyn_errorcode and msdyn_log. Completed means the service applied the set without error, not that every field holds the supplied value.",
 			inputSchema: z.strictObject({
-				// A receipt this server minted and handed over, NOT an id read out of a
-				// Dataverse row — so unlike the references above, its lexical shape is
-				// Dataverse's business and not ours to assert.
-				operation_set_id: z
+				// This receipt comes from Microsoft, not a GUID typed by the caller.
+				OperationSetId: z
 					.string()
 					.min(1)
-					.describe("The operation_set_id returned by submit_operation_set"),
+					.describe("The OperationSetId returned by submit_operation_set"),
 				seconds: z
 					.number()
 					.int()
 					.min(0)
 					.max(MAX_WAIT_SECONDS)
 					.describe(
-						`How long to wait, 0-${MAX_WAIT_SECONDS}. 0 reads once and returns whatever the service says. If it still reports 'executing' when the window closes, call again.`,
+						`How long to wait, 0-${MAX_WAIT_SECONDS}. 0 reads once. If still executing, call again.`,
 					),
 			}),
 		},
-		async ({ operation_set_id, seconds }, extra) => {
-			const outcome = await waitForOperationSet(scheduleApiFromRequest(extra.http?.req), {
-				operationSetId: operation_set_id,
-				seconds,
-			})
-			return toolResult({ ...outcome })
-		},
+		async (input) => toolResult(...(await waitForOperationSet(api, input))),
 	)
-
 	return server
 }

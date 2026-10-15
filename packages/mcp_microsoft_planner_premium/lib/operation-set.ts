@@ -18,21 +18,17 @@
 // them, and a lost open-set id cannot be found again.
 
 import { setTimeout as sleep } from "node:timers/promises"
-import type {
-	OperationSet,
-	OperationSetStatus,
-	ScheduleApiClient,
-	StagedWrite,
+import {
+	OPERATION_SET_STATUS,
+	type OperationSet,
+	type OperationSetReceipt,
+	type PssErrorLog,
+	type ScheduleApiClient,
+	type StagedWrite,
 } from "@/lib/schedule-api"
 
-/**
- * What the set said when the wait ended. `failed` carries the scheduling
- * service's own account; every other state is just its name, because this layer
- * synthesizes no verdict on top of what the API reports.
- */
-export type WaitOutcome =
-	| { status: Exclude<OperationSetStatus, "failed"> }
-	| { status: "failed"; failure: string }
+/** The last native set row, plus its native linked error-log row on failure. */
+export type WaitOutcome = [OperationSet] | [OperationSet, PssErrorLog]
 
 /**
  * The rhythm, fixed. The caller chooses how long to wait; it never chooses how often
@@ -108,11 +104,11 @@ function reason(error: unknown): string {
  */
 export async function submitOperationSet(
 	api: ScheduleApiClient,
-	input: { description: string; projectId: string; writes: StagedWrite[] },
-): Promise<string> {
-	const operationSetId = await api.createOperationSet({
-		description: input.description,
-		projectId: input.projectId,
+	input: { Description: string; ProjectId: string; writes: StagedWrite[] },
+): Promise<OperationSetReceipt> {
+	const receipt = await api.createOperationSet({
+		Description: input.Description,
+		ProjectId: input.ProjectId,
 	})
 
 	try {
@@ -128,18 +124,18 @@ export async function submitOperationSet(
 			// An empty collection is not staged at all. The action refuses one, and a
 			// verb nobody asked for has no call to make.
 			if (entities.length > 0) {
-				await api.stage({ entities, operationSetId, verb })
+				await api.stage({ EntityCollection: entities, ...receipt, verb })
 			}
 		}
 	} catch (error) {
 		try {
-			await api.abandonOperationSet(operationSetId)
+			await api.abandonOperationSet(receipt)
 		} catch (abandonError) {
 			// Both causes go in the sentence. This is the quota-starvation path: the set
 			// is stranded open, invisible, and cumulative, and an `AggregateError` would
 			// surface the consequence while dropping both reasons for it.
 			throw new Error(
-				`Staging failed AND abandoning OperationSet '${operationSetId}' failed — that set is now stranded open against the user's quota. Staging: ${reason(error)}. Abandon: ${reason(abandonError)}.`,
+				`Staging failed AND abandoning OperationSet '${receipt.OperationSetId}' failed — that set is now stranded open against the user's quota. Staging: ${reason(error)}. Abandon: ${reason(abandonError)}.`,
 			)
 		}
 		throw error
@@ -148,28 +144,8 @@ export async function submitOperationSet(
 	// A rejection here is synchronous and immediate — an out-of-range field value
 	// comes back as a 400 — so bad input reaches the caller now rather than as a
 	// status read a minute later. The set is already closed; nothing to abandon.
-	await api.executeOperationSet(operationSetId)
-	return operationSetId
-}
-
-/** Why the service failed a set, as far as it will say. */
-async function explainFailure(
-	api: ScheduleApiClient,
-	errorLogId: string,
-): Promise<string> {
-	const { errorCode, log } = await api.getPssErrorLog(errorLogId)
-	return errorCode === "" ? log : `(${errorCode}) ${log}`
-}
-
-/** Any set, as the answer a caller gets. Total: every state has one. */
-async function outcomeOf(
-	api: ScheduleApiClient,
-	set: OperationSet,
-): Promise<WaitOutcome> {
-	if (set.status === "failed") {
-		return { failure: await explainFailure(api, set.errorLogId), status: "failed" }
-	}
-	return { status: set.status }
+	await api.executeOperationSet(receipt)
+	return receipt
 }
 
 /**
@@ -185,20 +161,22 @@ async function outcomeOf(
  */
 export async function waitForOperationSet(
 	api: ScheduleApiClient,
-	input: { operationSetId: string; seconds: number },
+	input: { OperationSetId: string; seconds: number },
 ): Promise<WaitOutcome> {
 	let elapsed = 0
-	let set = await api.getOperationSet(input.operationSetId)
+	let set = await api.getOperationSet(input.OperationSetId)
 
 	// Only `executing` earns another read: terminal states are final, and `open`
 	// requires an explicit execute. Receipts minted by `submitOperationSet` are already
 	// past open.
 	for (const at of readInstants(input.seconds).slice(1)) {
-		if (set.status !== "executing") break
+		if (set.msdyn_status !== OPERATION_SET_STATUS.executing) break
 		await sleep((at - elapsed) * 1000)
 		elapsed = at
-		set = await api.getOperationSet(input.operationSetId)
+		set = await api.getOperationSet(input.OperationSetId)
 	}
 
-	return outcomeOf(api, set)
+	return set.msdyn_status === OPERATION_SET_STATUS.failed
+		? [set, await api.getPssErrorLog(set._msdyn_psserrorlog_value)]
+		: [set]
 }

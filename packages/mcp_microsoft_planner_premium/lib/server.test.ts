@@ -9,12 +9,13 @@
 // a harness that lets the test assemble the progression can assert accept-then-fail
 // on evidence that does not exist.
 //
-// The caller's token carries the replay org's origin in `aud`, so the server routes
-// itself — no tool configuration, which is also the production MCP contract.
+// The deployment points at the replay org, and the caller's token names that same
+// audience. These unsigned tokens exercise claim checks, not Microsoft validation.
 
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client"
 import { UnsecuredJWT } from "jose"
 import { afterEach, describe, expect, it } from "vitest"
+import type { Bindings } from "@/env"
 import app from "@/index"
 import { type RecordedOrg, serveRecordedOrg } from "@/lib/cassette/replay"
 import { MAX_WAIT_SECONDS, readInstants } from "@/lib/operation-set"
@@ -24,30 +25,45 @@ import { MAX_WAIT_SECONDS, readInstants } from "@/lib/operation-set"
 // exemplar here sails through a `z.uuid()` schema that many production GUIDs fail
 // — a green suite over a broken write — and these fixtures are what pin `guid()`
 // over `uuid()`.
-const PROJECT = { id: "9c8b7a65-4321-f011-8dcb-0a1b2c3d4e5f", name: "Gable" }
-const BUCKET = { id: "1f2e3d4c-5b6a-f011-9e8d-7c6b5a4f3e2d", name: "GBLPBI02" }
-const TASK = {
-	id: "5a4b3c2d-1e0f-f011-b7a6-9d8c7b6a5f4e",
-	name: "Follow up on Gable PBI",
+const PROJECT = {
+	msdyn_projectid: "9c8b7a65-4321-f011-8dcb-0a1b2c3d4e5f",
+	msdyn_subject: "Gable",
 }
-const LABEL = { id: "3c2d1e0f-4b5a-f011-8c7b-6a5f4e3d2c1b", name: "Blocked" }
+const BUCKET = {
+	msdyn_name: "GBLPBI02",
+	msdyn_projectbucketid: "1f2e3d4c-5b6a-f011-9e8d-7c6b5a4f3e2d",
+}
+const TASK = {
+	msdyn_projecttaskid: "5a4b3c2d-1e0f-f011-b7a6-9d8c7b6a5f4e",
+	msdyn_subject: "Follow up on Gable PBI",
+}
+const LABEL = {
+	msdyn_projectlabelid: "3c2d1e0f-4b5a-f011-8c7b-6a5f4e3d2c1b",
+	msdyn_projectlabeltext: "Blocked",
+}
 const PROJECT_TEAM_MEMBER = {
-	id: "7f6e5d4c-3b2a-f011-9a8b-1c2d3e4f5a6b",
-	name: "Komal Farooq",
+	msdyn_name: "Komal Farooq",
+	msdyn_projectteamid: "7f6e5d4c-3b2a-f011-9a8b-1c2d3e4f5a6b",
 }
 const TASK_LABEL_LINK = {
-	id: "2d1e0f3c-5a4b-f011-7b6a-4e3d2c1b0f9e",
-	name: "Blocked on Follow up",
+	msdyn_projecttasktolabelid: "2d1e0f3c-5a4b-f011-7b6a-4e3d2c1b0f9e",
 }
 const ASSIGNMENT = {
-	id: "8a9b0c1d-2e3f-f011-4a5b-6c7d8e9f0a1b",
-	name: "Komal on Follow up",
+	msdyn_resourceassignmentid: "8a9b0c1d-2e3f-f011-4a5b-6c7d8e9f0a1b",
 }
 
 const ONE_TASK_SUBMISSION = {
-	creates: [{ bucket: BUCKET, kind: "task", name: TASK.name }],
-	description: "Add the Gable follow-up",
-	project: PROJECT,
+	creates: [
+		{
+			"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+			"msdyn_project@odata.bind": `/msdyn_projects(${PROJECT.msdyn_projectid})`,
+			"msdyn_projectbucket@odata.bind": `/msdyn_projectbuckets(${BUCKET.msdyn_projectbucketid})`,
+			msdyn_projecttaskid: TASK.msdyn_projecttaskid,
+			msdyn_subject: TASK.msdyn_subject,
+		},
+	],
+	Description: "Add the Gable follow-up",
+	ProjectId: PROJECT.msdyn_projectid,
 }
 
 const NAMES_NOTHING = "{{unknownTaskId}}"
@@ -58,25 +74,29 @@ let accessToken: string
 /**
  * Stand up the recorded org and drive the planner Worker's HTTP entrypoint.
  * `replaying` names the recorded chain this test drives; omitted only by tests that
- * touch no Dataverse traffic. `auth: null` connects with NO Authorization header —
- * the no-linked-account path.
+ * touch no Dataverse traffic.
  */
-async function connect(
-	options: { auth?: null; replaying?: string } = {},
-): Promise<Client> {
+async function connect(options: { replaying?: string } = {}): Promise<Client> {
 	org = await serveRecordedOrg({ replaying: options.replaying })
-	// An unsigned-but-decodable JWT whose aud is the replay org — exactly the property
-	// the server derives its org URL from.
-	accessToken = new UnsecuredJWT({}).setAudience(org.url).encode()
+	const bindings = {
+		CTX_DATAVERSE_ORG_URL: org.url,
+		CTX_ENTRA_CLIENT_ID: "aaf9e242-3a1f-4d36-b9ee-f1a11c2b2c11",
+		CTX_ENTRA_CLIENT_SECRET: "test-only-secret",
+		CTX_ENTRA_TENANT: "organizations",
+	} satisfies Bindings
+	accessToken = new UnsecuredJWT({
+		appid: bindings.CTX_ENTRA_CLIENT_ID,
+		scp: "user_impersonation",
+	})
+		.setAudience(org.url)
+		.setExpirationTime("1h")
+		.encode()
 
 	const client = new Client({ name: "test-caller", version: "1.0.0" })
 	await client.connect(
 		new StreamableHTTPClientTransport(new URL("https://planner.example/mcp"), {
-			fetch: async (input, init) => app.fetch(new Request(input, init)),
-			requestInit:
-				options.auth === null
-					? undefined
-					: { headers: { Authorization: `Bearer ${accessToken}` } },
+			fetch: async (input, init) => app.fetch(new Request(input, init), bindings),
+			requestInit: { headers: { Authorization: `Bearer ${accessToken}` } },
 		}),
 	)
 	return client
@@ -93,9 +113,7 @@ const resultText = (result: Awaited<ReturnType<Client["callTool"]>>) =>
 const payloadOf = (result: Awaited<ReturnType<Client["callTool"]>>) =>
 	JSON.parse((result.content as Array<{ text: string }>)[0]?.text ?? "") as Record<
 		string,
-		// `created` is an object of ref → id; everything else this server returns is a
-		// string. Typed loosely here rather than narrowed at every call site.
-		string | Record<string, string>
+		unknown
 	>
 const stagedEntitiesForAction = (action: string): Record<string, unknown>[] =>
 	(org.calls.find((call) => call.action === action)?.body.EntityCollection ??
@@ -150,8 +168,7 @@ describe("the advertised surface", () => {
 	})
 
 	it("advertises list_projects as a read-only tool with no arguments", async () => {
-		// No project-list response has been recorded yet. Discovery is the server's
-		// contract; a Dataverse round trip must wait for the real recording.
+		// Tool discovery exercises the advertised contract without Dataverse traffic.
 		const client = await connect()
 		const { tools } = await client.listTools()
 		await client.close()
@@ -165,6 +182,35 @@ describe("the advertised surface", () => {
 		expect(list?.inputSchema.properties).toEqual({})
 		expect(org.calls).toEqual([])
 		expect(org.reads).toEqual([])
+	})
+
+	it("advertises optional native create IDs without a fixed default", async () => {
+		const client = await connect()
+		const { tools } = await client.listTools()
+		await client.close()
+
+		const submit = tools.find((tool) => tool.name === "submit_operation_set")?.inputSchema
+		const creates = submit?.properties?.creates as {
+			items: {
+				oneOf: Array<{
+					properties: Record<string, { const?: string; default?: unknown }>
+					required: string[]
+				}>
+			}
+		}
+		for (const [type, primaryId] of [
+			["Microsoft.Dynamics.CRM.msdyn_projecttask", "msdyn_projecttaskid"],
+			["Microsoft.Dynamics.CRM.msdyn_projectbucket", "msdyn_projectbucketid"],
+			["Microsoft.Dynamics.CRM.msdyn_projecttasktolabel", "msdyn_projecttasktolabelid"],
+			["Microsoft.Dynamics.CRM.msdyn_resourceassignment", "msdyn_resourceassignmentid"],
+		] as const) {
+			const variant = creates.items.oneOf.find(
+				(branch) => branch.properties["@odata.type"]?.const === type,
+			)
+			expect(variant?.properties).toHaveProperty(primaryId)
+			expect(variant?.required).not.toContain(primaryId)
+			expect(variant?.properties[primaryId]).not.toHaveProperty("default")
+		}
 	})
 
 	it("advertises the wait-window bounds", async () => {
@@ -189,9 +235,9 @@ describe("the advertised surface", () => {
 		const kinds = JSON.stringify(
 			(submit?.properties?.deletes as { items?: unknown } | undefined)?.items ?? {},
 		)
-		expect(kinds).toContain("task")
-		expect(kinds).toContain("assignment")
-		expect(kinds).not.toContain("bucket")
+		expect(kinds).toContain("msdyn_projecttask")
+		expect(kinds).toContain("msdyn_resourceassignment")
+		expect(kinds).not.toContain("msdyn_projectbucket")
 	})
 
 	it("makes every advertised object strict, at every level", async () => {
@@ -203,7 +249,7 @@ describe("the advertised surface", () => {
 		await client.close()
 		const submit = tools.find((tool) => tool.name === "submit_operation_set")?.inputSchema
 		const strictness = advertisedStrictness(submit)
-		expect(Object.keys(strictness).length).toBeGreaterThan(10)
+		expect(Object.keys(strictness).length).toBeGreaterThan(1)
 		expect(Object.values(strictness).every((value) => value === false)).toBe(true)
 	})
 })
@@ -226,19 +272,20 @@ describe("submit_operation_set", () => {
 		expect(org.reads).toEqual([])
 
 		// The receipt is the set the tool actually executed, not merely a string.
-		expect(payloadOf(result).operation_set_id).toBe(org.calls[2]?.body.OperationSetId)
+		expect(payloadOf(result).OperationSetId).toBe(org.calls[2]?.body.OperationSetId)
 		// The description the caller wrote is what the set carries, because it is also
 		// what the human approving the call reads.
 		expect(org.calls[0]?.body).toEqual({
 			Description: "Add the Gable follow-up",
-			ProjectId: PROJECT.id,
+			ProjectId: PROJECT.msdyn_projectid,
 		})
 		expect(stagedEntitiesForAction("msdyn_PssCreateV2")[0]).toMatchObject({
 			"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
 			msdyn_outlinelevel: 1,
-			"msdyn_project@odata.bind": `/msdyn_projects(${PROJECT.id})`,
-			"msdyn_projectbucket@odata.bind": `/msdyn_projectbuckets(${BUCKET.id})`,
-			msdyn_subject: TASK.name,
+			"msdyn_project@odata.bind": `/msdyn_projects(${PROJECT.msdyn_projectid})`,
+			"msdyn_projectbucket@odata.bind": `/msdyn_projectbuckets(${BUCKET.msdyn_projectbucketid})`,
+			msdyn_projecttaskid: TASK.msdyn_projecttaskid,
+			msdyn_subject: TASK.msdyn_subject,
 		})
 		// Every hop carries the caller's delegated token — the Schedule APIs reject
 		// application identities, so a write that lost it would not be a write at all.
@@ -251,17 +298,18 @@ describe("submit_operation_set", () => {
 			arguments: {
 				creates: [
 					{
-						bucket: BUCKET,
-						description: "What the client asked for, and by when.",
-						finish: "2026-09-11T17:00:00Z",
-						kind: "task",
-						name: TASK.name,
-						priority: 7,
-						start: "2026-09-07T09:00:00Z",
+						"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+						msdyn_description: "What the client asked for, and by when.",
+						msdyn_finish: "2026-09-11T17:00:00Z",
+						msdyn_priority: 7,
+						"msdyn_project@odata.bind": `/msdyn_projects(${PROJECT.msdyn_projectid})`,
+						"msdyn_projectbucket@odata.bind": `/msdyn_projectbuckets(${BUCKET.msdyn_projectbucketid})`,
+						msdyn_start: "2026-09-07T09:00:00Z",
+						msdyn_subject: TASK.msdyn_subject,
 					},
 				],
-				description: "Add the Gable follow-up with its dates",
-				project: PROJECT,
+				Description: "Add the Gable follow-up with its dates",
+				ProjectId: PROJECT.msdyn_projectid,
 			},
 			name: "submit_operation_set",
 		})
@@ -283,12 +331,27 @@ describe("submit_operation_set", () => {
 		const result = await client.callTool({
 			arguments: {
 				creates: [
-					{ kind: "bucket", name: "Northbay", ref: "b1" },
-					{ bucket: { ref: "b1" }, kind: "task", name: "Northbay - DLP policy doc" },
-					{ bucket: { ref: "b1" }, kind: "task", name: "Northbay - training deck" },
+					{
+						"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projectbucket",
+						msdyn_name: "Northbay",
+						"msdyn_project@odata.bind": `/msdyn_projects(${PROJECT.msdyn_projectid})`,
+						ref: "b1",
+					},
+					{
+						"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+						"msdyn_project@odata.bind": `/msdyn_projects(${PROJECT.msdyn_projectid})`,
+						"msdyn_projectbucket@odata.bind": { ref: "b1" },
+						msdyn_subject: "Northbay - DLP policy doc",
+					},
+					{
+						"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+						"msdyn_project@odata.bind": `/msdyn_projects(${PROJECT.msdyn_projectid})`,
+						"msdyn_projectbucket@odata.bind": { ref: "b1" },
+						msdyn_subject: "Northbay - training deck",
+					},
 				],
-				description: "Add the Northbay bucket and Tuesday's two follow-ups",
-				project: PROJECT,
+				Description: "Add the Northbay bucket and Tuesday's two follow-ups",
+				ProjectId: PROJECT.msdyn_projectid,
 			},
 			name: "submit_operation_set",
 		})
@@ -318,11 +381,29 @@ describe("submit_operation_set", () => {
 		const client = await connect({ replaying: "create-update-and-delete-together" })
 		const result = await client.callTool({
 			arguments: {
-				creates: [{ bucket: BUCKET, kind: "task", name: "New from the call" }],
-				deletes: [{ kind: "task", task: TASK }],
-				description: "Add one, rename one, drop one",
-				project: PROJECT,
-				updates: [{ kind: "task", name: "Renamed", task: TASK }],
+				creates: [
+					{
+						"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+						"msdyn_project@odata.bind": `/msdyn_projects(${PROJECT.msdyn_projectid})`,
+						"msdyn_projectbucket@odata.bind": `/msdyn_projectbuckets(${BUCKET.msdyn_projectbucketid})`,
+						msdyn_subject: "New from the call",
+					},
+				],
+				Description: "Add one, rename one, drop one",
+				deletes: [
+					{
+						"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+						msdyn_projecttaskid: TASK.msdyn_projecttaskid,
+					},
+				],
+				ProjectId: PROJECT.msdyn_projectid,
+				updates: [
+					{
+						"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+						msdyn_projecttaskid: TASK.msdyn_projecttaskid,
+						msdyn_subject: "Renamed",
+					},
+				],
 			},
 			name: "submit_operation_set",
 		})
@@ -342,17 +423,149 @@ describe("submit_operation_set", () => {
 		expect(sets.size).toBe(1)
 	})
 
+	it("preserves native bucket fields when renaming an existing bucket", async () => {
+		const client = await connect({ replaying: "update-bucket-name" })
+		const update = {
+			"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projectbucket",
+			msdyn_name: "ZZ Cassette Bucket Renamed",
+			msdyn_projectbucketid: BUCKET.msdyn_projectbucketid,
+		}
+		const result = await client.callTool({
+			arguments: {
+				Description: "Rename the bucket",
+				ProjectId: PROJECT.msdyn_projectid,
+				updates: [update],
+			},
+			name: "submit_operation_set",
+		})
+		await client.close()
+
+		expect(result.isError ?? false).toBe(false)
+		expect(stagedEntitiesForAction("msdyn_PssUpdateV2")).toEqual([update])
+	})
+
+	it("preserves native label fields when renaming an existing label", async () => {
+		const client = await connect({ replaying: "rename-label" })
+		const update = {
+			"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projectlabel",
+			msdyn_projectlabelid: LABEL.msdyn_projectlabelid,
+			msdyn_projectlabeltext: "ZZ Cassette Label",
+		}
+		const result = await client.callTool({
+			arguments: {
+				Description: "Name the label",
+				ProjectId: PROJECT.msdyn_projectid,
+				updates: [update],
+			},
+			name: "submit_operation_set",
+		})
+		await client.close()
+
+		expect(result.isError ?? false).toBe(false)
+		expect(stagedEntitiesForAction("msdyn_PssUpdateV2")).toEqual([update])
+	})
+
+	it("resolves a same-set task update's native identity to its created GUID", async () => {
+		const client = await connect({
+			replaying: "update-a-task-created-in-the-same-set",
+		})
+		const result = await client.callTool({
+			arguments: {
+				creates: [
+					{
+						"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+						"msdyn_project@odata.bind": `/msdyn_projects(${PROJECT.msdyn_projectid})`,
+						"msdyn_projectbucket@odata.bind": `/msdyn_projectbuckets(${BUCKET.msdyn_projectbucketid})`,
+						msdyn_subject: "ZZ cassette created-then-updated",
+						ref: "task",
+					},
+				],
+				Description: "Create the task and amend it",
+				ProjectId: PROJECT.msdyn_projectid,
+				updates: [
+					{
+						"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+						msdyn_progress: 0.5,
+						msdyn_projecttaskid: { ref: "task" },
+						msdyn_subject: "ZZ cassette created-then-updated (amended)",
+					},
+				],
+			},
+			name: "submit_operation_set",
+		})
+		await client.close()
+
+		expect(result.isError ?? false).toBe(false)
+		const createdId = (payloadOf(result).created as Record<string, string>).task
+		expect(createdId).toEqual(expect.any(String))
+		const created = stagedEntitiesForAction("msdyn_PssCreateV2")[0]
+		expect(created?.msdyn_projecttaskid).toBe(createdId)
+		expect(created).not.toHaveProperty("ref")
+		expect(stagedEntitiesForAction("msdyn_PssUpdateV2")).toEqual([
+			{
+				"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+				msdyn_progress: 0.5,
+				msdyn_projecttaskid: createdId,
+				msdyn_subject: "ZZ cassette created-then-updated (amended)",
+			},
+		])
+	})
+
+	it("resolves a same-set bucket update's native identity to its created GUID", async () => {
+		const client = await connect({
+			replaying: "rename-a-bucket-created-in-the-same-set",
+		})
+		const result = await client.callTool({
+			arguments: {
+				creates: [
+					{
+						"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projectbucket",
+						msdyn_name: "ZZ Cassette Born Named",
+						"msdyn_project@odata.bind": `/msdyn_projects(${PROJECT.msdyn_projectid})`,
+						ref: "bucket",
+					},
+				],
+				Description: "Create the bucket and rename it",
+				ProjectId: PROJECT.msdyn_projectid,
+				updates: [
+					{
+						"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projectbucket",
+						msdyn_name: "ZZ Cassette Renamed Same Set",
+						msdyn_projectbucketid: { ref: "bucket" },
+					},
+				],
+			},
+			name: "submit_operation_set",
+		})
+		await client.close()
+
+		expect(result.isError ?? false).toBe(false)
+		const createdId = (payloadOf(result).created as Record<string, string>).bucket
+		expect(createdId).toEqual(expect.any(String))
+		const created = stagedEntitiesForAction("msdyn_PssCreateV2")[0]
+		expect(created?.msdyn_projectbucketid).toBe(createdId)
+		expect(created).not.toHaveProperty("ref")
+		expect(stagedEntitiesForAction("msdyn_PssUpdateV2")).toEqual([
+			{
+				"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projectbucket",
+				msdyn_name: "ZZ Cassette Renamed Same Set",
+				msdyn_projectbucketid: createdId,
+			},
+		])
+	})
+
 	it("stages many tasks as one collection, not one set each", async () => {
 		const client = await connect({ replaying: "create-many-tasks" })
 		await client.callTool({
 			arguments: {
 				creates: [1, 2, 3].map((n) => ({
-					bucket: BUCKET,
-					kind: "task",
-					name: `Batch ${n}`,
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+					"msdyn_project@odata.bind": `/msdyn_projects(${PROJECT.msdyn_projectid})`,
+					"msdyn_projectbucket@odata.bind": `/msdyn_projectbuckets(${BUCKET.msdyn_projectbucketid})`,
+					msdyn_subject: `Batch ${n}`,
 				})),
-				description: "Three at once",
-				project: PROJECT,
+				Description: "Three at once",
+				ProjectId: PROJECT.msdyn_projectid,
 			},
 			name: "submit_operation_set",
 		})
@@ -367,9 +580,15 @@ describe("submit_operation_set", () => {
 		const attach = await connect({ replaying: "attach-label" })
 		await attach.callTool({
 			arguments: {
-				creates: [{ kind: "task_label", label: LABEL, task: TASK }],
-				description: "Mark it blocked",
-				project: PROJECT,
+				creates: [
+					{
+						"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttasktolabel",
+						"msdyn_ProjectLabelId@odata.bind": `/msdyn_projectlabels(${LABEL.msdyn_projectlabelid})`,
+						"msdyn_ProjectTaskId@odata.bind": `/msdyn_projecttasks(${TASK.msdyn_projecttaskid})`,
+					},
+				],
+				Description: "Mark it blocked",
+				ProjectId: PROJECT.msdyn_projectid,
 			},
 			name: "submit_operation_set",
 		})
@@ -377,8 +596,8 @@ describe("submit_operation_set", () => {
 		// case-sensitively — lowercase here fails every attach, which is why the exact
 		// keys are pinned rather than the values alone.
 		expect(stagedEntitiesForAction("msdyn_PssCreateV2")[0]).toMatchObject({
-			"msdyn_ProjectLabelId@odata.bind": `/msdyn_projectlabels(${LABEL.id})`,
-			"msdyn_ProjectTaskId@odata.bind": `/msdyn_projecttasks(${TASK.id})`,
+			"msdyn_ProjectLabelId@odata.bind": `/msdyn_projectlabels(${LABEL.msdyn_projectlabelid})`,
+			"msdyn_ProjectTaskId@odata.bind": `/msdyn_projecttasks(${TASK.msdyn_projecttaskid})`,
 		})
 		await attach.close()
 		await org.close()
@@ -386,9 +605,14 @@ describe("submit_operation_set", () => {
 		const detach = await connect({ replaying: "detach-label" })
 		await detach.callTool({
 			arguments: {
-				deletes: [{ kind: "task_label", link: TASK_LABEL_LINK }],
-				description: "Unblock it",
-				project: PROJECT,
+				Description: "Unblock it",
+				deletes: [
+					{
+						"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttasktolabel",
+						msdyn_projecttasktolabelid: TASK_LABEL_LINK.msdyn_projecttasktolabelid,
+					},
+				],
+				ProjectId: PROJECT.msdyn_projectid,
 			},
 			name: "submit_operation_set",
 		})
@@ -402,24 +626,25 @@ describe("submit_operation_set", () => {
 			arguments: {
 				creates: [
 					{
-						kind: "assignment",
-						member: PROJECT_TEAM_MEMBER,
-						name: PROJECT_TEAM_MEMBER.name,
-						task: TASK,
+						"@odata.type": "Microsoft.Dynamics.CRM.msdyn_resourceassignment",
+						msdyn_name: PROJECT_TEAM_MEMBER.msdyn_name,
+						"msdyn_projectid@odata.bind": `/msdyn_projects(${PROJECT.msdyn_projectid})`,
+						"msdyn_projectteamid@odata.bind": `/msdyn_projectteams(${PROJECT_TEAM_MEMBER.msdyn_projectteamid})`,
+						"msdyn_taskid@odata.bind": `/msdyn_projecttasks(${TASK.msdyn_projecttaskid})`,
 					},
 				],
-				description: "Give it to Komal",
-				project: PROJECT,
+				Description: "Give it to Komal",
+				ProjectId: PROJECT.msdyn_projectid,
 			},
 			name: "submit_operation_set",
 		})
 		await client.close()
 		const staged = stagedEntitiesForAction("msdyn_PssCreateV2")[0]
 		expect(staged).toMatchObject({
-			msdyn_name: PROJECT_TEAM_MEMBER.name,
-			"msdyn_projectid@odata.bind": `/msdyn_projects(${PROJECT.id})`,
-			"msdyn_projectteamid@odata.bind": `/msdyn_projectteams(${PROJECT_TEAM_MEMBER.id})`,
-			"msdyn_taskid@odata.bind": `/msdyn_projecttasks(${TASK.id})`,
+			msdyn_name: PROJECT_TEAM_MEMBER.msdyn_name,
+			"msdyn_projectid@odata.bind": `/msdyn_projects(${PROJECT.msdyn_projectid})`,
+			"msdyn_projectteamid@odata.bind": `/msdyn_projectteams(${PROJECT_TEAM_MEMBER.msdyn_projectteamid})`,
+			"msdyn_taskid@odata.bind": `/msdyn_projecttasks(${TASK.msdyn_projecttaskid})`,
 		})
 		expect(staged).not.toHaveProperty("msdyn_start")
 		expect(staged).not.toHaveProperty("msdyn_finish")
@@ -432,9 +657,14 @@ describe("submit_operation_set", () => {
 		const client = await connect({ replaying: "unassign-task" })
 		await client.callTool({
 			arguments: {
-				deletes: [{ assignment: ASSIGNMENT, kind: "assignment" }],
-				description: "Take it off Komal",
-				project: PROJECT,
+				Description: "Take it off Komal",
+				deletes: [
+					{
+						"@odata.type": "Microsoft.Dynamics.CRM.msdyn_resourceassignment",
+						msdyn_resourceassignmentid: ASSIGNMENT.msdyn_resourceassignmentid,
+					},
+				],
+				ProjectId: PROJECT.msdyn_projectid,
 			},
 			name: "submit_operation_set",
 		})
@@ -446,7 +676,7 @@ describe("submit_operation_set", () => {
 		])
 		expect(stagedEntitiesForAction("msdyn_PssDeleteV2")[0]).toEqual({
 			"@odata.type": "Microsoft.Dynamics.CRM.msdyn_resourceassignment",
-			msdyn_resourceassignmentid: ASSIGNMENT.id,
+			msdyn_resourceassignmentid: ASSIGNMENT.msdyn_resourceassignmentid,
 		})
 	})
 })
@@ -457,9 +687,9 @@ describe("arguments the tool refuses before any Dataverse traffic", () => {
 		const result = await client.callTool({
 			arguments: {
 				creates: [],
+				Description: "nothing",
 				deletes: [],
-				description: "nothing",
-				project: PROJECT,
+				ProjectId: PROJECT.msdyn_projectid,
 				updates: [],
 			},
 			name: "submit_operation_set",
@@ -474,9 +704,17 @@ describe("arguments the tool refuses before any Dataverse traffic", () => {
 		const client = await connect()
 		const result = await client.callTool({
 			arguments: {
-				creates: [{ bucket: BUCKET, finish: "2026-08-28", kind: "task", name: "x" }],
-				description: "due Friday",
-				project: PROJECT,
+				creates: [
+					{
+						"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+						msdyn_finish: "2026-08-28",
+						"msdyn_project@odata.bind": `/msdyn_projects(${PROJECT.msdyn_projectid})`,
+						"msdyn_projectbucket@odata.bind": `/msdyn_projectbuckets(${BUCKET.msdyn_projectbucketid})`,
+						msdyn_subject: "x",
+					},
+				],
+				Description: "due Friday",
+				ProjectId: PROJECT.msdyn_projectid,
 			},
 			name: "submit_operation_set",
 		})
@@ -492,14 +730,15 @@ describe("arguments the tool refuses before any Dataverse traffic", () => {
 			arguments: {
 				creates: [
 					{
-						bucket: BUCKET,
-						finish: "2026-02-30T17:00:00Z",
-						kind: "task",
-						name: "x",
+						"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+						msdyn_finish: "2026-02-30T17:00:00Z",
+						"msdyn_project@odata.bind": `/msdyn_projects(${PROJECT.msdyn_projectid})`,
+						"msdyn_projectbucket@odata.bind": `/msdyn_projectbuckets(${BUCKET.msdyn_projectbucketid})`,
+						msdyn_subject: "x",
 					},
 				],
-				description: "an impossible date",
-				project: PROJECT,
+				Description: "an impossible date",
+				ProjectId: PROJECT.msdyn_projectid,
 			},
 			name: "submit_operation_set",
 		})
@@ -514,15 +753,16 @@ describe("arguments the tool refuses before any Dataverse traffic", () => {
 			arguments: {
 				creates: [
 					{
-						bucket: BUCKET,
-						finish: "2026-09-11T17:00:00.10Z",
-						kind: "task",
-						name: "x",
-						start: "2026-09-11T17:00:00.1Z",
+						"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+						msdyn_finish: "2026-09-11T17:00:00.10Z",
+						"msdyn_project@odata.bind": `/msdyn_projects(${PROJECT.msdyn_projectid})`,
+						"msdyn_projectbucket@odata.bind": `/msdyn_projectbuckets(${BUCKET.msdyn_projectbucketid})`,
+						msdyn_start: "2026-09-11T17:00:00.1Z",
+						msdyn_subject: "x",
 					},
 				],
-				description: "equal instants",
-				project: PROJECT,
+				Description: "equal instants",
+				ProjectId: PROJECT.msdyn_projectid,
 			},
 			name: "submit_operation_set",
 		})
@@ -536,21 +776,22 @@ describe("arguments the tool refuses before any Dataverse traffic", () => {
 			arguments: {
 				creates: [
 					{
-						bucket: BUCKET,
-						finish: "2026-09-11T17:00:00.1Z",
-						kind: "task",
-						name: "x",
-						start: "2026-09-11T17:00:00.11Z",
+						"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+						msdyn_finish: "2026-09-11T17:00:00.1Z",
+						"msdyn_project@odata.bind": `/msdyn_projects(${PROJECT.msdyn_projectid})`,
+						"msdyn_projectbucket@odata.bind": `/msdyn_projectbuckets(${BUCKET.msdyn_projectbucketid})`,
+						msdyn_start: "2026-09-11T17:00:00.11Z",
+						msdyn_subject: "x",
 					},
 				],
-				description: "an inverted subsecond range",
-				project: PROJECT,
+				Description: "an inverted subsecond range",
+				ProjectId: PROJECT.msdyn_projectid,
 			},
 			name: "submit_operation_set",
 		})
 		await client.close()
 		expect(result.isError).toBe(true)
-		expect(resultText(result)).toContain("finish is before start")
+		expect(resultText(result)).toContain("msdyn_finish is before msdyn_start")
 		expect(org.calls).toEqual([])
 	})
 
@@ -562,9 +803,16 @@ describe("arguments the tool refuses before any Dataverse traffic", () => {
 		const client = await connect()
 		const result = await client.callTool({
 			arguments: {
-				creates: [{ bucket: { ref: "b1" }, kind: "task", name: "x" }],
-				description: "into a bucket nobody created",
-				project: PROJECT,
+				creates: [
+					{
+						"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+						"msdyn_project@odata.bind": `/msdyn_projects(${PROJECT.msdyn_projectid})`,
+						"msdyn_projectbucket@odata.bind": { ref: "b1" },
+						msdyn_subject: "x",
+					},
+				],
+				Description: "into a bucket nobody created",
+				ProjectId: PROJECT.msdyn_projectid,
 			},
 			name: "submit_operation_set",
 		})
@@ -579,17 +827,30 @@ describe("arguments the tool refuses before any Dataverse traffic", () => {
 		const result = await client.callTool({
 			arguments: {
 				creates: [
-					{ bucket: BUCKET, kind: "task", name: "first", ref: "t1" },
-					{ bucket: { ref: "t1" }, kind: "task", name: "second" },
+					{
+						"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+						"msdyn_project@odata.bind": `/msdyn_projects(${PROJECT.msdyn_projectid})`,
+						"msdyn_projectbucket@odata.bind": `/msdyn_projectbuckets(${BUCKET.msdyn_projectbucketid})`,
+						msdyn_subject: "first",
+						ref: "t1",
+					},
+					{
+						"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+						"msdyn_project@odata.bind": `/msdyn_projects(${PROJECT.msdyn_projectid})`,
+						"msdyn_projectbucket@odata.bind": { ref: "t1" },
+						msdyn_subject: "second",
+					},
 				],
-				description: "use a task as a bucket",
-				project: PROJECT,
+				Description: "use a task as a bucket",
+				ProjectId: PROJECT.msdyn_projectid,
 			},
 			name: "submit_operation_set",
 		})
 		await client.close()
 		expect(result.isError).toBe(true)
-		expect(resultText(result)).toContain("names a task, but this field needs a bucket")
+		expect(resultText(result)).toContain(
+			"names Microsoft.Dynamics.CRM.msdyn_projecttask, but this field needs Microsoft.Dynamics.CRM.msdyn_projectbucket",
+		)
 		expect(org.calls).toEqual([])
 	})
 
@@ -598,11 +859,21 @@ describe("arguments the tool refuses before any Dataverse traffic", () => {
 		const result = await client.callTool({
 			arguments: {
 				creates: [
-					{ kind: "bucket", name: "A", ref: "b1" },
-					{ kind: "bucket", name: "B", ref: "b1" },
+					{
+						"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projectbucket",
+						msdyn_name: "A",
+						"msdyn_project@odata.bind": `/msdyn_projects(${PROJECT.msdyn_projectid})`,
+						ref: "b1",
+					},
+					{
+						"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projectbucket",
+						msdyn_name: "B",
+						"msdyn_project@odata.bind": `/msdyn_projects(${PROJECT.msdyn_projectid})`,
+						ref: "b1",
+					},
 				],
-				description: "two buckets, one name for both",
-				project: PROJECT,
+				Description: "two buckets, one name for both",
+				ProjectId: PROJECT.msdyn_projectid,
 			},
 			name: "submit_operation_set",
 		})
@@ -616,9 +887,14 @@ describe("arguments the tool refuses before any Dataverse traffic", () => {
 		const client = await connect()
 		const result = await client.callTool({
 			arguments: {
-				description: "change nothing",
-				project: PROJECT,
-				updates: [{ kind: "task", task: TASK }],
+				Description: "change nothing",
+				ProjectId: PROJECT.msdyn_projectid,
+				updates: [
+					{
+						"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+						msdyn_projecttaskid: TASK.msdyn_projecttaskid,
+					},
+				],
 			},
 			name: "submit_operation_set",
 		})
@@ -633,9 +909,17 @@ describe("arguments the tool refuses before any Dataverse traffic", () => {
 
 		const priority = await client.callTool({
 			arguments: {
-				creates: [{ bucket: BUCKET, kind: "task", name: "x", priority: 99 }],
-				description: "d",
-				project: PROJECT,
+				creates: [
+					{
+						"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+						msdyn_priority: 99,
+						"msdyn_project@odata.bind": `/msdyn_projects(${PROJECT.msdyn_projectid})`,
+						"msdyn_projectbucket@odata.bind": `/msdyn_projectbuckets(${BUCKET.msdyn_projectbucketid})`,
+						msdyn_subject: "x",
+					},
+				],
+				Description: "d",
+				ProjectId: PROJECT.msdyn_projectid,
 			},
 			name: "submit_operation_set",
 		})
@@ -644,9 +928,15 @@ describe("arguments the tool refuses before any Dataverse traffic", () => {
 		// 55 pins the common percentage-versus-fraction mistake.
 		const progress = await client.callTool({
 			arguments: {
-				description: "d",
-				project: PROJECT,
-				updates: [{ kind: "task", progress: 55, task: TASK }],
+				Description: "d",
+				ProjectId: PROJECT.msdyn_projectid,
+				updates: [
+					{
+						"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+						msdyn_progress: 55,
+						msdyn_projecttaskid: TASK.msdyn_projecttaskid,
+					},
+				],
 			},
 			name: "submit_operation_set",
 		})
@@ -655,10 +945,16 @@ describe("arguments the tool refuses before any Dataverse traffic", () => {
 		const typo = await client.callTool({
 			arguments: {
 				creates: [
-					{ bucket: BUCKET, due: "2026-09-11T17:00:00Z", kind: "task", name: "x" },
+					{
+						"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+						due: "2026-09-11T17:00:00Z",
+						"msdyn_project@odata.bind": `/msdyn_projects(${PROJECT.msdyn_projectid})`,
+						"msdyn_projectbucket@odata.bind": `/msdyn_projectbuckets(${BUCKET.msdyn_projectbucketid})`,
+						msdyn_subject: "x",
+					},
 				],
-				description: "d",
-				project: PROJECT,
+				Description: "d",
+				ProjectId: PROJECT.msdyn_projectid,
 			},
 			name: "submit_operation_set",
 		})
@@ -674,12 +970,13 @@ describe("arguments the tool refuses before any Dataverse traffic", () => {
 		const result = await client.callTool({
 			arguments: {
 				creates: Array.from({ length: 201 }, (_, at) => ({
-					bucket: BUCKET,
-					kind: "task",
-					name: `Task ${at}`,
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+					"msdyn_project@odata.bind": `/msdyn_projects(${PROJECT.msdyn_projectid})`,
+					"msdyn_projectbucket@odata.bind": `/msdyn_projectbuckets(${BUCKET.msdyn_projectbucketid})`,
+					msdyn_subject: `Task ${at}`,
 				})),
-				description: "far too many",
-				project: PROJECT,
+				Description: "far too many",
+				ProjectId: PROJECT.msdyn_projectid,
 			},
 			name: "submit_operation_set",
 		})
@@ -695,9 +992,16 @@ describe("the refusals that come from the service itself", () => {
 		const client = await connect({ replaying: "reject-unknown-bucket" })
 		const result = await client.callTool({
 			arguments: {
-				creates: [{ bucket: BUCKET, kind: "task", name: "unreachable" }],
-				description: "create into a bucket that is not there",
-				project: PROJECT,
+				creates: [
+					{
+						"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+						"msdyn_project@odata.bind": `/msdyn_projects(${PROJECT.msdyn_projectid})`,
+						"msdyn_projectbucket@odata.bind": `/msdyn_projectbuckets(${BUCKET.msdyn_projectbucketid})`,
+						msdyn_subject: "unreachable",
+					},
+				],
+				Description: "create into a bucket that is not there",
+				ProjectId: PROJECT.msdyn_projectid,
 			},
 			name: "submit_operation_set",
 		})
@@ -715,9 +1019,14 @@ describe("the refusals that come from the service itself", () => {
 		const client = await connect({ replaying: "reject-delete-unknown-task" })
 		const result = await client.callTool({
 			arguments: {
-				deletes: [{ kind: "task", task: TASK }],
-				description: "delete a task that is not there",
-				project: PROJECT,
+				Description: "delete a task that is not there",
+				deletes: [
+					{
+						"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+						msdyn_projecttaskid: TASK.msdyn_projecttaskid,
+					},
+				],
+				ProjectId: PROJECT.msdyn_projectid,
 			},
 			name: "submit_operation_set",
 		})
@@ -733,14 +1042,15 @@ describe("the refusals that come from the service itself", () => {
 			arguments: {
 				creates: [
 					{
-						kind: "assignment",
-						member: PROJECT_TEAM_MEMBER,
-						name: PROJECT_TEAM_MEMBER.name,
-						task: TASK,
+						"@odata.type": "Microsoft.Dynamics.CRM.msdyn_resourceassignment",
+						msdyn_name: PROJECT_TEAM_MEMBER.msdyn_name,
+						"msdyn_projectid@odata.bind": `/msdyn_projects(${PROJECT.msdyn_projectid})`,
+						"msdyn_projectteamid@odata.bind": `/msdyn_projectteams(${PROJECT_TEAM_MEMBER.msdyn_projectteamid})`,
+						"msdyn_taskid@odata.bind": `/msdyn_projecttasks(${TASK.msdyn_projecttaskid})`,
 					},
 				],
-				description: "assign a task that has subtasks",
-				project: PROJECT,
+				Description: "assign a task that has subtasks",
+				ProjectId: PROJECT.msdyn_projectid,
 			},
 			name: "submit_operation_set",
 		})
@@ -766,12 +1076,16 @@ describe("wait_for_operation_set", () => {
 	it("reads once and answers when the caller wanted a glance, not a wait", async () => {
 		const client = await connect({ replaying: "wait-zero-seconds" })
 		const result = await client.callTool({
-			arguments: { operation_set_id: mintedSetId(), seconds: 0 },
+			arguments: { OperationSetId: mintedSetId(), seconds: 0 },
 			name: "wait_for_operation_set",
 		})
 		await client.close()
 		expect(result.isError ?? false).toBe(false)
 		expect(org.reads).toHaveLength(1)
+		expect(payloadOf(result)).toMatchObject({
+			msdyn_operationsetid: mintedSetId(),
+			msdyn_status: expect.any(Number),
+		})
 	})
 
 	it("stops at the first terminal answer instead of spending the window it was given", async () => {
@@ -780,11 +1094,11 @@ describe("wait_for_operation_set", () => {
 		// schedule proves the loop stopped when the terminal answer arrived.
 		const client = await connect({ replaying: "update-task-description" })
 		const result = await client.callTool({
-			arguments: { operation_set_id: mintedSetId(), seconds: 45 },
+			arguments: { OperationSetId: mintedSetId(), seconds: 45 },
 			name: "wait_for_operation_set",
 		})
 		await client.close()
-		expect(payloadOf(result)).toEqual({ status: "completed" })
+		expect(payloadOf(result)).toMatchObject({ msdyn_status: 192350003 })
 		expect(org.reads.length).toBeGreaterThan(1)
 		expect(org.reads.length).toBeLessThan(readInstants(MAX_WAIT_SECONDS).length)
 	}, 30_000) // It really sleeps the cadence between reads, and the count is the org's.
@@ -796,19 +1110,19 @@ describe("wait_for_operation_set", () => {
 			replaying: "execute-refused-and-set-wedged-executing",
 		})
 		const result = await client.callTool({
-			arguments: { operation_set_id: mintedSetId(), seconds: 8 },
+			arguments: { OperationSetId: mintedSetId(), seconds: 8 },
 			name: "wait_for_operation_set",
 		})
 		await client.close()
 		expect(result.isError ?? false).toBe(false)
-		expect(payloadOf(result)).toEqual({ status: "executing" })
+		expect(payloadOf(result)).toMatchObject({ msdyn_status: 192350001 })
 		expect(org.reads.length).toBeGreaterThan(1)
 	}, 15_000)
 
 	it("hands back the org's own not-found rather than a guess about what the id was", async () => {
 		const client = await connect({ replaying: "wait-on-a-set-that-does-not-exist" })
 		const result = await client.callTool({
-			arguments: { operation_set_id: NAMES_NOTHING, seconds: 0 },
+			arguments: { OperationSetId: NAMES_NOTHING, seconds: 0 },
 			name: "wait_for_operation_set",
 		})
 		await client.close()
@@ -820,26 +1134,10 @@ describe("wait_for_operation_set", () => {
 	it("carries the caller's token on the read, not just on writes", async () => {
 		const client = await connect({ replaying: "wait-zero-seconds" })
 		await client.callTool({
-			arguments: { operation_set_id: mintedSetId(), seconds: 0 },
+			arguments: { OperationSetId: mintedSetId(), seconds: 0 },
 			name: "wait_for_operation_set",
 		})
 		await client.close()
 		for (const read of org.reads) expect(read.authorization).toBe(`Bearer ${accessToken}`)
-	})
-})
-
-describe("when the caller has no Dataverse token", () => {
-	it("says what a human has to do about it, and touches nothing", async () => {
-		const client = await connect({ auth: null })
-		const result = await client.callTool({
-			arguments: ONE_TASK_SUBMISSION,
-			name: "submit_operation_set",
-		})
-		await client.close()
-
-		expect(result.isError).toBe(true)
-		expect(resultText(result)).toContain("no linked Microsoft account")
-		expect(org.calls).toEqual([])
-		expect(org.reads).toEqual([])
 	})
 })

@@ -76,19 +76,10 @@ import {
 	waitForOperationSet,
 } from "@/lib/operation-set"
 import {
-	bind,
-	createProjectBucket,
-	createProjectTask,
-	createResourceAssignment,
 	createScheduleApiClient,
-	createTaskLabel,
-	deleteRecord,
 	type ScheduleApiClient,
 	ScheduleApiError,
 	type StagedWrite,
-	updateProjectBucket,
-	updateProjectLabel,
-	updateProjectTask,
 } from "@/lib/schedule-api"
 
 const TOKEN_FILE = parseRecorderEnv().DV_TOKEN_FILE
@@ -367,7 +358,7 @@ let mintedOperationSetCount = 0
 let mintedErrorLogCount = 0
 type LastMintedOperationSet =
 	| { state: "not-minted" }
-	| { state: "minted"; operationSetId: string }
+	| { state: "minted"; OperationSetId: string }
 let lastMintedOperationSet: LastMintedOperationSet = { state: "not-minted" }
 const recordingFetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
 	const url = typeof input === "string" ? input : input.toString()
@@ -406,7 +397,7 @@ const recordingFetch = (async (input: RequestInfo | URL, init?: RequestInit) => 
 			// Keep the id from the create response even when submission later throws before
 			// the caller receives a receipt.
 			lastMintedOperationSet = {
-				operationSetId: responseBody.OperationSetId,
+				OperationSetId: responseBody.OperationSetId,
 				state: "minted",
 			}
 		}
@@ -491,18 +482,6 @@ function mint(placeholderName?: string): string {
 	return placeholderName === undefined
 		? boardGuard.registerOwnedId(id)
 		: registerNamedId(id, placeholderName)
-}
-
-/** A write for a table production deliberately does not model with a builder. */
-function unmodelledWrite(
-	entityType: string,
-	entity: Record<string, unknown>,
-	verb: StagedWrite["verb"] = "create",
-): StagedWrite {
-	return {
-		entity: { "@odata.type": `Microsoft.Dynamics.CRM.${entityType}`, ...entity },
-		verb,
-	}
 }
 
 /**
@@ -725,17 +704,17 @@ async function submitAndWait(
 	description: string,
 	writes: StagedWrite[],
 ): Promise<string> {
-	const operationSetId = await submitOperationSet(client, {
-		description,
-		projectId: SCRATCH_PROJECT_ID,
+	const { OperationSetId } = await submitOperationSet(client, {
+		Description: description,
+		ProjectId: SCRATCH_PROJECT_ID,
 		writes,
 	})
 	const outcome = await waitForOperationSet(client, {
-		operationSetId,
+		OperationSetId,
 		seconds: MAX_WAIT_SECONDS,
 	})
-	console.log(`    outcome -> ${outcome.status}`)
-	return operationSetId
+	console.log(`    outcome -> ${JSON.stringify(outcome)}`)
+	return OperationSetId
 }
 
 // Everything this run creates, so the sweep at the end can take it back out. Module
@@ -745,7 +724,7 @@ async function submitAndWait(
 // splices the LAST element instead — a data structure that could not express "remove
 // this one" without a footnote about the wrong record being removed. Insertion order is
 // preserved, so the deepest-first sweep still reads `[...litter].reverse()`.
-const litter = new Map<string, "assignment" | "bucket" | "task" | "taskLabel">()
+const litter = new Map<string, StagedWrite["entity"]>()
 
 // A task the later chains mutate. Created first so every update chain has a real
 // target that this run constructed rather than found.
@@ -784,64 +763,93 @@ async function main(): Promise<void> {
 	const plainTask = mint("plainTaskId")
 	await record("create-task", async (client) => {
 		await submitAndWait(client, "ContextLayer: create a task", [
-			createProjectTask({
-				bucketId: SCRATCH_BUCKET_ID,
-				outlineLevel: 1,
-				projectId: SCRATCH_PROJECT_ID,
-				subject: SUBJECT,
-				taskId: plainTask,
-			}),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+					msdyn_outlinelevel: 1,
+					"msdyn_project@odata.bind": `/msdyn_projects(${SCRATCH_PROJECT_ID})`,
+					"msdyn_projectbucket@odata.bind": `/msdyn_projectbuckets(${SCRATCH_BUCKET_ID})`,
+					msdyn_projecttaskid: plainTask,
+					msdyn_subject: SUBJECT,
+				},
+				verb: "create",
+			},
 		])
-		litter.set(plainTask, "task")
+		litter.set(plainTask, {
+			"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+			msdyn_projecttaskid: plainTask,
+		})
 	})
 
 	const datedTask = mint("datedTaskId")
 	await record("create-task-with-dates", async (client) => {
 		await submitAndWait(client, "ContextLayer: create a task with dates", [
-			createProjectTask({
-				bucketId: SCRATCH_BUCKET_ID,
-				finish: FINISH,
-				outlineLevel: 1,
-				projectId: SCRATCH_PROJECT_ID,
-				start: START,
-				subject: "ZZ cassette dated task",
-				taskId: datedTask,
-			}),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+					msdyn_finish: FINISH,
+					msdyn_outlinelevel: 1,
+					"msdyn_project@odata.bind": `/msdyn_projects(${SCRATCH_PROJECT_ID})`,
+					"msdyn_projectbucket@odata.bind": `/msdyn_projectbuckets(${SCRATCH_BUCKET_ID})`,
+					msdyn_projecttaskid: datedTask,
+					msdyn_start: START,
+					msdyn_subject: "ZZ cassette dated task",
+				},
+				verb: "create",
+			},
 		])
-		litter.set(datedTask, "task")
+		litter.set(datedTask, {
+			"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+			msdyn_projecttaskid: datedTask,
+		})
 	})
 
 	const richTask = mint("richTaskId")
 	await record("create-task-with-every-field", async (client) => {
 		await submitAndWait(client, "ContextLayer: create a fully described task", [
-			createProjectTask({
-				bucketId: SCRATCH_BUCKET_ID,
-				description: "What the client asked for, and by when.\n\nSecond paragraph.",
-				finish: FINISH,
-				outlineLevel: 1,
-				priority: 7,
-				projectId: SCRATCH_PROJECT_ID,
-				start: START,
-				subject: "ZZ cassette rich task",
-				taskId: richTask,
-			}),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+					msdyn_description:
+						"What the client asked for, and by when.\n\nSecond paragraph.",
+					msdyn_finish: FINISH,
+					msdyn_outlinelevel: 1,
+					msdyn_priority: 7,
+					"msdyn_project@odata.bind": `/msdyn_projects(${SCRATCH_PROJECT_ID})`,
+					"msdyn_projectbucket@odata.bind": `/msdyn_projectbuckets(${SCRATCH_BUCKET_ID})`,
+					msdyn_projecttaskid: richTask,
+					msdyn_start: START,
+					msdyn_subject: "ZZ cassette rich task",
+				},
+				verb: "create",
+			},
 		])
-		litter.set(richTask, "task")
+		litter.set(richTask, {
+			"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+			msdyn_projecttaskid: richTask,
+		})
 	})
 
 	const childTask = mint("childTaskId")
 	await record("create-subtask", async (client) => {
 		await submitAndWait(client, "ContextLayer: create a subtask", [
-			createProjectTask({
-				bucketId: SCRATCH_BUCKET_ID,
-				outlineLevel: 2,
-				parentTaskId: plainTask,
-				projectId: SCRATCH_PROJECT_ID,
-				subject: "ZZ cassette subtask",
-				taskId: childTask,
-			}),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+					msdyn_outlinelevel: 2,
+					"msdyn_parenttask@odata.bind": `/msdyn_projecttasks(${plainTask})`,
+					"msdyn_project@odata.bind": `/msdyn_projects(${SCRATCH_PROJECT_ID})`,
+					"msdyn_projectbucket@odata.bind": `/msdyn_projectbuckets(${SCRATCH_BUCKET_ID})`,
+					msdyn_projecttaskid: childTask,
+					msdyn_subject: "ZZ cassette subtask",
+				},
+				verb: "create",
+			},
 		])
-		litter.set(childTask, "task")
+		litter.set(childTask, {
+			"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+			msdyn_projecttaskid: childTask,
+		})
 	})
 
 	// Use level three to exercise a deeper caller-supplied outline level. This file
@@ -849,63 +857,107 @@ async function main(): Promise<void> {
 	const grandchildTask = mint("grandchildTaskId")
 	await record("create-deep-subtask", async (client) => {
 		await submitAndWait(client, "ContextLayer: create a subtask of a subtask", [
-			createProjectTask({
-				bucketId: SCRATCH_BUCKET_ID,
-				outlineLevel: 3,
-				parentTaskId: childTask,
-				projectId: SCRATCH_PROJECT_ID,
-				subject: "ZZ cassette deep subtask",
-				taskId: grandchildTask,
-			}),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+					msdyn_outlinelevel: 3,
+					"msdyn_parenttask@odata.bind": `/msdyn_projecttasks(${childTask})`,
+					"msdyn_project@odata.bind": `/msdyn_projects(${SCRATCH_PROJECT_ID})`,
+					"msdyn_projectbucket@odata.bind": `/msdyn_projectbuckets(${SCRATCH_BUCKET_ID})`,
+					msdyn_projecttaskid: grandchildTask,
+					msdyn_subject: "ZZ cassette deep subtask",
+				},
+				verb: "create",
+			},
 		])
-		litter.set(grandchildTask, "task")
+		litter.set(grandchildTask, {
+			"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+			msdyn_projecttaskid: grandchildTask,
+		})
 	})
 
 	// ---- the shapes an update can take --------------------------------------
 	await record("update-task-name", async (client) => {
 		await submitAndWait(client, "ContextLayer: rename a task", [
-			updateProjectTask({ subject: "ZZ cassette renamed", taskId: plainTask }),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+					msdyn_projecttaskid: plainTask,
+					msdyn_subject: "ZZ cassette renamed",
+				},
+				verb: "update",
+			},
 		])
 	})
 
 	await record("update-task-progress", async (client) => {
 		await submitAndWait(client, "ContextLayer: mark a task half done", [
-			updateProjectTask({ progress: 0.5, taskId: plainTask }),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+					msdyn_progress: 0.5,
+					msdyn_projecttaskid: plainTask,
+				},
+				verb: "update",
+			},
 		])
 	})
 
 	await record("update-task-done", async (client) => {
 		await submitAndWait(client, "ContextLayer: mark a task done", [
-			updateProjectTask({ progress: 1, taskId: plainTask }),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+					msdyn_progress: 1,
+					msdyn_projecttaskid: plainTask,
+				},
+				verb: "update",
+			},
 		])
 	})
 
 	await record("update-task-dates", async (client) => {
 		await submitAndWait(client, "ContextLayer: move a task's dates", [
-			updateProjectTask({ finish: LATER_FINISH, start: LATER_START, taskId: datedTask }),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+					msdyn_finish: LATER_FINISH,
+					msdyn_projecttaskid: datedTask,
+					msdyn_start: LATER_START,
+				},
+				verb: "update",
+			},
 		])
 	})
 
 	await record("update-task-description", async (client) => {
 		await submitAndWait(client, "ContextLayer: describe a task", [
-			updateProjectTask({
-				description: "Revised brief after Tuesday's call.",
-				taskId: plainTask,
-			}),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+					msdyn_description: "Revised brief after Tuesday's call.",
+					msdyn_projecttaskid: plainTask,
+				},
+				verb: "update",
+			},
 		])
 	})
 
 	await record("update-task-many-fields", async (client) => {
 		await submitAndWait(client, "ContextLayer: rename, re-date and prioritise", [
-			updateProjectTask({
-				description: "Everything at once, one transaction.",
-				finish: LATER_FINISH,
-				priority: 2,
-				progress: 0.25,
-				start: LATER_START,
-				subject: "ZZ cassette multi-field update",
-				taskId: richTask,
-			}),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+					msdyn_description: "Everything at once, one transaction.",
+					msdyn_finish: LATER_FINISH,
+					msdyn_priority: 2,
+					msdyn_progress: 0.25,
+					msdyn_projecttaskid: richTask,
+					msdyn_start: LATER_START,
+					msdyn_subject: "ZZ cassette multi-field update",
+				},
+				verb: "update",
+			},
 		])
 	})
 
@@ -913,24 +965,45 @@ async function main(): Promise<void> {
 	const newBucket = mint("newBucketId")
 	await record("create-bucket", async (client) => {
 		await submitAndWait(client, "ContextLayer: create a bucket", [
-			createProjectBucket({
-				bucketId: newBucket,
-				name: "ZZ Cassette Bucket",
-				projectId: SCRATCH_PROJECT_ID,
-			}),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projectbucket",
+					msdyn_name: "ZZ Cassette Bucket",
+					"msdyn_project@odata.bind": `/msdyn_projects(${SCRATCH_PROJECT_ID})`,
+					msdyn_projectbucketid: newBucket,
+				},
+				verb: "create",
+			},
 		])
-		litter.set(newBucket, "bucket")
+		litter.set(newBucket, {
+			"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projectbucket",
+			msdyn_projectbucketid: newBucket,
+		})
 	})
 
 	await record("update-bucket-name", async (client) => {
 		await submitAndWait(client, "ContextLayer: rename a bucket", [
-			updateProjectBucket({ bucketId: newBucket, name: "ZZ Cassette Bucket Renamed" }),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projectbucket",
+					msdyn_name: "ZZ Cassette Bucket Renamed",
+					msdyn_projectbucketid: newBucket,
+				},
+				verb: "update",
+			},
 		])
 	})
 
 	await record("move-task-between-buckets", async (client) => {
 		await submitAndWait(client, "ContextLayer: move a task to another bucket", [
-			updateProjectTask({ bucketId: newBucket, taskId: datedTask }),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+					"msdyn_projectbucket@odata.bind": `/msdyn_projectbuckets(${newBucket})`,
+					msdyn_projecttaskid: datedTask,
+				},
+				verb: "update",
+			},
 		])
 	})
 
@@ -942,53 +1015,94 @@ async function main(): Promise<void> {
 	const freshTaskB = mint("freshTaskBId")
 	await record("create-bucket-with-its-tasks", async (client) => {
 		await submitAndWait(client, "ContextLayer: new bucket and its first tasks", [
-			createProjectBucket({
-				bucketId: freshBucket,
-				name: "ZZ Cassette Same-Set Bucket",
-				projectId: SCRATCH_PROJECT_ID,
-			}),
-			createProjectTask({
-				bucketId: freshBucket,
-				outlineLevel: 1,
-				projectId: SCRATCH_PROJECT_ID,
-				subject: "ZZ cassette same-set task A",
-				taskId: freshTaskA,
-			}),
-			createProjectTask({
-				bucketId: freshBucket,
-				outlineLevel: 1,
-				projectId: SCRATCH_PROJECT_ID,
-				subject: "ZZ cassette same-set task B",
-				taskId: freshTaskB,
-			}),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projectbucket",
+					msdyn_name: "ZZ Cassette Same-Set Bucket",
+					"msdyn_project@odata.bind": `/msdyn_projects(${SCRATCH_PROJECT_ID})`,
+					msdyn_projectbucketid: freshBucket,
+				},
+				verb: "create",
+			},
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+					msdyn_outlinelevel: 1,
+					"msdyn_project@odata.bind": `/msdyn_projects(${SCRATCH_PROJECT_ID})`,
+					"msdyn_projectbucket@odata.bind": `/msdyn_projectbuckets(${freshBucket})`,
+					msdyn_projecttaskid: freshTaskA,
+					msdyn_subject: "ZZ cassette same-set task A",
+				},
+				verb: "create",
+			},
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+					msdyn_outlinelevel: 1,
+					"msdyn_project@odata.bind": `/msdyn_projects(${SCRATCH_PROJECT_ID})`,
+					"msdyn_projectbucket@odata.bind": `/msdyn_projectbuckets(${freshBucket})`,
+					msdyn_projecttaskid: freshTaskB,
+					msdyn_subject: "ZZ cassette same-set task B",
+				},
+				verb: "create",
+			},
 		])
-		litter.set(freshTaskA, "task")
-		litter.set(freshTaskB, "task")
-		litter.set(freshBucket, "bucket")
+		litter.set(freshTaskA, {
+			"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+			msdyn_projecttaskid: freshTaskA,
+		})
+		litter.set(freshTaskB, {
+			"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+			msdyn_projecttaskid: freshTaskB,
+		})
+		litter.set(freshBucket, {
+			"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projectbucket",
+			msdyn_projectbucketid: freshBucket,
+		})
 	})
 
 	// ---- labels -------------------------------------------------------------
 	await record("rename-label", async (client) => {
 		await submitAndWait(client, "ContextLayer: name a label", [
-			updateProjectLabel({ labelId: SCRATCH_LABEL_ID, text: "ZZ Cassette Label" }),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projectlabel",
+					msdyn_projectlabelid: SCRATCH_LABEL_ID,
+					msdyn_projectlabeltext: "ZZ Cassette Label",
+				},
+				verb: "update",
+			},
 		])
 	})
 
 	const labelLink = mint("labelLinkId")
 	await record("attach-label", async (client) => {
 		await submitAndWait(client, "ContextLayer: put a label on a task", [
-			createTaskLabel({
-				labelId: SCRATCH_LABEL_ID,
-				linkId: labelLink,
-				taskId: plainTask,
-			}),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttasktolabel",
+					"msdyn_ProjectLabelId@odata.bind": `/msdyn_projectlabels(${SCRATCH_LABEL_ID})`,
+					"msdyn_ProjectTaskId@odata.bind": `/msdyn_projecttasks(${plainTask})`,
+					msdyn_projecttasktolabelid: labelLink,
+				},
+				verb: "create",
+			},
 		])
-		litter.set(labelLink, "taskLabel")
+		litter.set(labelLink, {
+			"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttasktolabel",
+			msdyn_projecttasktolabelid: labelLink,
+		})
 	})
 
 	await record("detach-label", async (client) => {
 		await submitAndWait(client, "ContextLayer: take a label off a task", [
-			deleteRecord({ id: labelLink, kind: "taskLabel" }),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttasktolabel",
+					msdyn_projecttasktolabelid: labelLink,
+				},
+				verb: "delete",
+			},
 		])
 		litter.delete(labelLink)
 	})
@@ -1000,23 +1114,37 @@ async function main(): Promise<void> {
 	const assignment = mint("assignmentId")
 	await record("assign-task", async (client) => {
 		await submitAndWait(client, "ContextLayer: a task, then assign it", [
-			createProjectTask({
-				bucketId: SCRATCH_BUCKET_ID,
-				outlineLevel: 1,
-				projectId: SCRATCH_PROJECT_ID,
-				subject: "ZZ cassette assignable task",
-				taskId: assignableTask,
-			}),
-			createResourceAssignment({
-				assignmentId: assignment,
-				name: "ZZ cassette assignment",
-				projectId: SCRATCH_PROJECT_ID,
-				projectTeamId: SCRATCH_PROJECT_TEAM_MEMBER_ID,
-				taskId: assignableTask,
-			}),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+					msdyn_outlinelevel: 1,
+					"msdyn_project@odata.bind": `/msdyn_projects(${SCRATCH_PROJECT_ID})`,
+					"msdyn_projectbucket@odata.bind": `/msdyn_projectbuckets(${SCRATCH_BUCKET_ID})`,
+					msdyn_projecttaskid: assignableTask,
+					msdyn_subject: "ZZ cassette assignable task",
+				},
+				verb: "create",
+			},
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_resourceassignment",
+					msdyn_name: "ZZ cassette assignment",
+					"msdyn_projectid@odata.bind": `/msdyn_projects(${SCRATCH_PROJECT_ID})`,
+					"msdyn_projectteamid@odata.bind": `/msdyn_projectteams(${SCRATCH_PROJECT_TEAM_MEMBER_ID})`,
+					msdyn_resourceassignmentid: assignment,
+					"msdyn_taskid@odata.bind": `/msdyn_projecttasks(${assignableTask})`,
+				},
+				verb: "create",
+			},
 		])
-		litter.set(assignableTask, "task")
-		litter.set(assignment, "assignment")
+		litter.set(assignableTask, {
+			"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+			msdyn_projecttaskid: assignableTask,
+		})
+		litter.set(assignment, {
+			"@odata.type": "Microsoft.Dynamics.CRM.msdyn_resourceassignment",
+			msdyn_resourceassignmentid: assignment,
+		})
 	})
 
 	// A SUMMARY task refuses assignment, and says so in its own words. Worth its own
@@ -1024,19 +1152,29 @@ async function main(): Promise<void> {
 	// succeeds above fails here purely because this task has a child.
 	await recordRejection("reject-assign-to-a-parent-task", async (client) => {
 		await submitAndWait(client, "ContextLayer: assign a task that has subtasks", [
-			createResourceAssignment({
-				assignmentId: mint("parentAssignmentId"),
-				name: "ZZ cassette parent assignment",
-				projectId: SCRATCH_PROJECT_ID,
-				projectTeamId: SCRATCH_PROJECT_TEAM_MEMBER_ID,
-				taskId: plainTask,
-			}),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_resourceassignment",
+					msdyn_name: "ZZ cassette parent assignment",
+					"msdyn_projectid@odata.bind": `/msdyn_projects(${SCRATCH_PROJECT_ID})`,
+					"msdyn_projectteamid@odata.bind": `/msdyn_projectteams(${SCRATCH_PROJECT_TEAM_MEMBER_ID})`,
+					msdyn_resourceassignmentid: mint("parentAssignmentId"),
+					"msdyn_taskid@odata.bind": `/msdyn_projecttasks(${plainTask})`,
+				},
+				verb: "create",
+			},
 		])
 	})
 
 	await record("unassign-task", async (client) => {
 		await submitAndWait(client, "ContextLayer: take a task off a team member", [
-			deleteRecord({ id: assignment, kind: "assignment" }),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_resourceassignment",
+					msdyn_resourceassignmentid: assignment,
+				},
+				verb: "delete",
+			},
 		])
 		litter.delete(assignment)
 	})
@@ -1050,77 +1188,130 @@ async function main(): Promise<void> {
 	const sameSetChild = mint("sameSetChildId")
 	await record("create-a-subtask-of-a-same-set-parent", async (client) => {
 		await submitAndWait(client, "ContextLayer: a task and its subtask together", [
-			createProjectTask({
-				bucketId: SCRATCH_BUCKET_ID,
-				outlineLevel: 1,
-				projectId: SCRATCH_PROJECT_ID,
-				subject: "ZZ cassette same-set parent",
-				taskId: sameSetParent,
-			}),
-			createProjectTask({
-				bucketId: SCRATCH_BUCKET_ID,
-				outlineLevel: 2,
-				parentTaskId: sameSetParent,
-				projectId: SCRATCH_PROJECT_ID,
-				subject: "ZZ cassette same-set child",
-				taskId: sameSetChild,
-			}),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+					msdyn_outlinelevel: 1,
+					"msdyn_project@odata.bind": `/msdyn_projects(${SCRATCH_PROJECT_ID})`,
+					"msdyn_projectbucket@odata.bind": `/msdyn_projectbuckets(${SCRATCH_BUCKET_ID})`,
+					msdyn_projecttaskid: sameSetParent,
+					msdyn_subject: "ZZ cassette same-set parent",
+				},
+				verb: "create",
+			},
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+					msdyn_outlinelevel: 2,
+					"msdyn_parenttask@odata.bind": `/msdyn_projecttasks(${sameSetParent})`,
+					"msdyn_project@odata.bind": `/msdyn_projects(${SCRATCH_PROJECT_ID})`,
+					"msdyn_projectbucket@odata.bind": `/msdyn_projectbuckets(${SCRATCH_BUCKET_ID})`,
+					msdyn_projecttaskid: sameSetChild,
+					msdyn_subject: "ZZ cassette same-set child",
+				},
+				verb: "create",
+			},
 		])
-		litter.set(sameSetParent, "task")
-		litter.set(sameSetChild, "task")
+		litter.set(sameSetParent, {
+			"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+			msdyn_projecttaskid: sameSetParent,
+		})
+		litter.set(sameSetChild, {
+			"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+			msdyn_projecttaskid: sameSetChild,
+		})
 	})
 
 	const labelledTask = mint("labelledTaskId")
 	const sameSetLabelLink = mint("sameSetLabelLinkId")
 	await record("label-a-task-created-in-the-same-set", async (client) => {
 		await submitAndWait(client, "ContextLayer: a task, labelled as it is made", [
-			createProjectTask({
-				bucketId: SCRATCH_BUCKET_ID,
-				outlineLevel: 1,
-				projectId: SCRATCH_PROJECT_ID,
-				subject: "ZZ cassette labelled-at-birth task",
-				taskId: labelledTask,
-			}),
-			createTaskLabel({
-				labelId: SCRATCH_LABEL_ID,
-				linkId: sameSetLabelLink,
-				taskId: labelledTask,
-			}),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+					msdyn_outlinelevel: 1,
+					"msdyn_project@odata.bind": `/msdyn_projects(${SCRATCH_PROJECT_ID})`,
+					"msdyn_projectbucket@odata.bind": `/msdyn_projectbuckets(${SCRATCH_BUCKET_ID})`,
+					msdyn_projecttaskid: labelledTask,
+					msdyn_subject: "ZZ cassette labelled-at-birth task",
+				},
+				verb: "create",
+			},
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttasktolabel",
+					"msdyn_ProjectLabelId@odata.bind": `/msdyn_projectlabels(${SCRATCH_LABEL_ID})`,
+					"msdyn_ProjectTaskId@odata.bind": `/msdyn_projecttasks(${labelledTask})`,
+					msdyn_projecttasktolabelid: sameSetLabelLink,
+				},
+				verb: "create",
+			},
 		])
-		litter.set(labelledTask, "task")
-		litter.set(sameSetLabelLink, "taskLabel")
+		litter.set(labelledTask, {
+			"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+			msdyn_projecttaskid: labelledTask,
+		})
+		litter.set(sameSetLabelLink, {
+			"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttasktolabel",
+			msdyn_projecttasktolabelid: sameSetLabelLink,
+		})
 	})
 
 	const createdThenUpdated = mint("createdThenUpdatedId")
 	await record("update-a-task-created-in-the-same-set", async (client) => {
 		await submitAndWait(client, "ContextLayer: create a task and amend it at once", [
-			createProjectTask({
-				bucketId: SCRATCH_BUCKET_ID,
-				outlineLevel: 1,
-				projectId: SCRATCH_PROJECT_ID,
-				subject: "ZZ cassette created-then-updated",
-				taskId: createdThenUpdated,
-			}),
-			updateProjectTask({
-				progress: 0.5,
-				subject: "ZZ cassette created-then-updated (amended)",
-				taskId: createdThenUpdated,
-			}),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+					msdyn_outlinelevel: 1,
+					"msdyn_project@odata.bind": `/msdyn_projects(${SCRATCH_PROJECT_ID})`,
+					"msdyn_projectbucket@odata.bind": `/msdyn_projectbuckets(${SCRATCH_BUCKET_ID})`,
+					msdyn_projecttaskid: createdThenUpdated,
+					msdyn_subject: "ZZ cassette created-then-updated",
+				},
+				verb: "create",
+			},
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+					msdyn_progress: 0.5,
+					msdyn_projecttaskid: createdThenUpdated,
+					msdyn_subject: "ZZ cassette created-then-updated (amended)",
+				},
+				verb: "update",
+			},
 		])
-		litter.set(createdThenUpdated, "task")
+		litter.set(createdThenUpdated, {
+			"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+			msdyn_projecttaskid: createdThenUpdated,
+		})
 	})
 
 	const sameSetTargetBucket = mint("sameSetTargetBucketId")
 	await record("move-a-task-into-a-same-set-bucket", async (client) => {
 		await submitAndWait(client, "ContextLayer: a new bucket, and an old task into it", [
-			createProjectBucket({
-				bucketId: sameSetTargetBucket,
-				name: "ZZ Cassette Destination Bucket",
-				projectId: SCRATCH_PROJECT_ID,
-			}),
-			updateProjectTask({ bucketId: sameSetTargetBucket, taskId: datedTask }),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projectbucket",
+					msdyn_name: "ZZ Cassette Destination Bucket",
+					"msdyn_project@odata.bind": `/msdyn_projects(${SCRATCH_PROJECT_ID})`,
+					msdyn_projectbucketid: sameSetTargetBucket,
+				},
+				verb: "create",
+			},
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+					"msdyn_projectbucket@odata.bind": `/msdyn_projectbuckets(${sameSetTargetBucket})`,
+					msdyn_projecttaskid: datedTask,
+				},
+				verb: "update",
+			},
 		])
-		litter.set(sameSetTargetBucket, "bucket")
+		litter.set(sameSetTargetBucket, {
+			"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projectbucket",
+			msdyn_projectbucketid: sameSetTargetBucket,
+		})
 	})
 
 	// Redundant as user intent, but the schema permits this cross-collection reference,
@@ -1128,32 +1319,57 @@ async function main(): Promise<void> {
 	const bornThenRenamed = mint("bornThenRenamedBucketId")
 	await record("rename-a-bucket-created-in-the-same-set", async (client) => {
 		await submitAndWait(client, "ContextLayer: a bucket named twice in one set", [
-			createProjectBucket({
-				bucketId: bornThenRenamed,
-				name: "ZZ Cassette Born Named",
-				projectId: SCRATCH_PROJECT_ID,
-			}),
-			updateProjectBucket({
-				bucketId: bornThenRenamed,
-				name: "ZZ Cassette Renamed Same Set",
-			}),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projectbucket",
+					msdyn_name: "ZZ Cassette Born Named",
+					"msdyn_project@odata.bind": `/msdyn_projects(${SCRATCH_PROJECT_ID})`,
+					msdyn_projectbucketid: bornThenRenamed,
+				},
+				verb: "create",
+			},
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projectbucket",
+					msdyn_name: "ZZ Cassette Renamed Same Set",
+					msdyn_projectbucketid: bornThenRenamed,
+				},
+				verb: "update",
+			},
 		])
-		litter.set(bornThenRenamed, "bucket")
+		litter.set(bornThenRenamed, {
+			"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projectbucket",
+			msdyn_projectbucketid: bornThenRenamed,
+		})
 	})
 
 	const sameSetNewParent = mint("sameSetNewParentId")
 	await record("reparent-a-task-under-a-same-set-task", async (client) => {
 		await submitAndWait(client, "ContextLayer: a new parent for an existing task", [
-			createProjectTask({
-				bucketId: SCRATCH_BUCKET_ID,
-				outlineLevel: 1,
-				projectId: SCRATCH_PROJECT_ID,
-				subject: "ZZ cassette adopting parent",
-				taskId: sameSetNewParent,
-			}),
-			updateProjectTask({ parentTaskId: sameSetNewParent, taskId: assignableTask }),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+					msdyn_outlinelevel: 1,
+					"msdyn_project@odata.bind": `/msdyn_projects(${SCRATCH_PROJECT_ID})`,
+					"msdyn_projectbucket@odata.bind": `/msdyn_projectbuckets(${SCRATCH_BUCKET_ID})`,
+					msdyn_projecttaskid: sameSetNewParent,
+					msdyn_subject: "ZZ cassette adopting parent",
+				},
+				verb: "create",
+			},
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+					"msdyn_parenttask@odata.bind": `/msdyn_projecttasks(${sameSetNewParent})`,
+					msdyn_projecttaskid: assignableTask,
+				},
+				verb: "update",
+			},
 		])
-		litter.set(sameSetNewParent, "task")
+		litter.set(sameSetNewParent, {
+			"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+			msdyn_projecttaskid: sameSetNewParent,
+		})
 	})
 
 	// ---- order inside a collection ------------------------------------------
@@ -1165,29 +1381,50 @@ async function main(): Promise<void> {
 	const beforeTaskB = mint("beforeTaskBId")
 	await record("create-tasks-before-the-bucket-they-name", async (client) => {
 		await submitAndWait(client, "ContextLayer: tasks listed ahead of their bucket", [
-			createProjectTask({
-				bucketId: beforeBucket,
-				outlineLevel: 1,
-				projectId: SCRATCH_PROJECT_ID,
-				subject: "ZZ cassette out-of-order task A",
-				taskId: beforeTaskA,
-			}),
-			createProjectTask({
-				bucketId: beforeBucket,
-				outlineLevel: 1,
-				projectId: SCRATCH_PROJECT_ID,
-				subject: "ZZ cassette out-of-order task B",
-				taskId: beforeTaskB,
-			}),
-			createProjectBucket({
-				bucketId: beforeBucket,
-				name: "ZZ Cassette Out-Of-Order Bucket",
-				projectId: SCRATCH_PROJECT_ID,
-			}),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+					msdyn_outlinelevel: 1,
+					"msdyn_project@odata.bind": `/msdyn_projects(${SCRATCH_PROJECT_ID})`,
+					"msdyn_projectbucket@odata.bind": `/msdyn_projectbuckets(${beforeBucket})`,
+					msdyn_projecttaskid: beforeTaskA,
+					msdyn_subject: "ZZ cassette out-of-order task A",
+				},
+				verb: "create",
+			},
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+					msdyn_outlinelevel: 1,
+					"msdyn_project@odata.bind": `/msdyn_projects(${SCRATCH_PROJECT_ID})`,
+					"msdyn_projectbucket@odata.bind": `/msdyn_projectbuckets(${beforeBucket})`,
+					msdyn_projecttaskid: beforeTaskB,
+					msdyn_subject: "ZZ cassette out-of-order task B",
+				},
+				verb: "create",
+			},
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projectbucket",
+					msdyn_name: "ZZ Cassette Out-Of-Order Bucket",
+					"msdyn_project@odata.bind": `/msdyn_projects(${SCRATCH_PROJECT_ID})`,
+					msdyn_projectbucketid: beforeBucket,
+				},
+				verb: "create",
+			},
 		])
-		litter.set(beforeTaskA, "task")
-		litter.set(beforeTaskB, "task")
-		litter.set(beforeBucket, "bucket")
+		litter.set(beforeTaskA, {
+			"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+			msdyn_projecttaskid: beforeTaskA,
+		})
+		litter.set(beforeTaskB, {
+			"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+			msdyn_projecttaskid: beforeTaskB,
+		})
+		litter.set(beforeBucket, {
+			"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projectbucket",
+			msdyn_projectbucketid: beforeBucket,
+		})
 	})
 
 	// This companion case does not prove order independence: the set is refused while
@@ -1199,23 +1436,37 @@ async function main(): Promise<void> {
 	const orderedAssignment = mint("orderedAssignmentId")
 	await recordRejection("create-an-assignment-before-its-task", async (client) => {
 		await submitAndWait(client, "ContextLayer: an assignment listed ahead of its task", [
-			createResourceAssignment({
-				assignmentId: orderedAssignment,
-				name: "ZZ cassette out-of-order assignment",
-				projectId: SCRATCH_PROJECT_ID,
-				projectTeamId: SCRATCH_PROJECT_TEAM_MEMBER_ID,
-				taskId: orderedTask,
-			}),
-			createProjectTask({
-				bucketId: SCRATCH_BUCKET_ID,
-				outlineLevel: 1,
-				projectId: SCRATCH_PROJECT_ID,
-				subject: "ZZ cassette out-of-order assigned task",
-				taskId: orderedTask,
-			}),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_resourceassignment",
+					msdyn_name: "ZZ cassette out-of-order assignment",
+					"msdyn_projectid@odata.bind": `/msdyn_projects(${SCRATCH_PROJECT_ID})`,
+					"msdyn_projectteamid@odata.bind": `/msdyn_projectteams(${SCRATCH_PROJECT_TEAM_MEMBER_ID})`,
+					msdyn_resourceassignmentid: orderedAssignment,
+					"msdyn_taskid@odata.bind": `/msdyn_projecttasks(${orderedTask})`,
+				},
+				verb: "create",
+			},
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+					msdyn_outlinelevel: 1,
+					"msdyn_project@odata.bind": `/msdyn_projects(${SCRATCH_PROJECT_ID})`,
+					"msdyn_projectbucket@odata.bind": `/msdyn_projectbuckets(${SCRATCH_BUCKET_ID})`,
+					msdyn_projecttaskid: orderedTask,
+					msdyn_subject: "ZZ cassette out-of-order assigned task",
+				},
+				verb: "create",
+			},
 		])
-		litter.set(orderedTask, "task")
-		litter.set(orderedAssignment, "assignment")
+		litter.set(orderedTask, {
+			"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+			msdyn_projecttaskid: orderedTask,
+		})
+		litter.set(orderedAssignment, {
+			"@odata.type": "Microsoft.Dynamics.CRM.msdyn_resourceassignment",
+			msdyn_resourceassignmentid: orderedAssignment,
+		})
 	})
 
 	// ---- advertised field coverage -------------------------------------------
@@ -1224,7 +1475,14 @@ async function main(): Promise<void> {
 	// FINISH. The peek is what shows it — the set only ever says `completed`.
 	await record("update-task-duration", async (client) => {
 		await submitAndWait(client, "ContextLayer: set a task's duration", [
-			updateProjectTask({ duration: 3, taskId: datedTask }),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+					msdyn_duration: 3,
+					msdyn_projecttaskid: datedTask,
+				},
+				verb: "update",
+			},
 		])
 		console.log(
 			`    read back: ${await peek("msdyn_projecttasks", datedTask, "msdyn_start,msdyn_finish,msdyn_duration")}`,
@@ -1233,7 +1491,14 @@ async function main(): Promise<void> {
 
 	await record("update-task-effort", async (client) => {
 		await submitAndWait(client, "ContextLayer: set a task's effort", [
-			updateProjectTask({ effort: 12, taskId: richTask }),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+					msdyn_effort: 12,
+					msdyn_projecttaskid: richTask,
+				},
+				verb: "update",
+			},
 		])
 	})
 
@@ -1241,13 +1506,28 @@ async function main(): Promise<void> {
 	// schema from one that is merely narrower than the service.
 	await record("update-task-lowest-priority-and-no-progress", async (client) => {
 		await submitAndWait(client, "ContextLayer: lowest priority, nothing done", [
-			updateProjectTask({ priority: 0, progress: 0, taskId: datedTask }),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+					msdyn_priority: 0,
+					msdyn_progress: 0,
+					msdyn_projecttaskid: datedTask,
+				},
+				verb: "update",
+			},
 		])
 	})
 
 	await record("update-task-highest-priority", async (client) => {
 		await submitAndWait(client, "ContextLayer: the highest priority the service takes", [
-			updateProjectTask({ priority: 10, taskId: richTask }),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+					msdyn_priority: 10,
+					msdyn_projecttaskid: richTask,
+				},
+				verb: "update",
+			},
 		])
 	})
 
@@ -1261,40 +1541,72 @@ async function main(): Promise<void> {
 		await submitAndWait(
 			client,
 			"ContextLayer: create three tasks at once",
-			batch.map((taskId, at) =>
-				createProjectTask({
-					bucketId: SCRATCH_BUCKET_ID,
-					outlineLevel: 1,
-					projectId: SCRATCH_PROJECT_ID,
-					subject: `ZZ cassette batch ${at + 1}`,
-					taskId,
-				}),
-			),
+			batch.map((taskId, at) => ({
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+					msdyn_outlinelevel: 1,
+					"msdyn_project@odata.bind": `/msdyn_projects(${SCRATCH_PROJECT_ID})`,
+					"msdyn_projectbucket@odata.bind": `/msdyn_projectbuckets(${SCRATCH_BUCKET_ID})`,
+					msdyn_projecttaskid: taskId,
+					msdyn_subject: `ZZ cassette batch ${at + 1}`,
+				},
+				verb: "create",
+			})),
 		)
-		for (const id of batch) litter.set(id, "task")
+		for (const id of batch)
+			litter.set(id, {
+				"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+				msdyn_projecttaskid: id,
+			})
 	})
 
 	const mixedNew = mint("mixedNewTaskId")
 	await record("create-update-and-delete-together", async (client) => {
 		await submitAndWait(client, "ContextLayer: one transaction, three verbs", [
-			createProjectTask({
-				bucketId: SCRATCH_BUCKET_ID,
-				outlineLevel: 1,
-				projectId: SCRATCH_PROJECT_ID,
-				subject: "ZZ cassette mixed create",
-				taskId: mixedNew,
-			}),
-			updateProjectTask({ subject: "ZZ cassette mixed update", taskId: richTask }),
-			deleteRecord({ id: batch[2], kind: "task" }),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+					msdyn_outlinelevel: 1,
+					"msdyn_project@odata.bind": `/msdyn_projects(${SCRATCH_PROJECT_ID})`,
+					"msdyn_projectbucket@odata.bind": `/msdyn_projectbuckets(${SCRATCH_BUCKET_ID})`,
+					msdyn_projecttaskid: mixedNew,
+					msdyn_subject: "ZZ cassette mixed create",
+				},
+				verb: "create",
+			},
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+					msdyn_projecttaskid: richTask,
+					msdyn_subject: "ZZ cassette mixed update",
+				},
+				verb: "update",
+			},
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+					msdyn_projecttaskid: batch[2],
+				},
+				verb: "delete",
+			},
 		])
-		litter.set(mixedNew, "task")
+		litter.set(mixedNew, {
+			"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+			msdyn_projecttaskid: mixedNew,
+		})
 		litter.delete(batch[2])
 	})
 
 	// ---- deletes ------------------------------------------------------------
 	await record("delete-task", async (client) => {
 		await submitAndWait(client, "ContextLayer: delete a task", [
-			deleteRecord({ id: batch[1], kind: "task" }),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+					msdyn_projecttaskid: batch[1],
+				},
+				verb: "delete",
+			},
 		])
 		litter.delete(batch[1])
 	})
@@ -1304,7 +1616,13 @@ async function main(): Promise<void> {
 	// this is the only place it is written down as observed rather than believed.
 	await record("delete-bucket-and-its-tasks", async (client) => {
 		await submitAndWait(client, "ContextLayer: delete a bucket", [
-			deleteRecord({ id: freshBucket, kind: "bucket" }),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projectbucket",
+					msdyn_projectbucketid: freshBucket,
+				},
+				verb: "delete",
+			},
 		])
 		// The bucket's tasks go with it — that cascade is why they are forgotten here
 		// rather than deleted again by cleanup, where they would answer NOT FOUND.
@@ -1327,9 +1645,18 @@ async function main(): Promise<void> {
 	await record("execute-refused-and-set-wedged-executing", async (client) => {
 		try {
 			await submitOperationSet(client, {
-				description: "ContextLayer: a value the service rejects at execute",
-				projectId: SCRATCH_PROJECT_ID,
-				writes: [updateProjectTask({ progress: 100, taskId: plainTask })],
+				Description: "ContextLayer: a value the service rejects at execute",
+				ProjectId: SCRATCH_PROJECT_ID,
+				writes: [
+					{
+						entity: {
+							"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+							msdyn_progress: 100,
+							msdyn_projecttaskid: plainTask,
+						},
+						verb: "update",
+					},
+				],
 			})
 		} catch (error) {
 			if (!(error instanceof ScheduleApiError)) throw error
@@ -1343,7 +1670,7 @@ async function main(): Promise<void> {
 			throw new Error("The refused submission minted no operation set to inspect.")
 		}
 		await waitForOperationSet(client, {
-			operationSetId: lastMintedOperationSet.operationSetId,
+			OperationSetId: lastMintedOperationSet.OperationSetId,
 			seconds: 12,
 		})
 	})
@@ -1352,7 +1679,14 @@ async function main(): Promise<void> {
 	// than a conversation production can emit.
 	await probe("a task priority above 10", async (client) => {
 		await submitAndWait(client, "ContextLayer: priority above the maximum", [
-			updateProjectTask({ priority: 99, taskId: plainTask }),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+					msdyn_priority: 99,
+					msdyn_projecttaskid: plainTask,
+				},
+				verb: "update",
+			},
 		])
 	})
 
@@ -1360,33 +1694,59 @@ async function main(): Promise<void> {
 	await recordRejection("reject-unknown-bucket", async (client) => {
 		const doomed = mint("taskForUnknownBucketId")
 		await submitAndWait(client, "ContextLayer: create into a bucket that is not there", [
-			createProjectTask({
-				bucketId: UNKNOWN_BUCKET,
-				outlineLevel: 1,
-				projectId: SCRATCH_PROJECT_ID,
-				subject: "ZZ cassette unreachable",
-				taskId: doomed,
-			}),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+					msdyn_outlinelevel: 1,
+					"msdyn_project@odata.bind": `/msdyn_projects(${SCRATCH_PROJECT_ID})`,
+					"msdyn_projectbucket@odata.bind": `/msdyn_projectbuckets(${UNKNOWN_BUCKET})`,
+					msdyn_projecttaskid: doomed,
+					msdyn_subject: "ZZ cassette unreachable",
+				},
+				verb: "create",
+			},
 		])
 	})
 
 	await recordRejection("reject-unknown-task", async (client) => {
 		await submitAndWait(client, "ContextLayer: update a task that is not there", [
-			updateProjectTask({ subject: "ZZ nowhere", taskId: UNKNOWN_TASK }),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+					msdyn_projecttaskid: UNKNOWN_TASK,
+					msdyn_subject: "ZZ nowhere",
+				},
+				verb: "update",
+			},
 		])
 	})
 
 	await recordRejection("reject-delete-unknown-task", async (client) => {
 		await submitAndWait(client, "ContextLayer: delete a task that is not there", [
-			deleteRecord({ id: UNKNOWN_TASK, kind: "task" }),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+					msdyn_projecttaskid: UNKNOWN_TASK,
+				},
+				verb: "delete",
+			},
 		])
 	})
 
 	await recordRejection("reject-unknown-project", async (client) => {
 		await submitOperationSet(client, {
-			description: "ContextLayer: a set for a project that is not there",
-			projectId: UNKNOWN_PROJECT,
-			writes: [updateProjectTask({ subject: "ZZ nowhere", taskId: plainTask })],
+			Description: "ContextLayer: a set for a project that is not there",
+			ProjectId: UNKNOWN_PROJECT,
+			writes: [
+				{
+					entity: {
+						"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+						msdyn_projecttaskid: plainTask,
+						msdyn_subject: "ZZ nowhere",
+					},
+					verb: "update",
+				},
+			],
 		})
 	})
 
@@ -1396,34 +1756,50 @@ async function main(): Promise<void> {
 	await probe("a malformed bearer token", async () => {
 		const stale = api("not-a-real-token")
 		await submitOperationSet(stale, {
-			description: "ContextLayer: a set with a stale credential",
-			projectId: SCRATCH_PROJECT_ID,
-			writes: [updateProjectTask({ subject: "ZZ nowhere", taskId: plainTask })],
+			Description: "ContextLayer: a set with a stale credential",
+			ProjectId: SCRATCH_PROJECT_ID,
+			writes: [
+				{
+					entity: {
+						"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+						msdyn_projecttaskid: plainTask,
+						msdyn_subject: "ZZ nowhere",
+					},
+					verb: "update",
+				},
+			],
 		})
 	})
 
 	// ---- the wait tool's own surface ----------------------------------------
 	await recordRejection("wait-on-a-set-that-does-not-exist", async (client) => {
-		await waitForOperationSet(client, { operationSetId: UNKNOWN_TASK, seconds: 0 })
+		await waitForOperationSet(client, { OperationSetId: UNKNOWN_TASK, seconds: 0 })
 	})
 
 	await record("wait-zero-seconds", async (client) => {
 		const glance = mint("glanceTaskId")
-		const operationSetId = await submitOperationSet(client, {
-			description: "ContextLayer: a set glanced at rather than waited on",
-			projectId: SCRATCH_PROJECT_ID,
+		const { OperationSetId } = await submitOperationSet(client, {
+			Description: "ContextLayer: a set glanced at rather than waited on",
+			ProjectId: SCRATCH_PROJECT_ID,
 			writes: [
-				createProjectTask({
-					bucketId: SCRATCH_BUCKET_ID,
-					outlineLevel: 1,
-					projectId: SCRATCH_PROJECT_ID,
-					subject: "ZZ cassette glance",
-					taskId: glance,
-				}),
+				{
+					entity: {
+						"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+						msdyn_outlinelevel: 1,
+						"msdyn_project@odata.bind": `/msdyn_projects(${SCRATCH_PROJECT_ID})`,
+						"msdyn_projectbucket@odata.bind": `/msdyn_projectbuckets(${SCRATCH_BUCKET_ID})`,
+						msdyn_projecttaskid: glance,
+						msdyn_subject: "ZZ cassette glance",
+					},
+					verb: "create",
+				},
 			],
 		})
-		await waitForOperationSet(client, { operationSetId, seconds: 0 })
-		litter.set(glance, "task")
+		await waitForOperationSet(client, { OperationSetId, seconds: 0 })
+		litter.set(glance, {
+			"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+			msdyn_projecttaskid: glance,
+		})
 	})
 
 	// ---- probes: driven for real, recorded nowhere ---------------------------
@@ -1441,16 +1817,23 @@ async function main(): Promise<void> {
 	const bareDateTask = mint("bareDateTaskId")
 	await probe("a date with no time of day", async (client) => {
 		await submitAndWait(client, "ContextLayer: probe a bare date", [
-			createProjectTask({
-				bucketId: SCRATCH_BUCKET_ID,
-				finish: BARE_DATE,
-				outlineLevel: 1,
-				projectId: SCRATCH_PROJECT_ID,
-				subject: "ZZ cassette bare date",
-				taskId: bareDateTask,
-			}),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+					msdyn_finish: BARE_DATE,
+					msdyn_outlinelevel: 1,
+					"msdyn_project@odata.bind": `/msdyn_projects(${SCRATCH_PROJECT_ID})`,
+					"msdyn_projectbucket@odata.bind": `/msdyn_projectbuckets(${SCRATCH_BUCKET_ID})`,
+					msdyn_projecttaskid: bareDateTask,
+					msdyn_subject: "ZZ cassette bare date",
+				},
+				verb: "create",
+			},
 		])
-		litter.set(bareDateTask, "task")
+		litter.set(bareDateTask, {
+			"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+			msdyn_projecttaskid: bareDateTask,
+		})
 		console.log(
 			`    sent finish=${BARE_DATE}\n    read back: ${await peek("msdyn_projecttasks", bareDateTask, "msdyn_start,msdyn_finish")}`,
 		)
@@ -1463,8 +1846,8 @@ async function main(): Promise<void> {
 	// can enumerate. The release block at the bottom takes this one back.
 	await probe("a set with nothing staged", async (client) => {
 		await submitOperationSet(client, {
-			description: "ContextLayer: probe an empty set",
-			projectId: SCRATCH_PROJECT_ID,
+			Description: "ContextLayer: probe an empty set",
+			ProjectId: SCRATCH_PROJECT_ID,
 			writes: [],
 		})
 	})
@@ -1475,17 +1858,24 @@ async function main(): Promise<void> {
 	const invertedTask = mint("invertedTaskId")
 	await probe("a finish earlier than its start", async (client) => {
 		await submitAndWait(client, "ContextLayer: probe an inverted date range", [
-			createProjectTask({
-				bucketId: SCRATCH_BUCKET_ID,
-				finish: INVERTED_FINISH,
-				outlineLevel: 1,
-				projectId: SCRATCH_PROJECT_ID,
-				start: INVERTED_START,
-				subject: "ZZ cassette inverted range",
-				taskId: invertedTask,
-			}),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+					msdyn_finish: INVERTED_FINISH,
+					msdyn_outlinelevel: 1,
+					"msdyn_project@odata.bind": `/msdyn_projects(${SCRATCH_PROJECT_ID})`,
+					"msdyn_projectbucket@odata.bind": `/msdyn_projectbuckets(${SCRATCH_BUCKET_ID})`,
+					msdyn_projecttaskid: invertedTask,
+					msdyn_start: INVERTED_START,
+					msdyn_subject: "ZZ cassette inverted range",
+				},
+				verb: "create",
+			},
 		])
-		litter.set(invertedTask, "task")
+		litter.set(invertedTask, {
+			"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+			msdyn_projecttaskid: invertedTask,
+		})
 		console.log(
 			`    sent start=${INVERTED_START} finish=${INVERTED_FINISH}\n    read back: ${await peek("msdyn_projecttasks", invertedTask, "msdyn_start,msdyn_finish,msdyn_duration")}`,
 		)
@@ -1498,11 +1888,15 @@ async function main(): Promise<void> {
 	// was not what stopped it.
 	await probe(`${OVER_THE_CEILING} operations in one set`, async (client) => {
 		await submitOperationSet(client, {
-			description: "ContextLayer: probe the operation ceiling",
-			projectId: SCRATCH_PROJECT_ID,
-			writes: Array.from({ length: OVER_THE_CEILING }, () =>
-				deleteRecord({ id: mint(), kind: "task" }),
-			),
+			Description: "ContextLayer: probe the operation ceiling",
+			ProjectId: SCRATCH_PROJECT_ID,
+			writes: Array.from({ length: OVER_THE_CEILING }, () => ({
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+					msdyn_projecttaskid: mint(),
+				},
+				verb: "delete",
+			})),
 		})
 	})
 
@@ -1514,96 +1908,128 @@ async function main(): Promise<void> {
 	const twiceTask = mint("twiceTaskId")
 	await probe("the same record id twice in one set", async (client) => {
 		await submitAndWait(client, "ContextLayer: probe a duplicated id", [
-			createProjectTask({
-				bucketId: SCRATCH_BUCKET_ID,
-				outlineLevel: 1,
-				projectId: SCRATCH_PROJECT_ID,
-				subject: "ZZ cassette twice A",
-				taskId: twiceTask,
-			}),
-			createProjectTask({
-				bucketId: SCRATCH_BUCKET_ID,
-				outlineLevel: 1,
-				projectId: SCRATCH_PROJECT_ID,
-				subject: "ZZ cassette twice B",
-				taskId: twiceTask,
-			}),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+					msdyn_outlinelevel: 1,
+					"msdyn_project@odata.bind": `/msdyn_projects(${SCRATCH_PROJECT_ID})`,
+					"msdyn_projectbucket@odata.bind": `/msdyn_projectbuckets(${SCRATCH_BUCKET_ID})`,
+					msdyn_projecttaskid: twiceTask,
+					msdyn_subject: "ZZ cassette twice A",
+				},
+				verb: "create",
+			},
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+					msdyn_outlinelevel: 1,
+					"msdyn_project@odata.bind": `/msdyn_projects(${SCRATCH_PROJECT_ID})`,
+					"msdyn_projectbucket@odata.bind": `/msdyn_projectbuckets(${SCRATCH_BUCKET_ID})`,
+					msdyn_projecttaskid: twiceTask,
+					msdyn_subject: "ZZ cassette twice B",
+				},
+				verb: "create",
+			},
 		])
-		litter.set(twiceTask, "task")
+		litter.set(twiceTask, {
+			"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+			msdyn_projecttaskid: twiceTask,
+		})
 	})
 
 	await probe("a create naming a record that already exists", async (client) => {
 		await submitAndWait(client, "ContextLayer: probe re-creating an existing task", [
-			createProjectTask({
-				bucketId: SCRATCH_BUCKET_ID,
-				outlineLevel: 1,
-				projectId: SCRATCH_PROJECT_ID,
-				subject: "ZZ cassette recreated",
-				taskId: plainTask,
-			}),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+					msdyn_outlinelevel: 1,
+					"msdyn_project@odata.bind": `/msdyn_projects(${SCRATCH_PROJECT_ID})`,
+					"msdyn_projectbucket@odata.bind": `/msdyn_projectbuckets(${SCRATCH_BUCKET_ID})`,
+					msdyn_projecttaskid: plainTask,
+					msdyn_subject: "ZZ cassette recreated",
+				},
+				verb: "create",
+			},
 		])
 	})
 
 	// ---- proven but unmodelled tables ----------------------------------------
-	// Probe these tables inline before any builder advertises them; metadata alone is
+	// Probe these tables before the tools advertise them; metadata alone is
 	// insufficient. The case-sensitive navigation properties intentionally match the
 	// organisation metadata even though their casing is inconsistent.
 
 	// ---- deliberately unsupported columns -----------------------------------
-	// Builders omit these refused fields, making the traffic unreachable in production.
+	// The tool schemas omit these refused fields, making the traffic unreachable in production.
 	// Keep the probes so any service change is observed before the surface changes.
 
 	await probe("a display order on a bucket, on create", async (client) => {
 		await submitAndWait(client, "ContextLayer: probe bucket display order (create)", [
-			unmodelledWrite("msdyn_projectbucket", {
-				msdyn_displayorder: 3,
-				msdyn_name: "ZZ cassette placed bucket",
-				msdyn_projectbucketid: mint(),
-				...bind("msdyn_project", "msdyn_projects", SCRATCH_PROJECT_ID),
-			}),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projectbucket",
+
+					msdyn_displayorder: 3,
+					msdyn_name: "ZZ cassette placed bucket",
+					"msdyn_project@odata.bind": `/msdyn_projects(${SCRATCH_PROJECT_ID})`,
+					msdyn_projectbucketid: mint(),
+				},
+				verb: "create",
+			},
 		])
 	})
 
 	// Use an existing bucket so any rejection isolates `msdyn_displayorder`.
 	await probe("a display order on a bucket, on update", async (client) => {
 		await submitAndWait(client, "ContextLayer: probe bucket display order (update)", [
-			unmodelledWrite(
-				"msdyn_projectbucket",
-				{ msdyn_displayorder: 2, msdyn_projectbucketid: newBucket },
-				"update",
-			),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projectbucket",
+					msdyn_displayorder: 2,
+					msdyn_projectbucketid: newBucket,
+				},
+				verb: "update",
+			},
 		])
 	})
 
 	await probe("a colour on a label", async (client) => {
 		await submitAndWait(client, "ContextLayer: probe label colour", [
-			unmodelledWrite(
-				"msdyn_projectlabel",
-				{ msdyn_colorindex: 192350007, msdyn_projectlabelid: SCRATCH_LABEL_ID },
-				"update",
-			),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projectlabel",
+					msdyn_colorindex: 192350007,
+					msdyn_projectlabelid: SCRATCH_LABEL_ID,
+				},
+				verb: "update",
+			},
 		])
 	})
 
 	await probe("a sprint", async (client) => {
 		const sprintId = mint()
 		await submitAndWait(client, "ContextLayer: probe a sprint", [
-			unmodelledWrite("msdyn_projectsprint", {
-				msdyn_finish: FINISH,
-				msdyn_name: "ZZ cassette sprint",
-				msdyn_projectsprintid: sprintId,
-				msdyn_start: START,
-				...bind("msdyn_project", "msdyn_projects", SCRATCH_PROJECT_ID),
-			}),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projectsprint",
+
+					msdyn_finish: FINISH,
+					msdyn_name: "ZZ cassette sprint",
+					"msdyn_project@odata.bind": `/msdyn_projects(${SCRATCH_PROJECT_ID})`,
+					msdyn_projectsprintid: sprintId,
+					msdyn_start: START,
+				},
+				verb: "create",
+			},
 		])
-		// No `deleteRecord` reaches a sprint — `RecordKind` does not carry one — so the
-		// probe takes its own litter back out rather than leaving it on the board.
+		// The sprint probe takes its own litter back out rather than leaving it on the board.
 		await submitAndWait(client, "ContextLayer: probe sprint cleanup", [
-			unmodelledWrite(
-				"msdyn_projectsprint",
-				{ msdyn_projectsprintid: sprintId },
-				"delete",
-			),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projectsprint",
+					msdyn_projectsprintid: sprintId,
+				},
+				verb: "delete",
+			},
 		])
 	})
 
@@ -1611,60 +2037,85 @@ async function main(): Promise<void> {
 		const goalId = mint()
 		const linkId = mint()
 		await submitAndWait(client, "ContextLayer: probe a goal and a task-to-goal link", [
-			unmodelledWrite("msdyn_projectgoal", {
-				msdyn_colorindex: 192350003,
-				msdyn_description: "What this goal is for.",
-				// NO `msdyn_displayorder`. It reports writable on this table too and the
-				// service refuses it here as well — the same column, the same refusal, on a
-				// third table. Sending it failed the whole set and so hid whether anything
-				// ELSE about a goal is writable, which is the only question this probe has.
-				msdyn_end: FINISH,
-				msdyn_name: "ZZ cassette goal",
-				// 0 Low, 1 Medium, 2 High. 0 Not Started, 1 On Track, 2 Behind, 3 At Risk,
-				// 4 Closed, 5 Postponed, 6 Unknown, 7 Reopened.
-				msdyn_priority: 2,
-				msdyn_projectgoalid: goalId,
-				msdyn_start: START,
-				msdyn_status: 1,
-				...bind("msdyn_projectid", "msdyn_projects", SCRATCH_PROJECT_ID),
-			}),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projectgoal",
+
+					msdyn_colorindex: 192350003,
+					msdyn_description: "What this goal is for.",
+					// NO `msdyn_displayorder`. It reports writable on this table too and the
+					// service refuses it here as well — the same column, the same refusal, on a
+					// third table. Sending it failed the whole set and so hid whether anything
+					// ELSE about a goal is writable, which is the only question this probe has.
+					msdyn_end: FINISH,
+					msdyn_name: "ZZ cassette goal",
+					// 0 Low, 1 Medium, 2 High. 0 Not Started, 1 On Track, 2 Behind, 3 At Risk,
+					// 4 Closed, 5 Postponed, 6 Unknown, 7 Reopened.
+					msdyn_priority: 2,
+					msdyn_projectgoalid: goalId,
+					"msdyn_projectid@odata.bind": `/msdyn_projects(${SCRATCH_PROJECT_ID})`,
+					msdyn_start: START,
+					msdyn_status: 1,
+				},
+				verb: "create",
+			},
 			// Named in the SAME collection as the goal it points at — the intra-collection
 			// reference that `create-bucket-with-its-tasks` already proves works.
-			unmodelledWrite("msdyn_projecttasktogoal", {
-				msdyn_projecttasktogoalid: linkId,
-				...bind("msdyn_projectgoalid", "msdyn_projectgoals", goalId),
-				...bind("msdyn_projecttaskid", "msdyn_projecttasks", richTask),
-			}),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttasktogoal",
+					"msdyn_projectgoalid@odata.bind": `/msdyn_projectgoals(${goalId})`,
+					"msdyn_projecttaskid@odata.bind": `/msdyn_projecttasks(${richTask})`,
+
+					msdyn_projecttasktogoalid: linkId,
+				},
+				verb: "create",
+			},
 		])
 		await submitAndWait(client, "ContextLayer: probe goal-link cleanup", [
-			unmodelledWrite(
-				"msdyn_projecttasktogoal",
-				{ msdyn_projecttasktogoalid: linkId },
-				"delete",
-			),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttasktogoal",
+					msdyn_projecttasktogoalid: linkId,
+				},
+				verb: "delete",
+			},
 		])
 		await submitAndWait(client, "ContextLayer: probe goal cleanup", [
-			unmodelledWrite("msdyn_projectgoal", { msdyn_projectgoalid: goalId }, "delete"),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projectgoal",
+					msdyn_projectgoalid: goalId,
+				},
+				verb: "delete",
+			},
 		])
 	})
 
 	await probe("a checklist item on a task", async (client) => {
 		const checklistId = mint()
 		await submitAndWait(client, "ContextLayer: probe a checklist item", [
-			unmodelledWrite("msdyn_projectchecklist", {
-				msdyn_name: "ZZ cassette checklist item",
-				msdyn_projectchecklistcompleted: false,
-				msdyn_projectchecklistid: checklistId,
-				msdyn_projectchecklistorder: 1,
-				...bind("msdyn_ProjectTaskId", "msdyn_projecttasks", richTask),
-			}),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projectchecklist",
+
+					msdyn_name: "ZZ cassette checklist item",
+					"msdyn_ProjectTaskId@odata.bind": `/msdyn_projecttasks(${richTask})`,
+					msdyn_projectchecklistcompleted: false,
+					msdyn_projectchecklistid: checklistId,
+					msdyn_projectchecklistorder: 1,
+				},
+				verb: "create",
+			},
 		])
 		await submitAndWait(client, "ContextLayer: probe checklist cleanup", [
-			unmodelledWrite(
-				"msdyn_projectchecklist",
-				{ msdyn_projectchecklistid: checklistId },
-				"delete",
-			),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projectchecklist",
+					msdyn_projectchecklistid: checklistId,
+				},
+				verb: "delete",
+			},
 		])
 	})
 
@@ -1676,41 +2127,59 @@ async function main(): Promise<void> {
 		const successor = mint()
 		const dependencyId = mint()
 		await submitAndWait(client, "ContextLayer: probe a task dependency", [
-			createProjectTask({
-				bucketId: SCRATCH_BUCKET_ID,
-				finish: FINISH,
-				outlineLevel: 1,
-				projectId: SCRATCH_PROJECT_ID,
-				start: START,
-				subject: "ZZ cassette predecessor",
-				taskId: predecessor,
-			}),
-			createProjectTask({
-				bucketId: SCRATCH_BUCKET_ID,
-				outlineLevel: 1,
-				projectId: SCRATCH_PROJECT_ID,
-				subject: "ZZ cassette successor",
-				taskId: successor,
-			}),
-			unmodelledWrite("msdyn_projecttaskdependency", {
-				msdyn_projecttaskdependencyid: dependencyId,
-				// 0 FinishToFinish, 1 FinishToStart, 2 StartToFinish, 3 StartToStart.
-				msdyn_projecttaskdependencylinktype: 1,
-				...bind("msdyn_PredecessorTask", "msdyn_projecttasks", predecessor),
-				...bind("msdyn_SuccessorTask", "msdyn_projecttasks", successor),
-				...bind("msdyn_Project", "msdyn_projects", SCRATCH_PROJECT_ID),
-			}),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+					msdyn_finish: FINISH,
+					msdyn_outlinelevel: 1,
+					"msdyn_project@odata.bind": `/msdyn_projects(${SCRATCH_PROJECT_ID})`,
+					"msdyn_projectbucket@odata.bind": `/msdyn_projectbuckets(${SCRATCH_BUCKET_ID})`,
+					msdyn_projecttaskid: predecessor,
+					msdyn_start: START,
+					msdyn_subject: "ZZ cassette predecessor",
+				},
+				verb: "create",
+			},
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+					msdyn_outlinelevel: 1,
+					"msdyn_project@odata.bind": `/msdyn_projects(${SCRATCH_PROJECT_ID})`,
+					"msdyn_projectbucket@odata.bind": `/msdyn_projectbuckets(${SCRATCH_BUCKET_ID})`,
+					msdyn_projecttaskid: successor,
+					msdyn_subject: "ZZ cassette successor",
+				},
+				verb: "create",
+			},
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttaskdependency",
+
+					"msdyn_PredecessorTask@odata.bind": `/msdyn_projecttasks(${predecessor})`,
+					"msdyn_Project@odata.bind": `/msdyn_projects(${SCRATCH_PROJECT_ID})`,
+
+					msdyn_projecttaskdependencyid: dependencyId,
+					// 0 FinishToFinish, 1 FinishToStart, 2 StartToFinish, 3 StartToStart.
+					msdyn_projecttaskdependencylinktype: 1,
+					"msdyn_SuccessorTask@odata.bind": `/msdyn_projecttasks(${successor})`,
+				},
+				verb: "create",
+			},
 		])
 		console.log(
 			`    successor before: ${await peek("msdyn_projecttasks", successor, "msdyn_start,msdyn_finish")}`,
 		)
 		// Move the predecessor and watch what happens to a task nobody named.
 		await submitAndWait(client, "ContextLayer: probe the dependency cascade", [
-			updateProjectTask({
-				finish: LATER_FINISH,
-				start: LATER_START,
-				taskId: predecessor,
-			}),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+					msdyn_finish: LATER_FINISH,
+					msdyn_projecttaskid: predecessor,
+					msdyn_start: LATER_START,
+				},
+				verb: "update",
+			},
 		])
 		console.log(
 			`    successor after:  ${await peek("msdyn_projecttasks", successor, "msdyn_start,msdyn_finish")}`,
@@ -1718,14 +2187,22 @@ async function main(): Promise<void> {
 		// The dependency first and alone: a delete collection cannot hold both a
 		// container and the records it takes with it.
 		await submitAndWait(client, "ContextLayer: probe dependency cleanup", [
-			unmodelledWrite(
-				"msdyn_projecttaskdependency",
-				{ msdyn_projecttaskdependencyid: dependencyId },
-				"delete",
-			),
+			{
+				entity: {
+					"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttaskdependency",
+					msdyn_projecttaskdependencyid: dependencyId,
+				},
+				verb: "delete",
+			},
 		])
-		litter.set(predecessor, "task")
-		litter.set(successor, "task")
+		litter.set(predecessor, {
+			"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+			msdyn_projecttaskid: predecessor,
+		})
+		litter.set(successor, {
+			"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+			msdyn_projecttaskid: successor,
+		})
 	})
 }
 
@@ -1750,21 +2227,21 @@ async function sweep(): Promise<void> {
 	//
 	// TWO PASSES, because the first may race a record that has not materialised yet.
 	// Refusals remain ambiguous; only the fresh query below decides what survived.
-	let outstanding = [...litter].reverse().map(([id, kind]) => ({ id, kind }))
+	let outstanding = [...litter].reverse().map(([id, entity]) => ({ entity, id }))
 	let lastRefusal = ""
 	for (const _pass of [1, 2]) {
 		const refused: typeof outstanding = []
-		for (const { id, kind } of outstanding) {
+		for (const { entity, id } of outstanding) {
 			try {
 				await submitOperationSet(client, {
-					description: "ContextLayer: sweep",
-					projectId: SCRATCH_PROJECT_ID,
-					writes: [deleteRecord({ id, kind })],
+					Description: "ContextLayer: sweep",
+					ProjectId: SCRATCH_PROJECT_ID,
+					writes: [{ entity, verb: "delete" }],
 				})
 			} catch (error) {
 				if (!(error instanceof ScheduleApiError)) throw error
 				lastRefusal = String(error)
-				refused.push({ id, kind })
+				refused.push({ entity, id })
 			}
 		}
 		outstanding = refused
@@ -1775,7 +2252,7 @@ async function sweep(): Promise<void> {
 	if (outstanding.length > 0) {
 		console.log(
 			`  ${outstanding.length} ledger delete(s) refused on both passes (usually a cascade got there first; verified by the stray check below): ${outstanding
-				.map((r) => `${r.kind} ${r.id}`)
+				.map((r) => `${r.entity["@odata.type"]} ${r.id}`)
 				.join(", ")}\n     last refusal: ${lastRefusal.slice(0, 200)}`,
 		)
 	}
@@ -1787,9 +2264,18 @@ async function sweep(): Promise<void> {
 	let labelRestored = true
 	try {
 		await submitOperationSet(client, {
-			description: "ContextLayer: sweep the label",
-			projectId: SCRATCH_PROJECT_ID,
-			writes: [updateProjectLabel({ labelId: SCRATCH_LABEL_ID, text: "" })],
+			Description: "ContextLayer: sweep the label",
+			ProjectId: SCRATCH_PROJECT_ID,
+			writes: [
+				{
+					entity: {
+						"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projectlabel",
+						msdyn_projectlabelid: SCRATCH_LABEL_ID,
+						msdyn_projectlabeltext: "",
+					},
+					verb: "update",
+				},
+			],
 		})
 	} catch (error) {
 		if (!(error instanceof ScheduleApiError)) throw error
@@ -1816,7 +2302,7 @@ const LITTER_PREFIX = "ZZ cassette"
  * discovered id, it requires both an approved-project filter and `LITTER_PREFIX`.
  */
 type Stray = {
-	id: string
+	entity: StagedWrite["entity"]
 	kind: "bucket" | "goal" | "sprint" | "task"
 	label: string
 }
@@ -1829,48 +2315,28 @@ async function strayRecords(): Promise<Stray[]> {
 			"msdyn_projecttasks",
 			"_msdyn_project_value",
 			"msdyn_projecttaskid,msdyn_subject",
-			z
-				.object({ msdyn_projecttaskid: z.string(), msdyn_subject: z.string() })
-				.transform((row) => ({
-					id: row.msdyn_projecttaskid,
-					label: row.msdyn_subject,
-				})),
+			z.object({ msdyn_projecttaskid: z.string(), msdyn_subject: z.string() }),
 			"task",
 		],
 		[
 			"msdyn_projectbuckets",
 			"_msdyn_project_value",
 			"msdyn_projectbucketid,msdyn_name",
-			z
-				.object({ msdyn_name: z.string(), msdyn_projectbucketid: z.string() })
-				.transform((row) => ({
-					id: row.msdyn_projectbucketid,
-					label: row.msdyn_name,
-				})),
+			z.object({ msdyn_name: z.string(), msdyn_projectbucketid: z.string() }),
 			"bucket",
 		],
 		[
 			"msdyn_projectsprints",
 			"_msdyn_project_value",
 			"msdyn_projectsprintid,msdyn_name",
-			z
-				.object({ msdyn_name: z.string(), msdyn_projectsprintid: z.string() })
-				.transform((row) => ({
-					id: row.msdyn_projectsprintid,
-					label: row.msdyn_name,
-				})),
+			z.object({ msdyn_name: z.string(), msdyn_projectsprintid: z.string() }),
 			"sprint",
 		],
 		[
 			"msdyn_projectgoals",
 			"_msdyn_projectid_value",
 			"msdyn_projectgoalid,msdyn_name",
-			z
-				.object({ msdyn_name: z.string(), msdyn_projectgoalid: z.string() })
-				.transform((row) => ({
-					id: row.msdyn_projectgoalid,
-					label: row.msdyn_name,
-				})),
+			z.object({ msdyn_name: z.string(), msdyn_projectgoalid: z.string() }),
 			"goal",
 		],
 	] as const) {
@@ -1884,9 +2350,41 @@ async function strayRecords(): Promise<Stray[]> {
 			// The prefix test is case-insensitive because buckets are named "ZZ Cassette …"
 			// and tasks "ZZ cassette …", and a sweep that missed half of them on a capital
 			// letter would be worse than no sweep at all.
-			if (!row.label.toLowerCase().startsWith(LITTER_PREFIX.toLowerCase())) continue
-			boardGuard.registerOwnedId(row.id)
-			strays.push({ id: row.id, kind, label: row.label })
+			const label = "msdyn_subject" in row ? row.msdyn_subject : row.msdyn_name
+			if (!label.toLowerCase().startsWith(LITTER_PREFIX.toLowerCase())) continue
+			const id =
+				"msdyn_projecttaskid" in row
+					? row.msdyn_projecttaskid
+					: "msdyn_projectbucketid" in row
+						? row.msdyn_projectbucketid
+						: "msdyn_projectsprintid" in row
+							? row.msdyn_projectsprintid
+							: row.msdyn_projectgoalid
+			boardGuard.registerOwnedId(id)
+			strays.push({
+				entity:
+					kind === "task"
+						? {
+								"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+								msdyn_projecttaskid: id,
+							}
+						: kind === "bucket"
+							? {
+									"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projectbucket",
+									msdyn_projectbucketid: id,
+								}
+							: kind === "sprint"
+								? {
+										"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projectsprint",
+										msdyn_projectsprintid: id,
+									}
+								: {
+										"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projectgoal",
+										msdyn_projectgoalid: id,
+									},
+				kind,
+				label,
+			})
 		}
 	}
 	return strays
@@ -1908,22 +2406,9 @@ async function sweepStrays(client: ScheduleApiClient): Promise<void> {
 	for (const stray of [...strays].sort((a, b) => order[a.kind] - order[b.kind])) {
 		try {
 			await submitOperationSet(client, {
-				description: "ContextLayer: sweep strays",
-				projectId: SCRATCH_PROJECT_ID,
-				// A sprint has no `RecordKind`; nothing in production writes one, so the
-				// wire shape is spelled out here rather than given a builder it would be the
-				// only caller of.
-				writes: [
-					stray.kind === "sprint" || stray.kind === "goal"
-						? unmodelledWrite(
-								stray.kind === "sprint" ? "msdyn_projectsprint" : "msdyn_projectgoal",
-								stray.kind === "sprint"
-									? { msdyn_projectsprintid: stray.id }
-									: { msdyn_projectgoalid: stray.id },
-								"delete",
-							)
-						: deleteRecord({ id: stray.id, kind: stray.kind }),
-				],
+				Description: "ContextLayer: sweep strays",
+				ProjectId: SCRATCH_PROJECT_ID,
+				writes: [{ entity: stray.entity, verb: "delete" }],
 			})
 			removed += 1
 		} catch (error) {
@@ -1961,7 +2446,7 @@ async function releaseOpenOperationSets(): Promise<void> {
 	for (const operationSetId of [...openSets]) {
 		try {
 			// The seam removes it from the ledger on the accepted abandon; this only counts.
-			await api().abandonOperationSet(operationSetId)
+			await api().abandonOperationSet({ OperationSetId: operationSetId })
 			released += 1
 		} catch (error) {
 			if (!(error instanceof ScheduleApiError)) {
