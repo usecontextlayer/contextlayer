@@ -13,7 +13,7 @@
 		"wrangler": "^4.146.0"
 	},
 	"license": "MIT",
-	"name": "@usecontextlayer/mcp_microsoft_planner_premium",
+	"name": "@usecontextlayer/mcp-microsoft-planner-premium",
 	"private": true,
 	"scripts": {
 		"build": "wrangler deploy --env=\"\" --dry-run --outdir dist",

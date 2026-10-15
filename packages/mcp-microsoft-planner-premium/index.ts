@@ -100,8 +100,6 @@ app.get("/authorize", (c) => {
 		`https://login.microsoftonline.com/${env.CTX_ENTRA_TENANT}/oauth2/v2.0/authorize`,
 	)
 	destination.search = new URL(c.req.url).search
-	destination.searchParams.set("client_id", env.CTX_ENTRA_CLIENT_ID)
-	destination.searchParams.set("response_type", "code")
 	destination.searchParams.set(
 		"scope",
 		`${env.CTX_DATAVERSE_ORG_URL}/user_impersonation offline_access`,

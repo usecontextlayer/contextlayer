@@ -258,7 +258,7 @@ importers:
         specifier: ^4.146.0
         version: 4.146.0(@cloudflare/workers-types@5.20261001.1)(@types/node@24.13.3)
 
-  packages/mcp_microsoft_planner_premium:
+  packages/mcp-microsoft-planner-premium:
     dependencies:
       '@modelcontextprotocol/server':
         specifier: 2.3.1

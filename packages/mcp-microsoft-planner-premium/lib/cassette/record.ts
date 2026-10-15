@@ -89,9 +89,7 @@ const boardGuard = createBoardGuard()
 
 const OUT = fileURLToPath(new URL("../__goldens__/", import.meta.url))
 const ZERO = "00000000-0000-0000-0000-000000000000"
-// Well-formed GUIDs that name nothing — deliberately NOT the zero GUID. A stale id
-// read out of the synced tables is this second kind, and it is the one production
-// will actually provoke.
+// Well-formed GUIDs that name no record, distinct from the invalid zero GUID.
 const UNKNOWN_BUCKET = "2b8c6d41-5e97-4a03-9f26-8d31c7b45e0a"
 const UNKNOWN_TASK = "e40a92f7-13bd-4c58-8e71-6a2f95d0c3b8"
 const UNKNOWN_PROJECT = "c17e58d3-6b24-4f90-a852-3d9e0147fa6c"
@@ -500,9 +498,8 @@ function mint(placeholderName?: string): string {
  * request in the fixture that those tools cannot reach. The project-list tool's
  * read is captured separately through the production client.
  *
- * The honest split: the chain records what production sends, and this prints what the
- * board actually holds, into the run's own output. The finding lands in the plan
- * document as an observation with the run behind it, not in the cassette as traffic.
+ * The chain records what production sends; this prints what the board actually holds
+ * into the run's output without adding unreachable traffic to the cassette.
  */
 async function peekRecord<Schema extends z.ZodType>(
 	entitySet: string,
@@ -670,8 +667,8 @@ async function recordRejection(
  * routing key, wearing a different hat.
  *
  * They still have to be DRIVEN, because a guard that has never been tested against the
- * real service is a guess about why it exists. So they run here, and what they prove
- * goes in the plan document as an observation rather than into the cassette as traffic.
+ * real service is a guess about why it exists. They run here and print their outcomes
+ * without adding unreachable traffic to the cassette.
  *
  * The recording seam stays installed for guards, id registration, and the open-set
  * ledger, but capture is disabled before any probe traffic occurs.
