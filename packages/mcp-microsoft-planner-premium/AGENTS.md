@@ -35,6 +35,28 @@ The production Worker is `contextlayer-mcp-microsoft-planner-premium`, at `https
 
 The production Composio toolkit is `CUSTOM_MICROSOFT_PLANNER_PREMIUM`, displayed as Microsoft Planner Premium. It is registered as a Custom MCP toolkit in `DCR_OAUTH` mode, with `discovery_url` pointing to the Worker's `/.well-known/oauth-authorization-server` and `app_url` to its `/mcp`. Composio's callback, `https://backend.composio.dev/api/v1/auth-apps/add`, must be registered as a Web redirect URI on the Entra application before connecting. Changes to that application registration require explicit user approval.
 
+No code registers the toolkit; it is registered with this request against Composio's REST API, using the production Composio project key from Doppler `platform/prod`:
+
+```sh
+doppler run -p platform -c prod -- sh -c 'curl -s -X POST https://backend.composio.dev/api/v3.1/custom/toolkits/upsert -H "x-api-key: $COMPOSIO_API_KEY" -H "Content-Type: application/json" -d @-' <<'JSON'
+{
+	"slug": "MICROSOFT_PLANNER_PREMIUM",
+	"toolkit_config": {
+		"name": "Microsoft Planner Premium",
+		"app_url": "https://microsoft-planner-premium.mcp.usecontextlayer.com/mcp",
+		"auth_schemes": [
+			{
+				"mode": "DCR_OAUTH",
+				"discovery_url": "https://microsoft-planner-premium.mcp.usecontextlayer.com/.well-known/oauth-authorization-server"
+			}
+		]
+	}
+}
+JSON
+```
+
+Re-sending the identical body is a no-op, and changing only `name` updates the display name in place. Composio refuses a changed `app_url` or `auth_schemes` with `409`; replacing either means deleting and re-registering the toolkit, which revokes every connection.
+
 Before onboarding a user, verify the deployed discovery documents, complete the real Composio connection flow including Dataverse org selection, and invoke `list_projects` through that connection. Confirm the results belong to the selected org. After the access token expires, verify that Composio refreshes it and another project read succeeds. Exercise operation-set submission and completion only with explicit permission for each exact customer write. A successful build or connection screen alone does not establish this live verification.
 
 ## Connection page
