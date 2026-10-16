@@ -239,7 +239,7 @@ export function createScheduleApiClient(config: {
 				headers: {
 					Prefer: 'odata.include-annotations="OData.Community.Display.V1.FormattedValue"',
 				},
-				redirect: "error",
+				redirect: "manual",
 			}),
 			recordsResponseSchema,
 		)

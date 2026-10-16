@@ -63,6 +63,14 @@ JSON
 
 Re-sending the identical body is a no-op, and changing only `name` or `logo_file` updates the toolkit in place. Composio refuses a changed `app_url` or `auth_schemes` with `409`; replacing either means deleting and re-registering the toolkit, which revokes every connection.
 
+Composio stores a snapshot of the toolkit’s tools and does not refresh it on its own. A deployment that adds, removes or renames a tool, or changes a tool’s input schema, leaves Composio serving the old list. Calls to new tools return `Tool_ToolNotFound`, and calls to removed ones reach the Worker and fail. After such a deployment, resync through an active connection of this toolkit:
+
+```sh
+doppler run -p platform -c prod -- sh -c 'curl -s -X POST https://backend.composio.dev/api/v3.1/custom/toolkits/sync -H "x-api-key: $COMPOSIO_API_KEY" -H "Content-Type: application/json" -d "{\"slug\":\"CUSTOM_MICROSOFT_PLANNER_PREMIUM\",\"connected_account_id\":\"<an ACTIVE ca_ id>\"}"'
+```
+
+It returns the new toolkit `version` and `synced_count`.
+
 Before onboarding a user, verify the deployed discovery documents, complete the real Composio connection flow including Dataverse org selection, and invoke `retrieve_records` for `msdyn_projects` through that connection. Confirm the results belong to the selected org. After the access token expires, verify that Composio refreshes it and another project read succeeds. Exercise operation-set submission and completion only with explicit permission for each exact customer write. A successful build or connection screen alone does not establish this live verification.
 
 ## Connection page
