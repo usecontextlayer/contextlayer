@@ -135,7 +135,7 @@ test("chrome and API final assignments enable agent-only personal resources with
 				method: "POST",
 			})
 			expect(assigned.status, await assigned.clone().text()).toBe(200)
-			expect(await assigned.text()).toContain("all connections configured")
+			expect(await assigned.text()).toContain("Setup complete")
 		} else {
 			const assigned = await fetch(
 				`${platform.origin}/api/slates/${slate.id}/connections/assign`,

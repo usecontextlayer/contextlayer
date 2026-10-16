@@ -15,11 +15,10 @@ import { listOrganizations } from "@/auth.server"
 import type { PlatformEnv } from "@/context"
 import type { PlatformDb } from "@/database"
 import type { SlateId } from "@/database/models/public/Slate"
+import type { PlatformConfig } from "@/env"
 import { readSlateDeclarations } from "@/slate-declarations.server"
-import {
-	prepareSlateResourceExecution,
-	type ResolvedSlateResourceConfiguration,
-} from "@/slate-resources.server"
+import type { ResolvedSlateResourceConfiguration } from "@/slate-resource-configuration.server"
+import { prepareSlateResourceExecution } from "@/slate-resource-execution.server"
 import type { Slate } from "@/slates.schema"
 import {
 	authorizeSlateManagement,
@@ -105,20 +104,18 @@ export function prepareAgentRun(
 
 export async function getAgentRun(
 	db: PlatformDb,
-	bindings: PlatformEnv["Bindings"],
+	artifacts: Artifacts,
+	databases: PlatformEnv["Bindings"]["DATABASES"],
+	agents: PlatformEnv["Bindings"]["AGENTS"],
+	config: PlatformConfig,
 	slate: Slate,
 	actor: AgentActor,
 	input: AgentRunRequest,
 ) {
-	const snapshot = await readSlateDeclarations(bindings.ARTIFACTS, slate.id)
+	const snapshot = await readSlateDeclarations(artifacts, slate.id)
 	if (!snapshot.allowed)
 		return { allowed: false, reason: "agent-definition-missing" } as const
-	const result = await readAgent(
-		bindings.ARTIFACTS,
-		slate.id,
-		input.name,
-		snapshot.commit,
-	)
+	const result = await readAgent(artifacts, slate.id, input.name, snapshot.commit)
 	if (!result.allowed)
 		return { allowed: false, reason: "agent-definition-missing" } as const
 	const resources = resourcesForConsumer(snapshot.resources, {
@@ -127,7 +124,10 @@ export async function getAgentRun(
 	})
 	const resolved = await prepareSlateResourceExecution(
 		db,
-		bindings,
+		artifacts,
+		databases,
+		agents,
+		config,
 		slate,
 		actor,
 		snapshot,
@@ -184,18 +184,24 @@ export async function listAgentJobs(
 
 export async function startAgentJob(
 	db: PlatformDb,
-	bindings: PlatformEnv["Bindings"],
+	artifacts: Artifacts,
+	databases: PlatformEnv["Bindings"]["DATABASES"],
+	agents: PlatformEnv["Bindings"]["AGENTS"],
+	config: PlatformConfig,
 	access: SlateAccess,
 	input: AgentRunRequest,
 ) {
 	const prepared = await getAgentRun(
 		db,
-		bindings,
+		artifacts,
+		databases,
+		agents,
+		config,
 		access.slate,
 		{ id: access.identity.user.id, type: "user" },
 		input,
 	)
 	if (!prepared.allowed) return prepared
-	const job = await startAgentRun(bindings.AGENTS, prepared.run)
+	const job = await startAgentRun(agents, prepared.run)
 	return { allowed: true, job } as const
 }

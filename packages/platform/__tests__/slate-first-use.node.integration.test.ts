@@ -138,6 +138,10 @@ test("first use provisions personal data and schedules once, after the whole sla
 			headers: { "content-type": "application/json" },
 			method: "POST",
 		})
+	const privateOwner = await query("SELECT * FROM updates", [], "reports")
+	expect(privateOwner.status).toBe(200)
+	expect(databaseResultSchema.parse(await privateOwner.json()).rows).toEqual([])
+	expect(await members()).toEqual([])
 	const missingConnection = await query("SELECT * FROM updates")
 	expect(missingConnection.status).toBe(409)
 	expect(await missingConnection.json()).toEqual({

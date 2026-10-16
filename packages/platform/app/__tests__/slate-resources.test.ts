@@ -5,7 +5,11 @@ import {
 } from "@usecontextlayer/shared/declaration"
 import { slateResourceConfigurationSchema } from "@usecontextlayer/shared/slate-resources"
 import { expect, test } from "vitest"
-import { prepareSlateResourceConfiguration } from "@/slate-resources.server"
+import { secretKey } from "@/secrets.server"
+import {
+	prepareSlateResourceConfiguration,
+	resolveSlateResourceConfiguration,
+} from "@/slate-resource-configuration.server"
 import { slateSchema } from "@/slates.schema"
 
 test.each([
@@ -35,6 +39,7 @@ test.each([
 			{ id: "bob" },
 			resources,
 			[],
+			new Set(),
 		)
 		expect(slateResourceConfigurationSchema.parse(configuration)).toEqual(configuration)
 		expect(configuration.databases.reports).toMatchObject({
@@ -59,6 +64,7 @@ test.each([
 			{ id: "carol" },
 			resources,
 			[],
+			new Set(),
 		)
 		expect(anotherMember.databases.reports).toEqual(configuration.databases.reports)
 		expect(anotherMember.databases.personal?.instance_name).not.toBe(
@@ -72,6 +78,7 @@ test.each([
 			{ id: "bob" },
 			resources,
 			[],
+			new Set(),
 		)
 		for (const slug of Object.keys(configuration.databases)) {
 			expect(anotherSlate.databases[slug]?.instance_name).not.toBe(
@@ -80,3 +87,60 @@ test.each([
 		}
 	},
 )
+
+test("secret inventory records viewer presence and resolves missing personal input", () => {
+	const slate = slateSchema.parse({
+		id: "00000000-0000-4000-8000-000000000001",
+		owner_organization_id: "acme",
+		owner_user_id: null,
+		public_hostname: "brief.contextlayer.xyz",
+		visibility: "private",
+	})
+	const resources = collectSlateResources(
+		slateDeclarationsSchema.parse({
+			agents: {
+				brief: {
+					connections: {},
+					secrets: {
+						PERSONAL_KEY: { mode: "viewer" },
+						SHARED_KEY: { mode: "owner" },
+					},
+				},
+			},
+			app: { connections: {} },
+		}),
+	)
+	const secretNames = new Set([
+		secretKey({ id: "bob", type: "personal" }, "PERSONAL_KEY"),
+	])
+	const configured = prepareSlateResourceConfiguration(
+		slate,
+		{ id: "bob" },
+		resources,
+		[],
+		secretNames,
+	)
+	expect(slateResourceConfigurationSchema.parse(configured)).toEqual(configured)
+	expect(configured.secrets.PERSONAL_KEY).toMatchObject({
+		owner: { id: "bob", type: "personal" },
+		supplied: true,
+	})
+	expect(configured.secrets.SHARED_KEY).toMatchObject({
+		owner: { id: "acme", type: "organization" },
+	})
+	expect(configured.secrets.SHARED_KEY).not.toHaveProperty("supplied")
+	expect(resolveSlateResourceConfiguration(configured).allowed).toBe(true)
+	const anotherViewer = prepareSlateResourceConfiguration(
+		slate,
+		{ id: "carol" },
+		resources,
+		[],
+		secretNames,
+	)
+	expect(anotherViewer.secrets.PERSONAL_KEY).toMatchObject({ supplied: false })
+	expect(resolveSlateResourceConfiguration(anotherViewer)).toEqual({
+		allowed: false,
+		name: "PERSONAL_KEY",
+		reason: "secret-required",
+	})
+})

@@ -9,10 +9,11 @@ import {
 	requireDashboardAuth,
 } from "@/auth.middleware"
 import {
+	agentsContext,
 	artifactsContext,
-	bindingsContext,
 	configContext,
 	databaseContext,
+	databasesContext,
 	identityContext,
 	slatesContext,
 } from "@/context"
@@ -63,7 +64,8 @@ export default await createHonoServer<OwnerIdentityEnv>({
 		context.set(artifactsContext, c.env.ARTIFACTS)
 		context.set(identityContext, c.var.identity ?? null)
 		context.set(configContext, c.var.config)
-		context.set(bindingsContext, c.env)
+		context.set(databasesContext, c.env.DATABASES)
+		context.set(agentsContext, c.env.AGENTS)
 		return context
 	},
 })

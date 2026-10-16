@@ -18,7 +18,7 @@ import { createConnectionSession } from "@/connections.server"
 import type { PlatformEnv } from "@/context"
 import { createPlatformDb } from "@/database"
 import type { SlateId } from "@/database/models/public/Slate"
-import { parseDatabaseEnv } from "@/env"
+import { parsePlatformEnv } from "@/env"
 import { loadSharedSecret } from "@/secrets.server"
 import { slateSchema } from "@/slates.schema"
 
@@ -152,7 +152,7 @@ export class SlateAgent extends Think<PlatformEnv["Bindings"]> {
 
 	async runScheduled(input: ScheduledAgentRun) {
 		const scheduled = scheduledAgentRunSchema.parse(input)
-		const config = parseDatabaseEnv(this.env)
+		const config = parsePlatformEnv(this.env)
 		const db = createPlatformDb(config.CTX_PLATFORM_DATABASE_URL)
 		try {
 			const slate = slateSchema.parse(
@@ -162,7 +162,16 @@ export class SlateAgent extends Think<PlatformEnv["Bindings"]> {
 					.where("id", "=", scheduled.slateId)
 					.executeTakeFirstOrThrow(),
 			)
-			const prepared = await getAgentRun(db, this.env, slate, scheduled.actor, scheduled)
+			const prepared = await getAgentRun(
+				db,
+				this.env.ARTIFACTS,
+				this.env.DATABASES,
+				this.env.AGENTS,
+				config,
+				slate,
+				scheduled.actor,
+				scheduled,
+			)
 			if (!prepared.allowed) {
 				if (prepared.reason === "agent-definition-missing") {
 					await this.provisionSchedules(

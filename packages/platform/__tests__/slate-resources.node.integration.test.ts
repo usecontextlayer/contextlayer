@@ -139,6 +139,9 @@ test("hosted configuration uses pushed declarations independently of developer-l
 	)
 	await mkdir(join(dir, "public"))
 	await mkdir(join(dir, "agents/daily-summary"), { recursive: true })
+	const secretSuffix = crypto.randomUUID().replaceAll("-", "").toUpperCase()
+	const ownerSecretName = `CTX_RESOURCES_OWNER_${secretSuffix}`
+	const viewerSecretName = `CTX_RESOURCES_VIEWER_${secretSuffix}`
 	const declarations = slateDeclarationsSchema.parse({
 		agents: {
 			"daily-summary": {
@@ -147,13 +150,13 @@ test("hosted configuration uses pushed declarations independently of developer-l
 					repository: { mode: "owner", toolkit: "github" },
 				},
 				databases: { reports: { mode: "owner" } },
-				secrets: { MODEL_KEY: { mode: "owner" } },
+				secrets: { [ownerSecretName]: { mode: "owner" } },
 			},
 		},
 		app: {
 			connections: { mail: { mode: "viewer", toolkit: "gmail" } },
 			databases: { priorities: { mode: "viewer" }, reports: { mode: "owner" } },
-			secrets: { PERSONAL_KEY: { mode: "viewer" } },
+			secrets: { [viewerSecretName]: { mode: "viewer" } },
 		},
 	})
 	await writeFile(join(dir, "public/slate.json"), JSON.stringify(declarations.app))
@@ -259,12 +262,17 @@ test("hosted configuration uses pushed declarations independently of developer-l
 				},
 			},
 			secrets: {
-				MODEL_KEY: {
+				[ownerSecretName]: {
 					consumers: [{ name: "daily-summary", type: "agent" }],
 					mode: "owner",
 					owner,
 				},
-				PERSONAL_KEY: { consumers: [{ type: "app" }], mode: "viewer", owner: viewer },
+				[viewerSecretName]: {
+					consumers: [{ type: "app" }],
+					mode: "viewer",
+					owner: viewer,
+					supplied: false,
+				},
 			},
 		})
 		const chromeUrl = new URL(`/dashboard/chrome/slates/${slate.id}`, origin)
@@ -276,12 +284,13 @@ test("hosted configuration uses pushed declarations independently of developer-l
 			"form-action 'self' https://connect.composio.dev https://dashboard.composio.dev",
 		)
 		const html = await chrome.text()
-		expect(html).toContain("1 connection to configure")
+		expect(html).toContain("2 inputs to configure")
 		expect(html.match(/agent: daily-summary/g)).toHaveLength(2)
 		expect(html).not.toContain("Used by")
 		expect(html.match(/Configure accounts for mail/g)).toHaveLength(1)
 		expect(html.match(/Configure accounts for repository/g)).toHaveLength(1)
-		for (const name of ["MODEL_KEY", "PERSONAL_KEY", "priorities", "reports"])
+		expect(html).toContain(viewerSecretName)
+		for (const name of [ownerSecretName, "priorities", "reports"])
 			expect(html).not.toContain(name)
 		const chromeAssigned = await fetch(chromeUrl, {
 			body: new URLSearchParams({
@@ -293,7 +302,7 @@ test("hosted configuration uses pushed declarations independently of developer-l
 			method: "POST",
 		})
 		expect(chromeAssigned.status).toBe(200)
-		expect(await chromeAssigned.text()).toContain("all connections configured")
+		expect(await chromeAssigned.text()).toContain("1 input to configure")
 		const saved = await fetch(`${origin}/api/slates/${slate.id}/resources/list`, post({}))
 		expect(saved.status).toBe(200)
 		expect(

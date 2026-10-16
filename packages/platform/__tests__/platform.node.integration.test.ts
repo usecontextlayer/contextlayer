@@ -249,9 +249,6 @@ test("slate ownership protects viewing, listing, and native Git source access", 
 				"/slates/{target}/agents/{name}": z.object({
 					get: z.object({ operationId: z.string() }),
 				}),
-				"/slates/{target}/join": z.object({
-					post: z.object({ operationId: z.string() }),
-				}),
 			}),
 		})
 		.parse(await (await fetch(`${origin}/api/openapi.json`)).json())

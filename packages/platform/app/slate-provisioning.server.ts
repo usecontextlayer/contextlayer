@@ -6,7 +6,7 @@ import {
 	readSlateDeclarations,
 	type SlateDeclarationSnapshot,
 } from "@/slate-declarations.server"
-import { prepareSlateDatabaseConfiguration } from "@/slate-resources.server"
+import { prepareSlateDatabaseConfiguration } from "@/slate-resource-configuration.server"
 import type { Slate } from "@/slates.schema"
 
 export async function provisionSlate(

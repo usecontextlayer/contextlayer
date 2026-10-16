@@ -11,7 +11,7 @@ import { secretKey } from "@/secrets.server"
 import {
 	prepareSlateResourceConfiguration,
 	resolveSlateResourceConfiguration,
-} from "@/slate-resources.server"
+} from "@/slate-resource-configuration.server"
 import { slateSchema } from "@/slates.schema"
 
 test.each([
@@ -75,11 +75,9 @@ test.each([
 			{ name: "brief", type: "agent" },
 		),
 		[],
-	)
-	const resolved = resolveSlateResourceConfiguration(
-		configuration,
 		new Set([secretKey({ id: "bob", type: "personal" }, "PERSONAL_API_KEY")]),
 	)
+	const resolved = resolveSlateResourceConfiguration(configuration)
 	if (!resolved.allowed) throw new Error("Expected complete resource configuration")
 	const run = prepareAgentRun(
 		slate,
@@ -134,8 +132,8 @@ test.each([
 				{ name: "brief", type: "agent" },
 			),
 			[],
+			new Set(),
 		),
-		new Set(),
 	)
 	if (!scheduledResources.allowed)
 		throw new Error("Expected complete scheduled resources")
@@ -173,8 +171,9 @@ test("a required connection without an assignment refuses preparation with its o
 			}),
 		),
 		[],
+		new Set(),
 	)
-	expect(resolveSlateResourceConfiguration(configuration, new Set())).toEqual({
+	expect(resolveSlateResourceConfiguration(configuration)).toEqual({
 		allowed: false,
 		reason: "connection-required",
 		slug: "mail",

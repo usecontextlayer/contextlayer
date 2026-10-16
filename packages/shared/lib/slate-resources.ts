@@ -22,7 +22,17 @@ export const slateResourceConfigurationSchema = resourcesSchema.extend({
 	),
 	secrets: z.record(
 		resourcesSchema.shape.secrets.keyType,
-		resourcesSchema.shape.secrets.valueType.extend({ owner: ownerSchema }),
+		z.discriminatedUnion("mode", [
+			resourcesSchema.shape.secrets.valueType.extend({
+				mode: z.literal("owner"),
+				owner: ownerSchema,
+			}),
+			resourcesSchema.shape.secrets.valueType.extend({
+				mode: z.literal("viewer"),
+				owner: ownerSchema,
+				supplied: z.boolean(),
+			}),
+		]),
 	),
 })
 export type SlateResourceConfiguration = z.infer<typeof slateResourceConfigurationSchema>

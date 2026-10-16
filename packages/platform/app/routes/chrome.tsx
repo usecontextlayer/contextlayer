@@ -23,7 +23,6 @@ import {
 	Field,
 	FieldContent,
 	FieldDescription,
-	FieldError,
 	FieldLabel,
 	FieldTitle,
 } from "@/components/ui/field"
@@ -41,19 +40,20 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { CONNECTION_MODE_LABELS } from "@/connection-labels"
 import { connectAccount, listConnections, listToolkits } from "@/connections.server"
 import {
+	agentsContext,
 	artifactsContext,
-	bindingsContext,
 	configContext,
 	databaseContext,
+	databasesContext,
 	identityContext,
 } from "@/context"
 import { getCredentialOwner } from "@/owner"
 import type { Route } from "@/routes/+types/chrome"
 import { secretSchema, setSecretRequestSchema } from "@/secrets.schema"
-import { listSharedSecretNames, secretKey } from "@/secrets.server"
 import { assignmentSchema } from "@/slate-connections.schema"
 import { assignSlateConnection } from "@/slate-connections.server"
-import { getSlateResources, listSlateResources } from "@/slate-resources.server"
+import { listSlateResources } from "@/slate-resource-configuration.server"
+import { getSlateResources } from "@/slate-resource-execution.server"
 import { setSlateSecret } from "@/slate-secrets.server"
 import { slateTargetSchema } from "@/slates.schema"
 import { resolveSlateForViewing } from "@/slates.server"
@@ -94,18 +94,16 @@ export async function action({ request, params, context }: Route.ActionArgs) {
 	if (!identity) throw new Response(null, { status: 401 })
 	const form = await request.formData()
 	const input = chromeActionSchema.safeParse(Object.fromEntries(form))
-	if (!input.success) {
-		if (form.get("intent") === "set-secret")
-			return data({ error: "Enter a secret value." }, { status: 400 })
-		throw new Response("Invalid connection action", { status: 400 })
-	}
+	if (!input.success) throw new Response("Invalid configuration action", { status: 400 })
 	const { access, snapshot } = await getChromeSlate({ context, params }, identity)
 	if (!snapshot.allowed) return data({ reason: snapshot.reason }, { status: 409 })
 	const { resources } = snapshot
 	if (input.data.intent === "set-secret") {
 		const result = await setSlateSecret(
 			context.get(databaseContext),
-			context.get(bindingsContext),
+			context.get(artifactsContext),
+			context.get(databasesContext),
+			context.get(agentsContext),
 			context.get(configContext),
 			access,
 			input.data.name,
@@ -130,9 +128,11 @@ export async function action({ request, params, context }: Route.ActionArgs) {
 	}
 	const result = await assignSlateConnection(
 		context.get(databaseContext),
-		context.get(bindingsContext),
+		context.get(artifactsContext),
+		context.get(databasesContext),
+		context.get(agentsContext),
+		context.get(configContext),
 		access,
-		context.get(configContext).CTX_AUTH_ISSUER,
 		{ connection_id: input.data.connection_id, slug: input.data.slug },
 		snapshot,
 	)
@@ -163,31 +163,20 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
 			},
 			{ headers: { "Cache-Control": "no-store" } },
 		)
-	const { resources } = await listSlateResources(db, access, snapshot.resources)
-	const connections = Object.entries(resources.connections).map(([slug, connection]) => ({
-		...connection,
-		slug,
-	}))
-	const viewerSecrets = Object.entries(resources.secrets).filter(
-		([, secret]) => secret.mode === "viewer",
+	const { resources } = await listSlateResources(db, config, access, snapshot.resources)
+	const connections = Object.entries(resources.connections)
+	const secrets = Object.entries(resources.secrets).flatMap(([name, secret]) =>
+		secret.mode === "viewer" ? [{ ...secret, name }] : [],
 	)
-	const secretNames = viewerSecrets.length
-		? await listSharedSecretNames(context.get(bindingsContext))
-		: new Set<string>()
-	const secrets = viewerSecrets.map(([name, secret]) => ({
-		...secret,
-		configured: secretNames.has(secretKey(secret.owner, name)),
-		name,
-	}))
 	const [user, toolkits] = await Promise.all([
 		getCurrentUser(identity, issuer),
 		connections.length
-			? listToolkits(config, [...new Set(connections.map(({ toolkit }) => toolkit))])
+			? listToolkits(config, [...new Set(connections.map(([, { toolkit }]) => toolkit))])
 			: [],
 	])
 	const accountReads = new Map<string, ReturnType<typeof listConnections>>()
 	const requirements = await Promise.all(
-		connections.map(async ({ connection_id, ...requirement }) => {
+		connections.map(async ([slug, { connection_id, ...requirement }]) => {
 			const owner = requirement.owner
 			const key = `${owner.type}:${owner.id}`
 			let accountRead = accountReads.get(key)
@@ -198,6 +187,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
 			const row = {
 				...requirement,
 				logo: toolkits.find(({ slug }) => slug === requirement.toolkit)?.logo ?? null,
+				slug,
 			}
 			const accountAccess = await accountRead
 			if (!accountAccess.allowed) return { ...row, accountAccess }
@@ -233,8 +223,8 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
 				connections: requirements,
 				secrets,
 				unconfiguredCount:
-					connections.filter(({ connection_id }) => connection_id === null).length +
-					secrets.filter(({ configured }) => !configured).length,
+					connections.filter(([, { connection_id }]) => connection_id === null).length +
+					secrets.filter(({ supplied }) => !supplied).length,
 			},
 			parentOrigin,
 			user,
@@ -295,13 +285,9 @@ export default function Chrome({ loaderData }: Route.ComponentProps) {
 									}
 									aria-hidden="true"
 								/>
-								{configuration.secrets.length
-									? configuration.unconfiguredCount === 0
-										? "Setup complete"
-										: `${configuration.unconfiguredCount} input${configuration.unconfiguredCount === 1 ? "" : "s"} to configure`
-									: configuration.unconfiguredCount === 0
-										? "all connections configured"
-										: `${configuration.unconfiguredCount} connection${configuration.unconfiguredCount === 1 ? "" : "s"} to configure`}
+								{configuration.unconfiguredCount === 0
+									? "Setup complete"
+									: `${configuration.unconfiguredCount} input${configuration.unconfiguredCount === 1 ? "" : "s"} to configure`}
 							</CollapsibleTrigger>
 						)}
 						<span className="flex min-w-0 items-center gap-2 border-l border-slate-200 py-[3px] pr-3 pl-[3px] text-[13px]/4 font-normal">
@@ -354,7 +340,7 @@ export default function Chrome({ loaderData }: Route.ComponentProps) {
 								configuration.secrets.length === 0 && (
 									<Item>
 										<ItemContent>
-											<ItemDescription>No connection requirements.</ItemDescription>
+											<ItemDescription>No setup required.</ItemDescription>
 										</ItemContent>
 									</Item>
 								)}
@@ -568,7 +554,6 @@ function SecretRow({
 	const fetcher = useFetcher<typeof action>()
 	const pending = fetcher.state !== "idle"
 	const form = useRef<HTMLFormElement>(null)
-	const error = fetcher.data && "error" in fetcher.data ? fetcher.data.error : null
 	useEffect(() => {
 		if (fetcher.state === "idle" && fetcher.data && "owner" in fetcher.data)
 			form.current?.reset()
@@ -585,7 +570,7 @@ function SecretRow({
 				</ItemContent>
 				<div className="flex shrink-0 items-center gap-2.5">
 					<ItemTitle className={pending ? "opacity-50" : undefined}>
-						{requirement.configured ? "Saved" : "Not supplied"}
+						{requirement.supplied ? "Saved" : "Not supplied"}
 					</ItemTitle>
 					<ItemActions>
 						<CollapsibleTrigger
@@ -624,10 +609,7 @@ function SecretRow({
 						name="name"
 						value={requirement.name}
 					/>
-					<Field
-						className="max-w-xl"
-						data-invalid={!!error}
-					>
+					<Field className="max-w-xl">
 						<FieldLabel htmlFor={`secret-${requirement.name}`}>Secret value</FieldLabel>
 						<Input
 							id={`secret-${requirement.name}`}
@@ -636,14 +618,12 @@ function SecretRow({
 							autoComplete="new-password"
 							required
 							disabled={pending}
-							aria-invalid={!!error}
 							aria-describedby={`secret-description-${requirement.name}`}
 						/>
 						<FieldDescription id={`secret-description-${requirement.name}`}>
 							Saved for your account and shared with your other slates that request this
 							secret.
 						</FieldDescription>
-						{error && <FieldError>{error}</FieldError>}
 					</Field>
 					<Button
 						type="submit"

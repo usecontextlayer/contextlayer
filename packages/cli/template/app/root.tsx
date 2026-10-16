@@ -20,6 +20,17 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
 						Your personal secret <code>{missingSecret.data.name}</code> is required by
 						this slate.
 					</p>
+					{import.meta.env.DEV ? (
+						<p className="mt-3">
+							Set <code>{missingSecret.data.name}</code> in your local environment, then
+							restart <code>pnpm dev</code>.
+						</p>
+					) : (
+						<p className="mt-3">
+							Open the setup menu in the ContextLayer header above and save your secret,
+							then refresh this page.
+						</p>
+					)}
 				</main>
 			)
 		const unassignedConnection = connectionRequiredSchema.safeParse(error.data)
@@ -39,8 +50,8 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
 						</>
 					) : (
 						<p className="mt-3">
-							Open the connections menu in the ContextLayer header above and assign a
-							connected account, then refresh this page.
+							Open the setup menu in the ContextLayer header above and assign a connected
+							account, then refresh this page.
 						</p>
 					)}
 				</main>

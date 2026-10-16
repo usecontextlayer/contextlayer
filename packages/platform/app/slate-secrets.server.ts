@@ -5,12 +5,14 @@ import { getCredentialOwner } from "@/owner"
 import type { SetSecretRequest } from "@/secrets.schema"
 import { setSharedSecret } from "@/secrets.server"
 import type { SlateDeclarationSnapshot } from "@/slate-declarations.server"
-import { prepareSlateResourceExecution } from "@/slate-resources.server"
+import { addSlateMember } from "@/slate-members.server"
 import type { OwnerSlateAccess } from "@/slates.server"
 
 export async function setSlateSecret(
 	db: PlatformDb,
-	bindings: PlatformEnv["Bindings"],
+	artifacts: Artifacts,
+	databases: PlatformEnv["Bindings"]["DATABASES"],
+	agents: PlatformEnv["Bindings"]["AGENTS"],
 	config: PlatformConfig,
 	access: OwnerSlateAccess,
 	name: string,
@@ -22,13 +24,15 @@ export async function setSlateSecret(
 	const owner = getCredentialOwner(requirement.mode, access.slate, access.identity.user)
 	const saved = await setSharedSecret(config, access.identity, owner, name, input)
 	if (!saved.allowed) return { allowed: false, reason: "forbidden" } as const
-	await prepareSlateResourceExecution(
+	await addSlateMember(
 		db,
-		bindings,
+		artifacts,
+		databases,
+		agents,
+		config,
 		access.slate,
-		{ id: access.identity.user.id, type: "user" },
+		access.identity.user,
 		snapshot,
-		snapshot.resources,
 	)
 	return saved
 }

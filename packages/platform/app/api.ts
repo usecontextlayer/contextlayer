@@ -60,14 +60,14 @@ import {
 import { assignSlateConnection } from "@/slate-connections.server"
 import type { SlateDeclarationSnapshot } from "@/slate-declarations.server"
 import {
+	listSlateConnections,
+	listSlateResources,
+} from "@/slate-resource-configuration.server"
+import { getSlateResources } from "@/slate-resource-execution.server"
+import {
 	slateResourcesRequestSchema,
 	slateResourcesSchema,
 } from "@/slate-resources.schema"
-import {
-	getSlateResources,
-	listSlateConnections,
-	listSlateResources,
-} from "@/slate-resources.server"
 import { setSlateSecret } from "@/slate-secrets.server"
 import {
 	type AuthenticatedViewingEnv,
@@ -677,10 +677,15 @@ export function createApi() {
 			security,
 		}),
 		async (c) => {
-			const result = await startAgentJob(c.var.db, c.env, c.var.slateAccess, {
-				...c.req.valid("json"),
-				name: c.req.valid("param").name,
-			})
+			const result = await startAgentJob(
+				c.var.db,
+				c.env.ARTIFACTS,
+				c.env.DATABASES,
+				c.env.AGENTS,
+				c.var.config,
+				c.var.slateAccess,
+				{ ...c.req.valid("json"), name: c.req.valid("param").name },
+			)
 			if (!result.allowed) {
 				if (result.reason === "secret-required")
 					return c.json({ name: result.name, reason: result.reason }, 409)
@@ -822,7 +827,7 @@ export function createApi() {
 				200: {
 					content: { "application/json": { schema: slateResourcesSchema } },
 					description:
-						"Resource requirements, consumers, selected Owners, and saved connection assignments",
+						"Resource requirements, consumers, selected Owners, saved connection assignments, and secret presence",
 				},
 				400: { description: "Invalid listing request" },
 				401: { description: "A valid ContextLayer login is required" },
@@ -836,7 +841,12 @@ export function createApi() {
 		}),
 		async (c) => {
 			return c.json(
-				await listSlateResources(c.var.db, c.var.slateAccess, c.var.snapshot.resources),
+				await listSlateResources(
+					c.var.db,
+					c.var.config,
+					c.var.slateAccess,
+					c.var.snapshot.resources,
+				),
 				200,
 			)
 		},
@@ -873,6 +883,7 @@ export function createApi() {
 		async (c) => {
 			const result = await listSlateConnections(
 				c.var.db,
+				c.var.config,
 				c.var.slateAccess,
 				c.var.snapshot.resources,
 			)
@@ -909,9 +920,11 @@ export function createApi() {
 		async (c) => {
 			const result = await assignSlateConnection(
 				c.var.db,
-				c.env,
+				c.env.ARTIFACTS,
+				c.env.DATABASES,
+				c.env.AGENTS,
+				c.var.config,
 				c.var.slateAccess,
-				c.var.config.CTX_AUTH_ISSUER,
 				c.req.valid("json"),
 				c.var.snapshot,
 			)
@@ -947,7 +960,9 @@ export function createApi() {
 		async (c) => {
 			const result = await setSlateSecret(
 				c.var.db,
-				c.env,
+				c.env.ARTIFACTS,
+				c.env.DATABASES,
+				c.env.AGENTS,
 				c.var.config,
 				c.var.slateAccess,
 				c.req.valid("param").name,

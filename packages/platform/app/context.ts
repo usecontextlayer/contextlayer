@@ -10,7 +10,8 @@ export const slatesContext = createContext<DispatchNamespace>()
 export const artifactsContext = createContext<Artifacts>()
 export const identityContext = createContext<OwnerIdentity | null>(null)
 export const configContext = createContext<PlatformConfig>()
-export const bindingsContext = createContext<PlatformEnv["Bindings"]>()
+export const databasesContext = createContext<PlatformEnv["Bindings"]["DATABASES"]>()
+export const agentsContext = createContext<PlatformEnv["Bindings"]["AGENTS"]>()
 
 export type PlatformEnv = {
 	Bindings: PlatformBindings & {

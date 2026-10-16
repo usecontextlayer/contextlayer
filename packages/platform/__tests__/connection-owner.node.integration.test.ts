@@ -11,6 +11,7 @@ import { expect } from "vitest"
 import { agentRunSchema } from "@/agents.schema"
 import { prepareAgentRun } from "@/agents.server"
 import type { OwnerIdentity } from "@/auth.server"
+import { parsePlatformEnv } from "@/env"
 import { getCredentialOwner } from "@/owner"
 import { slateMemberSchema } from "@/slate-members.schema"
 import {
@@ -18,8 +19,19 @@ import {
 	listSlateConnections,
 	listSlateResources,
 	resolveSlateResourceConfiguration,
-} from "@/slate-resources.server"
+} from "@/slate-resource-configuration.server"
 import { slateSchema } from "@/slates.schema"
+
+const config = parsePlatformEnv({
+	COMPOSIO_API_KEY: "unused-in-sql-only-test",
+	CTX_APP_OAUTH_PROVISIONING_SECRET: "unused-in-sql-only-test",
+	CTX_PLATFORM_DATABASE_URL: "postgresql://postgres:postgres@localhost/unused",
+	POLAR_ACCESS_TOKEN: "unused-in-sql-only-test",
+	POLAR_CLIPS_METER_ID: "00000000-0000-4000-8000-000000000001",
+	POLAR_ENVIRONMENT: "sandbox",
+	POLAR_FREE_PRODUCT_ID: "00000000-0000-4000-8000-000000000002",
+	POLAR_WEBHOOK_SECRET: "unused-in-sql-only-test",
+})
 
 test("configuration includes agent-only connections while app execution uses its own resources", async ({
 	db,
@@ -33,7 +45,7 @@ test("configuration includes agent-only connections while app execution uses its
 						repository: { mode: "owner", toolkit: "github" },
 					},
 					databases: { drafts: { mode: "viewer" }, reports: { mode: "owner" } },
-					secrets: { MODEL_API_KEY: { mode: "owner" }, PERSONAL_KEY: { mode: "viewer" } },
+					secrets: { MODEL_API_KEY: { mode: "owner" } },
 				},
 				nightly: {
 					connections: { repository: { mode: "owner", toolkit: "github" } },
@@ -70,18 +82,18 @@ test("configuration includes agent-only connections while app execution uses its
 		resolveSlateResourceConfiguration(
 			await getSlateResourceConfiguration(
 				db,
+				config,
 				slate,
 				alice.user,
 				resourcesForConsumer(resources, { type: "app" }),
 			),
-			new Set(),
 		),
 	).toEqual({ allowed: false, reason: "connection-required", slug: "mail" })
 	await sql`INSERT INTO slate_connection_assignment (slate_id, owner_type, owner_id, slug, connection_id)
  VALUES (${slate.id}, 'personal', 'alice', 'mail', 'alice-mail'), (${slate.id}, 'personal', 'alice', 'repository', 'alice-repository')`.execute(
 		db,
 	)
-	const listed = await listSlateConnections(db, access, resources)
+	const listed = await listSlateConnections(db, config, access, resources)
 	expect(listed.connections).toEqual([
 		{
 			connection_id: "alice-mail",
@@ -107,11 +119,11 @@ test("configuration includes agent-only connections while app execution uses its
 	const appResources = resolveSlateResourceConfiguration(
 		await getSlateResourceConfiguration(
 			db,
+			config,
 			slate,
 			alice.user,
 			resourcesForConsumer(resources, { type: "app" }),
 		),
-		new Set(),
 	)
 	if (!appResources.allowed) throw new Error("Expected assigned app resources")
 	expect(appResources.configuration.connections).toEqual({
@@ -123,7 +135,15 @@ test("configuration includes agent-only connections while app execution uses its
 			toolkit: "gmail",
 		},
 	})
-	const configured = await listSlateResources(db, access, resources)
+	const configured = await listSlateResources(db, config, access, resources)
+	expect(configured.resources.secrets.MODEL_API_KEY).toEqual({
+		consumers: [
+			{ name: "daily-summary", type: "agent" },
+			{ name: "nightly", type: "agent" },
+		],
+		mode: "owner",
+		owner: { id: "alice", type: "personal" },
+	})
 	expect(configured.resources.databases).toEqual({
 		drafts: {
 			consumers: [{ name: "daily-summary", type: "agent" }],
@@ -143,11 +163,12 @@ test("configuration includes agent-only connections while app execution uses its
 	})
 	const configuration = await getSlateResourceConfiguration(
 		db,
+		config,
 		slate,
 		null,
 		resourcesForConsumer(resources, { name: "nightly", type: "agent" }),
 	)
-	const resolved = resolveSlateResourceConfiguration(configuration, new Set())
+	const resolved = resolveSlateResourceConfiguration(configuration)
 	if (!resolved.allowed) throw new Error("Expected complete scheduled resources")
 	const prepared = prepareAgentRun(
 		slate,
@@ -229,7 +250,8 @@ test("resource modes select viewer and slate Owner assignments in hosted configu
 	await sql`INSERT INTO slate_connection_assignment (slate_id, owner_type, owner_id, slug, connection_id)
 		VALUES (${slate.id}, 'personal', 'bob', 'personal', 'bob-personal')`.execute(db)
 	expect(
-		(await listSlateConnections(db, { identity: bob, slate }, resources)).connections,
+		(await listSlateConnections(db, config, { identity: bob, slate }, resources))
+			.connections,
 	).toEqual([
 		{
 			connection_id: "alice-company",
@@ -268,6 +290,7 @@ test("resource modes select viewer and slate Owner assignments in hosted configu
 		(
 			await listSlateConnections(
 				db,
+				config,
 				{ identity: bob, slate: organizationSlate },
 				resources,
 			)
