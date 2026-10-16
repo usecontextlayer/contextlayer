@@ -1,8 +1,8 @@
 import { z } from "zod"
 
 const schema = z.object({
-	CTX_ENTRA_CLIENT_ID: z.guid(),
-	CTX_ENTRA_CLIENT_SECRET: z.string().min(1),
+	MICROSOFT_CLIENT_ID: z.guid(),
+	MICROSOFT_CLIENT_SECRET: z.string().min(1),
 })
 
 export type Bindings = z.input<typeof schema>

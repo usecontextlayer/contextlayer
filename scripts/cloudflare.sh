@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-phase=${1:?Usage: bash scripts/cloudflare.sh build|deploy platform|dispatcher|auth|build [--dry-run]}
-package=${2:?Specify platform, dispatcher, auth, or build}
+phase=${1:?Usage: bash scripts/cloudflare.sh build|deploy platform|dispatcher|auth|build|mcp-microsoft-planner-premium [--dry-run]}
+package=${2:?Specify platform, dispatcher, auth, build, or mcp-microsoft-planner-premium}
 shift 2
 
 case "$package" in
-  platform|dispatcher|auth|build) ;;
+  platform|dispatcher|auth|build|mcp-microsoft-planner-premium) ;;
   *) echo "Unknown Worker package: $package" >&2; exit 1 ;;
 esac
 

@@ -89,11 +89,11 @@ async function connect(
 		return networkFetch(new URL(url.pathname + url.search, org.url), request)
 	})
 	const bindings = {
-		CTX_ENTRA_CLIENT_ID: "aaf9e242-3a1f-4d36-b9ee-f1a11c2b2c11",
-		CTX_ENTRA_CLIENT_SECRET: "test-only-secret",
+		MICROSOFT_CLIENT_ID: "aaf9e242-3a1f-4d36-b9ee-f1a11c2b2c11",
+		MICROSOFT_CLIENT_SECRET: "test-only-secret",
 	} satisfies Bindings
 	accessToken = new UnsecuredJWT({
-		appid: bindings.CTX_ENTRA_CLIENT_ID,
+		appid: bindings.MICROSOFT_CLIENT_ID,
 		scp: "user_impersonation",
 	})
 		.setAudience(audience)

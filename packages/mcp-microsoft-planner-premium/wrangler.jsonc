@@ -8,7 +8,13 @@
 	"observability": {
 		"enabled": true
 	},
+	"routes": [
+		{
+			"custom_domain": true,
+			"pattern": "microsoft-planner-premium.mcp.usecontextlayer.com"
+		}
+	],
 	"secrets": {
-		"required": ["CTX_ENTRA_CLIENT_ID", "CTX_ENTRA_CLIENT_SECRET"]
+		"required": ["MICROSOFT_CLIENT_ID", "MICROSOFT_CLIENT_SECRET"]
 	}
 }

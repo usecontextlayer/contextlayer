@@ -13,15 +13,29 @@ pnpm exec turbo run test tsc build --filter=@usecontextlayer/mcp-microsoft-plann
 
 Unit tests replay the committed Dataverse recording and exercise the HTTP authentication flow without credentials, Dataverse access or a separately running service. Open `/authorize` on the local URL to preview the connection form; completing authorization requires the Entra configuration below.
 
+For a live local connection, inject the shared application credentials through Doppler:
+
+```sh
+doppler run -p platform -c prod -- pnpm exec turbo run dev --filter=@usecontextlayer/mcp-microsoft-planner-premium
+```
+
+The package's Turbo configuration passes the two Microsoft variables to Wrangler, which loads the declared `secrets.required` from the process environment. Keep credentials out of local source files.
+
 ## Microsoft data contracts
 
 Carry supported native Microsoft entity fields, action parameters and response fields through the package without aliases or value normalization. Use `@odata.type`, the actual `msdyn_*` columns and Microsoft’s case-sensitive OData bindings. Preserve Microsoft’s distinct read lookup properties, write navigation properties and action parameter names. Keep operation grouping, same-call refs and other package workflow metadata distinct from Microsoft fields. Native vocabulary does not imply support for unrecorded fields or unrestricted writes.
 
 ## Deployment
 
-Configure the two Wrangler secrets declared in [wrangler.jsonc](wrangler.jsonc): `CTX_ENTRA_CLIENT_ID` for the shared multi-tenant ContextLayer Entra application (`aaf9e242-3a1f-4d36-b9ee-f1a11c2b2c11`) and `CTX_ENTRA_CLIENT_SECRET` for that application's Web client secret. There is no deployment-level tenant or Dataverse org setting; the person connecting selects their Dataverse environment.
+Configure the two Wrangler secrets declared in [wrangler.jsonc](wrangler.jsonc): `MICROSOFT_CLIENT_ID` for the shared multi-tenant ContextLayer Entra application (`aaf9e242-3a1f-4d36-b9ee-f1a11c2b2c11`) and `MICROSOFT_CLIENT_SECRET` for that application's Web client secret. There is no deployment-level tenant or Dataverse org setting; the person connecting selects their Dataverse environment.
+
+Their values in Doppler `platform/prod` reference `${web.prod.MICROSOFT_CLIENT_ID}` and `${web.prod.MICROSOFT_CLIENT_SECRET}`. Web owns the credentials; Planner consumes those same names and values. Changes to the source values reach the Worker on its next deployment. Doppler edits remain user-operated.
+
+The production Worker is `contextlayer-mcp-microsoft-planner-premium`, at `https://microsoft-planner-premium.mcp.usecontextlayer.com`. Its Wrangler configuration owns the Custom Domain. Follow the root [deployment workflow](../../DEVELOPING.md#releases-and-deployment), using `mcp-microsoft-planner-premium` as the package argument for both build and deploy. Workers Builds targets this repository's `main` at root `/`, with the shared build settings and Doppler bootstrap token described there.
 
 Register the Worker in Composio as a Custom MCP toolkit in `DCR_OAUTH` mode, with `discovery_url` pointing to its `/.well-known/oauth-authorization-server` and `app_url` to its `/mcp`. Composio's callback, `https://backend.composio.dev/api/v1/auth-apps/add`, must be registered as a Web redirect URI on the Entra application before connecting. Changes to that application registration require explicit user approval.
+
+Before onboarding a user, verify the deployed discovery documents, complete the real Composio connection flow including Dataverse org selection, and invoke `list_projects` through that connection. Confirm the results belong to the selected org. After the access token expires, verify that Composio refreshes it and another project read succeeds. Exercise operation-set submission and completion only with explicit permission for each exact customer write. A successful build or connection screen alone does not establish this live verification.
 
 ## Connection page
 

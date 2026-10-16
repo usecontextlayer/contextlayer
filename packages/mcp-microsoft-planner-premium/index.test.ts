@@ -7,8 +7,8 @@ import type { Bindings } from "@/env"
 import app from "@/index"
 
 const bindings = {
-	CTX_ENTRA_CLIENT_ID: "aaf9e242-3a1f-4d36-b9ee-f1a11c2b2c11",
-	CTX_ENTRA_CLIENT_SECRET: "test-only-secret",
+	MICROSOFT_CLIENT_ID: "aaf9e242-3a1f-4d36-b9ee-f1a11c2b2c11",
+	MICROSOFT_CLIENT_SECRET: "test-only-secret",
 } satisfies Bindings
 const origin = "https://planner.example"
 const orgUrl = "https://planner-test.crm.dynamics.com"
@@ -24,7 +24,7 @@ const invalidOrgs = [
 ]
 const authorizationQuery = () =>
 	new URLSearchParams({
-		client_id: bindings.CTX_ENTRA_CLIENT_ID,
+		client_id: bindings.MICROSOFT_CLIENT_ID,
 		code_challenge: "a-PKCE_challenge.with~characters",
 		code_challenge_method: "S256",
 		prompt: "select_account",
@@ -70,7 +70,7 @@ describe("MCP HTTP authentication", () => {
 		"rejects invalid audience or expiry: $audience / $expiresAt",
 		async ({ audience, expiresAt }) => {
 			const token = new UnsecuredJWT({
-				appid: bindings.CTX_ENTRA_CLIENT_ID,
+				appid: bindings.MICROSOFT_CLIENT_ID,
 				scp: "user_impersonation",
 			})
 				.setAudience(audience)
@@ -125,7 +125,7 @@ describe("Composio DCR OAuth", () => {
 		)
 		expect(response.status).toBe(201)
 		expect(await response.json()).toEqual({
-			client_id: bindings.CTX_ENTRA_CLIENT_ID,
+			client_id: bindings.MICROSOFT_CLIENT_ID,
 			grant_types: ["authorization_code", "refresh_token"],
 			redirect_uris,
 			response_types: ["code"],

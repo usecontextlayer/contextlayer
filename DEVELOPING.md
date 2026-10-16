@@ -284,14 +284,14 @@ Register scenario cleanup with `await using` and `AsyncDisposableStack` inside t
 
 ## Releases and deployment
 
-The production platform URL is `https://platform.usecontextlayer.com`. Production database configuration belongs in Doppler `platform/prod`; Neon's `platform` project owns the production database. Configure native Cloudflare Workers Builds for platform, dispatcher, auth, and build against `main` in `usecontextlayer/contextlayer`, with repository root `/`. Every Worker uses the same root script, with only its package argument changing:
+The production platform URL is `https://platform.usecontextlayer.com`. Production database configuration belongs in Doppler `platform/prod`; Neon's `platform` project owns the production database. Configure native Cloudflare Workers Builds for platform, dispatcher, auth, build, and mcp-microsoft-planner-premium against `main` in `usecontextlayer/contextlayer`, with repository root `/`. Every Worker uses the same root script, with only its package argument changing:
 
 ```sh
 bash scripts/cloudflare.sh build <package>
 bash scripts/cloudflare.sh deploy <package>
 ```
 
-Use `platform`, `dispatcher`, `auth`, or `build` as `<package>`. Workers Builds reads the repository-root `.node-version`; remove any separate `NODE_VERSION` build override. Set `PNPM_VERSION=11.22.0`, `SKIP_DEPENDENCY_INSTALL=true`, and `WRANGLER_CI_OVERRIDE_NETWORK_MODE_HOST=1` in each Workers Builds configuration. Registry authentication must be available before installation. Wrangler's native CI setting lets Docker image build steps use the runner's host network; Turbo's build task passes that exact variable through its strict environment filter.
+Use `platform`, `dispatcher`, `auth`, `build`, or `mcp-microsoft-planner-premium` as `<package>`. Workers Builds reads the repository-root `.node-version`; remove any separate `NODE_VERSION` build override. Set `PNPM_VERSION=11.22.0`, `SKIP_DEPENDENCY_INSTALL=true`, and `WRANGLER_CI_OVERRIDE_NETWORK_MODE_HOST=1` in each Workers Builds configuration. Registry authentication must be available before installation. Wrangler's native CI setting lets Docker image build steps use the runner's host network; Turbo's build task passes that exact variable through its strict environment filter.
 
 Supply a config-scoped read-only service token for Doppler `platform/prod` as the Cloudflare build secret `DOPPLER_TOKEN`. Use the credential returned when creating the token; subsequent token listing/get calls return metadata without its value. The shared build phase installs the official Doppler CLI, obtains `FONTAWESOME_PACKAGE_TOKEN` through `scripts/ci.npmrc`, installs workspace dependencies, and runs the selected package's existing Turbo build. The deploy phase reads the effective Wrangler configuration, including Vite's generated configuration, obtains only its native `secrets.required` names from Doppler, writes a temporary secrets file, and passes it to native `wrangler deploy --secrets-file`. Auth declares `[]` and follows this same path with an empty JSON secrets file.
 

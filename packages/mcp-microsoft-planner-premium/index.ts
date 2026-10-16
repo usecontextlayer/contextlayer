@@ -99,7 +99,7 @@ app.post("/register", async (c) => {
 		.parse(await c.req.json())
 	return c.json(
 		{
-			client_id: env.CTX_ENTRA_CLIENT_ID,
+			client_id: env.MICROSOFT_CLIENT_ID,
 			grant_types: ["authorization_code", "refresh_token"],
 			redirect_uris,
 			response_types: ["code"],
@@ -157,8 +157,8 @@ app.post("/token", async (c) => {
 	const body = new URLSearchParams(await c.req.text())
 	z.enum(["authorization_code", "refresh_token"]).parse(body.get("grant_type"))
 	body.delete("resource")
-	body.set("client_id", env.CTX_ENTRA_CLIENT_ID)
-	body.set("client_secret", env.CTX_ENTRA_CLIENT_SECRET)
+	body.set("client_id", env.MICROSOFT_CLIENT_ID)
+	body.set("client_secret", env.MICROSOFT_CLIENT_SECRET)
 	return fetch("https://login.microsoftonline.com/organizations/oauth2/v2.0/token", {
 		body,
 		method: "POST",
