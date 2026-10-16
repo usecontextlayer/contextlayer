@@ -27,6 +27,8 @@ Carry supported native Microsoft entity fields, action parameters and response f
 
 Preserve a minted `OperationSetReceipt` and original error causes through the operation-set lifecycle, including failures. Serialize failures only at the MCP boundary with explicit `isError` and `OperationSetId` in text content, because uncaught SDK errors and Composio’s error path do not preserve arbitrary error properties. An execute rejection does not establish the set’s status; use the native status read.
 
+`GET /dataverse/<path>` is a temporary, read-only forwarder for design work. It applies the same bearer check as `/mcp` and sends the request to `<path>` on the Dataverse environment named by the token’s `aud`, so Composio’s same-domain Proxy Execute can read entities through an existing connection. It accepts only GET and never takes a destination from the caller. Remove it once the read tools it informs exist.
+
 ## Deployment
 
 Configure the two Wrangler secrets declared in [wrangler.jsonc](wrangler.jsonc): `MICROSOFT_CLIENT_ID` for the shared multi-tenant ContextLayer Entra application (`aaf9e242-3a1f-4d36-b9ee-f1a11c2b2c11`) and `MICROSOFT_CLIENT_SECRET` for that application's Web client secret. There is no deployment-level tenant or Dataverse org setting; the person connecting selects their Dataverse environment.
