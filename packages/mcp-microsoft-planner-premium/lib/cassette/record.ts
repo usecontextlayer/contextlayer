@@ -495,8 +495,7 @@ function mint(placeholderName?: string): string {
  * worked and says nothing about the value that was actually stored.
  *
  * The write tools do not read task fields back. Recording that peek would put a
- * request in the fixture that those tools cannot reach. The project-list tool's
- * read is captured separately through the production client.
+ * request in the fixture that those tools cannot reach.
  *
  * The chain records what production sends; this prints what the board actually holds
  * into the run's output without adding unreachable traffic to the cassette.
