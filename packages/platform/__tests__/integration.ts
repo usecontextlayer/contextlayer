@@ -47,8 +47,8 @@ export const test = base
 		})
 		return session
 	})
-	.extend("commandEnv", { scope: "file" }, ({ addresses, webEnv }) =>
-		readDevelopmentCommandEnv(webRoot, webEnv, addresses),
+	.extend("commandEnv", { scope: "file" }, ({ addresses }) =>
+		readDevelopmentCommandEnv(root, addresses),
 	)
 	.extend("identity", { scope: "file" }, ({ commandEnv }) =>
 		readDevelopmentIdentity(commandEnv),

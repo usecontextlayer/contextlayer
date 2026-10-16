@@ -186,7 +186,7 @@ If the package does not already have an `env.ts`, create one first and route env
 - Keep all normalization and defaults centralized in `env.ts`.
 - Keep hard-fail/required-variable checks centralized in `env.ts`.
 - Do not implement env defaults/fallbacks in non-`env.ts` modules (including shared/runtime libraries).
-- Root development stores its four selected service URLs in the checkout's ignored `.ports` file. Reuse the whole set only when every port is free; otherwise assign an entirely new set. Connected commands and tests read that same file and pass the actual addresses through existing `env.ts` boundaries. Do not add a global environment registry, hostname pool, or platform-resource setting; the platform OAuth resource is a protocol constant, never configuration.
+- Compose connected command and test settings from startup’s completed `.env.json` record through the shared dev-env reader; pass server and credential-directory settings explicitly to in-process auth and subprocess consumers. Preserve the [connection-facts invariants](ARCHITECTURE.md#oauth-resources-and-scopes) and use [Platform development](DEVELOPING.md#platform-development) for the startup/port-reuse workflow. Do not add a global environment registry, hostname pool, or platform-resource setting; the platform OAuth resource is a protocol constant, never configuration.
 
 #### Environment Variable Naming
 

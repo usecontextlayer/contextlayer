@@ -23,7 +23,7 @@ import { joinSlate } from "@/slate"
 const program = new Command().name("ctx").description("ContextLayer CLI").version(version)
 program.addHelpText(
 	"afterAll",
-	"\nRun without a global install: npx @usecontextlayer/cli <command>",
+	"\nEnvironment:\n  CTX_CONFIG_DIR  Saved-login directory (default: ~/.contextlayer); one login per directory.\n\nRun without a global install: npx @usecontextlayer/cli <command>",
 )
 
 async function authenticate(command: Command) {
@@ -32,7 +32,23 @@ async function authenticate(command: Command) {
 			authorization: `Bearer ${await getAccessToken(env)}`,
 		})
 	} catch (error) {
-		if (error instanceof LoginRequiredError) command.error(error.message)
+		if (error instanceof LoginRequiredError) {
+			const lines = [error.message]
+			if (error.mismatch) {
+				const { saved, expected } = error.mismatch
+				lines.push(`Saved issuer: ${saved.issuer}`, `Expected issuer: ${expected.issuer}`)
+				if (saved.clientId !== expected.clientId)
+					lines.push(
+						`Saved client ID: ${saved.clientId}`,
+						`Expected client ID: ${expected.clientId}`,
+					)
+			}
+			const settings = Object.entries(env)
+				.map(([key, value]) => `${key}='${value.replaceAll("'", "'\\''")}'`)
+				.join(" ")
+			lines.push(`Run: ${settings} npx @usecontextlayer/cli login`)
+			command.error(lines.join("\n"))
+		}
 		throw error
 	}
 }

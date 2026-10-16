@@ -6,11 +6,10 @@ import {
 	getCurrentUser,
 	listOrganizations,
 } from "@usecontextlayer/cli/auth"
-import { execaNode } from "execa"
-import { z } from "zod"
 import { readDopplerEnv } from "@/doppler"
 import {
 	type DevelopmentEnv,
+	type DevelopmentPorts,
 	readDevelopmentIdentityEnv,
 	readPolarEnv,
 	readSlateOAuthEnv,
@@ -70,30 +69,17 @@ export async function readDevelopmentServiceEnv(
 	}
 }
 
-export async function readDevelopmentCommandEnv(
-	webRoot: string,
-	webEnv: WebDevelopmentEnv,
-	addresses: DevelopmentEnv,
+export function readDevelopmentCommandEnv(
+	root: string,
+	addresses: DevelopmentEnv & DevelopmentPorts,
 ) {
-	const { ipcOutput } = await execaNode(
-		resolve(webRoot, "scripts/development-client.mts"),
-		{
-			cwd: webRoot,
-			env: {
-				...webEnv,
-				TSX_TSCONFIG_PATH: resolve(webRoot, "tsconfig.tsxrepl.json"),
-			},
-			ipc: true,
-			nodeOptions: ["--import", "tsx"],
-			stdio: ["ignore", 2, "inherit"],
-		},
-	)
 	return {
 		...Object.fromEntries(
 			Object.entries(addresses).map(([key, value]) => [key, value.toString()]),
 		),
-		CTX_AUTH_CLIENT_ID: z.string().min(1).parse(ipcOutput[0]),
-		CTX_AUTH_ISSUER: new URL("/api/auth", webEnv.BETTER_AUTH_URL).href,
+		CTX_AUTH_CLIENT_ID: addresses.CTX_AUTH_CLIENT_ID,
+		CTX_AUTH_ISSUER: new URL("/api/auth", addresses.BETTER_AUTH_URL).href,
+		CTX_CONFIG_DIR: resolve(root, ".contextlayer/cli"),
 	}
 }
 

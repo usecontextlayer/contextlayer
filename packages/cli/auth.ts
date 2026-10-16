@@ -1,14 +1,13 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises"
-import { homedir } from "node:os"
 import { join } from "node:path"
 import * as oauth from "openid-client"
 import { z } from "zod"
 import type { env } from "@/env"
 
-export type AuthEnv = Pick<typeof env, "CTX_AUTH_ISSUER" | "CTX_AUTH_CLIENT_ID">
-
-const authDirectory = join(homedir(), ".contextlayer")
-const authPath = join(authDirectory, "auth.json")
+export type AuthEnv = Pick<
+	typeof env,
+	"CTX_AUTH_ISSUER" | "CTX_AUTH_CLIENT_ID" | "CTX_CONFIG_DIR"
+>
 const credentialSchema = z.object({
 	accessToken: z.string(),
 	clientId: z.string(),
@@ -18,8 +17,17 @@ const credentialSchema = z.object({
 })
 
 export class LoginRequiredError extends Error {
-	constructor(reason: string, options?: ErrorOptions) {
-		super(`${reason} Run npx @usecontextlayer/cli login.`, options)
+	readonly mismatch?: {
+		saved: Pick<z.infer<typeof credentialSchema>, "issuer" | "clientId">
+		expected: Pick<z.infer<typeof credentialSchema>, "issuer" | "clientId">
+	}
+
+	constructor(
+		reason: string,
+		options?: ErrorOptions & { mismatch?: LoginRequiredError["mismatch"] },
+	) {
+		super(reason, options)
+		this.mismatch = options?.mismatch
 	}
 }
 
@@ -46,8 +54,10 @@ async function save(
 		issuer: env.CTX_AUTH_ISSUER,
 		refreshToken: tokens.refresh_token ?? previousRefreshToken,
 	})
-	await mkdir(authDirectory, { mode: 0o700, recursive: true })
-	await writeFile(authPath, JSON.stringify(credentials), { mode: 0o600 })
+	await mkdir(env.CTX_CONFIG_DIR, { mode: 0o700, recursive: true })
+	await writeFile(join(env.CTX_CONFIG_DIR, "auth.json"), JSON.stringify(credentials), {
+		mode: 0o600,
+	})
 	return credentials
 }
 
@@ -68,12 +78,14 @@ export async function login(env: AuthEnv) {
 }
 
 export async function getAccessToken(env: AuthEnv) {
-	const contents = await readFile(authPath, "utf8").catch((error: unknown) => {
-		if (error instanceof Error && "code" in error && error.code === "ENOENT") {
-			throw new LoginRequiredError("Not signed in.", { cause: error })
-		}
-		throw error
-	})
+	const contents = await readFile(join(env.CTX_CONFIG_DIR, "auth.json"), "utf8").catch(
+		(error: unknown) => {
+			if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+				throw new LoginRequiredError("Not signed in.", { cause: error })
+			}
+			throw error
+		},
+	)
 	let credentials = credentialSchema.parse(JSON.parse(contents))
 	if (
 		credentials.issuer !== env.CTX_AUTH_ISSUER ||
@@ -81,6 +93,15 @@ export async function getAccessToken(env: AuthEnv) {
 	) {
 		throw new LoginRequiredError(
 			"Saved login belongs to a different auth server or client.",
+			{
+				mismatch: {
+					expected: {
+						clientId: env.CTX_AUTH_CLIENT_ID,
+						issuer: env.CTX_AUTH_ISSUER,
+					},
+					saved: { clientId: credentials.clientId, issuer: credentials.issuer },
+				},
+			},
 		)
 	}
 	if (credentials.expiresAt <= Date.now()) {

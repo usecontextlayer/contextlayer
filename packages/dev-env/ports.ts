@@ -4,36 +4,45 @@ import { type AddressInfo, createServer } from "node:net"
 import { resolve } from "node:path"
 import waitOn from "wait-on"
 import {
+	type DevelopmentPorts,
 	developmentServiceKeys,
+	parseDevelopmentPorts,
 	parseDevelopmentServiceUrls,
 	readDevelopmentEnv,
 } from "@/env"
 
 const MINIMUM_PORT = 3000
 
-async function readSavedPorts(root: string) {
-	const contents = await readFile(resolve(root, ".ports"), "utf8").catch(
+async function readSavedPorts(root: string): Promise<unknown> {
+	const contents = await readFile(resolve(root, ".env.json"), "utf8").catch(
 		(error: NodeJS.ErrnoException) => {
 			if (error.code === "ENOENT") return undefined
 			throw error
 		},
 	)
-	return contents === undefined
-		? undefined
-		: parseDevelopmentServiceUrls(JSON.parse(contents))
+	return contents === undefined ? undefined : JSON.parse(contents)
 }
 
 export async function readDevelopmentPorts(root: string) {
 	const ports = await readSavedPorts(root)
-	if (!ports)
+	if (ports === undefined)
 		throw new Error(
 			"Start this checkout with pnpm dev before running connected commands.",
 		)
-	return { ...readDevelopmentEnv(), ...ports }
+	return { ...readDevelopmentEnv(), ...parseDevelopmentPorts(ports) }
+}
+
+export async function saveDevelopmentPorts(root: string, ports: DevelopmentPorts) {
+	const values = {
+		...Object.fromEntries(developmentServiceKeys.map((key) => [key, ports[key]])),
+		CTX_AUTH_CLIENT_ID: ports.CTX_AUTH_CLIENT_ID,
+	}
+	await writeFile(resolve(root, ".env.json"), `${JSON.stringify(values, null, 2)}\n`)
 }
 
 export async function assignDevelopmentPorts(root: string) {
-	const saved = await readSavedPorts(root)
+	const previous = await readSavedPorts(root)
+	const saved = previous === undefined ? undefined : parseDevelopmentServiceUrls(previous)
 	const addresses = { ...readDevelopmentEnv(), ...saved }
 	const previousPorts = developmentServiceKeys.map((key) => Number(addresses[key].port))
 	if (saved && previousPorts.every((port) => port >= MINIMUM_PORT)) {
@@ -70,6 +79,5 @@ export async function assignDevelopmentPorts(root: string) {
 		}),
 	)
 	const values = Object.fromEntries(selected)
-	await writeFile(resolve(root, ".ports"), `${JSON.stringify(values, null, 2)}\n`)
 	return { ...addresses, ...parseDevelopmentServiceUrls(values) }
 }

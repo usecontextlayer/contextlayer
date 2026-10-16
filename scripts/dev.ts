@@ -5,7 +5,10 @@ import {
 	readWebDevelopmentEnv,
 } from "@usecontextlayer/dev-env/development"
 import { startPolarListener } from "@usecontextlayer/dev-env/polar"
-import { assignDevelopmentPorts } from "@usecontextlayer/dev-env/ports"
+import {
+	assignDevelopmentPorts,
+	saveDevelopmentPorts,
+} from "@usecontextlayer/dev-env/ports"
 import { startNext, startVite, startWrangler } from "@usecontextlayer/dev-env/services"
 import { execa, execaNode } from "execa"
 import { z } from "zod"
@@ -105,6 +108,7 @@ const { ipcOutput } = await Promise.race([
 	exited,
 ])
 const clientId = z.string().min(1).parse(ipcOutput[0])
+await saveDevelopmentPorts(root, { ...addresses, CTX_AUTH_CLIENT_ID: clientId })
 console.log(`Web: ${web.url}`)
 console.log(`Platform: ${new URL("/dashboard/personal/slates", platform.url)}`)
 console.log(`Viewer auth: ${auth.url}`)

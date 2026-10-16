@@ -11,6 +11,10 @@ const serviceSchema = z.object({
 
 export const developmentServiceKeys = serviceSchema.keyof().options
 
+const portsSchema = serviceSchema.extend({ CTX_AUTH_CLIENT_ID: z.string().min(1) })
+
+export type DevelopmentPorts = z.infer<typeof portsSchema>
+
 const schema = serviceSchema.extend({
 	CTX_PLATFORM_DATABASE_URL: z
 		.url()
@@ -34,6 +38,10 @@ export function readDevelopmentEnv() {
 
 export function parseDevelopmentServiceUrls(input: unknown) {
 	return serviceSchema.parse(input)
+}
+
+export function parseDevelopmentPorts(input: unknown) {
+	return portsSchema.parse(input)
 }
 
 export const DEVELOPMENT_ORGANIZATION_SLUG = "local-development"
