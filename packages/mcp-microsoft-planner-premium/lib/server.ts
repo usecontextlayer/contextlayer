@@ -8,6 +8,7 @@ import { McpServer } from "@modelcontextprotocol/server"
 import { z } from "zod"
 import {
 	MAX_WAIT_SECONDS,
+	OperationSetSubmissionError,
 	submitOperationSet,
 	waitForOperationSet,
 } from "@/lib/operation-set"
@@ -296,6 +297,12 @@ const toolResult = (...records: Record<string, unknown>[]) => ({
 	})),
 })
 
+function errorText(error: unknown): string {
+	if (error instanceof AggregateError)
+		return `${error.message}: ${error.errors.map(errorText).join("; ")}`
+	return error instanceof Error ? error.message : String(error)
+}
+
 export function createMcpServer(api: ScheduleApiClient): McpServer {
 	const server = new McpServer({
 		name: "microsoft-planner-premium",
@@ -320,7 +327,7 @@ export function createMcpServer(api: ScheduleApiClient): McpServer {
 				"Put everything one intent needs into a single call and approval. Use Microsoft's native entity fields, @odata.type and OData binding strings. The top-level ProjectId and Description are Microsoft's action parameters; Description must summarize the changes in the human's words.",
 				"Task and bucket creates may have a ref, which is local metadata removed before submission. A native binding property or update primary ID may instead contain { ref } to name a task or bucket created in this call. Omitted create IDs are generated and named refs are returned in created.",
 				"Changing task dates can reschedule dependent tasks; the set reports only whether it completed.",
-				"Returns Microsoft's OperationSetId — a RECEIPT, not confirmation that changes applied. Pass it to wait_for_operation_set.",
+				"Returns Microsoft's OperationSetId — a RECEIPT, not confirmation that changes applied. Pass it to wait_for_operation_set. A failure after creation includes OperationSetId alongside the error; inspect that set before deciding what to do next.",
 			].join(" "),
 			inputSchema: submissionSchema,
 		},
@@ -335,22 +342,30 @@ export function createMcpServer(api: ScheduleApiClient): McpServer {
 				for (const operation of operations)
 					writes.push({ entity: nativeEntity(operation, references), verb })
 			}
-			const receipt = await submitOperationSet(api, {
-				Description: submission.Description,
-				ProjectId: submission.ProjectId,
-				writes,
-			})
-			return toolResult({
-				...receipt,
-				created: Object.fromEntries(
-					[...references].map(([ref, entity]) => [
-						ref,
-						entity["@odata.type"] === "Microsoft.Dynamics.CRM.msdyn_projecttask"
-							? entity.msdyn_projecttaskid
-							: entity.msdyn_projectbucketid,
-					]),
-				),
-			})
+			try {
+				const receipt = await submitOperationSet(api, {
+					Description: submission.Description,
+					ProjectId: submission.ProjectId,
+					writes,
+				})
+				return toolResult({
+					...receipt,
+					created: Object.fromEntries(
+						[...references].map(([ref, entity]) => [
+							ref,
+							entity["@odata.type"] === "Microsoft.Dynamics.CRM.msdyn_projecttask"
+								? entity.msdyn_projecttaskid
+								: entity.msdyn_projectbucketid,
+						]),
+					),
+				})
+			} catch (error) {
+				if (!(error instanceof OperationSetSubmissionError)) throw error
+				return {
+					...toolResult({ ...error.receipt, error: errorText(error.cause) }),
+					isError: true,
+				}
+			}
 		},
 	)
 

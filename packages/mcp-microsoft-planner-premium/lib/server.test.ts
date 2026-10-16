@@ -997,6 +997,40 @@ describe("arguments the tool refuses before any Dataverse traffic", () => {
 })
 
 describe("the refusals that come from the service itself", () => {
+	it("keeps the minted receipt and Microsoft error together after execute rejection", async () => {
+		const client = await connect({
+			replaying: "execute-refused-and-set-wedged-executing",
+		})
+		const result = await client.callTool({
+			arguments: {
+				Description: "Update task progress",
+				ProjectId: PROJECT.msdyn_projectid,
+				updates: [
+					{
+						"@odata.type": "Microsoft.Dynamics.CRM.msdyn_projecttask",
+						msdyn_progress: 0.5,
+						msdyn_projecttaskid: TASK.msdyn_projecttaskid,
+					},
+				],
+			},
+			name: "submit_operation_set",
+		})
+		expect(result.isError).toBe(true)
+		const failure = payloadOf(result)
+		expect(failure.OperationSetId).toBe(mintedSetId())
+		expect(failure.error).toContain("msdyn_ExecuteOperationSetV1 failed: 403 Forbidden")
+		expect(failure.error).toContain("0x80040220")
+		expect(failure.error).toContain("prvCreatemsdyn_psserrorlog")
+
+		const status = await client.callTool({
+			arguments: { OperationSetId: failure.OperationSetId, seconds: 0 },
+			name: "wait_for_operation_set",
+		})
+		await client.close()
+		expect(status.isError ?? false).toBe(false)
+		expect(payloadOf(status)).toMatchObject({ msdyn_status: 192350001 })
+	})
+
 	it("says a bucket that does not exist does not exist", async () => {
 		const client = await connect({ replaying: "reject-unknown-bucket" })
 		const result = await client.callTool({
@@ -1016,6 +1050,7 @@ describe("the refusals that come from the service itself", () => {
 		})
 		await client.close()
 		expect(result.isError).toBe(true)
+		expect(payloadOf(result).OperationSetId).toBe(mintedSetId())
 		expect(resultText(result)).toContain("ScheduleAPI-AV-0006")
 		expect(resultText(result)).toContain("does not exist")
 	})

@@ -76,31 +76,22 @@ export function readInstants(seconds: number): number[] {
 	return instants
 }
 
-// `.message` IS THE INTERFACE. The MCP SDK reduces anything a tool throws to
-// `error.message` before building its result, so `.cause` and `AggregateError.errors`
-// never reach the caller. Everything an operator needs goes IN the string.
-function reason(error: unknown): string {
-	return error instanceof Error ? error.message : String(error)
+/** A minted receipt survives every subsequent submission failure. */
+export class OperationSetSubmissionError extends Error {
+	override readonly name = "OperationSetSubmissionError"
+
+	constructor(
+		readonly receipt: OperationSetReceipt,
+		cause: unknown,
+	) {
+		super("Operation-set submission failed", { cause })
+	}
 }
 
 /**
  * Submit one operation set and hand back the receipt.
- *
- * ABANDON ONLY ON A STAGING FAILURE. A set whose staging threw holds a partial
- * transaction and is still open, so it would sit against the caller's open-set quota
- * forever with no API to find it again; abandoning it is accepted. After execute the
- * question does not arise — this returns the moment the service accepts, and what
- * happens to the set afterwards belongs to `waitForOperationSet`.
- *
- * Do NOT re-derive that rule from "a failed execute closes the set". That is only
- * half true: a set closes when the WORK fails and stays OPEN when the SET itself is
- * rejected (an empty one, for instance). The rule above holds either way; the
- * plausible-sounding premise does not.
- *
- * An EMPTY submission is the caller's to prevent. Executing a set with nothing
- * staged is rejected AND leaves the set open — the one execute failure that leaks a
- * quota slot — so the edge refuses it before a set is ever minted, rather than this
- * layer growing a branch for a call that should not have been made.
+ * Abandon only on staging failure. An execute rejection does not establish the
+ * set's status; the caller can inspect it using the receipt carried by the error.
  */
 export async function submitOperationSet(
 	api: ScheduleApiClient,
@@ -112,40 +103,34 @@ export async function submitOperationSet(
 	})
 
 	try {
-		const entitiesByVerb: Record<StagedWrite["verb"], Record<string, unknown>[]> = {
-			create: [],
-			delete: [],
-			update: [],
-		}
-		for (const write of input.writes) entitiesByVerb[write.verb].push(write.entity)
-
-		for (const verb of STAGING_ORDER) {
-			const entities = entitiesByVerb[verb]
-			// An empty collection is not staged at all. The action refuses one, and a
-			// verb nobody asked for has no call to make.
-			if (entities.length > 0) {
-				await api.stage({ EntityCollection: entities, ...receipt, verb })
-			}
-		}
-	} catch (error) {
 		try {
-			await api.abandonOperationSet(receipt)
-		} catch (abandonError) {
-			// Both causes go in the sentence. This is the quota-starvation path: the set
-			// is stranded open, invisible, and cumulative, and an `AggregateError` would
-			// surface the consequence while dropping both reasons for it.
-			throw new Error(
-				`Staging failed AND abandoning OperationSet '${receipt.OperationSetId}' failed — that set is now stranded open against the user's quota. Staging: ${reason(error)}. Abandon: ${reason(abandonError)}.`,
-			)
-		}
-		throw error
-	}
+			const entitiesByVerb: Record<StagedWrite["verb"], Record<string, unknown>[]> = {
+				create: [],
+				delete: [],
+				update: [],
+			}
+			for (const write of input.writes) entitiesByVerb[write.verb].push(write.entity)
 
-	// A rejection here is synchronous and immediate — an out-of-range field value
-	// comes back as a 400 — so bad input reaches the caller now rather than as a
-	// status read a minute later. The set is already closed; nothing to abandon.
-	await api.executeOperationSet(receipt)
-	return receipt
+			for (const verb of STAGING_ORDER) {
+				const entities = entitiesByVerb[verb]
+				if (entities.length > 0) {
+					await api.stage({ EntityCollection: entities, ...receipt, verb })
+				}
+			}
+		} catch (error) {
+			try {
+				await api.abandonOperationSet(receipt)
+			} catch (abandonError) {
+				throw new AggregateError([error, abandonError], "Staging and abandoning failed")
+			}
+			throw error
+		}
+
+		await api.executeOperationSet(receipt)
+		return receipt
+	} catch (error) {
+		throw new OperationSetSubmissionError(receipt, error)
+	}
 }
 
 /**
@@ -167,8 +152,7 @@ export async function waitForOperationSet(
 	let set = await api.getOperationSet(input.OperationSetId)
 
 	// Only `executing` earns another read: terminal states are final, and `open`
-	// requires an explicit execute. Receipts minted by `submitOperationSet` are already
-	// past open.
+	// requires an explicit execute.
 	for (const at of readInstants(input.seconds).slice(1)) {
 		if (set.msdyn_status !== OPERATION_SET_STATUS.executing) break
 		await sleep((at - elapsed) * 1000)

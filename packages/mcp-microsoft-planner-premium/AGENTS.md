@@ -25,6 +25,8 @@ The package's Turbo configuration passes the two Microsoft variables to Wrangler
 
 Carry supported native Microsoft entity fields, action parameters and response fields through the package without aliases or value normalization. Use `@odata.type`, the actual `msdyn_*` columns and Microsoft’s case-sensitive OData bindings. Preserve Microsoft’s distinct read lookup properties, write navigation properties and action parameter names. Keep operation grouping, same-call refs and other package workflow metadata distinct from Microsoft fields. Native vocabulary does not imply support for unrecorded fields or unrestricted writes.
 
+Preserve a minted `OperationSetReceipt` and original error causes through the operation-set lifecycle, including failures. Serialize failures only at the MCP boundary with explicit `isError` and `OperationSetId` in text content, because uncaught SDK errors and Composio’s error path do not preserve arbitrary error properties. An execute rejection does not establish the set’s status; use the native status read.
+
 ## Deployment
 
 Configure the two Wrangler secrets declared in [wrangler.jsonc](wrangler.jsonc): `MICROSOFT_CLIENT_ID` for the shared multi-tenant ContextLayer Entra application (`aaf9e242-3a1f-4d36-b9ee-f1a11c2b2c11`) and `MICROSOFT_CLIENT_SECRET` for that application's Web client secret. There is no deployment-level tenant or Dataverse org setting; the person connecting selects their Dataverse environment.
