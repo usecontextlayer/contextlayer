@@ -15,17 +15,6 @@
 	},
 	"compatibility_date": "2026-10-02",
 	"compatibility_flags": ["nodejs_compat"],
-	"containers": [
-		{
-			"class_name": "SlateAgent",
-			"images": {
-				"base": {
-					"dockerfile": "./container/Dockerfile"
-				}
-			},
-			"scheduling_policy": "durable_object"
-		}
-	],
 	"dev": {
 		"ip": "127.0.0.1",
 		"port": 3010
@@ -46,6 +35,10 @@
 			{
 				"class_name": "SlateDatabase",
 				"name": "DATABASES"
+			},
+			{
+				"class_name": "SlateAgentJob",
+				"name": "AGENT_JOBS"
 			}
 		]
 	},
@@ -56,17 +49,6 @@
 					"binding": "ARTIFACTS",
 					"namespace": "contextlayer-test",
 					"remote": true
-				}
-			],
-			"containers": [
-				{
-					"class_name": "SlateAgent",
-					"images": {
-						"base": {
-							"dockerfile": "./container/Dockerfile"
-						}
-					},
-					"scheduling_policy": "durable_object"
 				}
 			],
 			"dispatch_namespaces": [
@@ -85,6 +67,10 @@
 					{
 						"class_name": "SlateDatabase",
 						"name": "DATABASES"
+					},
+					{
+						"class_name": "SlateAgentJob",
+						"name": "AGENT_JOBS"
 					}
 				]
 			},
@@ -117,6 +103,10 @@
 		{
 			"new_sqlite_classes": ["SlateDatabase"],
 			"tag": "v2"
+		},
+		{
+			"new_sqlite_classes": ["SlateAgentJob"],
+			"tag": "v3"
 		}
 	],
 	"name": "contextlayer-platform",

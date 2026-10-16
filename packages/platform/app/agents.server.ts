@@ -5,10 +5,14 @@ import { getAgentInstanceName } from "@/agent-instance"
 import type { SlateAgent } from "@/agent-runtime"
 import {
 	type AgentActor,
+	type AgentJobTrigger,
 	type AgentRun,
 	type AgentRunRequest,
-	agentJobSchema,
-	agentJobSummarySchema,
+	agentJobCreationSchema,
+	agentJobEntrySchema,
+	agentJobOperationSchema,
+	agentJobResultSchema,
+	agentRuntimeScheduleSchema,
 	type agentSchema,
 } from "@/agents.schema"
 import { listOrganizations } from "@/auth.server"
@@ -28,21 +32,28 @@ import {
 
 export async function getAgent(
 	artifacts: Artifacts,
-	{ slate, identity }: OwnerSlateAccess,
+	access: OwnerSlateAccess,
 	issuer: string,
 	name: string,
+) {
+	const authorization = await authorizeAgentManagement(access, issuer)
+	if (!authorization.allowed) return authorization
+	return readAgent(artifacts, access.slate.id, name)
+}
+
+async function authorizeAgentManagement(
+	{ slate, identity }: OwnerSlateAccess,
+	issuer: string,
 ) {
 	const organizations = slate.owner_organization_id
 		? await listOrganizations(identity, issuer)
 		: []
 	// Public viewing does not grant access to authored source.
-	const authorization = authorizeSlateManagement(
+	return authorizeSlateManagement(
 		slate,
 		identity,
 		organizations.some((organization) => organization.id === slate.owner_organization_id),
 	)
-	if (!authorization.allowed) return authorization
-	return readAgent(artifacts, slate.id, name)
 }
 
 async function readAgent(
@@ -143,43 +154,156 @@ export async function getAgentRun(
 export async function startAgentRun(
 	agents: DurableObjectNamespace<SlateAgent>,
 	run: AgentRun,
+	trigger: AgentJobTrigger = { type: "api" },
 ) {
 	const agent = await getAgentByName(
 		agents,
 		getAgentInstanceName(run.slateId, run.agent.name, run.actor),
 	)
-	return agentJobSummarySchema.parse(await agent.start(run, "api"))
+	return agentJobCreationSchema.parse(await agent.start(run, trigger))
 }
 
-export async function getAgentJob(
-	agents: DurableObjectNamespace<SlateAgent>,
-	slate: Slate,
-	name: string,
-	id: string,
-	instanceName: string,
-) {
-	const agent = await getAgentByName(agents, instanceName)
-	return agentJobSchema.nullable().parse(await agent.inspect(slate.id, name, id))
-}
-
-export async function listAgentJobs(
+function getAgentScopes(
 	agents: DurableObjectNamespace<SlateAgent>,
 	{ slate, identity }: SlateAccess,
 	name: string,
 ) {
 	const actors: AgentActor[] = [{ type: "app" }, { id: identity.user.id, type: "user" }]
+	return Promise.all(
+		actors.map((actor) =>
+			getAgentByName(agents, getAgentInstanceName(slate.id, name, actor)),
+		),
+	)
+}
+
+export async function getAgentJob(
+	agents: DurableObjectNamespace<SlateAgent>,
+	access: SlateAccess,
+	name: string,
+	id: string,
+) {
+	for (const agent of await getAgentScopes(agents, access, name)) {
+		const job = await agent.getJob(id)
+		if (job) return agentJobEntrySchema.parse(job)
+	}
+	return null
+}
+
+export async function getAgentJobOperation(
+	agents: DurableObjectNamespace<SlateAgent>,
+	access: SlateAccess,
+	name: string,
+	id: string,
+) {
+	for (const agent of await getAgentScopes(agents, access, name)) {
+		const operation = await agent.inspect(id)
+		if (operation) return agentJobOperationSchema.parse(operation)
+	}
+	return null
+}
+
+export async function getAgentJobResult(
+	agents: DurableObjectNamespace<SlateAgent>,
+	access: SlateAccess,
+	name: string,
+	id: string,
+) {
+	for (const agent of await getAgentScopes(agents, access, name)) {
+		const result = await agent.result(id)
+		if (result) return agentJobResultSchema.parse(result)
+	}
+	return null
+}
+
+export async function listAgentJobs(
+	agents: DurableObjectNamespace<SlateAgent>,
+	access: SlateAccess,
+	name: string,
+	schedule?: string,
+) {
+	const scopes = await getAgentScopes(agents, access, name)
 	const jobs = await Promise.all(
-		actors.map(async (actor) => {
-			const agent = await getAgentByName(
-				agents,
-				getAgentInstanceName(slate.id, name, actor),
-			)
-			return z.array(agentJobSummarySchema).parse(await agent.listJobs(slate.id, name))
-		}),
+		scopes.map(async (agent) =>
+			z.array(agentJobEntrySchema).parse(await agent.listJobs()),
+		),
 	)
 	return jobs
 		.flat()
-		.sort((a, b) => b.created_at - a.created_at || b.id.localeCompare(a.id))
+		.filter(
+			(job) =>
+				schedule === undefined ||
+				(job.metadata?.trigger.type === "schedule" &&
+					job.metadata.trigger.schedule === schedule),
+		)
+		.sort((a, b) => b.createdAt - a.createdAt || b.id.localeCompare(a.id))
+}
+
+export async function abortAgentJob(
+	agents: DurableObjectNamespace<SlateAgent>,
+	access: OwnerSlateAccess,
+	issuer: string,
+	name: string,
+	id: string,
+) {
+	const authorization = await authorizeAgentManagement(access, issuer)
+	if (!authorization.allowed) return authorization
+	for (const agent of await getAgentScopes(agents, access, name)) {
+		const result = await agent.abortJob(id)
+		if (result !== null) return { allowed: true, result } as const
+	}
+	return { allowed: false, reason: "not-found" } as const
+}
+
+export async function deleteAgentJob(
+	agents: DurableObjectNamespace<SlateAgent>,
+	access: OwnerSlateAccess,
+	issuer: string,
+	name: string,
+	id: string,
+) {
+	const authorization = await authorizeAgentManagement(access, issuer)
+	if (!authorization.allowed) return authorization
+	for (const agent of await getAgentScopes(agents, access, name)) {
+		if (await agent.deleteJob(id)) return { allowed: true } as const
+	}
+	return { allowed: false, reason: "not-found" } as const
+}
+
+export async function listAgentSchedules(
+	agents: DurableObjectNamespace<SlateAgent>,
+	access: OwnerSlateAccess,
+	issuer: string,
+	name: string,
+) {
+	const authorization = await authorizeAgentManagement(access, issuer)
+	if (!authorization.allowed) return authorization
+	const scopes = await getAgentScopes(agents, access, name)
+	const schedules = await Promise.all(
+		scopes.map(async (agent) =>
+			z.array(agentRuntimeScheduleSchema).parse(await agent.listAuthoredSchedules()),
+		),
+	)
+	return { allowed: true, schedules: schedules.flat() } as const
+}
+
+export async function getAgentSchedule(
+	agents: DurableObjectNamespace<SlateAgent>,
+	access: OwnerSlateAccess,
+	issuer: string,
+	name: string,
+	id: string,
+) {
+	const authorization = await authorizeAgentManagement(access, issuer)
+	if (!authorization.allowed) return authorization
+	for (const agent of await getAgentScopes(agents, access, name)) {
+		const schedule = await agent.getAuthoredSchedule(id)
+		if (schedule)
+			return {
+				allowed: true,
+				schedule: agentRuntimeScheduleSchema.parse(schedule),
+			} as const
+	}
+	return { allowed: true, schedule: null } as const
 }
 
 export async function startAgentJob(
@@ -202,6 +326,6 @@ export async function startAgentJob(
 		input,
 	)
 	if (!prepared.allowed) return prepared
-	const job = await startAgentRun(agents, prepared.run)
-	return { allowed: true, job } as const
+	const creation = await startAgentRun(agents, prepared.run)
+	return { allowed: true, creation } as const
 }

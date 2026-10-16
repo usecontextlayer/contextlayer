@@ -10,10 +10,13 @@ import { expect } from "vitest"
 import { z } from "zod"
 import { getAgentInstanceName } from "@/agent-instance"
 import {
-	type AgentJob,
-	type AgentJobSummary,
-	agentJobSchema,
-	agentJobSummarySchema,
+	type AgentJobEntry,
+	type AgentJobOperation,
+	agentJobCreationSchema,
+	agentJobEntrySchema,
+	agentJobOperationSchema,
+	agentJobResultSchema,
+	agentRuntimeScheduleSchema,
 	scheduledAgentRunSchema,
 } from "@/agents.schema"
 import { slateSchema } from "@/slates.schema"
@@ -212,37 +215,42 @@ test("members' deployed cron jobs use viewer resources and retain results after 
 			slateId: slate.id,
 		})
 	}
-	const jobs = z.object({ jobs: z.array(agentJobSummarySchema.strict()) })
-	const saved: { url: string; job: AgentJobSummary }[] = []
+	const jobs = z.object({ jobs: z.array(agentJobEntrySchema.strict()) })
+	const saved: { url: string; job: AgentJobEntry; result: AgentJobOperation }[] = []
+	const waitForResult = async (url: string, id: string) => {
+		let result: AgentJobOperation | undefined
+		await expect
+			.poll(
+				async () => {
+					const response = await fetch(`${url}/${id}/operation`, { headers })
+					expect(response.status).toBe(200)
+					result = agentJobOperationSchema.parse(await response.json())
+					return result.status
+				},
+				{ interval: 1000, timeout: 240_000 },
+			)
+			.toBeOneOf(["done", "unanswered"])
+		const settled = agentJobResultSchema.parse(result)
+		expect(settled.status, settled.reason).toBe("done")
+		return settled
+	}
 	for (const { slate } of checkouts) {
 		const url = `${origin}/api/slates/${slate.id}/agents/daily-summary/jobs`
-		let completed: AgentJobSummary | undefined
+		let entry: AgentJobEntry | undefined
 		await expect
 			.poll(
 				async () => {
 					const response = await fetch(url, { headers })
 					expect(response.status).toBe(200)
-					completed = jobs
-						.parse(await response.json())
-						.jobs.find((job) => job.source === "schedule")
-					return completed?.status
+					entry = jobs.parse(await response.json()).jobs[0]
+					return entry !== undefined
 				},
 				{ interval: 1000, timeout: 240_000 },
 			)
-			.toBeOneOf(["completed", "error", "aborted"])
-		console.info("Scheduled agent job", {
-			id: completed?.id,
-			slate_id: slate.id,
-			source: completed?.source,
-			status: completed?.status,
-		})
-		expect(completed?.error).toBeUndefined()
-		expect(completed?.status).toBe("completed")
-		if (!completed) throw new Error("Expected a completed scheduled job")
-		expect(completed.instance_name).toBe(
-			getAgentInstanceName(slate.id, "daily-summary", { id: user.id, type: "user" }),
-		)
-		saved.push({ job: completed, url })
+			.toBe(true)
+		if (!entry) throw new Error("Expected the scheduled job catalog entry")
+		const result = await waitForResult(url, entry.id)
+		saved.push({ job: entry, result, url })
 	}
 	const apiUrl = `${origin}/api/slates/${joinedBeforeProvisioning.id}/agents/daily-summary/jobs`
 	const submitted = await fetch(
@@ -252,40 +260,22 @@ test("members' deployed cron jobs use viewer resources and retain results after 
 		}),
 	)
 	expect(submitted.status).toBe(202)
-	const apiJob = agentJobSummarySchema.strict().parse(await submitted.json())
-	expect(apiJob.source).toBe("api")
-	expect(apiJob.instance_name).toBe(saved[0]?.job.instance_name)
-	const detailUrl = (url: string, job: AgentJobSummary) =>
-		`${url}/${job.id}?instance_name=${encodeURIComponent(job.instance_name)}`
-	let completedApi: AgentJob | undefined
-	await expect
-		.poll(
-			async () => {
-				const response = await fetch(detailUrl(apiUrl, apiJob), { headers })
-				expect(response.status).toBe(200)
-				completedApi = agentJobSchema.parse(await response.json())
-				return completedApi.status
-			},
-			{ interval: 1000, timeout: 120_000 },
-		)
-		.toBeOneOf(["completed", "error", "aborted"])
-	expect(completedApi?.error).toBeUndefined()
-	expect(completedApi?.status).toBe("completed")
-	if (!completedApi) throw new Error("Expected a completed API job")
-	saved.push({ job: agentJobSummarySchema.parse(completedApi), url: apiUrl })
+	const { receipt } = agentJobCreationSchema.parse(await submitted.json())
+	const completedApi = await waitForResult(apiUrl, receipt.operationId)
+	const listedApi = await fetch(apiUrl, { headers })
+	const apiEntry = jobs
+		.parse(await listedApi.json())
+		.jobs.find((job) => job.id === receipt.operationId)
+	if (!apiEntry) throw new Error("Expected the API job catalog entry")
+	saved.push({ job: apiEntry, result: completedApi, url: apiUrl })
 	await platform.harness.update((current) => current)
 	const bindings = await worker.getEnv()
-	for (const { job, url } of saved) {
-		const response = await fetch(detailUrl(url, job), { headers })
+	for (const { job, url, result } of saved) {
+		const response = await fetch(`${url}/${job.id}/result`, { headers })
 		expect(response.status).toBe(200)
-		const detail = agentJobSchema
-			.required({ completed_at: true, started_at: true })
-			.parse(await response.json())
-		expect(detail).toMatchObject(job)
-		expect(detail.started_at).toBeGreaterThanOrEqual(detail.created_at)
-		expect(detail.completed_at).toBeGreaterThanOrEqual(detail.started_at)
-		expect(detail.message?.role).toBe("assistant")
-		expect(detail.message?.parts.length).toBeGreaterThan(0)
+		const detail = agentJobResultSchema.parse(await response.json())
+		expect(detail).toEqual(result)
+		expect(detail.text?.length).toBeGreaterThan(0)
 		const listed = await fetch(url, { headers })
 		expect(listed.status).toBe(200)
 		expect(jobs.parse(await listed.json()).jobs).toContainEqual(job)
@@ -293,7 +283,7 @@ test("members' deployed cron jobs use viewer resources and retain results after 
 	const listed = await fetch(apiUrl, { headers })
 	expect(listed.status).toBe(200)
 	expect(jobs.parse(await listed.json()).jobs.map((job) => job.id)).toEqual([
-		completedApi.id,
+		completedApi.operationId,
 		saved[0]?.job.id,
 	])
 	for (const { slate, databases } of checkouts) {
@@ -313,6 +303,164 @@ test("members' deployed cron jobs use viewer resources and retain results after 
 	}
 	console.info(
 		"Agent jobs retained after Worker reload",
-		saved.map(({ job }) => ({ id: job.id, source: job.source, status: job.status })),
+		saved.map(({ job, result }) => ({ id: job.id, status: result.status })),
 	)
 }, 480_000)
+
+test("authored cron starts a fresh Pi job visible through the API", async ({
+	directory,
+	platform,
+	provisioning,
+	webSession,
+}) => {
+	const { origin, worker } = platform
+	const headers = new Headers(webSession.headers)
+	headers.set("origin", origin)
+	headers.set("content-type", "application/json")
+	const created = await fetch(`${origin}/api/slates`, {
+		body: JSON.stringify({}),
+		headers,
+		method: "POST",
+	})
+	expect(created.status).toBe(201)
+	const slate = slateSchema.parse(await created.json())
+	const { ARTIFACTS } = await worker.getEnv()
+	await using resources = new AsyncDisposableStack()
+	resources.defer(async () => {
+		await ARTIFACTS.delete(slate.id)
+	})
+	const repo = await ARTIFACTS.get(slate.id)
+	const { remote } = await repo.info()
+	const token = await repo.createToken("write")
+	await mkdir(join(directory, "agents/brief/schedules"), { recursive: true })
+	await mkdir(join(directory, "public"))
+	await writeFile(
+		join(directory, "public/slate.json"),
+		JSON.stringify({ connections: {} }),
+	)
+	await writeFile(
+		join(directory, "agents/brief/slate.json"),
+		JSON.stringify({
+			connections: {},
+			secrets: { ANTHROPIC_API_KEY: { mode: "owner" } },
+		}),
+	)
+	await writeFile(
+		join(directory, "agents/brief/instructions.md"),
+		"You are a concise assistant. Prefix answers with PI_CRON_STORY2.\n",
+	)
+	const firing = new Date(Math.ceil(Date.now() / 60_000) * 60_000 + 60_000)
+	const cron = `${firing.getUTCMinutes()} ${firing.getUTCHours()} ${firing.getUTCDate()} ${firing.getUTCMonth() + 1} *`
+	await writeFile(
+		join(directory, "agents/brief/schedules/greeting.md"),
+		`---\ncron: "${cron}"\n---\nWhat is 7 multiplied by 13? Give a short scheduled greeting.\n`,
+	)
+	const gitEnv = {
+		...process.env,
+		GIT_CONFIG_COUNT: "1",
+		GIT_CONFIG_GLOBAL: join(directory, "gitconfig"),
+		GIT_CONFIG_KEY_0: "http.extraHeader",
+		GIT_CONFIG_VALUE_0: `Authorization: Bearer ${token.plaintext}`,
+		GIT_TERMINAL_PROMPT: "0",
+	}
+	const git = (...args: string[]) =>
+		execFile("git", args, { cwd: directory, env: gitEnv })
+	await git("init", "-b", "main")
+	await git("config", "user.name", "Pi Cron Acceptance")
+	await git("config", "user.email", "pi-cron-test@example.com")
+	await git("add", "agents", "public")
+	await git(
+		"-c",
+		"commit.gpgsign=false",
+		"commit",
+		"-m",
+		"Author scheduled Pi acceptance agent",
+	)
+	await git("push", remote, "main")
+	const url = `${origin}/api/slates/${slate.id}/agents/brief/jobs`
+	const catalogSchema = z.object({ jobs: z.array(agentJobEntrySchema.strict()) }).strict()
+	const before = await fetch(url, { headers })
+	expect(before.status).toBe(200)
+	expect(catalogSchema.parse(await before.json()).jobs).toEqual([])
+	const { PROVISIONING } = await provisioning.worker.getEnv()
+	await PROVISIONING.provision(slate.id)
+	const scheduleUrl = `${origin}/api/slates/${slate.id}/agents/brief/schedules`
+	const scheduled = await fetch(scheduleUrl, { headers })
+	expect(scheduled.status).toBe(200)
+	const schedules = z.array(agentRuntimeScheduleSchema).parse(await scheduled.json())
+	expect(schedules).toHaveLength(1)
+	const schedule = schedules[0]
+	if (!schedule) throw new Error("Expected the authored native cron schedule")
+	expect(schedule).toMatchObject({
+		callback: "runScheduled",
+		cron,
+		payload: {
+			actor: { type: "app" },
+			name: "brief",
+			prompt: expect.stringContaining(
+				"What is 7 multiplied by 13? Give a short scheduled greeting.",
+			),
+			schedule: "greeting",
+			slateId: slate.id,
+		},
+		type: "cron",
+	})
+	const scheduleDetail = await fetch(`${scheduleUrl}/${schedule.id}`, { headers })
+	expect(scheduleDetail.status).toBe(200)
+	expect(agentRuntimeScheduleSchema.parse(await scheduleDetail.json())).toEqual(schedule)
+	console.info("Authored cron provisioned", {
+		cron,
+		firing: firing.toISOString(),
+		slateId: slate.id,
+	})
+	let entry: AgentJobEntry | undefined
+	await expect
+		.poll(
+			async () => {
+				const response = await fetch(url, { headers })
+				expect(response.status).toBe(200)
+				entry = catalogSchema.parse(await response.json()).jobs[0]
+				return entry !== undefined
+			},
+			{ interval: 1000, timeout: 180_000 },
+		)
+		.toBe(true)
+	if (!entry) throw new Error("Expected a cron-created job catalog entry")
+	const jobId = entry.id
+	expect(entry.metadata).toEqual({
+		actor: { type: "app" },
+		trigger: { schedule: "greeting", scheduleId: schedule.id, type: "schedule" },
+	})
+	const detail = await fetch(`${url}/${jobId}`, { headers })
+	expect(detail.status).toBe(200)
+	expect(agentJobEntrySchema.strict().parse(await detail.json())).toEqual(entry)
+	const matching = await fetch(`${url}?schedule=greeting`, { headers })
+	expect(matching.status).toBe(200)
+	expect(catalogSchema.parse(await matching.json()).jobs).toEqual([entry])
+	const other = await fetch(`${url}?schedule=other`, { headers })
+	expect(other.status).toBe(200)
+	expect(catalogSchema.parse(await other.json()).jobs).toEqual([])
+	const completed = await fetch(`${url}/${jobId}/result`, { headers })
+	expect(completed.status).toBe(200)
+	const result = agentJobResultSchema.strict().parse(await completed.json())
+	console.info("Real scheduled Pi result", result)
+	expect(result.operationId).toBe(jobId)
+	expect(result.status, result.reason).toBe("done")
+	expect(result.text?.length).toBeGreaterThan(0)
+	const listed = await fetch(url, { headers })
+	expect(listed.status).toBe(200)
+	expect(catalogSchema.parse(await listed.json()).jobs).toContainEqual(entry)
+	const deleted = await fetch(`${url}/${jobId}`, { headers, method: "DELETE" })
+	expect(deleted.status).toBe(204)
+	const missing = await fetch(`${url}/${jobId}`, { headers })
+	expect(missing.status).toBe(404)
+	const empty = await fetch(`${url}?schedule=greeting`, { headers })
+	expect(empty.status).toBe(200)
+	expect(catalogSchema.parse(await empty.json()).jobs).toEqual([])
+	const retainedSchedule = await fetch(`${scheduleUrl}/${schedule.id}`, { headers })
+	expect(retainedSchedule.status).toBe(200)
+	expect(agentRuntimeScheduleSchema.parse(await retainedSchedule.json())).toMatchObject({
+		id: schedule.id,
+		payload: schedule.payload,
+	})
+}, 300_000)

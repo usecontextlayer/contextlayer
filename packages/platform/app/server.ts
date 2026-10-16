@@ -22,6 +22,7 @@ import { parsePlatformEnv } from "@/env"
 import { createGitApp } from "@/git.server"
 
 export { SlateDatabase } from "@usecontextlayer/shared/database-worker"
+export { SlateAgentJob } from "@/agent-job"
 export { SlateAgent } from "@/agent-runtime"
 export { Execution } from "@/execution.server"
 export { Provisioning } from "@/provisioning.server"

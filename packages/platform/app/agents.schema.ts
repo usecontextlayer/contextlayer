@@ -2,6 +2,9 @@ import { z } from "@hono/zod-openapi"
 import { secretNameSchema } from "@usecontextlayer/shared/declaration"
 import { slateResourceConfigurationSchema } from "@usecontextlayer/shared/slate-resources"
 import { ownerSchema } from "@usecontextlayer/shared/slate-usage"
+import type { Schedule } from "agents"
+import type { PiOperationResult, PiPendingOperation, PiReceipt } from "agents/harness/pi"
+import type { RoutedAgentEntry } from "agents/routing"
 import { userSchema } from "@/auth.server"
 import { slateSchema, slateTargetSchema } from "@/slates.schema"
 
@@ -20,49 +23,60 @@ export const agentParamsSchema = z.object({
 	target: slateTargetSchema,
 })
 export const agentJobRequestSchema = agentRunRequestSchema.omit({ name: true })
-export const agentJobSummarySchema = z.object({
-	completed_at: z
-		.number()
-		.describe("Think completion time, in Unix milliseconds")
-		.optional(),
-	created_at: z.number().describe("Think submission creation time, in Unix milliseconds"),
-	error: z.string().optional(),
-	id: z.uuid(),
-	instance_name: z.string().min(1),
-	source: z.enum(["api", "schedule"]),
-	started_at: z
-		.number()
-		.describe("Think turn start time, in Unix milliseconds")
-		.optional(),
-	status: z.enum(["pending", "running", "completed", "aborted", "skipped", "error"]),
-})
-export const agentJobSchema = agentJobSummarySchema.extend({
-	message: z
-		.object({
-			id: z.string(),
-			metadata: z.unknown().optional(),
-			parts: z
-				.array(z.looseObject({ type: z.string() }))
-				.describe("AI SDK message parts in their original order"),
-			role: z.string(),
-		})
-		.nullable()
-		.describe(
-			"Assistant message as saved by Think. Null until Think persists a message.",
-		),
-})
-export const agentJobParamsSchema = agentParamsSchema.extend({
-	id: agentJobSchema.shape.id,
-})
-
-export const agentJobQuerySchema = z.object({
-	instance_name: agentJobSchema.shape.instance_name,
-})
-
+export const agentJobReceiptSchema = z.object({
+	accepted: z.boolean(),
+	operationId: z.uuid(),
+	session: z.string(),
+}) satisfies z.ZodType<PiReceipt>
+export const agentJobPendingSchema = z.object({
+	operationId: z.uuid(),
+	session: z.string(),
+	status: z.enum(["queued", "running"]),
+}) satisfies z.ZodType<PiPendingOperation>
+export const agentJobResultSchema = z.object({
+	operationId: z.uuid(),
+	reason: z.string().optional(),
+	session: z.string(),
+	status: z.enum(["done", "unanswered"]),
+	text: z.string().optional(),
+}) satisfies z.ZodType<PiOperationResult>
+export const agentJobOperationSchema = z.union([
+	agentJobPendingSchema,
+	agentJobResultSchema,
+])
 export const agentActorSchema = z.discriminatedUnion("type", [
 	z.object({ type: z.literal("app") }),
 	z.object({ id: userSchema.shape.id, type: z.literal("user") }),
 ])
+
+export const agentJobTriggerSchema = z.discriminatedUnion("type", [
+	z.object({ type: z.literal("api") }),
+	z.object({ schedule: z.string(), scheduleId: z.string(), type: z.literal("schedule") }),
+])
+export const agentJobMetadataSchema = z.object({
+	actor: agentActorSchema,
+	trigger: agentJobTriggerSchema,
+})
+export type AgentJobMetadata = z.infer<typeof agentJobMetadataSchema>
+export type AgentJobTrigger = z.infer<typeof agentJobTriggerSchema>
+
+export const agentJobEntrySchema = z.object({
+	createdAt: z.number(),
+	id: z.uuid(),
+	metadata: agentJobMetadataSchema.nullable(),
+	updatedAt: z.number(),
+}) satisfies z.ZodType<RoutedAgentEntry<AgentJobMetadata>>
+export const agentJobCreationSchema = z.object({
+	job: agentJobEntrySchema,
+	receipt: agentJobReceiptSchema,
+})
+export const agentJobsQuerySchema = z.object({ schedule: z.string().min(1).optional() })
+export const agentScheduleParamsSchema = agentParamsSchema.extend({
+	scheduleId: z.string().min(1),
+})
+export const agentJobParamsSchema = agentParamsSchema.extend({
+	id: agentJobEntrySchema.shape.id,
+})
 
 export const agentScheduleSchema = z.object({
 	cron: z
@@ -80,6 +94,24 @@ export const scheduledAgentRunSchema = agentRunRequestSchema.extend({
 	schedule: agentScheduleSchema.shape.name,
 	slateId: slateSchema.shape.id,
 })
+
+export const agentRuntimeScheduleSchema = z.object({
+	callback: z.string(),
+	cron: z.string(),
+	id: z.string(),
+	payload: scheduledAgentRunSchema,
+	retry: z
+		.object({
+			baseDelayMs: z.number().optional(),
+			maxAttempts: z.number().optional(),
+			maxDelayMs: z.number().optional(),
+		})
+		.optional(),
+	time: z.number(),
+	type: z.literal("cron"),
+}) satisfies z.ZodType<
+	Extract<Schedule<z.infer<typeof scheduledAgentRunSchema>>, { type: "cron" }>
+>
 
 export const agentRunSchema = z.strictObject({
 	actor: agentActorSchema,
@@ -106,8 +138,8 @@ export const agentRunSchema = z.strictObject({
 
 export type AgentRunRequest = z.infer<typeof agentRunRequestSchema>
 export type AgentRun = z.infer<typeof agentRunSchema>
-export type AgentJob = z.infer<typeof agentJobSchema>
-export type AgentJobSummary = z.infer<typeof agentJobSummarySchema>
+export type AgentJobOperation = z.infer<typeof agentJobOperationSchema>
+export type AgentJobEntry = z.infer<typeof agentJobEntrySchema>
 export type AgentActor = z.infer<typeof agentActorSchema>
 export type AgentSchedule = z.infer<typeof agentScheduleSchema>
 export type ScheduledAgentRun = z.infer<typeof scheduledAgentRunSchema>
