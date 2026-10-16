@@ -95,26 +95,39 @@ test("hosted execution is a native capability rather than a public HTTP operatio
 	}
 })
 
-test("native session mutations require the same origin while CLI tokens can update directly", async ({
+test("native forms enforce CSRF while sessions and CLI tokens can update JSON directly", async ({
 	slate,
 	identity,
 	platform: { origin },
 	webSession,
 }) => {
 	const update = `${origin}/api/slates/${slate.id}`
+	const chrome = new URL(`/dashboard/chrome/slates/${slate.id}`, origin)
+	chrome.searchParams.set("parentOrigin", `https://${slate.public_hostname}`)
 	const nativeHeaders = new Headers(webSession.headers)
 	nativeHeaders.delete("origin")
-	nativeHeaders.set("content-type", "application/json")
+	const form = new URLSearchParams({
+		connection_id: "ca_example",
+		intent: "assign",
+		slug: "mail",
+	})
 	expect(
 		(
-			await fetch(update, {
-				body: JSON.stringify({ visibility: "private" }),
+			await fetch(chrome, {
+				body: form,
 				headers: nativeHeaders,
-				method: "PATCH",
+				method: "POST",
 			})
 		).status,
 	).toBe(403)
 	nativeHeaders.set("origin", origin)
+	const unpushed = await fetch(chrome, {
+		body: form,
+		headers: nativeHeaders,
+		method: "POST",
+	})
+	expect(unpushed.status).toBe(409)
+	nativeHeaders.delete("origin")
 	for (const headers of [nativeHeaders, identity.headers]) {
 		const response = await fetch(update, {
 			body: JSON.stringify({ visibility: "private" }),
