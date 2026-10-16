@@ -14,9 +14,12 @@ export function parseEnv(bindings: Bindings) {
 export function parseRecorderEnv() {
 	return z
 		.object({
-			DV_TOKEN_FILE: z
+			CTX_DATAVERSE_TOKEN_FILE: z
 				.string()
-				.min(1, "DV_TOKEN_FILE is required (path to a file holding the token)"),
+				.min(
+					1,
+					"CTX_DATAVERSE_TOKEN_FILE is required (path to a file holding the token)",
+				),
 		})
 		.parse(process.env)
 }

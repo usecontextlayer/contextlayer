@@ -12,7 +12,7 @@
 //
 // Run it as:
 //
-//   DV_TOKEN_FILE=/path/to/token npx tsx lib/cassette/record.ts
+//   CTX_DATAVERSE_TOKEN_FILE=/path/to/token npx tsx lib/cassette/record.ts
 //
 // The token identifies the caller; the guard independently decides which records that
 // caller may name.
@@ -82,7 +82,7 @@ import {
 	type StagedWrite,
 } from "@/lib/schedule-api"
 
-const TOKEN_FILE = parseRecorderEnv().DV_TOKEN_FILE
+const TOKEN_FILE = parseRecorderEnv().CTX_DATAVERSE_TOKEN_FILE
 // Kept outside this live recorder so the guard can be tested without importing code
 // that contacts the customer organisation.
 const boardGuard = createBoardGuard()
