@@ -148,7 +148,7 @@ export function createScheduleApiClient(config: {
 	accessToken: string
 }): ScheduleApiClient {
 	// The one hop against the org: the auth header and the loud non-2xx throw.
-	// Private — callers reach it through `action` or `read`, which is what keeps
+	// Private — callers reach it through the action and read helpers, which keeps
 	// "an action with no body" and "a read with one" from being expressible.
 	async function hop(
 		path: string,
@@ -266,6 +266,8 @@ export function createScheduleApiClient(config: {
 			return readRecords(`${path}?${query}`)
 		},
 		retrieveRecordsNextLink: (nextLink) => {
+			// A supplied continuation must not send the delegated credential outside this
+			// connection's Planner roots, even when it claims to be a Microsoft next link.
 			const url = new URL(nextLink)
 			const path = url.pathname.match(
 				/^\/api\/data\/v9\.2\/([^/(]+)(?:\(([^)]+)\)(?:\/[A-Za-z_][A-Za-z0-9_]*)*)?$/,

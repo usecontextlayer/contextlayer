@@ -403,8 +403,6 @@ describe("native record retrieval", () => {
 			const pages = readRecording.interactions.filter(
 				(interaction) => interaction.chain === chain,
 			)
-			// The recorder requested maxpagesize=1 to observe real continuation without
-			// adding a page-size input to the production tool.
 			const query = new URL(
 				pages[0]?.request.path ?? "",
 				`${readAudience}/api/data/v9.2/`,

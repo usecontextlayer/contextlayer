@@ -119,16 +119,17 @@ export type Interaction = z.output<typeof interactionSchema>
 /**
  * The routing key, within a chain. For a GET the path IS the identity — it carries
  * the record id and the `$select`, and two different `$select`s are two different
- * questions. For an action the path is only the verb, so the OperationSetId in the
- * body does the work. A create names no OperationSetId — it mints one — and
- * deliberately nothing else from its body is keyed: the chain a test replays
+ * questions. Initial query option order is immaterial, but continuations must match
+ * byte-for-byte: canonicalizing them would hide a change to Microsoft's encoded
+ * paging token in the client under test. For an action the path is only the verb,
+ * so the OperationSetId in the body does the work. A create names no OperationSetId
+ * — it mints one — and deliberately nothing else from its body is keyed: the chain a test replays
  * already chose which conversation this is, and a create's remaining fields
  * (`Description`, `ProjectId`) are the ones production can never reproduce
  * byte-for-byte.
  *
- * `auth` is part of the key because credentials can change the answer to an otherwise
- * identical request; omitting it would merge distinct questions into one response
- * sequence.
+ * Credentials and read preferences can change the answer to an otherwise identical
+ * request; omitting them would merge distinct questions into one response sequence.
  */
 export function keyOf(request: Interaction["request"]): string {
 	const url = new URL(request.path, "https://recording.invalid/")

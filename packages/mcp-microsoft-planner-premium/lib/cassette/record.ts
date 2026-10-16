@@ -22,8 +22,8 @@
 // key order, and `format.verify` rejects the raw output.
 //
 // Recording contract:
-//   - Every fixture is produced by this script. NEVER hand-edit a fixture; change
-//     the script and re-run.
+//   - Only this script produces schedule-api.json. NEVER hand-edit it; change the
+//     script and re-run.
 //   - Normalization happens as each response is recorded, so an unnormalized value
 //     never reaches disk. One thing is DROPPED rather than normalized —
 //     `@odata.etag` — because we model no concurrency mechanism and a recorded row
@@ -1892,11 +1892,8 @@ async function main(): Promise<void> {
 		})
 	})
 
-	// UNREACHABLE THROUGH THE TOOLS, both of them: a caller never supplies an id for a
-	// create — it names the record with a `ref` and `server.ts` mints the id — so
-	// neither a duplicate nor a collision with an existing record can be expressed.
-	// Driven anyway because both are what a RETRY looks like from the service's side,
-	// and nothing in this package yet says what a retried submission does.
+	// Caller-supplied create IDs let a retried submission collide with an existing
+	// record. These probes study repeated IDs without promising automatic retries.
 	const twiceTask = mint("twiceTaskId")
 	await probe("the same record id twice in one set", async (client) => {
 		await submitAndWait(client, "ContextLayer: probe a duplicated id", [
@@ -1945,8 +1942,8 @@ async function main(): Promise<void> {
 		])
 	})
 
-	// ---- proven but unmodelled tables ----------------------------------------
-	// Probe these tables before the tools advertise them; metadata alone is
+	// ---- writes on unmodelled tables ----------------------------------------
+	// Probe these tables before the tools advertise writes to them; metadata alone is
 	// insufficient. The case-sensitive navigation properties intentionally match the
 	// organisation metadata even though their casing is inconsistent.
 

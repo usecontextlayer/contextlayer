@@ -52,7 +52,6 @@ const cassettes = ["schedule-api.json", "records.json"].map((name) =>
 	),
 )
 
-/** Bind normalized read identifiers and URLs to a valid, local replay environment. */
 export function materializeRecording<T>(value: T, org: string): T {
 	return JSON.parse(
 		JSON.stringify(value)
