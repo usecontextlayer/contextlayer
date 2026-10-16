@@ -1,72 +1,206 @@
+import assert from "node:assert/strict"
+import { Composio } from "@composio/core"
 import { createModels } from "@earendil-works/pi-ai/models"
 import { anthropicProvider } from "@earendil-works/pi-ai/providers/anthropic"
+import { createInlineCodemodeSandbox } from "@earendil-works/pi-codemode/cloudflare"
 import { createRegistry, Harness } from "@earendil-works/pi-durable"
-import { ownerSchema } from "@usecontextlayer/shared/slate-usage"
+import { createCodemodeExtension } from "@earendil-works/pi-durable/codemode"
+import { createBashTool } from "@earendil-works/pi-durable/tools"
+import { type Connection, RemoteExecutionEnv } from "@earendil-works/pi-env/remote"
 import { Agent } from "agents"
-import { PiHarness } from "agents/harness/pi"
+import { PiHarness, type PiHarnessContext, type PiReceipt } from "agents/harness/pi"
+import {
+	COMPUTER_INACTIVITY_TIMEOUT_MS,
+	createContainerConnection,
+} from "@/agent-computer"
+import { createAgentTools } from "@/agent-tools"
 import { type AgentRun, agentRunSchema } from "@/agents.schema"
+import { createConnectionSession } from "@/connections.server"
 import type { PlatformEnv } from "@/context"
 import { loadSharedSecret } from "@/secrets.server"
 
 export class SlateAgentJob extends Agent<
 	PlatformEnv["Bindings"],
-	{ run: AgentRun | null }
+	{
+		connectionSessions: Record<string, string>
+		run: AgentRun | null
+		receipt: PiReceipt | null
+	}
 > {
-	initialState = { run: null }
+	initialState = { connectionSessions: {}, receipt: null, run: null }
+	private piContext!: PiHarnessContext["context"]
+	private registry = createRegistry()
+	private sandbox = createInlineCodemodeSandbox({ interruptBudget: 50_000 })
+	private connection?: Connection
+	private closeConnection = () => {
+		this.connection?.close()
+		this.connection = undefined
+	}
 
 	private harness = new PiHarness({
 		defaults: { model: { id: "claude-haiku-4-5", provider: "anthropic" } },
-		harness: ({ storage, context }) => {
+		harness: async ({ storage, context }) => {
+			this.piContext = context
 			const models = createModels({
 				authContext: {
 					env: async (name) => {
 						if (name !== "ANTHROPIC_API_KEY") return undefined
-						const run = agentRunSchema.parse(this.state.run)
-						return loadSharedSecret(
-							this.env,
-							ownerSchema.parse(run.secrets.ANTHROPIC_API_KEY),
-							name,
-						)
+						const owner = this.run.secrets.ANTHROPIC_API_KEY
+						assert(owner)
+						return loadSharedSecret(this.env, owner, name)
 					},
 					fileExists: async () => false,
 				},
 			})
 			models.setProvider(anthropicProvider())
-			const registry = createRegistry()
-			registry.install({
+			this.registry.install({
 				name: "contextlayer",
 				sections: [
 					{
 						key: "slate_instructions",
-						render: () => agentRunSchema.parse(this.state.run).agent.instructions,
+						render: () => this.run.agent.instructions,
 					},
 				],
+				tools: [createBashTool()],
 			})
-			return Harness.open(storage, { models, registry }, context)
+			const composio = new Composio({ apiKey: this.env.COMPOSIO_API_KEY })
+			await this.installConnectionTools(
+				await Promise.all(
+					Object.entries(this.state.run?.connections ?? {}).map(
+						async ([name, { toolkit }]) => {
+							const sessionId = this.state.connectionSessions[name]
+							assert(sessionId)
+							return { name, session: await composio.use(sessionId), toolkit }
+						},
+					),
+				),
+			)
+			const pi = await Harness.open(
+				storage,
+				{
+					env: ({ cwd }) => {
+						if (!this.connection) {
+							assert(this.ctx.container)
+							this.connection = createContainerConnection(this.ctx.container)
+							void pi
+								.waitForIdle(context)
+								.then(this.closeConnection, this.closeConnection)
+						}
+						return new RemoteExecutionEnv({
+							connection: this.connection,
+							cwd: cwd ?? "/workspace",
+							id: this.ctx.id.toString(),
+						})
+					},
+					models,
+					registry: this.registry,
+				},
+				context,
+			)
+			return pi
 		},
 	})
 
 	constructor(ctx: DurableObjectState, env: PlatformEnv["Bindings"]) {
 		super(ctx, env)
+		const container = ctx.container
+		if (container?.running) {
+			void ctx.blockConcurrencyWhile(() =>
+				container.setInactivityTimeout(COMPUTER_INACTIVITY_TIMEOUT_MS),
+			)
+		}
+		this.lifecycle.use({
+			dispose: async () => {
+				this.closeConnection()
+				await ctx.container?.destroy()
+			},
+		})
+		this.lifecycle.use({ dispose: () => this.sandbox.close() })
 		this.lifecycle.use(this.harness)
 	}
 
-	async start(input: AgentRun, operationId: string) {
+	async start(input: AgentRun) {
 		const run = agentRunSchema.parse(input)
-		this.setState({ run })
-		return this.harness.submit(run.prompt, { operationId })
+		const connections: Parameters<typeof createAgentTools>[1] = []
+		for (const [name, connection] of Object.entries(run.connections)) {
+			const session = await createConnectionSession(
+				this.env.COMPOSIO_API_KEY,
+				connection.owner,
+				connection.connection_id,
+				connection.toolkit,
+				{
+					manageConnections: { enable: false },
+					sandbox: { enable: false },
+					sessionPreset: "direct_tools",
+				},
+			)
+			connections.push({ name, session, toolkit: connection.toolkit })
+		}
+		const connectionSessions = Object.fromEntries(
+			connections.map(({ name, session }) => [name, session.sessionId]),
+		)
+		this.setState({ connectionSessions, receipt: null, run })
+		await this.installConnectionTools(connections)
+		const receipt = await this.harness.submit(run.prompt)
+		this.setState({ connectionSessions, receipt, run })
+		return receipt
 	}
 
-	async inspect(operationId: string) {
-		const [pending] = await this.harness.pending()
-		return pending ?? this.harness.wait(operationId)
+	private async installConnectionTools(
+		connections: Parameters<typeof createAgentTools>[1],
+	) {
+		const { extension, namespaces } = await createAgentTools(
+			this.env.COMPOSIO_API_KEY,
+			connections,
+		)
+		this.registry.install(extension)
+		this.registry.install(createCodemodeExtension({ namespaces, sandbox: this.sandbox }))
 	}
 
-	async result(operationId: string) {
-		return this.harness.wait(operationId)
+	private get run() {
+		assert(this.state.run)
+		return this.state.run
 	}
 
-	async abort(operationId: string) {
-		return this.harness.abort({ operationId })
+	private get receipt() {
+		assert(this.state.receipt)
+		return this.state.receipt
+	}
+
+	async operation() {
+		const { operationId, session } = this.receipt
+		const pending = await this.harness.pending({ session })
+		return (
+			pending.find((operation) => operation.operationId === operationId) ??
+			this.harness.wait(operationId, { session })
+		)
+	}
+
+	async result() {
+		const { operationId, session } = this.receipt
+		return this.harness.wait(operationId, { session })
+	}
+
+	async abort() {
+		const { operationId, session } = this.receipt
+		return this.harness.abort({ operationId, session })
+	}
+
+	async listSessions() {
+		return this.harness.sessions.list()
+	}
+
+	async messages(session: string): Promise<unknown> {
+		const sessions = await this.harness.sessions.list()
+		if (!sessions.some(({ id }) => id === session)) return null
+		return this.harness.session(session).messages()
+	}
+
+	async usage() {
+		return (await this.harness.pi()).usage(this.piContext)
+	}
+
+	async inspection(): Promise<unknown> {
+		return (await this.harness.pi()).inspect(this.piContext)
 	}
 }

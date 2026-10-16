@@ -15,6 +15,13 @@
 	},
 	"compatibility_date": "2026-10-02",
 	"compatibility_flags": ["nodejs_compat"],
+	"containers": [
+		{
+			"class_name": "SlateAgentJob",
+			"images": { "workspace": { "dockerfile": "./Dockerfile" } },
+			"scheduling_policy": "durable_object"
+		}
+	],
 	"dev": {
 		"ip": "127.0.0.1",
 		"port": 3010
@@ -49,6 +56,13 @@
 					"binding": "ARTIFACTS",
 					"namespace": "contextlayer-test",
 					"remote": true
+				}
+			],
+			"containers": [
+				{
+					"class_name": "SlateAgentJob",
+					"images": { "workspace": { "dockerfile": "./Dockerfile" } },
+					"scheduling_policy": "durable_object"
 				}
 			],
 			"dispatch_namespaces": [

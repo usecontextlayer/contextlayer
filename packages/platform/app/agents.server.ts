@@ -8,10 +8,8 @@ import {
 	type AgentJobTrigger,
 	type AgentRun,
 	type AgentRunRequest,
-	agentJobCreationSchema,
-	agentJobEntrySchema,
-	agentJobOperationSchema,
-	agentJobResultSchema,
+	agentJobInspectionSchema,
+	agentJobMessageSchema,
 	agentRuntimeScheduleSchema,
 	type agentSchema,
 } from "@/agents.schema"
@@ -95,12 +93,6 @@ export function prepareAgentRun(
 		actor,
 		agent: { commit: agent.commit, instructions: agent.instructions, name },
 		connections,
-		databases: Object.fromEntries(
-			Object.entries(configuration.databases).map(([slug, database]) => [
-				slug,
-				{ instance_name: database.instance_name, owner: database.owner },
-			]),
-		),
 		prompt,
 		secrets: Object.fromEntries(
 			Object.entries(configuration.secrets).map(([secretName, requirement]) => [
@@ -160,7 +152,7 @@ export async function startAgentRun(
 		agents,
 		getAgentInstanceName(run.slateId, run.agent.name, run.actor),
 	)
-	return agentJobCreationSchema.parse(await agent.start(run, trigger))
+	return agent.start(run, trigger)
 }
 
 function getAgentScopes(
@@ -184,7 +176,7 @@ export async function getAgentJob(
 ) {
 	for (const agent of await getAgentScopes(agents, access, name)) {
 		const job = await agent.getJob(id)
-		if (job) return agentJobEntrySchema.parse(job)
+		if (job) return job
 	}
 	return null
 }
@@ -196,8 +188,8 @@ export async function getAgentJobOperation(
 	id: string,
 ) {
 	for (const agent of await getAgentScopes(agents, access, name)) {
-		const operation = await agent.inspect(id)
-		if (operation) return agentJobOperationSchema.parse(operation)
+		const operation = await agent.getJobOperation(id)
+		if (operation) return operation
 	}
 	return null
 }
@@ -210,7 +202,7 @@ export async function getAgentJobResult(
 ) {
 	for (const agent of await getAgentScopes(agents, access, name)) {
 		const result = await agent.result(id)
-		if (result) return agentJobResultSchema.parse(result)
+		if (result) return result
 	}
 	return null
 }
@@ -222,11 +214,7 @@ export async function listAgentJobs(
 	schedule?: string,
 ) {
 	const scopes = await getAgentScopes(agents, access, name)
-	const jobs = await Promise.all(
-		scopes.map(async (agent) =>
-			z.array(agentJobEntrySchema).parse(await agent.listJobs()),
-		),
-	)
+	const jobs = await Promise.all(scopes.map((agent) => agent.listJobs()))
 	return jobs
 		.flat()
 		.filter(
@@ -236,6 +224,79 @@ export async function listAgentJobs(
 					job.metadata.trigger.schedule === schedule),
 		)
 		.sort((a, b) => b.createdAt - a.createdAt || b.id.localeCompare(a.id))
+}
+
+export async function listAgentJobSessions(
+	agents: DurableObjectNamespace<SlateAgent>,
+	access: OwnerSlateAccess,
+	issuer: string,
+	name: string,
+	id: string,
+) {
+	const authorization = await authorizeAgentManagement(access, issuer)
+	if (!authorization.allowed) return authorization
+	for (const agent of await getAgentScopes(agents, access, name)) {
+		const sessions = await agent.listJobSessions(id)
+		if (sessions !== null) return { allowed: true, sessions } as const
+	}
+	return { allowed: false, reason: "not-found" } as const
+}
+
+export async function getAgentJobMessages(
+	agents: DurableObjectNamespace<SlateAgent>,
+	access: OwnerSlateAccess,
+	issuer: string,
+	name: string,
+	id: string,
+	session: string,
+) {
+	const authorization = await authorizeAgentManagement(access, issuer)
+	if (!authorization.allowed) return authorization
+	for (const agent of await getAgentScopes(agents, access, name)) {
+		const messages = await agent.getJobMessages(id, session)
+		if (messages !== null)
+			return {
+				allowed: true,
+				messages: z.array(agentJobMessageSchema).parse(messages),
+			} as const
+	}
+	return { allowed: false, reason: "not-found" } as const
+}
+
+export async function getAgentJobUsage(
+	agents: DurableObjectNamespace<SlateAgent>,
+	access: OwnerSlateAccess,
+	issuer: string,
+	name: string,
+	id: string,
+) {
+	const authorization = await authorizeAgentManagement(access, issuer)
+	if (!authorization.allowed) return authorization
+	for (const agent of await getAgentScopes(agents, access, name)) {
+		const usage = await agent.getJobUsage(id)
+		if (usage !== null) return { allowed: true, usage } as const
+	}
+	return { allowed: false, reason: "not-found" } as const
+}
+
+export async function getAgentJobInspection(
+	agents: DurableObjectNamespace<SlateAgent>,
+	access: OwnerSlateAccess,
+	issuer: string,
+	name: string,
+	id: string,
+) {
+	const authorization = await authorizeAgentManagement(access, issuer)
+	if (!authorization.allowed) return authorization
+	for (const agent of await getAgentScopes(agents, access, name)) {
+		const inspection = await agent.getJobInspection(id)
+		if (inspection !== null)
+			return {
+				allowed: true,
+				inspection: agentJobInspectionSchema.parse(inspection),
+			} as const
+	}
+	return { allowed: false, reason: "not-found" } as const
 }
 
 export async function abortAgentJob(

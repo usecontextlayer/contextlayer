@@ -191,12 +191,6 @@ test("configuration includes agent-only connections and projects app requirement
 				toolkit: "github",
 			},
 		},
-		databases: {
-			reports: {
-				instance_name: configuration.databases.reports?.instance_name,
-				owner: { id: "alice", type: "personal" },
-			},
-		},
 		prompt: "Summarize the repository.",
 		secrets: { MODEL_API_KEY: { id: "alice", type: "personal" } },
 		slateId: slate.id,

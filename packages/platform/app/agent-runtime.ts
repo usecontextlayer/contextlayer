@@ -30,10 +30,12 @@ export class SlateAgent extends Agent<PlatformEnv["Bindings"]> {
 	}
 
 	async start(run: AgentRun, trigger: AgentJobTrigger) {
-		const entry = await this.jobs.create({ metadata: { actor: run.actor, trigger } })
-		const job = await this.jobs.get(entry.id)
-		assert(job)
-		return { job: entry, receipt: await job.start(run, entry.id) }
+		return this.ctx.blockConcurrencyWhile(async () => {
+			const entry = await this.jobs.create({ metadata: { actor: run.actor, trigger } })
+			const job = await this.jobs.get(entry.id)
+			assert(job)
+			return { job: entry, receipt: await job.start(run) }
+		})
 	}
 
 	async listJobs() {
@@ -44,19 +46,39 @@ export class SlateAgent extends Agent<PlatformEnv["Bindings"]> {
 		return (await this.jobs.list()).find((job) => job.id === id) ?? null
 	}
 
-	async inspect(id: string) {
+	async getJobOperation(id: string) {
 		const job = await this.jobs.get(id)
-		return job ? job.inspect(id) : null
+		return job ? job.operation() : null
 	}
 
 	async result(id: string) {
 		const job = await this.jobs.get(id)
-		return job ? job.result(id) : null
+		return job ? job.result() : null
 	}
 
 	async abortJob(id: string) {
 		const job = await this.jobs.get(id)
-		return job ? job.abort(id) : null
+		return job ? job.abort() : null
+	}
+
+	async listJobSessions(id: string) {
+		const job = await this.jobs.get(id)
+		return job ? job.listSessions() : null
+	}
+
+	async getJobMessages(id: string, session: string) {
+		const job = await this.jobs.get(id)
+		return job ? job.messages(session) : null
+	}
+
+	async getJobUsage(id: string) {
+		const job = await this.jobs.get(id)
+		return job ? job.usage() : null
+	}
+
+	async getJobInspection(id: string) {
+		const job = await this.jobs.get(id)
+		return job ? job.inspection() : null
 	}
 
 	async deleteJob(id: string) {

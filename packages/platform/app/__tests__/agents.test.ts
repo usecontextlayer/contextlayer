@@ -94,16 +94,6 @@ test.each([
 			name: "brief",
 		},
 		connections: {},
-		databases: {
-			inbox: {
-				instance_name: configuration.databases.inbox?.instance_name,
-				owner: { id: "bob", type: "personal" },
-			},
-			reports: {
-				instance_name: configuration.databases.reports?.instance_name,
-				owner,
-			},
-		},
 		prompt: "Research Acme.",
 		secrets: {
 			CLAUDE_CODE_OAUTH_TOKEN: owner,
@@ -145,7 +135,6 @@ test.each([
 		{ name: "brief", prompt: "Scheduled research." },
 	)
 	expect(unattended.actor).toEqual({ type: "app" })
-	expect(unattended.databases).toEqual({ reports: run.databases.reports })
 	expect(unattended.secrets).toEqual({ ANTHROPIC_API_KEY: owner })
 	expect(unattended.prompt).toBe("Scheduled research.")
 	expect(agentRunSchema.parse(JSON.parse(JSON.stringify(unattended)))).toEqual(unattended)

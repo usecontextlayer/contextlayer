@@ -2,6 +2,7 @@ import { execFile as execFileCallback } from "node:child_process"
 import { cp, mkdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { promisify } from "node:util"
+import { ToolResultEntry, UserEntry } from "@earendil-works/pi-durable"
 import { provisioningTest as test } from "@tests/integration"
 import { connectionsSchema } from "@usecontextlayer/shared/connections"
 import { slateResourcesSchema } from "@usecontextlayer/shared/slate-resources"
@@ -14,8 +15,10 @@ import {
 	type AgentJobOperation,
 	agentJobCreationSchema,
 	agentJobEntrySchema,
+	agentJobMessageSchema,
 	agentJobOperationSchema,
 	agentJobResultSchema,
+	agentJobSessionSchema,
 	agentRuntimeScheduleSchema,
 	scheduledAgentRunSchema,
 } from "@/agents.schema"
@@ -260,12 +263,14 @@ test("members' deployed cron jobs use viewer resources and retain results after 
 		}),
 	)
 	expect(submitted.status).toBe(202)
-	const { receipt } = agentJobCreationSchema.parse(await submitted.json())
-	const completedApi = await waitForResult(apiUrl, receipt.operationId)
+	const { job: apiJob, receipt } = agentJobCreationSchema.parse(await submitted.json())
+	const completedApi = await waitForResult(apiUrl, apiJob.id)
+	expect(completedApi.operationId).toBe(receipt.operationId)
+	expect(receipt.operationId).not.toBe(apiJob.id)
 	const listedApi = await fetch(apiUrl, { headers })
 	const apiEntry = jobs
 		.parse(await listedApi.json())
-		.jobs.find((job) => job.id === receipt.operationId)
+		.jobs.find((job) => job.id === apiJob.id)
 	if (!apiEntry) throw new Error("Expected the API job catalog entry")
 	saved.push({ job: apiEntry, result: completedApi, url: apiUrl })
 	await platform.harness.update((current) => current)
@@ -283,7 +288,7 @@ test("members' deployed cron jobs use viewer resources and retain results after 
 	const listed = await fetch(apiUrl, { headers })
 	expect(listed.status).toBe(200)
 	expect(jobs.parse(await listed.json()).jobs.map((job) => job.id)).toEqual([
-		completedApi.operationId,
+		apiJob.id,
 		saved[0]?.job.id,
 	])
 	for (const { slate, databases } of checkouts) {
@@ -307,7 +312,7 @@ test("members' deployed cron jobs use viewer resources and retain results after 
 	)
 }, 480_000)
 
-test("authored cron starts a fresh Pi job visible through the API", async ({
+test("authored cron starts a fresh Pi job with a Linux computer visible through the API", async ({
 	directory,
 	platform,
 	provisioning,
@@ -317,6 +322,13 @@ test("authored cron starts a fresh Pi job visible through the API", async ({
 	const headers = new Headers(webSession.headers)
 	headers.set("origin", origin)
 	headers.set("content-type", "application/json")
+	const accountsResponse = await fetch(`${origin}/api/connections?toolkit=gmail`, {
+		headers,
+	})
+	expect(accountsResponse.status).toBe(200)
+	const account = connectionsSchema.parse(await accountsResponse.json()).connections[0]
+	if (!account) throw new Error("Connect Gmail to the local development user")
+	const profileEmail = z.email().parse(account.display_name)
 	const created = await fetch(`${origin}/api/slates`, {
 		body: JSON.stringify({}),
 		headers,
@@ -341,19 +353,23 @@ test("authored cron starts a fresh Pi job visible through the API", async ({
 	await writeFile(
 		join(directory, "agents/brief/slate.json"),
 		JSON.stringify({
-			connections: {},
+			connections: { mail: { mode: "owner", toolkit: "gmail" } },
 			secrets: { ANTHROPIC_API_KEY: { mode: "owner" } },
 		}),
 	)
 	await writeFile(
 		join(directory, "agents/brief/instructions.md"),
-		"You are a concise assistant. Prefix answers with PI_CRON_STORY2.\n",
+		"You are a concise assistant. Prefix answers with PI_CRON_STORY2. For connected apps use only GMAIL_GET_PROFILE; never read messages or modify account data. Do not include email addresses in the final answer.\n",
 	)
 	const firing = new Date(Math.ceil(Date.now() / 60_000) * 60_000 + 60_000)
 	const cron = `${firing.getUTCMinutes()} ${firing.getUTCHours()} ${firing.getUTCDate()} ${firing.getUTCMonth() + 1} *`
+	const markerPath = "/tmp/contextlayer-story7-job.txt"
+	const marker = `PI_CRON_FILE_${slate.id}`
+	const createCommand = `test ! -e '${markerPath}' && uname -s && node -e "require('node:fs').writeFileSync('${markerPath}', '${marker}'); console.log('CREATED')"`
+	const prompt = `First call bash directly with this exact shell command: ${JSON.stringify(createCommand)}. It must verify the file is absent, create it, and return Linux and CREATED. Wait for that tool result. Use Code Mode discovery to read the Bash and mail namespace Gmail profile action declarations as needed. Then in one Code Mode script, await tools.bash with the exact command cat ${markerPath}. Check the native result's exitCode and truncated fields and uppercase its trimmed output in JavaScript, not in Bash. Also call tools.mail__GMAIL_GET_PROFILE({user_id:'me'}); use its declared result shape to inspect data and error, extract emailAddress, and uppercase it in JavaScript. In this execution script emit exactly one text item using text(JSON.stringify(oneObject)), with exitCode, truncated, processed (the uppercased trimmed Bash output), and profile ({emailUppercase,logId} from the actual Gmail response). Do not print the full profile, call console.log or any other text(), or return a value from this execution script. Then report completion briefly without account details.`
 	await writeFile(
 		join(directory, "agents/brief/schedules/greeting.md"),
-		`---\ncron: "${cron}"\n---\nWhat is 7 multiplied by 13? Give a short scheduled greeting.\n`,
+		`---\ncron: "${cron}"\n---\n${prompt}\n`,
 	)
 	const gitEnv = {
 		...process.env,
@@ -377,6 +393,12 @@ test("authored cron starts a fresh Pi job visible through the API", async ({
 		"Author scheduled Pi acceptance agent",
 	)
 	await git("push", remote, "main")
+	const assigned = await fetch(`${origin}/api/slates/${slate.id}/connections/assign`, {
+		body: JSON.stringify({ connection_id: account.id, slug: "mail" }),
+		headers,
+		method: "POST",
+	})
+	expect(assigned.status).toBe(200)
 	const url = `${origin}/api/slates/${slate.id}/agents/brief/jobs`
 	const catalogSchema = z.object({ jobs: z.array(agentJobEntrySchema.strict()) }).strict()
 	const before = await fetch(url, { headers })
@@ -397,9 +419,7 @@ test("authored cron starts a fresh Pi job visible through the API", async ({
 		payload: {
 			actor: { type: "app" },
 			name: "brief",
-			prompt: expect.stringContaining(
-				"What is 7 multiplied by 13? Give a short scheduled greeting.",
-			),
+			prompt: expect.stringContaining(prompt),
 			schedule: "greeting",
 			slateId: slate.id,
 		},
@@ -441,12 +461,90 @@ test("authored cron starts a fresh Pi job visible through the API", async ({
 	expect(other.status).toBe(200)
 	expect(catalogSchema.parse(await other.json()).jobs).toEqual([])
 	const completed = await fetch(`${url}/${jobId}/result`, { headers })
-	expect(completed.status).toBe(200)
+
+	expect(completed.status, completed.ok ? undefined : await completed.text()).toBe(200)
 	const result = agentJobResultSchema.strict().parse(await completed.json())
 	console.info("Real scheduled Pi result", result)
-	expect(result.operationId).toBe(jobId)
+	expect(result.operationId).not.toBe(jobId)
 	expect(result.status, result.reason).toBe("done")
 	expect(result.text?.length).toBeGreaterThan(0)
+	const operationResponse = await fetch(`${url}/${jobId}/operation`, { headers })
+	expect(operationResponse.status).toBe(200)
+	expect(agentJobResultSchema.strict().parse(await operationResponse.json())).toEqual(
+		result,
+	)
+	const sessionResponse = await fetch(`${url}/${jobId}/sessions`, { headers })
+	expect(sessionResponse.status).toBe(200)
+	const sessions = z.array(agentJobSessionSchema).parse(await sessionResponse.json())
+	expect(sessions.map((session) => session.id)).toEqual([result.session])
+	const messageResponse = await fetch(
+		`${url}/${jobId}/sessions/${result.session}/messages`,
+		{
+			headers,
+		},
+	)
+	expect(messageResponse.status).toBe(200)
+	const messages = z.array(agentJobMessageSchema).parse(await messageResponse.json())
+	const userEntries = messages.filter((entry) => entry.kind === UserEntry.kind)
+	expect(userEntries).toHaveLength(1)
+	expect(userEntries[0]?.model).toContainEqual(
+		expect.objectContaining({ content: schedule.payload.prompt, role: "user" }),
+	)
+	const bashResults = messages
+		.filter((entry) => entry.kind === ToolResultEntry.kind)
+		.flatMap((entry) => entry.model ?? [])
+		.filter((message) => message.role === "toolResult" && message.toolName === "bash")
+		.map((message) =>
+			z
+				.looseObject({
+					content: z.array(z.object({ text: z.string(), type: z.literal("text") })),
+					isError: z.literal(false),
+				})
+				.parse(message),
+		)
+	const outputs = bashResults.map((message) =>
+		message.content.map((content) => content.text).join("\n"),
+	)
+	expect(outputs.join("\n")).toContain("Linux")
+	expect(outputs.join("\n")).toContain("CREATED")
+	const codemodeSchema = z.looseObject({
+		content: z.array(z.object({ text: z.string(), type: z.literal("text") })),
+		details: z.looseObject({
+			calls: z.array(z.looseObject({ name: z.string(), status: z.string() })),
+		}),
+		isError: z.literal(false),
+	})
+	const codemodeMessages = messages
+		.filter((entry) => entry.kind === ToolResultEntry.kind)
+		.flatMap((entry) => entry.model ?? [])
+		.filter((message) => message.role === "toolResult" && message.toolName === "codemode")
+	const codemodeResult = codemodeSchema.parse(codemodeMessages.at(-1))
+	expect(codemodeResult.details.calls).toContainEqual(
+		expect.objectContaining({ name: "bash", status: "ok" }),
+	)
+	const evidence = z
+		.object({
+			exitCode: z.literal(0),
+			processed: z.string(),
+			profile: z.object({ emailUppercase: z.string(), logId: z.string().min(1) }),
+			truncated: z.literal(false),
+		})
+		.parse(JSON.parse(z.string().parse(codemodeResult.content.at(-1)?.text)))
+	expect(evidence.processed).toBe(marker.toUpperCase())
+	expect(evidence.profile.emailUppercase).toBe(profileEmail.toUpperCase())
+	expect(codemodeResult.details.calls).toContainEqual(
+		expect.objectContaining({ name: "mail__GMAIL_GET_PROFILE", status: "ok" }),
+	)
+	console.info("Native Pi Code Mode evidence", {
+		details: codemodeResult.details,
+		evidence: { ...evidence, profile: { logId: evidence.profile.logId } },
+	})
+	console.info("Native scheduled Pi Bash results", bashResults)
+	console.info("Native scheduled Pi session", {
+		jobId,
+		operationId: result.operationId,
+		sessions,
+	})
 	const listed = await fetch(url, { headers })
 	expect(listed.status).toBe(200)
 	expect(catalogSchema.parse(await listed.json()).jobs).toContainEqual(entry)

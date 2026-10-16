@@ -1,0 +1,17 @@
+{
+	"compatibility_date": "2026-10-02",
+	"compatibility_flags": ["nodejs_compat"],
+	"containers": [
+		{
+			"class_name": "ComputerConformance",
+			"images": { "workspace": { "dockerfile": "../../Dockerfile" } },
+			"scheduling_policy": "durable_object"
+		}
+	],
+	"durable_objects": {
+		"bindings": [{ "class_name": "ComputerConformance", "name": "COMPUTERS" }]
+	},
+	"main": "worker.ts",
+	"migrations": [{ "new_sqlite_classes": ["ComputerConformance"], "tag": "v1" }],
+	"name": "contextlayer-computer-conformance-test"
+}

@@ -1,0 +1,414 @@
+diff --git a/dist/connection.d.ts b/dist/connection.d.ts
+index 5d8ed5feb739c8623a04e0ac95c4d65e8e1c26a4..f7ea7731d2fea5cd9a9df25c8a899d8157ac50ab 100644
+--- a/dist/connection.d.ts
++++ b/dist/connection.d.ts
+@@ -33,16 +33,27 @@ export declare function nodePlatform(info: Pick<RemoteInfo, "os" | "arch">): {
+     platform: string;
+     arch: string;
+ };
+-export interface ConnectionOptions {
+-    /**
+-     * Command that starts the daemon, before its `serve --token <hex>` arguments, e.g. `["ssh", "-T", "--", "host",
+-     * "~/.pi/mobile/tools/pi-env"]`. A function computes it at each start (detecting and deploying first, for example);
+-     * its failure fails that start, and the next request tries again.
+-     */
+-    command: readonly string[] | (() => Promise<readonly string[]>);
++/** A daemon process whose byte streams belong to the connection. close must not throw. */
++export interface ConnectionProcess {
++    stdin: WritableStream<Uint8Array>;
++    stdout: ReadableStream<Uint8Array>;
++    stderr?: ReadableStream<Uint8Array>;
++    exited: Promise<number | null>;
++    /** Stop the process. Connection closes stdin before calling this. */
++    close(): void;
++}
++export type ConnectionOptions = {
+     /** Receives the daemon's and the transport's diagnostic output. */
+     onLog?: (text: string) => void;
+-}
++} & ({
++    /** Command before its `serve --token <hex>` arguments; resolved on each connection attempt. */
++    command: readonly string[] | (() => Promise<readonly string[]>);
++    start?: never;
++} | {
++    /** Start `pi-env serve --token <token>` and return its streams; called on each connection attempt. */
++    start: (token: string) => Promise<ConnectionProcess>;
++    command?: never;
++});
+ export interface Reply {
+     json: Json;
+     payload: Uint8Array;
+@@ -82,4 +93,3 @@ export declare class Connection {
+     /** Kill one `exec` without aborting it. */
+     kill(id: number, session: number): void;
+ }
+-//# sourceMappingURL=connection.d.ts.map
+\ No newline at end of file
+diff --git a/dist/connection.js b/dist/connection.js
+index 693836b26ef17fd6824dc189bbd2848d2365fce7..0dcbc2ce8ba9b6ef2882821de2079d17c2b52169 100644
+--- a/dist/connection.js
++++ b/dist/connection.js
+@@ -1,4 +1,3 @@
+-import { spawn } from "node:child_process";
+ import { randomBytes } from "node:crypto";
+ /** Frame types (docs/protocol.md). */
+ const REQUEST = 1;
+@@ -64,7 +63,8 @@ function closed() {
+ /** One running daemon. */
+ class Session {
+     id;
+-    child;
++    process;
++    writer;
+     token;
+     pending = new Map();
+     /** Received bytes not yet parsed, without concatenating on every chunk. */
+@@ -74,9 +74,10 @@ class Session {
+     lastSeen = Date.now();
+     timer;
+     live = true;
+-    constructor(id, child, token) {
++    constructor(id, process, token) {
+         this.id = id;
+-        this.child = child;
++        this.process = process;
++        this.writer = process.stdin.getWriter();
+         this.token = token;
+     }
+     /** The first `length` buffered bytes as one buffer, without consuming them. */
+@@ -187,57 +188,74 @@ export class Connection {
+     }
+     #write(session, data) {
+         if (session.live)
+-            session.child.stdin.write(data);
++            void session.writer.write(data).catch(() => this.#teardown(session, lost("pi-env connection lost")));
+     }
+-    async #start() {
+-        let command;
++    async #read(session, stream, receive) {
+         try {
+-            const option = this.#options.command;
+-            command = typeof option === "function" ? await option() : option;
++            for await (const chunk of stream) {
++                if (!session.live) return;
++                receive(Buffer.from(chunk));
++            }
++        } catch {
++            this.#teardown(session, lost("pi-env connection lost"));
+         }
+-        catch (error) {
++    }
++    async #start() {
++        const token = randomBytes(16).toString("hex");
++        let process;
++        try {
++            if (this.#options.start) {
++                process = await this.#options.start(token);
++            } else {
++                const option = this.#options.command;
++                const command = typeof option === "function" ? await option() : option;
++                if (this.#closed) throw closed();
++                process = await startNodeProcess(command, token);
++            }
++        } catch (error) {
++            if (this.#closed) throw closed();
++            if (error instanceof RemoteError) throw error;
+             const message = error instanceof Error ? error.message : String(error);
+             throw new RemoteError({ code: "spawn_error", message, lost: true });
+         }
+-        if (this.#closed)
++        if (this.#closed) {
++            void process.stdin.close().catch(() => {});
++            process.close();
+             throw closed();
+-        const [program, ...args] = command;
+-        if (program === undefined)
+-            throw new RemoteError({ code: "spawn_error", message: "No daemon command" });
+-        const token = randomBytes(16).toString("hex");
+-        const child = spawn(program, [...args, "serve", "--token", token], { stdio: ["pipe", "pipe", "pipe"] });
+-        const session = new Session(++this.#sessions, child, token);
++        }
++        const session = new Session(++this.#sessions, process, token);
+         this.#session = session;
+         let startTimer;
+         const failed = new Promise((_resolve, reject) => {
+             startTimer = setTimeout(() => reject(lost(`pi-env did not answer within ${START_TIMEOUT_MS / 1000} s`)), START_TIMEOUT_MS);
+-            child.once("error", (error) => reject(new RemoteError({ code: "spawn_error", message: error.message, lost: true })));
+-            child.once("exit", (code) => reject(lost(`pi-env exited with code ${code} before it was ready`)));
++            void process.exited.then(
++                (code) => reject(lost(`pi-env exited with code ${code} before it was ready`)),
++                (error) => reject(new RemoteError({ code: "spawn_error", message: error instanceof Error ? error.message : String(error), lost: true })),
++            );
+         });
+-        failed.catch(() => { });
+-        child.stdout.on("data", (chunk) => this.#onData(session, chunk));
+-        child.stderr.on("data", (chunk) => this.#options.onLog?.(chunk.toString("utf8")));
+-        child.on("error", () => this.#teardown(session, lost("pi-env connection lost")));
+-        child.on("exit", () => this.#teardown(session, lost("pi-env connection lost")));
+-        child.stdin.on("error", () => { });
++        failed.catch(() => {});
++        void this.#read(session, process.stdout, (chunk) => this.#onData(session, chunk));
++        if (process.stderr) void this.#read(session, process.stderr, (chunk) => this.#options.onLog?.(chunk.toString("utf8")));
++        void process.exited.then(
++            () => this.#teardown(session, lost("pi-env connection lost")),
++            () => this.#teardown(session, lost("pi-env connection lost")),
++        );
+         session.timer = setInterval(() => {
+             this.#write(session, frame(PING, 0, {}));
+             if (Date.now() - session.lastSeen > SILENCE_LIMIT_MS) {
+                 this.#teardown(session, lost("pi-env connection timed out"));
+             }
+         }, PING_INTERVAL_MS);
+-        session.timer.unref();
++        session.timer.unref?.();
+         try {
+             const { json } = await Promise.race([this.#send(session, "hello", { protocol: 1 }, {}), failed]);
+             if (json.protocol !== 1)
+                 throw lost(`Unsupported protocol ${json.protocol}`);
+             return { info: json, session };
+-        }
+-        catch (error) {
++        } catch (error) {
+             this.#teardown(session, error instanceof Error ? error : lost(String(error)));
+             throw error;
+-        }
+-        finally {
++        } finally {
+             clearTimeout(startTimer);
+         }
+     }
+@@ -250,8 +268,8 @@ export class Connection {
+             this.#session = undefined;
+             this.#ready = undefined;
+         }
+-        session.child.stdin.end();
+-        session.child.kill();
++        void session.writer.close().catch(() => {});
++        session.process.close();
+         const pending = [...session.pending.values()];
+         session.pending.clear();
+         for (const request of pending)
+@@ -328,4 +346,22 @@ export class Connection {
+             pending.reject(new RemoteError(json));
+     }
+ }
+-//# sourceMappingURL=connection.js.map
+\ No newline at end of file
++/** Node commands use the same stream transport as remote container processes. */
++async function startNodeProcess(command, token) {
++    const [program, ...args] = command;
++    if (program === undefined)
++        throw new RemoteError({ code: "spawn_error", message: "No daemon command" });
++    const [{ spawn }, { Readable, Writable }] = await Promise.all([import("node:child_process"), import("node:stream")]);
++    const child = spawn(program, [...args, "serve", "--token", token], { stdio: ["pipe", "pipe", "pipe"] });
++    const exited = new Promise((resolve, reject) => {
++        child.once("error", reject);
++        child.once("exit", resolve);
++    });
++    return {
++        stdin: Writable.toWeb(child.stdin),
++        stdout: Readable.toWeb(child.stdout),
++        stderr: Readable.toWeb(child.stderr),
++        exited,
++        close: () => { child.kill(); },
++    };
++}
+diff --git a/dist/index.d.ts b/dist/index.d.ts
+index d365561156e992a9f7bc67fad81eb0ee06dbda9c..7863438c33db3f2d75842b00f83dd38f9cf49707 100644
+--- a/dist/index.d.ts
++++ b/dist/index.d.ts
+@@ -1,7 +1,6 @@
+-export { Connection, type ConnectionOptions, isConnectionLost, nodePlatform, RemoteError, type RemoteInfo, type Reply, type RequestOptions, } from "./connection.ts";
+-export { LocalExecutionEnv, type LocalExecutionEnvOptions } from "./list-files.ts";
++export { Connection, type ConnectionOptions, type ConnectionProcess, isConnectionLost, nodePlatform, RemoteError, type RemoteInfo, type Reply, type RequestOptions, } from "./connection.ts";
++export { LocalExecutionEnv, type LocalExecutionEnvOptions } from "./local-env.ts";
+ export { RemoteExecutionEnv, type RemoteExecutionEnvOptions } from "./remote-env.ts";
+ export { acceptHostKey, connectSsh, deployDaemon, detectPlatform, forgetHostKey, HostKeyChangedError, HostKeyUnknownError, localDaemon, packagedDaemon, type RemotePlatform, type SshConnectOptions, SshError, type SshTarget, scanHostKey, sshArguments, sshConnection, } from "./ssh.ts";
+ export { openTerminal, RemoteTerminal, type TerminalForeground, type TerminalOptions } from "./terminal.ts";
+ export { RemoteWatcher, type RemoteWatchOptions } from "./watch.ts";
+-//# sourceMappingURL=index.d.ts.map
+\ No newline at end of file
+diff --git a/dist/index.js b/dist/index.js
+index 7a134c174ac3dd63f44b2a8387d865deada3baed..88e527953313212d826d13f176add111d8dbdbab 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -1,7 +1,6 @@
+ export { Connection, isConnectionLost, nodePlatform, RemoteError, } from "./connection.js";
+-export { LocalExecutionEnv } from "./list-files.js";
++export { LocalExecutionEnv } from "./local-env.js";
+ export { RemoteExecutionEnv } from "./remote-env.js";
+ export { acceptHostKey, connectSsh, deployDaemon, detectPlatform, forgetHostKey, HostKeyChangedError, HostKeyUnknownError, localDaemon, packagedDaemon, SshError, scanHostKey, sshArguments, sshConnection, } from "./ssh.js";
+ export { openTerminal, RemoteTerminal } from "./terminal.js";
+ export { RemoteWatcher } from "./watch.js";
+-//# sourceMappingURL=index.js.map
+\ No newline at end of file
+diff --git a/dist/list-files.d.ts b/dist/list-files.d.ts
+index 217d39394ea503866ae4199fb27d3d823a0fc6ea..f7bb7de4c2e428465de21feea5953688109f5e11 100644
+--- a/dist/list-files.d.ts
++++ b/dist/list-files.d.ts
+@@ -1,24 +1,8 @@
+ import type { Context } from "@earendil-works/chord";
+-import { type ExecutionEnv, FileError, type FileListing, type ListFilesOptions, type Result } from "@earendil-works/pi-durable/env";
+-import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
++import { FileError, type FileListing, type ListFilesOptions, type Result } from "@earendil-works/pi-durable/env";
+ import type { Connection } from "./connection.ts";
+ /**
+  * `listFiles` of an absolute path through the daemon: fails with `not_supported` if the daemon does not list files
+  * (a release before `listFiles`), so callers fall back to their own walk.
+  */
+ export declare function listFilesOver(connection: Connection, path: string, options: ListFilesOptions | undefined, context: Context): Promise<Result<FileListing, FileError>>;
+-export type LocalExecutionEnvOptions = ConstructorParameters<typeof NodeExecutionEnv>[0] & {
+-    /** A connection to this machine's daemon, `new Connection({ command: [localDaemon()] })`, for `listFiles`. */
+-    connection: Connection;
+-};
+-/**
+- * `NodeExecutionEnv` with `listFiles` through a pi-env daemon on the same machine, so local and remote environments
+- * list files with the same code. Everything else is `NodeExecutionEnv`'s. The connection belongs to the caller, who
+- * closes it; several environments may share it.
+- */
+-export declare class LocalExecutionEnv extends NodeExecutionEnv implements ExecutionEnv {
+-    #private;
+-    constructor(options: LocalExecutionEnvOptions);
+-    listFiles(path: string, options: ListFilesOptions | undefined, context: Context): Promise<Result<FileListing, FileError>>;
+-}
+-//# sourceMappingURL=list-files.d.ts.map
+\ No newline at end of file
+diff --git a/dist/list-files.js b/dist/list-files.js
+index 6b8eeedd7c39d5b94965f774a177aef700b77dcd..a544a5a568de159aa54e8be3d6a6dbdb4a6a5c15 100644
+--- a/dist/list-files.js
++++ b/dist/list-files.js
+@@ -1,5 +1,4 @@
+ import { err, FileError, ok, } from "@earendil-works/pi-durable/env";
+-import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
+ import { abortResult, toFileError } from "./errors.js";
+ /** Kind bytes of `listFiles` records: `f`, `d`, `l`. */
+ const KINDS = { 102: "file", 100: "directory", 108: "symlink" };
+@@ -53,23 +52,3 @@ export async function listFilesOver(connection, path, options, context) {
+         return err(toFileError(error, path));
+     }
+ }
+-/**
+- * `NodeExecutionEnv` with `listFiles` through a pi-env daemon on the same machine, so local and remote environments
+- * list files with the same code. Everything else is `NodeExecutionEnv`'s. The connection belongs to the caller, who
+- * closes it; several environments may share it.
+- */
+-export class LocalExecutionEnv extends NodeExecutionEnv {
+-    #connection;
+-    constructor(options) {
+-        const { connection, ...node } = options;
+-        super(node);
+-        this.#connection = connection;
+-    }
+-    async listFiles(path, options, context) {
+-        const resolved = await this.absolutePath(path, context);
+-        if (!resolved.ok)
+-            return resolved;
+-        return listFilesOver(this.#connection, resolved.value, options, context);
+-    }
+-}
+-//# sourceMappingURL=list-files.js.map
+\ No newline at end of file
+diff --git a/dist/local-env.d.ts b/dist/local-env.d.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..cb6b53c6e4b78f160acb8553fa9da4b8746470d4
+--- /dev/null
++++ b/dist/local-env.d.ts
+@@ -0,0 +1,18 @@
++import type { Context } from "@earendil-works/chord";
++import type { ExecutionEnv, FileError, FileListing, ListFilesOptions, Result } from "@earendil-works/pi-durable/env";
++import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
++import type { Connection } from "./connection.ts";
++export type LocalExecutionEnvOptions = ConstructorParameters<typeof NodeExecutionEnv>[0] & {
++    /** A connection to this machine's daemon, `new Connection({ command: [localDaemon()] })`, for `listFiles`. */
++    connection: Connection;
++};
++/**
++ * `NodeExecutionEnv` with `listFiles` through a pi-env daemon on the same machine, so local and remote environments
++ * list files with the same code. Everything else is `NodeExecutionEnv`'s. The connection belongs to the caller, who
++ * closes it; several environments may share it.
++ */
++export declare class LocalExecutionEnv extends NodeExecutionEnv implements ExecutionEnv {
++    #private;
++    constructor(options: LocalExecutionEnvOptions);
++    listFiles(path: string, options: ListFilesOptions | undefined, context: Context): Promise<Result<FileListing, FileError>>;
++}
+diff --git a/dist/local-env.js b/dist/local-env.js
+new file mode 100644
+index 0000000000000000000000000000000000000000..77fab41a1a1f03870b3e05b87ac201b318da494c
+--- /dev/null
++++ b/dist/local-env.js
+@@ -0,0 +1,21 @@
++import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
++import { listFilesOver } from "./list-files.js";
++/**
++ * `NodeExecutionEnv` with `listFiles` through a pi-env daemon on the same machine, so local and remote environments
++ * list files with the same code. Everything else is `NodeExecutionEnv`'s. The connection belongs to the caller, who
++ * closes it; several environments may share it.
++ */
++export class LocalExecutionEnv extends NodeExecutionEnv {
++    #connection;
++    constructor(options) {
++        const { connection, ...node } = options;
++        super(node);
++        this.#connection = connection;
++    }
++    async listFiles(path, options, context) {
++        const resolved = await this.absolutePath(path, context);
++        if (!resolved.ok)
++            return resolved;
++        return listFilesOver(this.#connection, resolved.value, options, context);
++    }
++}
+diff --git a/dist/remote.d.ts b/dist/remote.d.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..f9aa1103b4d9e276ab7459c01c790b977f21f59e
+--- /dev/null
++++ b/dist/remote.d.ts
+@@ -0,0 +1,3 @@
++export { Connection, type ConnectionOptions, type ConnectionProcess, isConnectionLost, nodePlatform, RemoteError, type RemoteInfo, type Reply, type RequestOptions } from "./connection.ts";
++export { RemoteExecutionEnv, type RemoteExecutionEnvOptions } from "./remote-env.ts";
++export { RemoteWatcher, type RemoteWatchOptions } from "./watch.ts";
+diff --git a/dist/remote.js b/dist/remote.js
+new file mode 100644
+index 0000000000000000000000000000000000000000..238b97a9d1129503e29e8dad2e1d4259ea569c77
+--- /dev/null
++++ b/dist/remote.js
+@@ -0,0 +1,3 @@
++export { Connection, isConnectionLost, nodePlatform, RemoteError } from "./connection.js";
++export { RemoteExecutionEnv } from "./remote-env.js";
++export { RemoteWatcher } from "./watch.js";
+diff --git a/dist/watch.js b/dist/watch.js
+index 94567b4b80119111dd785f0be99b77e19e150fe4..1be703ec774e2b79f485464e776511102b2804e2 100644
+--- a/dist/watch.js
++++ b/dist/watch.js
+@@ -106,7 +106,7 @@ export class RemoteWatcher {
+         for (let delay = RECONNECT_FIRST_MS; !this.#closed; delay = Math.min(delay * 2, RECONNECT_MAX_MS)) {
+             await new Promise((resolve) => {
+                 const timer = setTimeout(resolve, delay);
+-                timer.unref();
++                timer.unref?.();
+                 this.#wake = () => {
+                     clearTimeout(timer);
+                     resolve();
+@@ -131,4 +131,3 @@ export class RemoteWatcher {
+         }
+     }
+ }
+-//# sourceMappingURL=watch.js.map
+\ No newline at end of file
+diff --git a/package.json b/package.json
+index f86276de26043d482336fb01de2625b447656d42..43e7ef1742b862cbdb2b0730ace64acda5975dd6 100644
+--- a/package.json
++++ b/package.json
+@@ -11,6 +11,11 @@
+ 			"types": "./dist/index.d.ts",
+ 			"import": "./dist/index.js",
+ 			"default": "./dist/index.js"
++		},
++		"./remote": {
++			"types": "./dist/remote.d.ts",
++			"import": "./dist/remote.js",
++			"default": "./dist/remote.js"
+ 		}
+ 	},
+ 	"sideEffects": false,
