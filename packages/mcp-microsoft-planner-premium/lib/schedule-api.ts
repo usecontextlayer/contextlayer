@@ -42,9 +42,43 @@ const createOperationSetResponseSchema = z.object({
 	OperationSetId: z.string().min(1),
 })
 
-const projectsResponseSchema = z.object({
-	value: z.array(z.object({ msdyn_projectid: z.string(), msdyn_subject: z.string() })),
+const plannerEntitySetSchema = z.enum([
+	"msdyn_projects",
+	"msdyn_projecttasks",
+	"msdyn_projecttaskdependencies",
+	"msdyn_resourceassignments",
+	"msdyn_projectbuckets",
+	"msdyn_projectteams",
+	"msdyn_projectchecklists",
+	"msdyn_projectlabels",
+	"msdyn_projecttasktolabels",
+	"msdyn_projectsprints",
+	"msdyn_projectgoals",
+	"msdyn_projecttasktogoals",
+])
+
+export const retrieveRecordsSchema = z.strictObject({
+	$apply: z
+		.string()
+		.optional()
+		.describe("Native OData aggregation or grouping expression"),
+	$count: z.string().optional().describe('Use "true" to request @odata.count'),
+	$expand: z
+		.string()
+		.optional()
+		.describe("Native related-record expansions, including nested query options"),
+	$filter: z.string().optional().describe("Native OData filter expression"),
+	$orderby: z
+		.string()
+		.optional()
+		.describe("Native ordering; include a unique column when paging"),
+	$select: z.string().optional().describe("Comma-separated native column names"),
+	$top: z.string().optional().describe("Total result limit, not page size"),
+	entity_set: plannerEntitySetSchema.describe("The Planner entity set to retrieve"),
+	id: z.guid().optional().describe("Retrieve one record by its native Dataverse GUID"),
 })
+
+const recordsResponseSchema = z.record(z.string(), z.unknown())
 
 export type OperationSet = z.output<typeof operationSetRowSchema>
 export type PssErrorLog = z.output<typeof pssErrorLogRowSchema>
@@ -59,7 +93,10 @@ export type StagedWrite = {
 const SET_COLUMNS = "?$select=msdyn_status,_msdyn_psserrorlog_value"
 
 export type ScheduleApiClient = {
-	listProjects: () => Promise<z.output<typeof projectsResponseSchema>>
+	retrieveRecords: (
+		input: z.output<typeof retrieveRecordsSchema>,
+	) => Promise<Record<string, unknown>>
+	retrieveRecordsNextLink: (nextLink: string) => Promise<Record<string, unknown>>
 	createOperationSet: (input: {
 		Description: string
 		ProjectId: string
@@ -117,7 +154,7 @@ export function createScheduleApiClient(config: {
 		path: string,
 		init: RequestInit & { headers?: Record<string, string> },
 	): Promise<string> {
-		const response = await fetch(`${config.orgUrl}/api/data/v9.2/${path}`, {
+		const response = await fetch(new URL(path, `${config.orgUrl}/api/data/v9.2/`), {
 			...init,
 			headers: {
 				accept: "application/json",
@@ -195,6 +232,19 @@ export function createScheduleApiClient(config: {
 		return parseResponse(path, await hop(path, {}), schema)
 	}
 
+	async function readRecords(path: string): Promise<Record<string, unknown>> {
+		return parseResponse(
+			path,
+			await hop(path, {
+				headers: {
+					Prefer: 'odata.include-annotations="OData.Community.Display.V1.FormattedValue"',
+				},
+				redirect: "error",
+			}),
+			recordsResponseSchema,
+		)
+	}
+
 	return {
 		abandonOperationSet: (input) => action("msdyn_AbandonOperationSetV1", input),
 		createOperationSet: (input) =>
@@ -207,11 +257,34 @@ export function createScheduleApiClient(config: {
 				`msdyn_psserrorlogs(${errorLogId})?$select=msdyn_log,msdyn_errorcode`,
 				pssErrorLogRowSchema,
 			),
-		listProjects: () =>
-			read(
-				"msdyn_projects?$select=msdyn_projectid,msdyn_subject",
-				projectsResponseSchema,
-			),
+		retrieveRecords: ({ entity_set, id, ...options }) => {
+			const query = new URLSearchParams()
+			for (const [name, value] of Object.entries(options)) {
+				if (value !== undefined) query.set(name, value)
+			}
+			const path = id === undefined ? entity_set : `${entity_set}(${id})`
+			return readRecords(`${path}?${query}`)
+		},
+		retrieveRecordsNextLink: (nextLink) => {
+			const url = new URL(nextLink)
+			const path = url.pathname.match(
+				/^\/api\/data\/v9\.2\/([^/(]+)(?:\(([^)]+)\)(?:\/[A-Za-z_][A-Za-z0-9_]*)*)?$/,
+			)
+			if (
+				url.origin !== new URL(config.orgUrl).origin ||
+				url.username !== "" ||
+				url.password !== "" ||
+				url.hash !== "" ||
+				path === null ||
+				!plannerEntitySetSchema.safeParse(path[1]).success ||
+				(path[2] !== undefined && !z.guid().safeParse(path[2]).success)
+			) {
+				throw new Error(
+					"next_link must target a Planner entity set in the connected Dataverse environment",
+				)
+			}
+			return readRecords(nextLink)
+		},
 		stage: (input) =>
 			action(STAGE_ACTION[input.verb], {
 				EntityCollection: input.EntityCollection,

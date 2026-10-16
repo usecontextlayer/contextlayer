@@ -23,3 +23,10 @@ export function parseRecorderEnv() {
 		})
 		.parse(process.env)
 }
+
+export function parseReadRecorderEnv() {
+	return {
+		...parseRecorderEnv(),
+		...z.object({ CTX_DATAVERSE_ORG_URL: z.url() }).parse(process.env),
+	}
+}

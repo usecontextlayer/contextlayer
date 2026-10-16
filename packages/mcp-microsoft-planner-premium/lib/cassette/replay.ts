@@ -20,9 +20,10 @@
 // from another. No test should — if one ever seems to need it, the RECORDING should
 // carry that flow as one chain; do not add cross-chain lookup.
 //
-// Placeholders (`{{operationSet1}}`, `{{plainTaskId}}`, …) are served VERBATIM. The
+// Named placeholders (`{{operationSet1}}`, `{{plainTaskId}}`, …) are served VERBATIM. The
 // client under test reads an id out of one recorded body and puts it into the next
 // keyed path or OperationSetId, so matching that identifier-bearing portion is exact.
+// Anonymous GUIDs and the org are bound to valid synthetic GUIDs and the replay origin.
 
 import { once } from "node:events"
 import { readFileSync } from "node:fs"
@@ -40,14 +41,28 @@ import {
 	requiredOperationSetIdSchema,
 } from "@/lib/cassette/interaction"
 
-const cassette = cassetteSchema.parse(
-	JSON.parse(
-		readFileSync(
-			fileURLToPath(new URL("../__goldens__/schedule-api.json", import.meta.url)),
-			"utf8",
+const cassettes = ["schedule-api.json", "records.json"].map((name) =>
+	cassetteSchema.parse(
+		JSON.parse(
+			readFileSync(
+				fileURLToPath(new URL(`../__goldens__/${name}`, import.meta.url)),
+				"utf8",
+			),
 		),
 	),
 )
+
+/** Bind normalized read identifiers and URLs to a valid, local replay environment. */
+export function materializeRecording<T>(value: T, org: string): T {
+	return JSON.parse(
+		JSON.stringify(value)
+			.replaceAll("{{org}}", org)
+			.replace(
+				/\{\{guid(\d+)\}\}/g,
+				(_, index: string) => `00000000-0000-f011-8000-${index.padStart(12, "0")}`,
+			),
+	) as T
+}
 
 const CREATE_OPERATION_SET = "msdyn_CreateOperationSetV1"
 
@@ -57,22 +72,25 @@ type RecordedChain = {
 }
 
 const byChain = new Map<string, RecordedChain>()
-for (const interaction of cassette.interactions) {
-	const indexed = byChain.get(interaction.chain) ?? {
-		interactions: new Map<string, Interaction[]>(),
-		mintedOperationSetIds: [],
-	}
-	byChain.set(interaction.chain, indexed)
-	const key = keyOf(interaction.request)
-	indexed.interactions.set(key, [...(indexed.interactions.get(key) ?? []), interaction])
-	if (
-		interaction.request.path === CREATE_OPERATION_SET &&
-		interaction.response.status >= 200 &&
-		interaction.response.status < 300
-	) {
-		indexed.mintedOperationSetIds.push(
-			requiredOperationSetIdSchema.parse(interaction.response.body).OperationSetId,
-		)
+for (const cassette of cassettes) {
+	for (const recorded of cassette.interactions) {
+		const interaction = materializeRecording(recorded, "{{org}}")
+		const indexed = byChain.get(interaction.chain) ?? {
+			interactions: new Map<string, Interaction[]>(),
+			mintedOperationSetIds: [],
+		}
+		byChain.set(interaction.chain, indexed)
+		const key = keyOf(interaction.request)
+		indexed.interactions.set(key, [...(indexed.interactions.get(key) ?? []), interaction])
+		if (
+			interaction.request.path === CREATE_OPERATION_SET &&
+			interaction.response.status >= 200 &&
+			interaction.response.status < 300
+		) {
+			indexed.mintedOperationSetIds.push(
+				requiredOperationSetIdSchema.parse(interaction.response.body).OperationSetId,
+			)
+		}
 	}
 }
 
@@ -118,13 +136,18 @@ export type RecordedOrg = {
 	url: string
 }
 
-function toResponse(interaction: Interaction): Response {
+function toResponse(interaction: Interaction, org?: string): Response {
 	// An absent body is zero bytes on the wire, not the four bytes `null`. `hop`
 	// reads the raw text into the message it throws, so serving `null` here would put
 	// "401 Unauthorized — null" in front of an operator instead of "401 Unauthorized".
 	const { status, statusText } = interaction.response
 	return "body" in interaction.response
-		? Response.json(interaction.response.body, { status, statusText })
+		? Response.json(
+				org === undefined
+					? interaction.response.body
+					: materializeRecording(interaction.response.body, org),
+				{ status, statusText },
+			)
 		: new Response(null, { status, statusText })
 }
 
@@ -137,6 +160,7 @@ function toResponse(interaction: Interaction): Response {
  */
 export async function serveRecordedOrg(options: {
 	replaying?: string
+	audience?: string
 }): Promise<RecordedOrg> {
 	const { replaying } = options
 	const chain = chainNamed(replaying)
@@ -145,6 +169,7 @@ export async function serveRecordedOrg(options: {
 	const calls: ReplayedCall[] = []
 	const reads: ReplayedRead[] = []
 	const cursor = new Map<string, number>()
+	let origin = options.audience ?? ""
 
 	function next(key: string, describe: string): Interaction {
 		const recorded = scoped.get(key)
@@ -152,7 +177,7 @@ export async function serveRecordedOrg(options: {
 			throw new Error(
 				replaying === undefined
 					? `This org is replaying no chain, and the code under test sent ${describe}. Declare the recorded conversation the test drives — \`serveRecordedOrg({ replaying })\`, one of: ${recordedChains.join(", ")}.`
-					: `Chain "${replaying}" holds no recorded interaction for ${describe}. The cassette is the source of truth — if the real API does this, record it with lib/cassette/record.ts (in this chain); if it does not, the test should not ask for it.`,
+					: `Chain "${replaying}" holds no recorded interaction for ${describe}. The cassette is the source of truth — if the real API does this, use the appropriate recorder documented in the package AGENTS.md; if it does not, the test should not ask for it.`,
 			)
 		}
 		const at = cursor.get(key) ?? 0
@@ -164,7 +189,7 @@ export async function serveRecordedOrg(options: {
 		// belongs in another recording rather than in a clamp here.
 		if (interaction === undefined) {
 			throw new Error(
-				`Recorded sequence exhausted for ${describe} in chain "${replaying}" — ${recorded.length} response(s) were captured and this is request ${at + 1}. The code under test issued a call the recording does not contain; record it with lib/cassette/record.ts, or fix the caller.`,
+				`Recorded sequence exhausted for ${describe} in chain "${replaying}" — ${recorded.length} response(s) were captured and this is request ${at + 1}. The code under test issued a call the recording does not contain; use the appropriate recorder documented in the package AGENTS.md, or fix the caller.`,
 			)
 		}
 		return interaction
@@ -190,7 +215,7 @@ export async function serveRecordedOrg(options: {
 		)
 	})
 
-	app.get("/api/data/v9.2/:record", (c) => {
+	app.get("/api/data/v9.2/*", (c) => {
 		// `c.req.param` drops the query string; the `$select` is part of the identity.
 		const path = new URL(c.req.url).pathname.replace("/api/data/v9.2/", "")
 		const query = new URL(c.req.url).search
@@ -199,9 +224,15 @@ export async function serveRecordedOrg(options: {
 		reads.push({ authorization, path: full })
 		return toResponse(
 			next(
-				keyOf({ auth: authOf(authorization), method: "GET", path: full }),
+				keyOf({
+					auth: authOf(authorization),
+					method: "GET",
+					path: full,
+					prefer: c.req.header("Prefer"),
+				}),
 				`GET ${full}`,
 			),
+			origin,
 		)
 	})
 
@@ -229,6 +260,8 @@ export async function serveRecordedOrg(options: {
 	await once(server, "listening")
 	const address = server.address()
 	if (typeof address !== "object" || address === null) throw new Error("no port")
+	const url = `http://127.0.0.1:${address.port}`
+	origin ||= url
 
 	return {
 		calls,
@@ -238,6 +271,6 @@ export async function serveRecordedOrg(options: {
 			),
 		mintedOperationSetIds: chain.mintedOperationSetIds,
 		reads,
-		url: `http://127.0.0.1:${address.port}`,
+		url,
 	}
 }

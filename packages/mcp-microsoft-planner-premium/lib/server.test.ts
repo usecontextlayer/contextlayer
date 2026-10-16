@@ -12,12 +12,18 @@
 // The caller's token names a Dataverse org; fetch routes only that origin to the
 // local replay. These unsigned tokens exercise claim checks, not Microsoft validation.
 
+import { readFileSync } from "node:fs"
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client"
 import { UnsecuredJWT } from "jose"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import type { Bindings } from "@/env"
 import app from "@/index"
-import { type RecordedOrg, serveRecordedOrg } from "@/lib/cassette/replay"
+import { cassetteSchema } from "@/lib/cassette/interaction"
+import {
+	materializeRecording,
+	type RecordedOrg,
+	serveRecordedOrg,
+} from "@/lib/cassette/replay"
 import { MAX_WAIT_SECONDS, readInstants } from "@/lib/operation-set"
 
 // Dataverse-SHAPED GUIDs: the `f011` third group is not an RFC-4122 version nibble,
@@ -68,6 +74,20 @@ const ONE_TASK_SUBMISSION = {
 
 const NAMES_NOTHING = "{{unknownTaskId}}"
 
+const readAudience = "https://planner-test.crm.dynamics.com"
+const readRecording = materializeRecording(
+	cassetteSchema.parse(
+		JSON.parse(
+			readFileSync(new URL("./__goldens__/records.json", import.meta.url), "utf8"),
+		),
+	),
+	readAudience,
+)
+const recordedRead = (chain: string) =>
+	readRecording.interactions.find((interaction) => interaction.chain === chain)?.response
+		.body as Record<string, unknown>
+const recordedTaskId = recordedRead("records-single").msdyn_projecttaskid as string
+
 let org: RecordedOrg
 let accessToken: string
 const networkFetch = globalThis.fetch
@@ -80,8 +100,8 @@ const networkFetch = globalThis.fetch
 async function connect(
 	options: { replaying?: string; audience?: string } = {},
 ): Promise<Client> {
-	org = await serveRecordedOrg({ replaying: options.replaying })
-	const audience = options.audience ?? "https://planner-test.crm.dynamics.com"
+	const audience = options.audience ?? readAudience
+	org = await serveRecordedOrg({ audience, replaying: options.replaying })
 	vi.stubGlobal("fetch", (input: string | URL | Request, init?: RequestInit) => {
 		const request = new Request(input, init)
 		const url = new URL(request.url)
@@ -165,32 +185,76 @@ afterEach(async () => {
 })
 
 describe("the advertised surface", () => {
-	it("exposes project discovery alongside submit and wait", async () => {
+	it("exposes record retrieval and continuation alongside submit and wait", async () => {
 		const client = await connect()
 		const tools = await client.listTools()
 		await client.close()
 		expect(tools.tools.map((tool) => tool.name).sort()).toEqual([
-			"list_projects",
+			"retrieve_records",
+			"retrieve_records_next_link",
 			"submit_operation_set",
 			"wait_for_operation_set",
 		])
 	})
 
-	it("advertises list_projects as a read-only tool with no arguments", async () => {
-		// Tool discovery exercises the advertised contract without Dataverse traffic.
+	it("advertises two read-only tools with distinct native inputs", async () => {
 		const client = await connect()
 		const { tools } = await client.listTools()
 		await client.close()
 
-		const list = tools.find((tool) => tool.name === "list_projects")
-		expect(list?.annotations?.readOnlyHint).toBe(true)
-		expect(list?.inputSchema).toMatchObject({
-			additionalProperties: false,
-			type: "object",
+		const retrieve = tools.find((tool) => tool.name === "retrieve_records")
+		const next = tools.find((tool) => tool.name === "retrieve_records_next_link")
+		for (const tool of [retrieve, next]) {
+			expect(tool?.annotations?.readOnlyHint).toBe(true)
+			expect(tool?.inputSchema).toMatchObject({
+				additionalProperties: false,
+				type: "object",
+			})
+		}
+		expect(retrieve?.inputSchema.required).toEqual(["entity_set"])
+		expect(retrieve?.inputSchema.properties?.entity_set).toMatchObject({
+			enum: expect.arrayContaining([
+				"msdyn_projects",
+				"msdyn_projecttasks",
+				"msdyn_projecttaskdependencies",
+				"msdyn_resourceassignments",
+				"msdyn_projectbuckets",
+				"msdyn_projectteams",
+				"msdyn_projectchecklists",
+				"msdyn_projectlabels",
+				"msdyn_projecttasktolabels",
+				"msdyn_projectsprints",
+				"msdyn_projectgoals",
+				"msdyn_projecttasktogoals",
+			]),
 		})
-		expect(list?.inputSchema.properties).toEqual({})
-		expect(org.calls).toEqual([])
-		expect(org.reads).toEqual([])
+		expect(retrieve?.inputSchema.properties?.entity_set).toHaveProperty("enum.length", 12)
+		expect(Object.keys(retrieve?.inputSchema.properties ?? {}).sort()).toEqual([
+			"$apply",
+			"$count",
+			"$expand",
+			"$filter",
+			"$orderby",
+			"$select",
+			"$top",
+			"entity_set",
+			"id",
+		])
+		for (const option of [
+			"$select",
+			"$filter",
+			"$orderby",
+			"$top",
+			"$expand",
+			"$apply",
+			"$count",
+			"id",
+		]) {
+			expect(retrieve?.inputSchema.properties?.[option]).toMatchObject({ type: "string" })
+		}
+		expect(next?.inputSchema.required).toEqual(["next_link"])
+		expect(Object.keys(next?.inputSchema.properties ?? {})).toEqual(["next_link"])
+		expect(next?.inputSchema.properties?.next_link).toMatchObject({ type: "string" })
 	})
 
 	it("advertises optional native create IDs without a fixed default", async () => {
@@ -261,6 +325,140 @@ describe("the advertised surface", () => {
 		expect(Object.keys(strictness).length).toBeGreaterThan(1)
 		expect(Object.values(strictness).every((value) => value === false)).toBe(true)
 	})
+})
+
+describe("native record retrieval", () => {
+	it.each([
+		{
+			args: {
+				$select: "msdyn_projectid,msdyn_subject",
+				$top: "2",
+				entity_set: "msdyn_projects",
+			},
+			chain: "records-projects",
+			purpose: "project discovery with native metadata",
+		},
+		{
+			args: {
+				$count: "true",
+				$filter: "msdyn_progress lt 1",
+				$orderby: "msdyn_projecttaskid",
+				$select:
+					"msdyn_projecttaskid,msdyn_subject,msdyn_progress,_msdyn_project_value,statecode",
+				$top: "2",
+				entity_set: "msdyn_projecttasks",
+			},
+			chain: "records-query",
+			purpose: "filtered and ordered tasks with counts and formatted values",
+		},
+		{
+			args: { entity_set: "msdyn_projecttasks", id: recordedTaskId },
+			chain: "records-single",
+			purpose: "an individual record with custom columns and nulls",
+		},
+		{
+			args: {
+				$expand: "msdyn_project($select=msdyn_projectid,msdyn_subject)",
+				$select: "msdyn_projecttaskid",
+				entity_set: "msdyn_projecttasks",
+				id: recordedTaskId,
+			},
+			chain: "records-expand",
+			purpose: "native related-record expansion",
+		},
+		{
+			args: {
+				$apply: "groupby((msdyn_progress),aggregate($count as n))",
+				entity_set: "msdyn_projecttasks",
+			},
+			chain: "records-aggregate",
+			purpose: "native grouping, aggregate aliases and formatted values",
+		},
+	])("preserves Microsoft's JSON for $purpose", async ({ chain, args }) => {
+		const client = await connect({ replaying: chain })
+		const result = await client.callTool({ arguments: args, name: "retrieve_records" })
+		await client.close()
+		expect(result.isError ?? false).toBe(false)
+		expect(payloadOf(result)).toEqual(recordedRead(chain))
+	})
+
+	it.each([
+		{
+			chain: "records-pages",
+			initial: { entity_set: "msdyn_projecttasks" },
+			nextLinkField: "@odata.nextLink",
+		},
+		{
+			chain: "records-expanded-pages",
+			initial: {
+				entity_set: "msdyn_projects",
+				id: recordedRead("records-expanded-pages").msdyn_projectid,
+			},
+			nextLinkField: "msdyn_msdyn_project_msdyn_projecttask_project@odata.nextLink",
+		},
+	])(
+		"$chain returns one page, then follows its native link to the final page",
+		async ({ chain, initial, nextLinkField }) => {
+			const client = await connect({ replaying: chain })
+			const pages = readRecording.interactions.filter(
+				(interaction) => interaction.chain === chain,
+			)
+			// The recorder requested maxpagesize=1 to observe real continuation without
+			// adding a page-size input to the production tool.
+			const query = new URL(
+				pages[0]?.request.path ?? "",
+				`${readAudience}/api/data/v9.2/`,
+			).searchParams
+			const first = await client.callTool({
+				arguments: { ...initial, ...Object.fromEntries(query) },
+				name: "retrieve_records",
+			})
+			expect(first.isError ?? false).toBe(false)
+			const firstPage = payloadOf(first)
+			expect(firstPage).toEqual(pages[0]?.response.body)
+			expect(firstPage[nextLinkField]).toEqual(expect.any(String))
+			const next = await client.callTool({
+				arguments: { next_link: firstPage[nextLinkField] },
+				name: "retrieve_records_next_link",
+			})
+			await client.close()
+			expect(next.isError ?? false).toBe(false)
+			expect(payloadOf(next)).toEqual(pages[1]?.response.body)
+			expect(payloadOf(next)).not.toHaveProperty("@odata.nextLink")
+		},
+	)
+})
+
+describe("read boundaries", () => {
+	it("refuses a Dataverse root outside Planner", async () => {
+		const client = await connect()
+		const result = await client.callTool({
+			arguments: { entity_set: "systemusers" },
+			name: "retrieve_records",
+		})
+		await client.close()
+		expect(result.isError).toBe(true)
+		expect(resultText(result)).toContain("entity_set")
+	})
+
+	it.each([
+		"https://another-org.crm.dynamics.com/api/data/v9.2/msdyn_projecttasks?$skiptoken=opaque",
+		"https://planner-test.crm.dynamics.com/api/data/v9.2/systemusers?$skiptoken=opaque",
+	])(
+		"refuses a continuation outside the connected Planner boundary: %s",
+		async (next_link) => {
+			const client = await connect()
+			const result = await client.callTool({
+				arguments: { next_link },
+				name: "retrieve_records_next_link",
+			})
+			await client.close()
+			expect(result.isError).toBe(true)
+			expect(resultText(result)).toContain(
+				"next_link must target a Planner entity set in the connected Dataverse environment",
+			)
+		},
+	)
 })
 
 describe("submit_operation_set", () => {

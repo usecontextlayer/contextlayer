@@ -1,4 +1,4 @@
-// `record.ts` guards generated output; these tests revalidate committed bytes so later
+// The recorders guard generated output; these tests revalidate committed bytes so later
 // edits cannot bypass the same invariants.
 import { readFileSync } from "node:fs"
 import { fileURLToPath, URL } from "node:url"
@@ -13,16 +13,18 @@ import {
 } from "@/lib/cassette/interaction"
 import { recordedChains } from "@/lib/cassette/replay"
 
-const RAW = readFileSync(
-	fileURLToPath(new URL("../__goldens__/schedule-api.json", import.meta.url)),
-	"utf8",
-)
-const cassette = cassetteSchema.parse(JSON.parse(RAW))
-const { interactions } = cassette
+const captures = ["schedule-api.json", "records.json"].map((filename) => {
+	const raw = readFileSync(
+		fileURLToPath(new URL(`../__goldens__/${filename}`, import.meta.url)),
+		"utf8",
+	)
+	return { cassette: cassetteSchema.parse(JSON.parse(raw)), raw }
+})
+const interactions = captures.flatMap(({ cassette }) => cassette.interactions)
 
-describe("the recorded cassette", () => {
+describe("the recorded cassettes", () => {
 	it("carries no value that identifies the org it was recorded against", () => {
-		expect(leaks(RAW)).toEqual([])
+		for (const { raw } of captures) expect(leaks(raw)).toEqual([])
 	})
 
 	it("gives every interaction a distinct scenario name", () => {
@@ -87,6 +89,7 @@ describe("the recorded cassette", () => {
 	it("keeps the note describing how it was made", () => {
 		// A fixture that loses its provenance is one nobody knows how to regenerate, and
 		// regenerating rather than editing is the whole discipline.
-		expect(cassette.note).toContain("Never hand-edit")
+		for (const { cassette } of captures)
+			expect(cassette.note).toContain("Never hand-edit")
 	})
 })

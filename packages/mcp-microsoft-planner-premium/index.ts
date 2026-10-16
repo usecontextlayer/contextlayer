@@ -181,22 +181,4 @@ app.all("/mcp", async (c) => {
 	return handler.fetch(c.req.raw, { authInfo })
 })
 
-// Temporary and read-only: forwards GETs to the token's own Dataverse environment so
-// Composio's same-domain proxy can read entities while new read tools are designed.
-app.get("/dataverse/*", async (c) => {
-	const gate = requireBearerAuth({
-		resourceMetadataUrl: getOAuthProtectedResourceMetadataUrl(new URL("/mcp", c.req.url)),
-		verifier,
-	})
-	const authInfo = await gate(c.req.raw)
-	if (authInfo instanceof Response) return authInfo
-
-	const { pathname, search } = new URL(c.req.url)
-	const target = new URL(
-		`${pathname.slice("/dataverse".length)}${search}`,
-		authInfo.resource as URL,
-	)
-	return fetch(new Request(target, c.req.raw))
-})
-
 export default app

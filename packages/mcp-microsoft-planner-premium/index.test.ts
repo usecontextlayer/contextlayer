@@ -88,6 +88,24 @@ describe("MCP HTTP authentication", () => {
 	)
 })
 
+describe("removed design-time forwarder", () => {
+	it("has no Dataverse forwarding route", async () => {
+		const token = new UnsecuredJWT({
+			appid: bindings.MICROSOFT_CLIENT_ID,
+			scp: "user_impersonation",
+		})
+			.setAudience(orgUrl)
+			.setExpirationTime("1h")
+			.encode()
+		const response = await app.request(
+			`${origin}/dataverse/api/data/v9.2/msdyn_projects`,
+			{ headers: { Authorization: `Bearer ${token}` } },
+			bindings,
+		)
+		expect(response.status).toBe(404)
+	})
+})
+
 describe("Composio DCR OAuth", () => {
 	it("advertises org-independent Worker endpoints", async () => {
 		const response = await app.request(

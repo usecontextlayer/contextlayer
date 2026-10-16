@@ -12,7 +12,11 @@ import {
 	submitOperationSet,
 	waitForOperationSet,
 } from "@/lib/operation-set"
-import type { ScheduleApiClient, StagedWrite } from "@/lib/schedule-api"
+import {
+	retrieveRecordsSchema,
+	type ScheduleApiClient,
+	type StagedWrite,
+} from "@/lib/schedule-api"
 import packageJson from "@/package.json"
 
 const MAX_OPERATIONS = 200
@@ -186,7 +190,9 @@ const submissionSchema = z
 			.array(deleteOperationSchema)
 			.default([])
 			.describe("Native entity identities to remove; bucket deletion is not exposed"),
-		ProjectId: guid.describe("The project's msdyn_projectid, returned by list_projects"),
+		ProjectId: guid.describe(
+			"The project's msdyn_projectid, returned by retrieve_records on msdyn_projects",
+		),
 		updates: z
 			.array(updateOperationSchema)
 			.default([])
@@ -309,14 +315,35 @@ export function createMcpServer(api: ScheduleApiClient): McpServer {
 		version: packageJson.version,
 	})
 	server.registerTool(
-		"list_projects",
+		"retrieve_records",
+		{
+			annotations: { readOnlyHint: true },
+			description: [
+				"Read Premium Planner records visible to the connected user using native Dataverse OData queries. Select a Planner entity set and optionally a record id. Pass query expressions as strings without URL-encoding them; Dataverse determines valid options for the request.",
+				"Returns Microsoft's JSON unchanged, including custom columns, formatted-value annotations, expanded related data, counts and aggregate aliases. A collection returns value; an id returns a record. Related data may come from outside Planner. An empty collection does not establish that no records exist: Dataverse permissions apply.",
+				"Returns one page. Pass a returned @odata.nextLink to retrieve_records_next_link to continue; no next link means the collection is complete. $top limits total results, not page size.",
+				"To list projects, use entity_set msdyn_projects and $select msdyn_projectid,msdyn_subject. Use the chosen msdyn_projectid as ProjectId in submit_operation_set. Inspect operation-set receipts with wait_for_operation_set.",
+			].join(" "),
+			inputSchema: retrieveRecordsSchema,
+		},
+		async (input) => toolResult(await api.retrieveRecords(input)),
+	)
+
+	server.registerTool(
+		"retrieve_records_next_link",
 		{
 			annotations: { readOnlyHint: true },
 			description:
-				"List the organization's Premium Planner projects visible to the chatting user. Returns the native Dataverse value array with msdyn_projectid and msdyn_subject. Use the chosen msdyn_projectid as ProjectId in submit_operation_set. This tool only reads Dataverse.",
-			inputSchema: z.strictObject({}),
+				"Continue a Planner Dataverse read using the exact @odata.nextLink returned by Microsoft, including a related collection's next link. The URL must remain in the connected environment and start from a Planner entity set. Returns one page of Microsoft's JSON unchanged with formatted-value annotations. Follow another returned next link to continue; no next link means the collection is complete.",
+			inputSchema: z.strictObject({
+				next_link: z
+					.url()
+					.describe(
+						"The exact Microsoft @odata.nextLink URL; do not change or re-encode it",
+					),
+			}),
 		},
-		async () => toolResult(await api.listProjects()),
+		async ({ next_link }) => toolResult(await api.retrieveRecordsNextLink(next_link)),
 	)
 
 	server.registerTool(

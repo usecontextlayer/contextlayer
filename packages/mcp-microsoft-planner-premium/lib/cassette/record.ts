@@ -752,10 +752,6 @@ async function preflight(): Promise<void> {
 }
 
 async function main(): Promise<void> {
-	await record("list-projects", async (client) => {
-		await client.listProjects()
-	})
-
 	// ---- the shapes a create can take ---------------------------------------
 	const plainTask = mint("plainTaskId")
 	await record("create-task", async (client) => {

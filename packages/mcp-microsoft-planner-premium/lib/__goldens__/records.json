@@ -1,0 +1,697 @@
+{
+	"api": "dataverse-project-schedule-v9.2",
+	"interactions": [
+		{
+			"chain": "records-query",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_projecttasks?%24count=true&%24filter=msdyn_progress+lt+1&%24orderby=msdyn_projecttaskid&%24select=msdyn_projecttaskid%2Cmsdyn_subject%2Cmsdyn_progress%2C_msdyn_project_value%2Cstatecode&%24top=2",
+				"prefer": "odata.include-annotations=\"OData.Community.Display.V1.FormattedValue\""
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_projecttasks(msdyn_projecttaskid,msdyn_subject,msdyn_progress,_msdyn_project_value,statecode)",
+					"@odata.count": 2458,
+					"value": [
+						{
+							"_msdyn_project_value": "{{guid1}}",
+							"_msdyn_project_value@OData.Community.Display.V1.FormattedValue": "{{text2}}",
+							"@odata.etag": "W/\"{{etag}}\"",
+							"msdyn_progress": 0,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text4}}",
+							"msdyn_projecttaskid": "{{guid2}}",
+							"msdyn_subject": "{{text3}}",
+							"statecode": 0,
+							"statecode@OData.Community.Display.V1.FormattedValue": "{{text1}}"
+						},
+						{
+							"_msdyn_project_value": "{{guid1}}",
+							"_msdyn_project_value@OData.Community.Display.V1.FormattedValue": "{{text2}}",
+							"@odata.etag": "W/\"{{etag}}\"",
+							"msdyn_progress": 0.54,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text6}}",
+							"msdyn_projecttaskid": "{{guid3}}",
+							"msdyn_subject": "{{text5}}",
+							"statecode": 0,
+							"statecode@OData.Community.Display.V1.FormattedValue": "{{text1}}"
+						}
+					]
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "records-query · 1"
+		},
+		{
+			"chain": "records-projects",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_projects?%24select=msdyn_projectid%2Cmsdyn_subject&%24top=2",
+				"prefer": "odata.include-annotations=\"OData.Community.Display.V1.FormattedValue\""
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_projects(msdyn_projectid,msdyn_subject)",
+					"value": [
+						{
+							"@odata.etag": "W/\"{{etag}}\"",
+							"msdyn_projectid": "{{guid4}}",
+							"msdyn_subject": "{{text7}}"
+						},
+						{
+							"@odata.etag": "W/\"{{etag}}\"",
+							"msdyn_projectid": "{{guid5}}",
+							"msdyn_subject": "{{text8}}"
+						}
+					]
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "records-projects · 1"
+		},
+		{
+			"chain": "records-single",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_projecttasks({{guid2}})",
+				"prefer": "odata.include-annotations=\"OData.Community.Display.V1.FormattedValue\""
+			},
+			"response": {
+				"body": {
+					"_createdby_value": "{{guid6}}",
+					"_createdby_value@OData.Community.Display.V1.FormattedValue": "{{text10}}",
+					"_createdonbehalfby_value": null,
+					"_crff1_projectclone_value": null,
+					"_modifiedby_value": "{{guid6}}",
+					"_modifiedby_value@OData.Community.Display.V1.FormattedValue": "{{text10}}",
+					"_modifiedonbehalfby_value": null,
+					"_msdyn_parenttask_value": null,
+					"_msdyn_pfwcreatedby_value": "{{guid8}}",
+					"_msdyn_pfwcreatedby_value@OData.Community.Display.V1.FormattedValue": "{{text13}}",
+					"_msdyn_pfwmodifiedby_value": "{{guid8}}",
+					"_msdyn_pfwmodifiedby_value@OData.Community.Display.V1.FormattedValue": "{{text13}}",
+					"_msdyn_project_value": "{{guid1}}",
+					"_msdyn_project_value@OData.Community.Display.V1.FormattedValue": "{{text2}}",
+					"_msdyn_projectbucket_value": "{{guid9}}",
+					"_msdyn_projectbucket_value@OData.Community.Display.V1.FormattedValue": "{{text19}}",
+					"_msdyn_projectsprint_value": null,
+					"_msdyn_resourcecategory_value": null,
+					"_msdyn_resourceorganizationalunitid_value": null,
+					"_msdyn_taskworkhourtemplate_value": null,
+					"_ownerid_value": "{{guid11}}",
+					"_ownerid_value@OData.Community.Display.V1.FormattedValue": "{{guid10}}",
+					"_owningbusinessunit_value": "{{guid7}}",
+					"_owningbusinessunit_value@OData.Community.Display.V1.FormattedValue": "{{text11}}",
+					"_owningteam_value": "{{guid11}}",
+					"_owninguser_value": null,
+					"_stageid_value": null,
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_projecttasks/$entity",
+					"@odata.etag": "W/\"{{etag}}\"",
+					"createdon": "{{timestamp}}",
+					"createdon@OData.Community.Display.V1.FormattedValue": "{{text20}}",
+					"crff1_test": null,
+					"importsequencenumber": null,
+					"modifiedon": "{{timestamp}}",
+					"modifiedon@OData.Community.Display.V1.FormattedValue": "{{text22}}",
+					"msdyn_description": null,
+					"msdyn_descriptionplaintext": null,
+					"msdyn_displaysequence": 17.375,
+					"msdyn_displaysequence@OData.Community.Display.V1.FormattedValue": "{{text25}}",
+					"msdyn_duration": 6,
+					"msdyn_duration@OData.Community.Display.V1.FormattedValue": "{{text23}}",
+					"msdyn_effort": 0,
+					"msdyn_effort@OData.Community.Display.V1.FormattedValue": "{{text4}}",
+					"msdyn_effortcompleted": 0,
+					"msdyn_effortcompleted@OData.Community.Display.V1.FormattedValue": "{{text4}}",
+					"msdyn_effortremaining": 0,
+					"msdyn_effortremaining@OData.Community.Display.V1.FormattedValue": "{{text4}}",
+					"msdyn_finish": "{{timestamp}}",
+					"msdyn_finish@OData.Community.Display.V1.FormattedValue": "{{text9}}",
+					"msdyn_iscritical": true,
+					"msdyn_iscritical@OData.Community.Display.V1.FormattedValue": "{{text15}}",
+					"msdyn_ismanual": false,
+					"msdyn_ismanual@OData.Community.Display.V1.FormattedValue": "{{text12}}",
+					"msdyn_ismilestone": false,
+					"msdyn_ismilestone@OData.Community.Display.V1.FormattedValue": "{{text12}}",
+					"msdyn_lastcalendarupdatetimestamp": null,
+					"msdyn_outlinelevel": 1,
+					"msdyn_outlinelevel@OData.Community.Display.V1.FormattedValue": "{{text21}}",
+					"msdyn_priority": 5,
+					"msdyn_priority@OData.Community.Display.V1.FormattedValue": "{{text16}}",
+					"msdyn_progress": 0,
+					"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text4}}",
+					"msdyn_projecttaskid": "{{guid2}}",
+					"msdyn_scheduledend": "{{timestamp}}",
+					"msdyn_scheduledend@OData.Community.Display.V1.FormattedValue": "{{text9}}",
+					"msdyn_scheduledstart": "{{timestamp}}",
+					"msdyn_scheduledstart@OData.Community.Display.V1.FormattedValue": "{{text17}}",
+					"msdyn_start": "{{timestamp}}",
+					"msdyn_start@OData.Community.Display.V1.FormattedValue": "{{text17}}",
+					"msdyn_subject": "{{text3}}",
+					"msdyn_summary": true,
+					"msdyn_summary@OData.Community.Display.V1.FormattedValue": "{{text15}}",
+					"msdyn_taskcalendarid": null,
+					"msdyn_tzascheduledend": "{{timestamp}}",
+					"msdyn_tzascheduledend@OData.Community.Display.V1.FormattedValue": "{{text18}}",
+					"msdyn_tzascheduledstart": "{{timestamp}}",
+					"msdyn_tzascheduledstart@OData.Community.Display.V1.FormattedValue": "{{text26}}",
+					"msdyn_userblockdelete": null,
+					"overriddencreatedon": null,
+					"processid": null,
+					"statecode": 0,
+					"statecode@OData.Community.Display.V1.FormattedValue": "{{text1}}",
+					"statuscode": 1,
+					"statuscode@OData.Community.Display.V1.FormattedValue": "{{text1}}",
+					"timezoneruleversionnumber": 4,
+					"timezoneruleversionnumber@OData.Community.Display.V1.FormattedValue": "{{text24}}",
+					"traversedpath": null,
+					"utcconversiontimezonecode": null,
+					"versionnumber": 0,
+					"versionnumber@OData.Community.Display.V1.FormattedValue": "{{text14}}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "records-single · 1"
+		},
+		{
+			"chain": "records-expand",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_projecttasks({{guid2}})?%24expand=msdyn_project%28%24select%3Dmsdyn_projectid%2Cmsdyn_subject%29&%24select=msdyn_projecttaskid",
+				"prefer": "odata.include-annotations=\"OData.Community.Display.V1.FormattedValue\""
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_projecttasks(msdyn_projecttaskid,msdyn_project(msdyn_projectid,msdyn_subject))/$entity",
+					"@odata.etag": "W/\"{{etag}}\"",
+					"msdyn_project": {
+						"@odata.etag": "W/\"{{etag}}\"",
+						"msdyn_projectid": "{{guid1}}",
+						"msdyn_subject": "{{text2}}"
+					},
+					"msdyn_projecttaskid": "{{guid2}}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "records-expand · 1"
+		},
+		{
+			"chain": "records-aggregate",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_projecttasks?%24apply=groupby%28%28msdyn_progress%29%2Caggregate%28%24count+as+n%29%29",
+				"prefer": "odata.include-annotations=\"OData.Community.Display.V1.FormattedValue\""
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_projecttasks",
+					"value": [
+						{
+							"msdyn_progress": 0,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text4}}",
+							"n": 2283,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text27}}"
+						},
+						{
+							"msdyn_progress": 0.93,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text28}}",
+							"n": 2,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text29}}"
+						},
+						{
+							"msdyn_progress": 0.94,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text30}}",
+							"n": 3,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text31}}"
+						},
+						{
+							"msdyn_progress": 0.88,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text32}}",
+							"n": 2,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text29}}"
+						},
+						{
+							"msdyn_progress": 0.7,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text33}}",
+							"n": 1,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text21}}"
+						},
+						{
+							"msdyn_progress": 0.87,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text34}}",
+							"n": 1,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text21}}"
+						},
+						{
+							"msdyn_progress": 0.69,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text35}}",
+							"n": 1,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text21}}"
+						},
+						{
+							"msdyn_progress": 0.55,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text36}}",
+							"n": 10,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text37}}"
+						},
+						{
+							"msdyn_progress": 0.09,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text38}}",
+							"n": 2,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text29}}"
+						},
+						{
+							"msdyn_progress": 0.86,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text39}}",
+							"n": 2,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text29}}"
+						},
+						{
+							"msdyn_progress": 1,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text40}}",
+							"n": 16596,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text41}}"
+						},
+						{
+							"msdyn_progress": 0.48,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text42}}",
+							"n": 2,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text29}}"
+						},
+						{
+							"msdyn_progress": 0.79,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text43}}",
+							"n": 3,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text31}}"
+						},
+						{
+							"msdyn_progress": 0.83,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text44}}",
+							"n": 7,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text45}}"
+						},
+						{
+							"msdyn_progress": 0.17,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text46}}",
+							"n": 1,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text21}}"
+						},
+						{
+							"msdyn_progress": 0.5,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text47}}",
+							"n": 6,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text48}}"
+						},
+						{
+							"msdyn_progress": 0.04,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text49}}",
+							"n": 3,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text31}}"
+						},
+						{
+							"msdyn_progress": 0.59,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text50}}",
+							"n": 1,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text21}}"
+						},
+						{
+							"msdyn_progress": 0.57,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text51}}",
+							"n": 3,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text31}}"
+						},
+						{
+							"msdyn_progress": 0.6,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text52}}",
+							"n": 2,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text29}}"
+						},
+						{
+							"msdyn_progress": 0.95,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text53}}",
+							"n": 2,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text29}}"
+						},
+						{
+							"msdyn_progress": 0.56,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text54}}",
+							"n": 1,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text21}}"
+						},
+						{
+							"msdyn_progress": 0.54,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text6}}",
+							"n": 4,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text24}}"
+						},
+						{
+							"msdyn_progress": 0.06,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text55}}",
+							"n": 1,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text21}}"
+						},
+						{
+							"msdyn_progress": 0.15,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text56}}",
+							"n": 1,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text21}}"
+						},
+						{
+							"msdyn_progress": 0.81,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text57}}",
+							"n": 2,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text29}}"
+						},
+						{
+							"msdyn_progress": 0.8,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text58}}",
+							"n": 4,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text24}}"
+						},
+						{
+							"msdyn_progress": 0.22,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text59}}",
+							"n": 2,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text29}}"
+						},
+						{
+							"msdyn_progress": 0.89,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text60}}",
+							"n": 3,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text31}}"
+						},
+						{
+							"msdyn_progress": 0.71,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text61}}",
+							"n": 4,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text24}}"
+						},
+						{
+							"msdyn_progress": 0.78,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text62}}",
+							"n": 1,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text21}}"
+						},
+						{
+							"msdyn_progress": 0.27,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text63}}",
+							"n": 2,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text29}}"
+						},
+						{
+							"msdyn_progress": 0.41,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text64}}",
+							"n": 4,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text24}}"
+						},
+						{
+							"msdyn_progress": 0.33,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text65}}",
+							"n": 2,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text29}}"
+						},
+						{
+							"msdyn_progress": 0.72,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text66}}",
+							"n": 3,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text31}}"
+						},
+						{
+							"msdyn_progress": 0.74,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text67}}",
+							"n": 1,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text21}}"
+						},
+						{
+							"msdyn_progress": 0.14,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text68}}",
+							"n": 4,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text24}}"
+						},
+						{
+							"msdyn_progress": 0.99,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text69}}",
+							"n": 9,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text70}}"
+						},
+						{
+							"msdyn_progress": 0.75,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text71}}",
+							"n": 13,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text72}}"
+						},
+						{
+							"msdyn_progress": 0.42,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text73}}",
+							"n": 2,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text29}}"
+						},
+						{
+							"msdyn_progress": 0.73,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text74}}",
+							"n": 2,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text29}}"
+						},
+						{
+							"msdyn_progress": 0.47,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text75}}",
+							"n": 4,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text24}}"
+						},
+						{
+							"msdyn_progress": 0.67,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text76}}",
+							"n": 1,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text21}}"
+						},
+						{
+							"msdyn_progress": 0.9,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text77}}",
+							"n": 10,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text37}}"
+						},
+						{
+							"msdyn_progress": 0.92,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text78}}",
+							"n": 3,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text31}}"
+						},
+						{
+							"msdyn_progress": 0.85,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text79}}",
+							"n": 3,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text31}}"
+						},
+						{
+							"msdyn_progress": 0.63,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text80}}",
+							"n": 3,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text31}}"
+						},
+						{
+							"msdyn_progress": 0.68,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text81}}",
+							"n": 4,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text24}}"
+						},
+						{
+							"msdyn_progress": 0.08,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text82}}",
+							"n": 1,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text21}}"
+						},
+						{
+							"msdyn_progress": 0.97,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text83}}",
+							"n": 2,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text29}}"
+						},
+						{
+							"msdyn_progress": 0.11,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text84}}",
+							"n": 2,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text29}}"
+						},
+						{
+							"msdyn_progress": 0.64,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text85}}",
+							"n": 4,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text24}}"
+						},
+						{
+							"msdyn_progress": 0.07,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text86}}",
+							"n": 1,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text21}}"
+						},
+						{
+							"msdyn_progress": 0.4,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text87}}",
+							"n": 1,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text21}}"
+						},
+						{
+							"msdyn_progress": 0.91,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text88}}",
+							"n": 3,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text31}}"
+						},
+						{
+							"msdyn_progress": 0.25,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text89}}",
+							"n": 2,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text29}}"
+						},
+						{
+							"msdyn_progress": 0.34,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text90}}",
+							"n": 2,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text29}}"
+						},
+						{
+							"msdyn_progress": 0.29,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text91}}",
+							"n": 1,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text21}}"
+						},
+						{
+							"msdyn_progress": 0.2,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text92}}",
+							"n": 1,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text21}}"
+						},
+						{
+							"msdyn_progress": 0.44,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text93}}",
+							"n": 1,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text21}}"
+						},
+						{
+							"msdyn_progress": 0.21,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text94}}",
+							"n": 2,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text29}}"
+						},
+						{
+							"msdyn_progress": 0.38,
+							"msdyn_progress@OData.Community.Display.V1.FormattedValue": "{{text95}}",
+							"n": 5,
+							"n@OData.Community.Display.V1.FormattedValue": "{{text16}}"
+						}
+					]
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "records-aggregate · 1"
+		},
+		{
+			"chain": "records-pages",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_projecttasks?%24filter=msdyn_projecttaskid+eq+{{guid2}}+or+msdyn_projecttaskid+eq+{{guid3}}&%24orderby=msdyn_projecttaskid&%24select=msdyn_projecttaskid%2Cmsdyn_subject",
+				"prefer": "odata.include-annotations=\"OData.Community.Display.V1.FormattedValue\""
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_projecttasks(msdyn_projecttaskid,msdyn_subject)",
+					"@odata.nextLink": "{{org}}/api/data/v9.2/msdyn_projecttasks?$filter=msdyn_projecttaskid%20eq%20{{guid2}}%20or%20msdyn_projecttaskid%20eq%20{{guid3}}&$orderby=msdyn_projecttaskid&$select=msdyn_projecttaskid,msdyn_subject&$skiptoken=%3Ccookie%20pagenumber=%222%22%20pagingcookie=%22%253ccookie%2520page%253d%25221%2522%253e%253cmsdyn_projecttaskid%2520last%253d%2522%257b{{guid2}}%257d%2522%2520first%253d%2522%257b{{guid2}}%257d%2522%2520%252f%253e%253c%252fcookie%253e%22%20istracking=%22False%22%20/%3E",
+					"value": [
+						{
+							"@odata.etag": "W/\"{{etag}}\"",
+							"msdyn_projecttaskid": "{{guid2}}",
+							"msdyn_subject": "{{text3}}"
+						}
+					]
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "records-pages · 1"
+		},
+		{
+			"chain": "records-pages",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_projecttasks?$filter=msdyn_projecttaskid%20eq%20{{guid2}}%20or%20msdyn_projecttaskid%20eq%20{{guid3}}&$orderby=msdyn_projecttaskid&$select=msdyn_projecttaskid,msdyn_subject&$skiptoken=%3Ccookie%20pagenumber=%222%22%20pagingcookie=%22%253ccookie%2520page%253d%25221%2522%253e%253cmsdyn_projecttaskid%2520last%253d%2522%257b{{guid2}}%257d%2522%2520first%253d%2522%257b{{guid2}}%257d%2522%2520%252f%253e%253c%252fcookie%253e%22%20istracking=%22False%22%20/%3E",
+				"prefer": "odata.include-annotations=\"OData.Community.Display.V1.FormattedValue\""
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_projecttasks(msdyn_projecttaskid,msdyn_subject)",
+					"value": [
+						{
+							"@odata.etag": "W/\"{{etag}}\"",
+							"msdyn_projecttaskid": "{{guid3}}",
+							"msdyn_subject": "{{text5}}"
+						}
+					]
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "records-pages · 2"
+		},
+		{
+			"chain": "records-expanded-pages",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_projects({{guid1}})?%24expand=msdyn_msdyn_project_msdyn_projecttask_project%28%24select%3Dmsdyn_projecttaskid%3B%24filter%3Dmsdyn_projecttaskid+eq+{{guid2}}+or+msdyn_projecttaskid+eq+{{guid3}}%29&%24select=msdyn_projectid",
+				"prefer": "odata.include-annotations=\"OData.Community.Display.V1.FormattedValue\""
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_projects(msdyn_projectid,msdyn_msdyn_project_msdyn_projecttask_project(msdyn_projecttaskid))/$entity",
+					"@odata.etag": "W/\"{{etag}}\"",
+					"msdyn_msdyn_project_msdyn_projecttask_project": [
+						{
+							"@odata.etag": "W/\"{{etag}}\"",
+							"msdyn_projecttaskid": "{{guid2}}"
+						}
+					],
+					"msdyn_msdyn_project_msdyn_projecttask_project@odata.nextLink": "{{org}}/api/data/v9.2/msdyn_projects({{guid1}})/msdyn_msdyn_project_msdyn_projecttask_project?$select=msdyn_projecttaskid&$filter=msdyn_projecttaskid%20eq%20{{guid2}}%20or%20msdyn_projecttaskid%20eq%20{{guid3}}&$skiptoken=%3Ccookie%20pagenumber=%222%22%20pagingcookie=%22%253ccookie%2520page%253d%25221%2522%2520parentEntityId%253d%2522{{guid1}}%2522%2520parentAttributeName%253d%2522msdyn_project%2522%2520parentEntityObjectTypeCode%253d%252210571%2522%253e%253cmsdyn_projecttaskid%2520last%253d%2522%257b{{guid2}}%257d%2522%2520first%253d%2522%257b{{guid2}}%257d%2522%2520%252f%253e%253c%252fcookie%253e%22%20istracking=%22False%22%20/%3E",
+					"msdyn_projectid": "{{guid1}}"
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "records-expanded-pages · 1"
+		},
+		{
+			"chain": "records-expanded-pages",
+			"request": {
+				"auth": "delegated",
+				"method": "GET",
+				"path": "msdyn_projects({{guid1}})/msdyn_msdyn_project_msdyn_projecttask_project?$select=msdyn_projecttaskid&$filter=msdyn_projecttaskid%20eq%20{{guid2}}%20or%20msdyn_projecttaskid%20eq%20{{guid3}}&$skiptoken=%3Ccookie%20pagenumber=%222%22%20pagingcookie=%22%253ccookie%2520page%253d%25221%2522%2520parentEntityId%253d%2522{{guid1}}%2522%2520parentAttributeName%253d%2522msdyn_project%2522%2520parentEntityObjectTypeCode%253d%252210571%2522%253e%253cmsdyn_projecttaskid%2520last%253d%2522%257b{{guid2}}%257d%2522%2520first%253d%2522%257b{{guid2}}%257d%2522%2520%252f%253e%253c%252fcookie%253e%22%20istracking=%22False%22%20/%3E",
+				"prefer": "odata.include-annotations=\"OData.Community.Display.V1.FormattedValue\""
+			},
+			"response": {
+				"body": {
+					"@odata.context": "{{org}}/api/data/v9.2/$metadata#msdyn_projecttasks(msdyn_projecttaskid)",
+					"value": [
+						{
+							"@odata.etag": "W/\"{{etag}}\"",
+							"msdyn_projecttaskid": "{{guid3}}"
+						}
+					]
+				},
+				"status": 200,
+				"statusText": "OK"
+			},
+			"scenario": "records-expanded-pages · 2"
+		}
+	],
+	"note": "Recorded native Dataverse GETs with lib/cassette/record-reads.ts. Never hand-edit: rerun that script. Customer text and identifiers normalized in memory. Paging conversations used recording-only odata.maxpagesize=1, omitted from the replay key; production uses default page size. Every request asked for formatted-value annotations. Existing readable records establish preconditions; no customer writes.",
+	"recordedBy": "lib/cassette/record-reads.ts"
+}

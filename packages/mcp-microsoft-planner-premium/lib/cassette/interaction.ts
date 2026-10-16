@@ -26,6 +26,7 @@ const requestSchema = z.discriminatedUnion("method", [
 		auth: authSchema,
 		method: z.literal("GET"),
 		path: z.string().min(1),
+		prefer: z.string().optional(),
 	}),
 	z.strictObject({
 		auth: authSchema,
@@ -50,7 +51,7 @@ export const cassetteSchema = z.strictObject({
 	api: z.literal("dataverse-project-schedule-v9.2"),
 	interactions: z.array(interactionSchema),
 	note: z.string(),
-	recordedBy: z.literal("lib/cassette/record.ts"),
+	recordedBy: z.enum(["lib/cassette/record.ts", "lib/cassette/record-reads.ts"]),
 })
 
 /**
@@ -91,8 +92,7 @@ export function leaks(serialized: string): string[] {
 	if (jwt) found.push(`${jwt.length} JWT-shaped strings`)
 	const guid = serialized.match(new RegExp(GUID_SOURCE, "g"))
 	if (guid) found.push(`${guid.length} unnormalized GUIDs, e.g. ${guid[0]}`)
-	// Row versions are STRIPPED rather than normalized, so any that survives is a spelling
-	// the stripper does not reach — most likely one embedded in a message string.
+	// Raw row versions must not survive normalization, including inside messages.
 	const rowVersion = serialized.match(/W\/\\?"\d+\\?"/g)
 	if (rowVersion) found.push(`${rowVersion.length} row versions, e.g. ${rowVersion[0]}`)
 	const host = serialized.match(/\.(?:crm\d*|dynamics)\.com/g)
@@ -131,11 +131,17 @@ export type Interaction = z.output<typeof interactionSchema>
  * sequence.
  */
 export function keyOf(request: Interaction["request"]): string {
+	const url = new URL(request.path, "https://recording.invalid/")
+	url.searchParams.sort()
+	const path = url.searchParams.has("$skiptoken")
+		? request.path
+		: decodeURIComponent(url.pathname.slice(1)) +
+			(url.search ? `?${url.searchParams}` : "")
 	const setId =
 		request.method === "POST"
 			? (operationSetIdSchema.parse(request.body).OperationSetId ?? "")
 			: ""
-	return `${request.method}|${request.path}|${request.auth}|${setId}`
+	return `${request.method}|${path}|${request.auth}|${setId}|${request.method === "GET" ? (request.prefer ?? "") : ""}`
 }
 
 type Keyed = Pick<Interaction, "chain" | "request" | "scenario">
