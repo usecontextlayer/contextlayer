@@ -9,7 +9,7 @@ import { expect } from "vitest"
 import { z } from "zod"
 import { getAgentInstanceName } from "@/agent-instance"
 import { parseSharedSecretsEnv } from "@/env"
-import { secretKey } from "@/secrets.server"
+import { listSharedSecretNames, loadSharedSecret, secretKey } from "@/secrets.server"
 import { slateSchema } from "@/slates.schema"
 
 const names = [
@@ -123,7 +123,7 @@ const test = base.extend(
 	},
 )
 
-test("non-writing: chrome lists agent-only personal secrets and validates saves before vault writes", {
+test("non-writing: chrome lists agent-only personal secrets and rejects invalid and undeclared saves", {
 	timeout: 180_000,
 }, async ({ platform, secretSlate }) => {
 	const { chromeHeaders, chromeUrl, headers, instance, members, slate } = secretSlate
@@ -166,22 +166,8 @@ test("live Doppler: API partial save and chrome final secret enable agent-only r
 		secretSlate
 	const owner = { id: webSession.user.id, type: "personal" } as const
 	const vault = parseSharedSecretsEnv(platform.env)
-	const readRaw = async (name: string) => {
-		const url = new URL("https://api.doppler.com/v3/configs/config/secret")
-		url.search = new URLSearchParams({
-			config: vault.CTX_OWNER_CREDENTIALS_DOPPLER_CONFIG,
-			name: secretKey(owner, name),
-			project: vault.CTX_OWNER_CREDENTIALS_DOPPLER_PROJECT,
-		}).toString()
-		const response = await fetch(url, {
-			headers: { authorization: `Bearer ${vault.CTX_OWNER_CREDENTIALS_DOPPLER_TOKEN}` },
-		})
-		expect(response.status).toBe(200)
-		return z
-			.object({ value: z.object({ raw: z.string().nullable() }) })
-			.parse(await response.json()).value.raw
-	}
-	for (const name of names) expect((await readRaw(name)) === null).toBe(true)
+	const secretNames = await listSharedSecretNames(platform.env)
+	for (const name of names) expect(secretNames.has(secretKey(owner, name))).toBe(false)
 	await using cleanup = new AsyncDisposableStack()
 	const values = [
 		"synthetic-slate-primary-value",
@@ -199,7 +185,9 @@ test("live Doppler: API partial save and chrome final secret enable agent-only r
 				},
 			)
 			expect(dropped.status).toBe(200)
-			expect((await readRaw(name)) === null).toBe(true)
+			expect(
+				(await listSharedSecretNames(platform.env)).has(secretKey(owner, name)),
+			).toBe(false)
 		})
 		const saved =
 			index === 0
@@ -217,7 +205,7 @@ test("live Doppler: API partial save and chrome final secret enable agent-only r
 		const output = await saved.text()
 		for (const secretValue of values) expect(output.includes(secretValue)).toBe(false)
 		if (index === 0) expect(JSON.parse(output)).toEqual({ name, owner })
-		expect((await readRaw(name)) === value).toBe(true)
+		expect((await loadSharedSecret(platform.env, owner, name)) === value).toBe(true)
 		if (index === 0) {
 			expect(await members()).toEqual([])
 			expect(await instance.listSchedules()).toEqual([])
