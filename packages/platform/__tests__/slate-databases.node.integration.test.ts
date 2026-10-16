@@ -126,6 +126,22 @@ test("deploy provisions slate-owned databases and existing members' personal dat
 		await git("config", "user.name", "Database Test")
 		await git("config", "user.email", "database-test@example.com")
 		await git("remote", "add", "origin", `${origin}/git/${slate.id}`)
+		for (const slug of ["drafts", "inbox", "reports"])
+			await cp(
+				new URL("../../cli/template/databases/updates/migrations/", import.meta.url),
+				join(checkout, "databases", slug, "migrations"),
+				{ recursive: true },
+			)
+		if (slate.id === joinedBeforeProvisioning.id) {
+			await writeFile(
+				join(checkout, "public/slate.json"),
+				JSON.stringify({ connections: {}, databases: { drafts: { mode: "viewer" } } }),
+			)
+			await git("add", "public", "databases")
+			await git("-c", "commit.gpgsign=false", "commit", "-m", "Declare personal drafts")
+			await git("push", "origin", "main")
+			await firstUse(slate)
+		}
 		await writeFile(
 			join(checkout, "public/slate.json"),
 			JSON.stringify({
@@ -149,12 +165,6 @@ test("deploy provisions slate-owned databases and existing members' personal dat
 			scheduleFile,
 			'---\ncron: "0 0 1 1 *"\n---\nSave a scheduled document.\n',
 		)
-		for (const slug of ["drafts", "inbox", "reports"])
-			await cp(
-				new URL("../../cli/template/databases/updates/migrations/", import.meta.url),
-				join(checkout, "databases", slug, "migrations"),
-				{ recursive: true },
-			)
 		await git("add", "public", "agents", "databases")
 		await git(
 			"-c",
@@ -179,16 +189,18 @@ test("deploy provisions slate-owned databases and existing members' personal dat
 				id: user.id,
 				type: "personal",
 			})
-		for (const { instance_name } of Object.values(configuration.databases))
-			await expect(
-				DATABASES.getByName(instance_name).query("SELECT * FROM updates"),
-			).rejects.toThrow()
-		if (slate.id === joinedBeforeProvisioning.id) await firstUse(slate)
-		await PROVISIONING.provision(slate.id)
+		for (const [slug, { instance_name }] of Object.entries(configuration.databases)) {
+			const query = DATABASES.getByName(instance_name).query("SELECT * FROM updates")
+			if (slate.id === joinedBeforeProvisioning.id && slug === "drafts")
+				expect((await query).rows).toEqual([])
+			else await expect(query).rejects.toThrow()
+		}
 		const instance = await getAgentByName(
 			AGENTS,
 			getAgentInstanceName(slate.id, "daily-summary", { id: user.id, type: "user" }),
 		)
+		expect(await instance.listSchedules()).toEqual([])
+		await PROVISIONING.provision(slate.id)
 		expect(await instance.listSchedules()).toHaveLength(
 			slate.id === joinedBeforeProvisioning.id ? 1 : 0,
 		)

@@ -6,6 +6,7 @@ import { test } from "@tests/integration"
 import { expect } from "vitest"
 import { z } from "zod"
 import { agentSchema } from "@/agents.schema"
+import { slateMemberSchema } from "@/slate-members.schema"
 import { listedSlateSchema, slateSchema } from "@/slates.schema"
 
 const execFile = promisify(execFileCallback)
@@ -129,6 +130,10 @@ test("slate ownership protects viewing, listing, and native Git source access", 
 			})
 		).status,
 	).toBe(400)
+	await db
+		.insertInto("slate_member")
+		.values(slateMemberSchema.parse({ slate_id: slate.id, user_id: user.id }))
+		.execute()
 	const otherOwner = "different-user"
 	await db
 		.updateTable("slate")

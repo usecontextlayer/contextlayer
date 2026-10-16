@@ -33,7 +33,7 @@ const config = parsePlatformEnv({
 	POLAR_WEBHOOK_SECRET: "unused-in-sql-only-test",
 })
 
-test("configuration includes agent-only connections while app execution uses its own resources", async ({
+test("configuration includes agent-only connections and projects app requirements", async ({
 	db,
 }) => {
 	const resources = collectSlateResources(

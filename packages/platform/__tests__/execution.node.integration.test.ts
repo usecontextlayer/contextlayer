@@ -17,6 +17,7 @@ import type {
 import { execa } from "execa"
 import { expect } from "vitest"
 import { z } from "zod"
+import { listSlateMembers } from "@/slate-members.server"
 import { slateSchema } from "@/slates.schema"
 
 test("native resource capabilities enforce access and report exact slate-Owner tool usage", {
@@ -197,23 +198,12 @@ test("native resource capabilities enforce access and report exact slate-Owner t
 		const undeclared = await callCapability("tools", props, ["other", "EXAMPLE", {}])
 		expect(undeclared.status).toBe(400)
 		expect(await undeclared.json()).toEqual({ error: "not-declared" })
-		await db.deleteFrom("slate_member").where("slate_id", "=", slate.id).execute()
-		const membership = await callCapability("tools", props, [
-			"mail",
-			"GMAIL_GET_PROFILE",
-			{ user_id: "me" },
-		])
-		expect(membership.status).toBe(409)
-		expect(await membership.json()).toEqual({
-			reason: "connection-required",
-			slug: "mail",
-		})
-		const databaseMembership = await callCapability("databases", props, [
+		const databaseRefusal = await callCapability("databases", props, [
 			"drafts",
 			"SELECT id, body FROM updates ORDER BY created_at",
 		])
-		expect(databaseMembership.status).toBe(409)
-		expect(await databaseMembership.json()).toEqual({
+		expect(databaseRefusal.status).toBe(409)
+		expect(await databaseRefusal.json()).toEqual({
 			reason: "connection-required",
 			slug: "mail",
 		})
@@ -222,19 +212,37 @@ test("native resource capabilities enforce access and report exact slate-Owner t
 			post({ connection_id: connection.id, slug: "mail" }),
 		)
 		expect(assigned.status).toBe(200)
+		const member = { slate_id: slate.id, user_id: user.id }
+		expect(await listSlateMembers(db, slate.id)).toEqual([member])
+		await db
+			.deleteFrom("slate_connection_assignment")
+			.where("slate_id", "=", slate.id)
+			.execute()
+		const missingForMember = await callCapability("tools", props, [
+			"mail",
+			"GMAIL_GET_PROFILE",
+			{ user_id: "me" },
+		])
+		expect(missingForMember.status).toBe(409)
+		expect(await missingForMember.json()).toEqual({
+			reason: "connection-required",
+			slug: "mail",
+		})
+		expect(await listSlateMembers(db, slate.id)).toEqual([member])
+		expect(
+			(
+				await fetch(
+					`${origin}/api/slates/${slate.id}/connections/assign`,
+					post({ connection_id: connection.id, slug: "mail" }),
+				)
+			).status,
+		).toBe(200)
 		const opened = await callCapability("databases", props, [
 			"drafts",
 			"SELECT id FROM updates",
 		])
 		expect(opened.status).toBe(200)
 		expect(await opened.json()).toMatchObject({ rows: [] })
-		expect(
-			await db
-				.selectFrom("slate_member")
-				.selectAll()
-				.where("slate_id", "=", slate.id)
-				.execute(),
-		).toEqual([{ slate_id: slate.id, user_id: user.id }])
 		const configuration = await fetch(
 			`${origin}/api/slates/${slate.id}/resources/list`,
 			post({}),

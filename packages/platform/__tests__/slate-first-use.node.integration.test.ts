@@ -129,15 +129,20 @@ test("first use provisions personal data and schedules once, after the whole sla
 		viewerHeaders.get("cookie")?.match(/ctx-viewer-auth=([^;]+)/)?.[1] ?? "",
 	)
 	assert(token)
+	const props = { credential: { token, type: "session" }, slateId: slate.id } as const
 	const query = (sql: string, params: (string | number | null)[] = [], slug = "drafts") =>
 		execution.worker.fetch("http://execution/databases", {
-			body: JSON.stringify([
-				{ credential: { token, type: "session" }, slateId: slate.id },
-				[slug, sql, params],
-			]),
+			body: JSON.stringify([props, [slug, sql, params]]),
 			headers: { "content-type": "application/json" },
 			method: "POST",
 		})
+	const agentOnly = await execution.worker.fetch("http://execution/tools", {
+		body: JSON.stringify([props, ["mail", "GMAIL_GET_PROFILE", { user_id: "me" }]]),
+		headers: { "content-type": "application/json" },
+		method: "POST",
+	})
+	expect(agentOnly.status).toBe(400)
+	expect(await agentOnly.json()).toEqual({ error: "not-declared" })
 	const privateOwner = await query("SELECT * FROM updates", [], "reports")
 	expect(privateOwner.status).toBe(200)
 	expect(databaseResultSchema.parse(await privateOwner.json()).rows).toEqual([])
