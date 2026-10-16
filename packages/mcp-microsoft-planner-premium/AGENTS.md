@@ -1,4 +1,4 @@
-# Premium Planner MCP Worker
+# Planner Premium MCP Worker
 
 This package uses the same Wrangler build and development tasks as the other standalone Workers. Its unit tests need no credentials, Dataverse access or local service.
 
@@ -8,7 +8,11 @@ Carry supported native Microsoft entity fields, action parameters and response f
 
 ## Deployment
 
-A deployment needs four Wrangler secrets: `CTX_ENTRA_CLIENT_ID` (the ContextLayer Entra application, `aaf9e242-3a1f-4d36-b9ee-f1a11c2b2c11`), `CTX_ENTRA_CLIENT_SECRET` (that application's Web client secret), `CTX_ENTRA_TENANT` (the Microsoft endpoint tenant segment), and `CTX_DATAVERSE_ORG_URL` (the org the deployment serves). Register it in Composio as a Custom MCP toolkit in `DCR_OAUTH` mode with `discovery_url` at `/.well-known/oauth-authorization-server` and `app_url` at `/mcp`. Composio's OAuth callback, `https://backend.composio.dev/api/v1/auth-apps/add`, must be a Web redirect URI on that Entra application before anyone can connect.
+A deployment needs two Wrangler secrets: `CTX_ENTRA_CLIENT_ID` (the shared multi-tenant ContextLayer Entra application, `aaf9e242-3a1f-4d36-b9ee-f1a11c2b2c11`) and `CTX_ENTRA_CLIENT_SECRET` (that application's Web client secret). Microsoft endpoints use the constant `organizations` tenant segment. The person connecting chooses their Dataverse environment URL on `/authorize`; `/mcp` derives the org from the token's audience. Register it in Composio as a Custom MCP toolkit in `DCR_OAUTH` mode with `discovery_url` at `/.well-known/oauth-authorization-server` and `app_url` at `/mcp`. Composio's OAuth callback, `https://backend.composio.dev/api/v1/auth-apps/add`, must be a Web redirect URI on that Entra application before anyone can connect.
+
+## Connection page
+
+Use `htmlPage` from `@usecontextlayer/sdk/html` for the authorization page's document and responsive card. Keep the form's content and OAuth parameters in this package. Use standard Bootstrap 6 classes, with no custom CSS or client-side form machinery.
 
 ## The recording
 

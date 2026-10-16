@@ -7,12 +7,33 @@ import type { Bindings } from "@/env"
 import app from "@/index"
 
 const bindings = {
-	CTX_DATAVERSE_ORG_URL: "https://planner-test.crm.dynamics.com/",
 	CTX_ENTRA_CLIENT_ID: "aaf9e242-3a1f-4d36-b9ee-f1a11c2b2c11",
 	CTX_ENTRA_CLIENT_SECRET: "test-only-secret",
-	CTX_ENTRA_TENANT: "organizations",
 } satisfies Bindings
 const origin = "https://planner.example"
+const orgUrl = "https://planner-test.crm.dynamics.com"
+const invalidOrgs = [
+	"https://graph.microsoft.com",
+	"https://planner-test.crm.dynamics.com.evil.example",
+	"http://planner-test.crm.dynamics.com",
+	"https://planner-test.crm.dynamics.com:8443",
+	"https://user:password@planner-test.crm.dynamics.com",
+	"https://planner-test.crm.dynamics.com/api/data/v9.2",
+	"https://planner-test.crm.dynamics.com?query=value",
+	"https://planner-test.crm.dynamics.com#fragment",
+]
+const authorizationQuery = () =>
+	new URLSearchParams({
+		client_id: bindings.CTX_ENTRA_CLIENT_ID,
+		code_challenge: "a-PKCE_challenge.with~characters",
+		code_challenge_method: "S256",
+		prompt: "select_account",
+		redirect_uri: "https://connect.example/oauth/callback?next=%2Fmcp&from=planner",
+		resource: `${origin}/mcp`,
+		response_type: "code",
+		scope: "mcp",
+		state: 'state with + / & = % " < characters',
+	})
 
 describe("MCP HTTP authentication", () => {
 	it("challenges a missing token with reachable resource metadata", async () => {
@@ -31,38 +52,44 @@ describe("MCP HTTP authentication", () => {
 		})
 	})
 
-	it.each([
-		{
-			audience: bindings.CTX_DATAVERSE_ORG_URL,
-			expiresAt: 0,
-			name: "expired token",
-		},
-		{
-			audience: "https://another-org.crm.dynamics.com",
-			expiresAt: "1h",
-			name: "token for another org",
-		},
-	])("rejects $name at the HTTP edge", async ({ audience, expiresAt }) => {
-		const token = new UnsecuredJWT({
-			appid: bindings.CTX_ENTRA_CLIENT_ID,
-			scp: "user_impersonation",
-		})
-			.setAudience(audience)
-			.setExpirationTime(expiresAt)
-			.encode()
+	it("rejects a malformed token with the SDK challenge", async () => {
 		const response = await app.request(
 			`${origin}/mcp`,
-			{ headers: { Authorization: `Bearer ${token}` }, method: "POST" },
+			{ headers: { Authorization: "Bearer not-a-jwt" }, method: "POST" },
 			bindings,
 		)
 		expect(response.status).toBe(401)
 		expect(response.headers.get("WWW-Authenticate")).toContain('error="invalid_token"')
 		expect(await response.json()).toMatchObject({ error: "invalid_token" })
 	})
+
+	it.each([
+		{ audience: orgUrl, expiresAt: 0 },
+		...invalidOrgs.map((audience) => ({ audience, expiresAt: "1h" })),
+	])(
+		"rejects invalid audience or expiry: $audience / $expiresAt",
+		async ({ audience, expiresAt }) => {
+			const token = new UnsecuredJWT({
+				appid: bindings.CTX_ENTRA_CLIENT_ID,
+				scp: "user_impersonation",
+			})
+				.setAudience(audience)
+				.setExpirationTime(expiresAt)
+				.encode()
+			const response = await app.request(
+				`${origin}/mcp`,
+				{ headers: { Authorization: `Bearer ${token}` }, method: "POST" },
+				bindings,
+			)
+			expect(response.status).toBe(401)
+			expect(response.headers.get("WWW-Authenticate")).toContain('error="invalid_token"')
+			expect(await response.json()).toMatchObject({ error: "invalid_token" })
+		},
+	)
 })
 
 describe("Composio DCR OAuth", () => {
-	it("advertises the Worker endpoints and delegated Dataverse scopes", async () => {
+	it("advertises org-independent Worker endpoints", async () => {
 		const response = await app.request(
 			`${origin}/.well-known/oauth-authorization-server`,
 			{},
@@ -77,10 +104,6 @@ describe("Composio DCR OAuth", () => {
 			issuer: origin,
 			registration_endpoint: `${origin}/register`,
 			response_types_supported: ["code"],
-			scopes_supported: [
-				"https://planner-test.crm.dynamics.com/user_impersonation",
-				"offline_access",
-			],
 			token_endpoint: `${origin}/token`,
 			token_endpoint_auth_methods_supported: ["none"],
 		})
@@ -110,25 +133,74 @@ describe("Composio DCR OAuth", () => {
 		})
 	})
 
-	it("redirects to Microsoft with the callback, state and PKCE unchanged", async () => {
-		const query = new URLSearchParams({
-			client_id: bindings.CTX_ENTRA_CLIENT_ID,
-			code_challenge: "a-PKCE_challenge.with~characters",
-			code_challenge_method: "S256",
-			redirect_uri: "https://connect.example/oauth/callback?next=%2Fmcp&from=planner",
-			response_type: "code",
-			scope: "mcp",
-			state: "state with + / & = % characters",
-		})
-		const response = await app.request(`${origin}/authorize?${query}`, {}, bindings)
-		expect(response.status).toBe(302)
-		const location = new URL(response.headers.get("Location") as string)
-		expect(`${location.origin}${location.pathname}`).toBe(
-			"https://login.microsoftonline.com/organizations/oauth2/v2.0/authorize",
+	it("asks for the org and carries the OAuth parameters in the form", async () => {
+		const response = await app.request(
+			`${origin}/authorize?${authorizationQuery()}`,
+			{},
+			bindings,
 		)
-		expect(Object.fromEntries(location.searchParams)).toEqual({
-			...Object.fromEntries(query),
-			scope: "https://planner-test.crm.dynamics.com/user_impersonation offline_access",
-		})
+		expect(response.status).toBe(200)
+		expect(response.headers.get("content-type")).toContain("text/html")
+		const page = await response.text()
+		expect(page).toContain('<form action="/authorize" method="get">')
+		expect(page).toContain('type="url" name="ctx_dataverse_org_url"')
+		expect(page).toContain("Dataverse environment URL")
+		expect(page).toContain(
+			'name="state" value="state with + / &amp; = % &quot; &lt; characters"',
+		)
+		expect(page).toContain(
+			'name="redirect_uri" value="https://connect.example/oauth/callback?next=%2Fmcp&amp;from=planner"',
+		)
+		expect(page).toContain(
+			'name="code_challenge" value="a-PKCE_challenge.with~characters"',
+		)
 	})
+
+	it.each([orgUrl, "https://another-org.crm3.dynamics.com/"])(
+		"redirects for %s with the callback, state and PKCE unchanged",
+		async (org) => {
+			const query = authorizationQuery()
+			query.set("ctx_dataverse_org_url", org)
+			const response = await app.request(`${origin}/authorize?${query}`, {}, bindings)
+			expect(response.status).toBe(302)
+			const location = new URL(response.headers.get("Location") as string)
+			expect(`${location.origin}${location.pathname}`).toBe(
+				"https://login.microsoftonline.com/organizations/oauth2/v2.0/authorize",
+			)
+			query.delete("ctx_dataverse_org_url")
+			query.delete("resource")
+			expect(Object.fromEntries(location.searchParams)).toEqual({
+				...Object.fromEntries(query),
+				scope: `${new URL(org).origin}/user_impersonation offline_access`,
+			})
+		},
+	)
+
+	it.each(invalidOrgs)(
+		"keeps an invalid org in the form for correction: %s",
+		async (org) => {
+			const query = authorizationQuery()
+			query.set("ctx_dataverse_org_url", org)
+			const response = await app.request(`${origin}/authorize?${query}`, {}, bindings)
+			expect(response.status).toBe(400)
+			expect(response.headers.get("Location")).toBeNull()
+			expect(response.headers.get("content-type")).toContain("text/html")
+			const page = await response.text()
+			expect(page).toContain('<form action="/authorize" method="get">')
+			expect(page).toContain(`value="${org}"`)
+			expect(page).toContain('aria-invalid="true"')
+			expect(page).toContain('id="org-error"')
+			expect(page).toContain("Enter a Dataverse environment URL like")
+			expect(page.match(/name="ctx_dataverse_org_url"/g)).toHaveLength(1)
+			expect(page).toContain(
+				'name="state" value="state with + / &amp; = % &quot; &lt; characters"',
+			)
+			expect(page).toContain(
+				'name="redirect_uri" value="https://connect.example/oauth/callback?next=%2Fmcp&amp;from=planner"',
+			)
+			expect(page).toContain(
+				'name="code_challenge" value="a-PKCE_challenge.with~characters"',
+			)
+		},
+	)
 })

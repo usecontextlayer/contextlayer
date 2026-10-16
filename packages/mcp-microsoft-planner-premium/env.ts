@@ -1,10 +1,8 @@
 import { z } from "zod"
 
 const schema = z.object({
-	CTX_DATAVERSE_ORG_URL: z.url().transform((value) => new URL(value).origin),
 	CTX_ENTRA_CLIENT_ID: z.guid(),
 	CTX_ENTRA_CLIENT_SECRET: z.string().min(1),
-	CTX_ENTRA_TENANT: z.string().min(1),
 })
 
 export type Bindings = z.input<typeof schema>

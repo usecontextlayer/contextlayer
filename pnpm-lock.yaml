@@ -263,6 +263,9 @@ importers:
       '@modelcontextprotocol/server':
         specifier: 2.3.1
         version: 2.3.1
+      '@usecontextlayer/sdk':
+        specifier: workspace:*
+        version: link:../sdk
       hono:
         specifier: ^4.13.7
         version: 4.13.12
@@ -472,6 +475,9 @@ importers:
       drizzle-orm:
         specifier: 0.45.3
         version: 0.45.3(@cloudflare/workers-types@5.20261001.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.23.1)(supports-color@10.2.2))(kysely@0.29.5)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2)
+      hono:
+        specifier: ^4.13.7
+        version: 4.13.12
       vite-plugin-singlefile:
         specifier: 2.3.3
         version: 2.3.3(vite@8.3.2(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))

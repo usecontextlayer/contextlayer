@@ -1,6 +1,7 @@
 {
 	"dependencies": {
 		"@modelcontextprotocol/server": "2.3.1",
+		"@usecontextlayer/sdk": "workspace:*",
 		"hono": "^4.13.7",
 		"jose": "^6.2.12",
 		"zod": "^4.6.5"

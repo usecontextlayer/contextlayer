@@ -6,6 +6,7 @@
 		"@modelcontextprotocol/server": "2.3.1",
 		"@usecontextlayer/cli": "workspace:*",
 		"drizzle-orm": "0.45.3",
+		"hono": "^4.13.7",
 		"vite-plugin-singlefile": "2.3.3",
 		"zod": "^4.6.5"
 	},
@@ -28,6 +29,10 @@
 		".": {
 			"import": "./dist/index.js",
 			"types": "./dist/index.d.ts"
+		},
+		"./html": {
+			"import": "./dist/html.js",
+			"types": "./dist/html.d.ts"
 		},
 		"./local": {
 			"import": "./dist/local.js",

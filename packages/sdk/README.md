@@ -31,6 +31,26 @@ export { Layout } from "@usecontextlayer/sdk/react"
 
 Keep this re-export when editing the app's root component, error boundary, stylesheet, and font links. Layout supplies React Router's document elements and mounts the [chrome](https://github.com/usecontextlayer/contextlayer/blob/main/ARCHITECTURE.md#slate-chrome) outside Vite development. Use the chrome's header to configure hosted connections, then refresh the page. Use CLI assignments during local development.
 
+## Standalone HTML pages
+
+Use `htmlPage` for a complete server-rendered document with a centered, responsive white card. It loads pinned Bootstrap 6 CSS through a CDN stylesheet link and uses Bootstrap classes for layout. Supply the card's contents with Hono's `html` helper and standard Bootstrap markup; no React, custom CSS or frontend build configuration is required.
+
+```ts
+import { htmlPage } from "@usecontextlayer/sdk/html"
+import { html } from "hono/html"
+
+return c.html(htmlPage({
+  title: "Connect your account",
+  children: html`<h1 class="h4">Connect your account</h1>
+    <form action="/authorize" method="get">
+      <!-- Application-owned fields and authorization parameters -->
+      <button class="btn-solid theme-inverse" type="submit">Continue</button>
+    </form>`,
+}))
+```
+
+The caller owns the content, form destination, validation and authorization flow. The helper supplies only the document and presentation shell.
+
 ## A loader that reads Gmail
 
 Pass the connection slug from `public/slate.json` as the first argument to `tools.call`, followed by the tool name and its arguments:

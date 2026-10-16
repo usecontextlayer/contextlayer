@@ -8,5 +8,5 @@
 	"exclude": ["node_modules", "dist", "vitest.config.ts"],
 	"extends": "../../tsconfig.base.json",
 	"include": ["**/*.ts", "package.json"],
-	"references": []
+	"references": [{ "path": "../sdk" }]
 }

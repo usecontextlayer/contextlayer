@@ -9,12 +9,12 @@
 // a harness that lets the test assemble the progression can assert accept-then-fail
 // on evidence that does not exist.
 //
-// The deployment points at the replay org, and the caller's token names that same
-// audience. These unsigned tokens exercise claim checks, not Microsoft validation.
+// The caller's token names a Dataverse org; fetch routes only that origin to the
+// local replay. These unsigned tokens exercise claim checks, not Microsoft validation.
 
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client"
 import { UnsecuredJWT } from "jose"
-import { afterEach, describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import type { Bindings } from "@/env"
 import app from "@/index"
 import { type RecordedOrg, serveRecordedOrg } from "@/lib/cassette/replay"
@@ -70,25 +70,33 @@ const NAMES_NOTHING = "{{unknownTaskId}}"
 
 let org: RecordedOrg
 let accessToken: string
+const networkFetch = globalThis.fetch
 
 /**
  * Stand up the recorded org and drive the planner Worker's HTTP entrypoint.
  * `replaying` names the recorded chain this test drives; omitted only by tests that
  * touch no Dataverse traffic.
  */
-async function connect(options: { replaying?: string } = {}): Promise<Client> {
+async function connect(
+	options: { replaying?: string; audience?: string } = {},
+): Promise<Client> {
 	org = await serveRecordedOrg({ replaying: options.replaying })
+	const audience = options.audience ?? "https://planner-test.crm.dynamics.com"
+	vi.stubGlobal("fetch", (input: string | URL | Request, init?: RequestInit) => {
+		const request = new Request(input, init)
+		const url = new URL(request.url)
+		if (url.origin !== audience) throw new Error(`Unrecorded org: ${url.origin}`)
+		return networkFetch(new URL(url.pathname + url.search, org.url), request)
+	})
 	const bindings = {
-		CTX_DATAVERSE_ORG_URL: org.url,
 		CTX_ENTRA_CLIENT_ID: "aaf9e242-3a1f-4d36-b9ee-f1a11c2b2c11",
 		CTX_ENTRA_CLIENT_SECRET: "test-only-secret",
-		CTX_ENTRA_TENANT: "organizations",
 	} satisfies Bindings
 	accessToken = new UnsecuredJWT({
 		appid: bindings.CTX_ENTRA_CLIENT_ID,
 		scp: "user_impersonation",
 	})
-		.setAudience(org.url)
+		.setAudience(audience)
 		.setExpirationTime("1h")
 		.encode()
 
@@ -152,6 +160,7 @@ function advertisedStrictness(schema: unknown, path = "(root)"): Record<string, 
 }
 
 afterEach(async () => {
+	vi.unstubAllGlobals()
 	await org?.close()
 })
 
@@ -1073,20 +1082,27 @@ describe("the refusals that come from the service itself", () => {
 })
 
 describe("wait_for_operation_set", () => {
-	it("reads once and answers when the caller wanted a glance, not a wait", async () => {
-		const client = await connect({ replaying: "wait-zero-seconds" })
-		const result = await client.callTool({
-			arguments: { OperationSetId: mintedSetId(), seconds: 0 },
-			name: "wait_for_operation_set",
-		})
-		await client.close()
-		expect(result.isError ?? false).toBe(false)
-		expect(org.reads).toHaveLength(1)
-		expect(payloadOf(result)).toMatchObject({
-			msdyn_operationsetid: mintedSetId(),
-			msdyn_status: expect.any(Number),
-		})
-	})
+	it.each([
+		"https://planner-test.crm.dynamics.com",
+		"https://another-org.crm3.dynamics.com",
+	])(
+		"reads once from token audience %s without deployment org configuration",
+		async (audience) => {
+			const client = await connect({ audience, replaying: "wait-zero-seconds" })
+			const result = await client.callTool({
+				arguments: { OperationSetId: mintedSetId(), seconds: 0 },
+				name: "wait_for_operation_set",
+			})
+			await client.close()
+			expect(result.isError ?? false).toBe(false)
+			expect(org.reads).toHaveLength(1)
+			expect(payloadOf(result)).toMatchObject({
+				msdyn_operationsetid: mintedSetId(),
+				msdyn_status: expect.any(Number),
+			})
+			expect(org.reads[0]?.authorization).toBe(`Bearer ${accessToken}`)
+		},
+	)
 
 	it("stops at the first terminal answer instead of spending the window it was given", async () => {
 		// The exact count belongs to recording timing. The contract is the range: more

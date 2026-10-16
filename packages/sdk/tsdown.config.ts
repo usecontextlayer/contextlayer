@@ -8,6 +8,7 @@ export default defineConfig({
 	},
 	dts: true,
 	entry: {
+		html: "html.ts",
 		index: "index.ts",
 		local: "local.ts",
 		react: "react.tsx",
