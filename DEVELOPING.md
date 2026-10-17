@@ -231,6 +231,8 @@ Do not automate Clack's terminal renderer or add pseudo-terminal plumbing to thi
 
 Add `agents/<name>/instructions.md` to a checkout and push through its normal `/git/<slate-id>` remote. See [Authored agents](ARCHITECTURE.md#authored-agents) for inspection, authorization, and revision semantics.
 
+To select a hosted agent model, declare `"ANTHROPIC_MODEL": { "mode": "owner" }` or `{ "mode": "viewer" }` under `secrets` in `agents/<name>/slate.json`, then save a supported full Anthropic model ID through the existing Owner-scoped secret commands. Declare `ANTHROPIC_API_KEY` separately. Omitting the model declaration uses `claude-haiku-4-5`; a declared value is required. Changes apply to new API and scheduled jobs. See [resource ownership](ARCHITECTURE.md#authored-agents) for owner/viewer and scheduling semantics.
+
 Declare schedules as `agents/<name>/schedules/<prompt>.md` with YAML frontmatter such as `cron: "0 7 * * 1-5"` and the user prompt in the Markdown body. Cron is canonical five-field UTC.
 
 `platform.node.integration.test.ts` needs the [connected test prerequisites](#platform-development). It checks deployed instructions and their commit before and after a Git push, alongside source-access authorization. It writes and deletes its remote test Artifacts repositories, leaves slate OAuth registrations in local web, and reclaims its isolated database and temporary Git files. Run:
@@ -257,6 +259,8 @@ The `authored cron starts a fresh Pi job` case in `agent-schedules.node.integrat
 pnpm exec turbo run build --filter=@usecontextlayer/platform... --filter=@usecontextlayer/build...
 pnpm exec turbo run test:integration:node --filter=@usecontextlayer/platform -- agent-schedules.node.integration.test.ts --testNamePattern 'authored cron starts a fresh Pi job'
 ```
+
+The model-selection cases in `agent-schedules.node.integration.test.ts` need the connected environment, platform/build bundles, native web session and initialized development organization. Configure distinct personal and organization `ANTHROPIC_MODEL` values, with the personal value different from the Haiku default, plus usable API keys for the selected Owners. The tests read secrets without mutating them; vault writes need explicit approval. Run `pnpm exec turbo run test:integration:node --filter=@usecontextlayer/platform -- agent-schedules.node.integration.test.ts --testNamePattern "model selection"`. The default case runs without model secrets.
 
 The broader member/Gmail/database case in `agent-schedules.node.integration.test.ts` needs the [connected test prerequisites](#platform-development), Docker, normal platform/build/CLI bundles, an ACTIVE personal Gmail connected account for the baseline user, and `ANTHROPIC_API_KEY` for the selected user and organization in the development vault. Connect accounts and configure keys before running; vault writes still need the user’s per-write authorization. The suite deploys agent declarations, schedules and checked-in SQL migrations, exercises final connection assignments establishing membership before and after deployment, and observes real native cron firings and API jobs. Gmail calls are read-only; jobs insert scenario proof rows through `database_query`. It reloads the native Worker and reads persisted job results and database rows. Fixture and scenario cleanup reclaim only the run’s source repositories and local resources. Run:
 

@@ -141,6 +141,11 @@ export class SlateAgentJob extends Agent<
 		)
 		this.setState({ connectionSessions, receipt: null, run })
 		await this.installConnectionTools(connections)
+		const modelOwner = run.secrets.ANTHROPIC_MODEL
+		if (modelOwner) {
+			const id = await loadSharedSecret(this.env, modelOwner, "ANTHROPIC_MODEL")
+			await this.harness.session().setModel({ id, provider: "anthropic" })
+		}
 		const receipt = await this.harness.submit(run.prompt)
 		this.setState({ connectionSessions, receipt, run })
 		return receipt
