@@ -86,11 +86,13 @@ test("API jobs expose native execution and isolated Linux computers", async ({
 	const url = `${origin}/api/slates/${slate.id}/agents/brief/jobs`
 	const creations = []
 	const results: z.infer<typeof agentJobResultSchema>[] = []
-	const markerPath = "/tmp/contextlayer-story7-job.txt"
+	const markerPath = "/workspace/contextlayer-coding-tools.txt"
 	const marker = `PI_API_FILE_${slate.id}`
+	const directMarker = `${marker}_DIRECT`
+	const codemodeMarker = `${marker}_CODEMODE`
 	const createCommand = `uname -s && node -e "require('node:fs').writeFileSync('${markerPath}', '${marker}'); console.log('CREATED')"`
 	const prompts = [
-		`First call bash directly with this exact shell command: ${JSON.stringify(createCommand)}. Its tool result must contain Linux and CREATED. Wait for that tool result. Then use codemode to await tools.bash with the exact command cat ${markerPath}. Check the returned structured result's exitCode and truncated fields, then uppercase its output in JavaScript, not in Bash. Emit exactly one text item by calling text(JSON.stringify(oneObject)) exactly once. Do not call console.log or any other text(), and do not return a value. The oneObject must contain exitCode, truncated, and processed (the uppercased trimmed output). Then report completion briefly.`,
+		`First call bash directly with this exact shell command: ${JSON.stringify(createCommand)}. Its tool result must contain Linux and CREATED. Wait for that tool result. Then call the native write tool directly to overwrite ${markerPath} with ${marker}_DRAFT, edit directly to replace that complete text with ${directMarker}, and read directly to confirm the edited contents. Do not use Bash to substitute for these file tools. Then use one codemode call to sequentially read ${markerPath} with tools.read, save its returned string as read, write read + '_DRAFT' back with tools.write, and use tools.edit to replace ${directMarker}_DRAFT with ${codemodeMarker}. Finally await tools.bash with the exact command cat ${markerPath}. Check the returned structured result's exitCode and truncated fields, then uppercase its output in JavaScript, not in Bash. Emit exactly one text item by calling text(JSON.stringify(oneObject)) exactly once. Do not call console.log or any other text(), and do not return a value. The oneObject must contain read (the actual tools.read result), exitCode, truncated, and processed (the uppercased trimmed Bash output). Then report completion briefly.`,
 		`Use bash directly to check whether ${markerPath} exists before creating or changing any files. If it is absent, print FRESH_JOB_FILESYSTEM; if it exists, print UNEXPECTED_SHARED_FILE and exit with code 1. Then report completion briefly.`,
 	]
 	for (const [index, prompt] of prompts.entries()) {
@@ -154,10 +156,12 @@ test("API jobs expose native execution and isolated Linux computers", async ({
 		expect(userEntries[0]?.model).toContainEqual(
 			expect.objectContaining({ content: prompt, role: "user" }),
 		)
-		const bashResults = messages
+		const toolResults = messages
 			.filter((entry) => entry.kind === ToolResultEntry.kind)
 			.flatMap((entry) => entry.model ?? [])
-			.filter((message) => message.role === "toolResult" && message.toolName === "bash")
+			.filter((message) => message.role === "toolResult")
+		const bashResults = toolResults
+			.filter((message) => message.toolName === "bash")
 			.map((message) =>
 				z
 					.looseObject({
@@ -172,6 +176,18 @@ test("API jobs expose native execution and isolated Linux computers", async ({
 		if (index === 0) {
 			expect(outputs.join("\n")).toContain("Linux")
 			expect(outputs.join("\n")).toContain("CREATED")
+			for (const toolName of ["read", "write", "edit"]) {
+				expect(toolResults).toContainEqual(
+					expect.objectContaining({ isError: false, toolName }),
+				)
+			}
+			const readResult = z
+				.looseObject({
+					content: z.array(z.object({ text: z.string(), type: z.literal("text") })),
+					isError: z.literal(false),
+				})
+				.parse(toolResults.find((message) => message.toolName === "read"))
+			expect(readResult.content.map(({ text }) => text).join("\n")).toBe(directMarker)
 			const codemodeResult = z
 				.looseObject({
 					content: z.array(z.object({ text: z.string(), type: z.literal("text") })),
@@ -180,27 +196,22 @@ test("API jobs expose native execution and isolated Linux computers", async ({
 					}),
 					isError: z.literal(false),
 				})
-				.parse(
-					messages
-						.filter((entry) => entry.kind === ToolResultEntry.kind)
-						.flatMap((entry) => entry.model ?? [])
-						.filter(
-							(message) =>
-								message.role === "toolResult" && message.toolName === "codemode",
-						)
-						.at(-1),
+				.parse(toolResults.filter((message) => message.toolName === "codemode").at(-1))
+			for (const name of ["read", "write", "edit", "bash"]) {
+				expect(codemodeResult.details.calls).toContainEqual(
+					expect.objectContaining({ name, status: "ok" }),
 				)
-			expect(codemodeResult.details.calls).toContainEqual(
-				expect.objectContaining({ name: "bash", status: "ok" }),
-			)
+			}
 			const evidence = z
 				.object({
 					exitCode: z.literal(0),
 					processed: z.string(),
+					read: z.string(),
 					truncated: z.literal(false),
 				})
 				.parse(JSON.parse(z.string().parse(codemodeResult.content.at(-1)?.text)))
-			expect(evidence.processed).toBe(marker.toUpperCase())
+			expect(evidence.read).toBe(directMarker)
+			expect(evidence.processed).toBe(codemodeMarker.toUpperCase())
 			console.info("Native Pi Code Mode evidence", {
 				details: codemodeResult.details,
 				evidence,
@@ -425,7 +436,7 @@ test("API Code Mode binds two Gmail namespaces to their assigned accounts", asyn
 		expect(assigned.status).toBe(200)
 	}
 	const prompt =
-		"Use two successive codemode calls. In the first call, discover the Gmail profile action separately with searchTools('Gmail profile', {namespace:'work_email'}) and searchTools('Gmail profile', {namespace:'personal_email'}), then use describeTool to obtain only the full GMAIL_GET_PROFILE declaration discovered in each namespace (not declarations for other search results). Emit one JSON object with discovered (each namespace's search results' tool names) and declarations (each namespace's full returned declaration string). End this call and read the declarations before writing the second script. In the second call, execute tools.work_email__GMAIL_GET_PROFILE({user_id:'me'}) and tools.personal_email__GMAIL_GET_PROFILE({user_id:'me'}). Use the declared result shape to inspect data and error, extract the returned emailAddress and uppercase it in JavaScript. Emit one JSON object with profiles (each namespace maps to {emailUppercase,logId} from its actual response). Do not print full provider responses. In each call emit exactly once with text(JSON.stringify(oneObject)); do not call console.log or any other text(), and do not return a value. Then report completion without account details."
+		"Use two successive codemode calls. In the first call, discover the Gmail profile action separately with searchTools('Gmail profile', {namespace:'work_email'}) and searchTools('Gmail profile', {namespace:'personal_email'}), then use describeTool to obtain only the full GMAIL_GET_PROFILE declaration discovered in each namespace (not declarations for other search results). Emit one JSON object with discovered (each namespace's search results' tool names) and declarations (each namespace's full returned declaration string), both keyed by connection slug: work_email and personal_email. End this call and read the declarations before writing the second script. In the second call, execute tools.work_email__GMAIL_GET_PROFILE({user_id:'me'}) and tools.personal_email__GMAIL_GET_PROFILE({user_id:'me'}). Use the declared result shape to inspect data and error, extract the returned emailAddress and uppercase it in JavaScript. Emit one JSON object with profiles (each namespace maps to {emailUppercase,logId} from its actual response). Do not print full provider responses. In each call emit exactly once with text(JSON.stringify(oneObject)); do not call console.log or any other text(), and do not return a value. Then report completion without account details."
 	const submitted = await fetch(`${origin}/api/slates/${slate.id}/agents/profiles/jobs`, {
 		body: JSON.stringify({ prompt }),
 		headers,

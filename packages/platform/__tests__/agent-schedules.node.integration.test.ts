@@ -6,6 +6,7 @@ import { AssistantEntry, ToolResultEntry, UserEntry } from "@earendil-works/pi-d
 import { provisioningTest as test } from "@tests/integration"
 import { DEVELOPMENT_ORGANIZATION_SLUG } from "@usecontextlayer/dev-env/env"
 import { connectionsSchema } from "@usecontextlayer/shared/connections"
+import { databaseResultSchema } from "@usecontextlayer/shared/databases"
 import { slateResourcesSchema } from "@usecontextlayer/shared/slate-resources"
 import { getAgentByName } from "agents/routing"
 import { expect } from "vitest"
@@ -222,21 +223,33 @@ for (const mode of ["default", "owner", "viewer"] as const) {
 }
 
 test("members' deployed cron jobs use viewer resources and retain results after Worker reload", async ({
-	cliEnv,
 	db,
 	directory: dir,
-	identity,
-	organization,
 	platform,
 	provisioning,
+	webEnv,
+	webSession,
 }) => {
+	const { origin, worker } = platform
+	const { user } = webSession
+	const headers = new Headers(webSession.headers)
+	headers.set("origin", origin)
+	headers.set("content-type", "application/json")
 	const post = (body: unknown) => ({
 		body: JSON.stringify(body),
-		headers: { ...headers, "content-type": "application/json" },
+		headers,
 		method: "POST",
 	})
-	const { origin, worker } = platform
-	const { headers, user } = identity
+	const organizationsResponse = await fetch(
+		`${webEnv.BETTER_AUTH_URL}/api/platform/organizations`,
+		{ headers: webSession.headers },
+	)
+	expect(organizationsResponse.status).toBe(200)
+	const organization = z
+		.object({ organizations: z.array(organizationSchema) })
+		.parse(await organizationsResponse.json())
+		.organizations.find((item) => item.slug === DEVELOPMENT_ORGANIZATION_SLUG)
+	if (!organization) throw new Error("Initialize the local development organization")
 	const organizationSlug = organization.slug
 	const organizationId = organization.id
 	await using resources = new AsyncDisposableStack()
@@ -275,22 +288,21 @@ test("members' deployed cron jobs use viewer resources and retain results after 
 	const account = connectionsSchema.parse(await accounts.json()).connections[0]
 	if (!account)
 		throw new Error("Expected the existing active personal Gmail connected account")
-	const { AGENTS } = await worker.getEnv()
+	const { AGENTS, ARTIFACTS } = await worker.getEnv()
 	const { PROVISIONING } = await provisioning.worker.getEnv()
-	const cli = join(import.meta.dirname, "../../cli/dist/cli.mjs")
-	const gitEnv = {
-		...process.env,
-		...cliEnv,
-		GIT_CONFIG_GLOBAL: join(dir, "gitconfig"),
-		GIT_TERMINAL_PROMPT: "0",
-	}
-	await execFile(
-		"git",
-		["config", "--global", `credential.${origin}/git.helper`, `${cli} git-credential`],
-		{ cwd: dir, env: gitEnv },
-	)
 	const checkouts = []
 	for (const [index, slate] of slates.entries()) {
+		const repo = await ARTIFACTS.get(slate.id)
+		const { remote } = await repo.info()
+		const token = await repo.createToken("write")
+		const gitEnv = {
+			...process.env,
+			GIT_CONFIG_COUNT: "1",
+			GIT_CONFIG_GLOBAL: join(dir, "gitconfig"),
+			GIT_CONFIG_KEY_0: "http.extraHeader",
+			GIT_CONFIG_VALUE_0: `Authorization: Bearer ${token.plaintext}`,
+			GIT_TERMINAL_PROMPT: "0",
+		}
 		const checkout = join(dir, slate.id)
 		await mkdir(join(checkout, "agents/daily-summary/schedules"), { recursive: true })
 		await mkdir(join(checkout, "public"))
@@ -299,7 +311,7 @@ test("members' deployed cron jobs use viewer resources and retain results after 
 		await git("init", "-b", "main")
 		await git("config", "user.name", "Scheduled Agent Test")
 		await git("config", "user.email", "agent-test@example.com")
-		await git("remote", "add", "origin", `${origin}/git/${slate.id}`)
+		await git("remote", "add", "origin", remote)
 		await writeFile(
 			join(checkout, "public/slate.json"),
 			JSON.stringify({
@@ -317,7 +329,7 @@ test("members' deployed cron jobs use viewer resources and retain results after 
 		)
 		await writeFile(
 			join(checkout, "agents/daily-summary/instructions.md"),
-			"Use only read-only operations. Never send messages, create, update or delete account data. Do not read email messages or disclose credentials or account details.\n",
+			"Use only read-only operations on connected accounts. Never send messages, create, update or delete account data. Do not read email messages or disclose credentials or account details. Writes to the declared disposable test databases are authorized.\n",
 		)
 		const scheduleFile = join(checkout, "agents/daily-summary/schedules/profile.md")
 		await writeFile(
@@ -508,7 +520,7 @@ test("members' deployed cron jobs use viewer resources and retain results after 
 	)
 }, 480_000)
 
-test("authored cron starts a fresh Pi job with a Linux computer visible through the API", async ({
+test("authored cron combines native coding tools, Code Mode, Composio and databases and retains results after reload", async ({
 	directory,
 	platform,
 	provisioning,
@@ -535,6 +547,7 @@ test("authored cron starts a fresh Pi job with a Linux computer visible through 
 	const { ARTIFACTS } = await worker.getEnv()
 	await using resources = new AsyncDisposableStack()
 	resources.defer(async () => {
+		const { ARTIFACTS } = await worker.getEnv()
 		await ARTIFACTS.delete(slate.id)
 	})
 	const repo = await ARTIFACTS.get(slate.id)
@@ -550,19 +563,26 @@ test("authored cron starts a fresh Pi job with a Linux computer visible through 
 		join(directory, "agents/brief/slate.json"),
 		JSON.stringify({
 			connections: { mail: { mode: "owner", toolkit: "gmail" } },
+			databases: { reports: { mode: "owner" } },
 			secrets: { ANTHROPIC_API_KEY: { mode: "owner" } },
 		}),
 	)
 	await writeFile(
 		join(directory, "agents/brief/instructions.md"),
-		"You are a concise assistant. Prefix answers with PI_CRON_STORY2. For connected apps use only GMAIL_GET_PROFILE; never read messages or modify account data. Do not include email addresses in the final answer.\n",
+		"You are a concise assistant. Prefix answers with PI_CRON_STORY2. For connected apps use only GMAIL_GET_PROFILE; never read messages or modify account data. Writes to the disposable reports database and sandbox files are authorized. Do not include email addresses in the final answer.\n",
+	)
+	await cp(
+		new URL("../../cli/template/databases/updates/migrations/", import.meta.url),
+		join(directory, "databases/reports/migrations"),
+		{ recursive: true },
 	)
 	const firing = new Date(Math.ceil(Date.now() / 60_000) * 60_000 + 60_000)
 	const cron = `${firing.getUTCMinutes()} ${firing.getUTCHours()} ${firing.getUTCDate()} ${firing.getUTCMonth() + 1} *`
 	const markerPath = "/tmp/contextlayer-story7-job.txt"
 	const marker = `PI_CRON_FILE_${slate.id}`
+	const editedMarker = `${marker}_EDITED`
 	const createCommand = `test ! -e '${markerPath}' && uname -s && node -e "require('node:fs').writeFileSync('${markerPath}', '${marker}'); console.log('CREATED')"`
-	const prompt = `First call bash directly with this exact shell command: ${JSON.stringify(createCommand)}. It must verify the file is absent, create it, and return Linux and CREATED. Wait for that tool result. In a separate Code Mode call, use describeTool to read the full bash and mail__GMAIL_GET_PROFILE declarations. End that call and read the declarations before writing the execution script. Then in one Code Mode script, await tools.bash with the exact command cat ${markerPath}. Check the native result's exitCode and truncated fields and uppercase its trimmed output in JavaScript, not in Bash. Also call tools.mail__GMAIL_GET_PROFILE({user_id:'me'}); use its declared result shape to inspect data and error, extract emailAddress, and uppercase it in JavaScript. In this execution script emit exactly one text item using text(JSON.stringify(oneObject)), with exitCode, truncated, processed (the uppercased trimmed Bash output), and profile ({emailUppercase,logId} from the actual Gmail response). Do not print the full profile, call console.log or any other text(), or return a value from this execution script. Then report completion briefly without account details.`
+	const prompt = `First call bash directly with this exact shell command: ${JSON.stringify(createCommand)}. It must verify the file is absent, create it, and return Linux and CREATED. Wait for that tool result. Then call write directly to overwrite ${markerPath} with exactly ${JSON.stringify(`${marker}_DRAFT`)} (no trailing newline). Call edit directly to replace _DRAFT with _EDITED in that file, then call read directly to verify its contents. In a separate Code Mode call, use describeTool to read the full bash, read, database_query and mail__GMAIL_GET_PROFILE declarations. End that call and read the declarations before writing the execution script. Then in one Code Mode script, await tools.read for ${markerPath} and tools.bash with the exact command cat ${markerPath}. Check the native Bash result's exitCode and truncated fields and uppercase its trimmed output in JavaScript, not in Bash. Also call tools.mail__GMAIL_GET_PROFILE({user_id:'me'}); use its declared result shape to inspect data and error, extract emailAddress, and uppercase it in JavaScript. Call tools.database_query with slug reports, SQL INSERT INTO updates (id, kind, body, created_at) VALUES (?, ?, ?, ?) RETURNING id, body, and params ['combined-proof', 'proof', processed, 1], where processed is the uppercased actual Bash output. In this execution script emit exactly one text item using text(JSON.stringify(oneObject)), with exitCode, truncated, processed, read (the unchanged native read result), database (the unchanged native database result), and profile ({emailUppercase,logId} from the actual Gmail response). Do not print the full profile, call console.log or any other text(), or return a value from this execution script. Then report completion briefly without account details.`
 	await writeFile(
 		join(directory, "agents/brief/schedules/greeting.md"),
 		`---\ncron: "${cron}"\n---\n${prompt}\n`,
@@ -580,7 +600,7 @@ test("authored cron starts a fresh Pi job with a Linux computer visible through 
 	await git("init", "-b", "main")
 	await git("config", "user.name", "Pi Cron Acceptance")
 	await git("config", "user.email", "pi-cron-test@example.com")
-	await git("add", "agents", "public")
+	await git("add", "agents", "public", "databases")
 	await git(
 		"-c",
 		"commit.gpgsign=false",
@@ -703,6 +723,17 @@ test("authored cron starts a fresh Pi job with a Linux computer visible through 
 	)
 	expect(outputs.join("\n")).toContain("Linux")
 	expect(outputs.join("\n")).toContain("CREATED")
+	const directResults = messages
+		.filter((entry) => entry.kind === ToolResultEntry.kind)
+		.flatMap((entry) => entry.model ?? [])
+		.filter((message) => message.role === "toolResult")
+	for (const toolName of ["write", "edit", "read"])
+		expect(directResults).toContainEqual(
+			expect.objectContaining({ isError: false, toolName }),
+		)
+	expect(directResults.find((message) => message.toolName === "read")?.content).toEqual([
+		{ text: editedMarker, type: "text" },
+	])
 	const codemodeSchema = z.looseObject({
 		content: z.array(z.object({ text: z.string(), type: z.literal("text") })),
 		details: z.looseObject({
@@ -720,17 +751,24 @@ test("authored cron starts a fresh Pi job with a Linux computer visible through 
 	)
 	const evidence = z
 		.object({
+			database: databaseResultSchema,
 			exitCode: z.literal(0),
 			processed: z.string(),
 			profile: z.object({ emailUppercase: z.string(), logId: z.string().min(1) }),
+			read: z.string(),
 			truncated: z.literal(false),
 		})
 		.parse(JSON.parse(z.string().parse(codemodeResult.content.at(-1)?.text)))
-	expect(evidence.processed).toBe(marker.toUpperCase())
+	expect(evidence.read).toBe(editedMarker)
+	expect(evidence.processed).toBe(editedMarker.toUpperCase())
+	expect(evidence.database.columns).toEqual(["id", "body"])
+	expect(evidence.database.rows).toEqual([["combined-proof", editedMarker.toUpperCase()]])
+	expect(evidence.database.rowsWritten).toBeGreaterThan(0)
 	expect(evidence.profile.emailUppercase).toBe(profileEmail.toUpperCase())
-	expect(codemodeResult.details.calls).toContainEqual(
-		expect.objectContaining({ name: "mail__GMAIL_GET_PROFILE", status: "ok" }),
-	)
+	for (const name of ["read", "database_query", "mail__GMAIL_GET_PROFILE"])
+		expect(codemodeResult.details.calls).toContainEqual(
+			expect.objectContaining({ name, status: "ok" }),
+		)
 	console.info("Native Pi Code Mode evidence", {
 		details: codemodeResult.details,
 		evidence: { ...evidence, profile: { logId: evidence.profile.logId } },
@@ -744,6 +782,24 @@ test("authored cron starts a fresh Pi job with a Linux computer visible through 
 	const listed = await fetch(url, { headers })
 	expect(listed.status).toBe(200)
 	expect(catalogSchema.parse(await listed.json()).jobs).toContainEqual(entry)
+	await platform.harness.update((current) => current)
+	const retainedResult = await fetch(`${url}/${jobId}/result`, { headers })
+	expect(retainedResult.status).toBe(200)
+	expect(agentJobResultSchema.strict().parse(await retainedResult.json())).toEqual(result)
+	const inventory = await fetch(`${origin}/api/slates/${slate.id}/resources/list`, {
+		body: "{}",
+		headers,
+		method: "POST",
+	})
+	expect(inventory.status).toBe(200)
+	const { reports } = slateResourcesSchema.parse(await inventory.json()).resources
+		.databases
+	if (!reports) throw new Error("Expected the declared reports database")
+	const { DATABASES } = await worker.getEnv()
+	const persisted = await DATABASES.getByName(reports.instance_name).query(
+		"SELECT id, body FROM updates",
+	)
+	expect(persisted.rows).toEqual([["combined-proof", editedMarker.toUpperCase()]])
 	const deleted = await fetch(`${url}/${jobId}`, { headers, method: "DELETE" })
 	expect(deleted.status).toBe(204)
 	const missing = await fetch(`${url}/${jobId}`, { headers })
