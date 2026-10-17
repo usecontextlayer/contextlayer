@@ -94,6 +94,16 @@ test.each([
 			name: "brief",
 		},
 		connections: {},
+		databases: {
+			inbox: {
+				instance_name: configuration.databases.inbox?.instance_name,
+				owner: { id: "bob", type: "personal" },
+			},
+			reports: {
+				instance_name: configuration.databases.reports?.instance_name,
+				owner,
+			},
+		},
 		prompt: "Research Acme.",
 		secrets: {
 			CLAUDE_CODE_OAUTH_TOKEN: owner,

@@ -93,6 +93,12 @@ export function prepareAgentRun(
 		actor,
 		agent: { commit: agent.commit, instructions: agent.instructions, name },
 		connections,
+		databases: Object.fromEntries(
+			Object.entries(configuration.databases).map(([slug, database]) => [
+				slug,
+				{ instance_name: database.instance_name, owner: database.owner },
+			]),
+		),
 		prompt,
 		secrets: Object.fromEntries(
 			Object.entries(configuration.secrets).map(([secretName, requirement]) => [

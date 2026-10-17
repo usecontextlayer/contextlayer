@@ -2,6 +2,7 @@ import type { Usage } from "@earendil-works/pi-ai"
 import type { UsageState } from "@earendil-works/pi-durable"
 import { z } from "@hono/zod-openapi"
 import { secretNameSchema } from "@usecontextlayer/shared/declaration"
+import { slateResourceConfigurationSchema } from "@usecontextlayer/shared/slate-resources"
 import { ownerSchema } from "@usecontextlayer/shared/slate-usage"
 import type { Schedule } from "agents"
 import type {
@@ -216,6 +217,13 @@ export const agentRunSchema = z.strictObject({
 			connection_id: z.string(),
 			owner: ownerSchema,
 			toolkit: z.string().min(1),
+		}),
+	),
+	databases: z.record(
+		slateResourceConfigurationSchema.shape.databases.keyType,
+		slateResourceConfigurationSchema.shape.databases.valueType.pick({
+			instance_name: true,
+			owner: true,
 		}),
 	),
 	prompt: agentRunRequestSchema.shape.prompt,

@@ -132,6 +132,8 @@ Inspect a job with source-management authority through `/jobs/{id}/sessions`, th
 
 ## Slate database verification
 
+`agent-databases.node.integration.test.ts` verifies agent database access through direct Pi calls and Code Mode, using API jobs and actual cron firings. It needs the connected local stack, Docker, platform/build bundles, funded local-development organization billing, its declared `ANTHROPIC_API_KEY`, and the baseline user's existing `ANTHROPIC_MODEL`. It uses native web/viewer sessions, Git-pushed declarations and migrations, and disposable owner/viewer databases. App queries seed data and observe job writes after job deletion; no Composio account, saved CLI login or vault writes are needed. Fixtures reclaim the source repositories, isolated platform database, local Worker state and temporary files; local web OAuth registrations remain. Run `pnpm exec turbo run test:integration:node --filter=@usecontextlayer/platform -- agent-databases.node.integration.test.ts`.
+
 `slate-databases.node.integration.test.ts` needs the [connected test prerequisites](#platform-development), Docker, and normal platform and build bundles. It uses the shared native fixtures, including build’s `PROVISIONING` binding to platform and native viewer execution, to exercise first-use membership before and after deployment, owner/viewer database isolation, committed migration history, pending migrations and preserved rows. It queries scoped SQLite Durable Object instances through their native capability; its first-use SQL requires funded baseline organization billing state but no connected account or model key. Its source repositories, SQL database, temporary files, Durable Objects and harness belong to the run and are reclaimed together. Run:
 
 ```sh

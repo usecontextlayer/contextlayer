@@ -3,12 +3,17 @@ import { Composio } from "@composio/core"
 import { createModels } from "@earendil-works/pi-ai/models"
 import { anthropicProvider } from "@earendil-works/pi-ai/providers/anthropic"
 import { createInlineCodemodeSandbox } from "@earendil-works/pi-codemode/cloudflare"
-import { createRegistry, Harness } from "@earendil-works/pi-durable"
+import { createRegistry, defineTool, Harness } from "@earendil-works/pi-durable"
 import { createCodemodeExtension } from "@earendil-works/pi-durable/codemode"
-import { createBashTool } from "@earendil-works/pi-durable/tools"
+import { CodingTools } from "@earendil-works/pi-durable/tools"
 import { type Connection, RemoteExecutionEnv } from "@earendil-works/pi-env/remote"
+import {
+	databaseQuerySchema,
+	databaseResultSchema,
+} from "@usecontextlayer/shared/databases"
 import { Agent } from "agents"
 import { PiHarness, type PiHarnessContext, type PiReceipt } from "agents/harness/pi"
+import { z } from "zod"
 import {
 	COMPUTER_INACTIVITY_TIMEOUT_MS,
 	createContainerConnection,
@@ -53,6 +58,7 @@ export class SlateAgentJob extends Agent<
 				},
 			})
 			models.setProvider(anthropicProvider())
+			this.registry.install(CodingTools)
 			this.registry.install({
 				name: "contextlayer",
 				sections: [
@@ -60,8 +66,43 @@ export class SlateAgentJob extends Agent<
 						key: "slate_instructions",
 						render: () => this.run.agent.instructions,
 					},
+					{
+						key: "databases",
+						render: () => {
+							const slugs = Object.keys(this.run.databases)
+							return slugs.length === 0
+								? undefined
+								: `Declared databases: ${slugs.join(", ")}. Database writes persist and are shared with the app and other jobs using that resource. Files in the sandbox are scratch space.`
+						},
+					},
 				],
-				tools: [createBashTool()],
+				tools: [
+					defineTool({
+						description:
+							"Execute parameterized SQL against a declared database. Read its schema with sqlite_master or PRAGMA table_info. Writes persist immediately.",
+						execute: async ({
+							slug,
+							sql,
+							params,
+						}: z.input<typeof databaseQuerySchema>) => {
+							const database = this.run.databases[slug]
+							if (!database) throw new Error("not-declared")
+							const result = databaseResultSchema.parse(
+								await this.env.DATABASES.getByName(database.instance_name).query(
+									sql,
+									params,
+								),
+							)
+							return {
+								output: [{ text: JSON.stringify(result), type: "text" }],
+								structuredOutput: result,
+							}
+						},
+						name: "database_query",
+						parameters: z.toJSONSchema(databaseQuerySchema, { io: "input" }),
+						structuredOutputSchema: z.toJSONSchema(databaseResultSchema),
+					}),
+				],
 			})
 			const composio = new Composio({ apiKey: this.env.COMPOSIO_API_KEY })
 			await this.installConnectionTools(
