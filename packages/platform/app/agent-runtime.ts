@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import { Agent, type Schedule } from "agents"
-import { RoutedAgents } from "agents/routing"
+import type { PiReceipt } from "agents/harness/pi"
+import { type RoutedAgentEntry, RoutedAgents } from "agents/routing"
 import type { SlateAgentJob } from "@/agent-job"
 import {
 	type AgentActor,
@@ -29,7 +30,10 @@ export class SlateAgent extends Agent<PlatformEnv["Bindings"]> {
 		this.lifecycle.use(this.jobs)
 	}
 
-	async start(run: AgentRun, trigger: AgentJobTrigger) {
+	async start(
+		run: AgentRun,
+		trigger: AgentJobTrigger,
+	): Promise<{ job: RoutedAgentEntry<AgentJobMetadata>; receipt: PiReceipt }> {
 		return this.ctx.blockConcurrencyWhile(async () => {
 			const entry = await this.jobs.create({ metadata: { actor: run.actor, trigger } })
 			const job = await this.jobs.get(entry.id)

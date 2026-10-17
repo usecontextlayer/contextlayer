@@ -89,12 +89,12 @@ function actionResultSchema(action: Tool) {
 			{
 				anyOf: [
 					{
-						type: "object",
 						properties: { data: dataSchema, error: { type: "null" } },
+						type: "object",
 					},
 					{
-						type: "object",
 						properties: { error: { type: "string" } },
+						type: "object",
 					},
 				],
 			},

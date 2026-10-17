@@ -425,7 +425,7 @@ test("API Code Mode binds two Gmail namespaces to their assigned accounts", asyn
 		expect(assigned.status).toBe(200)
 	}
 	const prompt =
-		"Use two successive codemode calls. In the first call, discover the Gmail profile action separately with searchTools('Gmail profile', {namespace:'work_email'}) and searchTools('Gmail profile', {namespace:'personal_email'}), then obtain each full declaration with describeTool. Emit one JSON object with discovered (each namespace's search results' tool names) and declarations (each namespace's full returned declaration string). End this call and read the declarations before writing the second script. In the second call, execute tools.work_email__GMAIL_GET_PROFILE({user_id:'me'}) and tools.personal_email__GMAIL_GET_PROFILE({user_id:'me'}). Use the declared result shape to inspect data and error, extract the returned emailAddress and uppercase it in JavaScript. Emit one JSON object with profiles (each namespace maps to {emailUppercase,logId} from its actual response). Do not print full provider responses. In each call emit exactly once with text(JSON.stringify(oneObject)); do not call console.log or any other text(), and do not return a value. Then report completion without account details."
+		"Use two successive codemode calls. In the first call, discover the Gmail profile action separately with searchTools('Gmail profile', {namespace:'work_email'}) and searchTools('Gmail profile', {namespace:'personal_email'}), then use describeTool to obtain only the full GMAIL_GET_PROFILE declaration discovered in each namespace (not declarations for other search results). Emit one JSON object with discovered (each namespace's search results' tool names) and declarations (each namespace's full returned declaration string). End this call and read the declarations before writing the second script. In the second call, execute tools.work_email__GMAIL_GET_PROFILE({user_id:'me'}) and tools.personal_email__GMAIL_GET_PROFILE({user_id:'me'}). Use the declared result shape to inspect data and error, extract the returned emailAddress and uppercase it in JavaScript. Emit one JSON object with profiles (each namespace maps to {emailUppercase,logId} from its actual response). Do not print full provider responses. In each call emit exactly once with text(JSON.stringify(oneObject)); do not call console.log or any other text(), and do not return a value. Then report completion without account details."
 	const submitted = await fetch(`${origin}/api/slates/${slate.id}/agents/profiles/jobs`, {
 		body: JSON.stringify({ prompt }),
 		headers,
@@ -483,6 +483,8 @@ test("API Code Mode binds two Gmail namespaces to their assigned accounts", asyn
 		const name = `${slug}__GMAIL_GET_PROFILE`
 		expect(discovery.discovered[slug]).toContain(name)
 		expect(discovery.declarations[slug]).toContain("user_id")
+		expect(discovery.declarations[slug]).toContain("emailAddress")
+		expect(discovery.declarations[slug]).toContain("logId")
 		expect(codemode.details.calls).toContainEqual(
 			expect.objectContaining({ name, status: "ok" }),
 		)
