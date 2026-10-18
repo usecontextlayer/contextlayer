@@ -187,17 +187,27 @@ export async function getAgentJob(
 	return null
 }
 
-export async function getAgentJobOperation(
+async function resolveAgentJob(
 	agents: DurableObjectNamespace<SlateAgent>,
 	access: SlateAccess,
 	name: string,
 	id: string,
 ) {
 	for (const agent of await getAgentScopes(agents, access, name)) {
-		const operation = await agent.getJobOperation(id)
-		if (operation) return operation
+		const job = await agent.resolveJob(id)
+		if (job) return job
 	}
 	return null
+}
+
+export async function getAgentJobOperation(
+	agents: DurableObjectNamespace<SlateAgent>,
+	access: SlateAccess,
+	name: string,
+	id: string,
+) {
+	using job = await resolveAgentJob(agents, access, name, id)
+	return job ? await job.operation() : null
 }
 
 export async function getAgentJobResult(
@@ -206,11 +216,8 @@ export async function getAgentJobResult(
 	name: string,
 	id: string,
 ) {
-	for (const agent of await getAgentScopes(agents, access, name)) {
-		const result = await agent.result(id)
-		if (result) return result
-	}
-	return null
+	using job = await resolveAgentJob(agents, access, name, id)
+	return job ? await job.result() : null
 }
 
 export async function listAgentJobs(
@@ -241,11 +248,9 @@ export async function listAgentJobSessions(
 ) {
 	const authorization = await authorizeAgentManagement(access, issuer)
 	if (!authorization.allowed) return authorization
-	for (const agent of await getAgentScopes(agents, access, name)) {
-		const sessions = await agent.listJobSessions(id)
-		if (sessions !== null) return { allowed: true, sessions } as const
-	}
-	return { allowed: false, reason: "not-found" } as const
+	using job = await resolveAgentJob(agents, access, name, id)
+	if (!job) return { allowed: false, reason: "not-found" } as const
+	return { allowed: true, sessions: await job.listSessions() } as const
 }
 
 export async function getAgentJobMessages(
@@ -258,15 +263,14 @@ export async function getAgentJobMessages(
 ) {
 	const authorization = await authorizeAgentManagement(access, issuer)
 	if (!authorization.allowed) return authorization
-	for (const agent of await getAgentScopes(agents, access, name)) {
-		const messages = await agent.getJobMessages(id, session)
-		if (messages !== null)
-			return {
-				allowed: true,
-				messages: z.array(agentJobMessageSchema).parse(messages),
-			} as const
-	}
-	return { allowed: false, reason: "not-found" } as const
+	using job = await resolveAgentJob(agents, access, name, id)
+	if (!job) return { allowed: false, reason: "not-found" } as const
+	const messages = await job.messages(session)
+	if (messages === null) return { allowed: false, reason: "not-found" } as const
+	return {
+		allowed: true,
+		messages: z.array(agentJobMessageSchema).parse(messages),
+	} as const
 }
 
 export async function getAgentJobUsage(
@@ -278,11 +282,9 @@ export async function getAgentJobUsage(
 ) {
 	const authorization = await authorizeAgentManagement(access, issuer)
 	if (!authorization.allowed) return authorization
-	for (const agent of await getAgentScopes(agents, access, name)) {
-		const usage = await agent.getJobUsage(id)
-		if (usage !== null) return { allowed: true, usage } as const
-	}
-	return { allowed: false, reason: "not-found" } as const
+	using job = await resolveAgentJob(agents, access, name, id)
+	if (!job) return { allowed: false, reason: "not-found" } as const
+	return { allowed: true, usage: await job.usage() } as const
 }
 
 export async function getAgentJobInspection(
@@ -294,15 +296,12 @@ export async function getAgentJobInspection(
 ) {
 	const authorization = await authorizeAgentManagement(access, issuer)
 	if (!authorization.allowed) return authorization
-	for (const agent of await getAgentScopes(agents, access, name)) {
-		const inspection = await agent.getJobInspection(id)
-		if (inspection !== null)
-			return {
-				allowed: true,
-				inspection: agentJobInspectionSchema.parse(inspection),
-			} as const
-	}
-	return { allowed: false, reason: "not-found" } as const
+	using job = await resolveAgentJob(agents, access, name, id)
+	if (!job) return { allowed: false, reason: "not-found" } as const
+	return {
+		allowed: true,
+		inspection: agentJobInspectionSchema.parse(await job.inspection()),
+	} as const
 }
 
 export async function abortAgentJob(
@@ -314,11 +313,9 @@ export async function abortAgentJob(
 ) {
 	const authorization = await authorizeAgentManagement(access, issuer)
 	if (!authorization.allowed) return authorization
-	for (const agent of await getAgentScopes(agents, access, name)) {
-		const result = await agent.abortJob(id)
-		if (result !== null) return { allowed: true, result } as const
-	}
-	return { allowed: false, reason: "not-found" } as const
+	using job = await resolveAgentJob(agents, access, name, id)
+	if (!job) return { allowed: false, reason: "not-found" } as const
+	return { allowed: true, result: await job.abort() } as const
 }
 
 export async function deleteAgentJob(

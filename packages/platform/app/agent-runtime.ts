@@ -50,39 +50,8 @@ export class SlateAgent extends Agent<PlatformEnv["Bindings"]> {
 		return (await this.jobs.list()).find((job) => job.id === id) ?? null
 	}
 
-	async getJobOperation(id: string) {
-		const job = await this.jobs.get(id)
-		return job ? job.operation() : null
-	}
-
-	async result(id: string) {
-		const job = await this.jobs.get(id)
-		return job ? job.result() : null
-	}
-
-	async abortJob(id: string) {
-		const job = await this.jobs.get(id)
-		return job ? job.abort() : null
-	}
-
-	async listJobSessions(id: string) {
-		const job = await this.jobs.get(id)
-		return job ? job.listSessions() : null
-	}
-
-	async getJobMessages(id: string, session: string) {
-		const job = await this.jobs.get(id)
-		return job ? job.messages(session) : null
-	}
-
-	async getJobUsage(id: string) {
-		const job = await this.jobs.get(id)
-		return job ? job.usage() : null
-	}
-
-	async getJobInspection(id: string) {
-		const job = await this.jobs.get(id)
-		return job ? job.inspection() : null
+	async resolveJob(id: string): Promise<Omit<SlateAgentJob, keyof Agent> | null> {
+		return this.jobs.get(id)
 	}
 
 	async deleteJob(id: string) {
