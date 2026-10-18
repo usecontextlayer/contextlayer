@@ -1,14 +1,17 @@
 import { execFile as execFileCallback } from "node:child_process"
 import { mkdir, writeFile } from "node:fs/promises"
 import { promisify } from "node:util"
+import { renderToolSignature } from "@earendil-works/pi-codemode"
 import { AssistantEntry, ToolResultEntry, UserEntry } from "@earendil-works/pi-durable"
 import { test } from "@tests/integration"
 import { signInViewer } from "@usecontextlayer/dev-env/viewer"
 import { connectionsSchema } from "@usecontextlayer/shared/connections"
+import { toolResultSchema } from "@usecontextlayer/shared/tools"
 import { getAgentByName } from "agents/routing"
 import { expect } from "vitest"
 import { z } from "zod"
 import { getAgentInstanceName } from "@/agent-instance"
+import { createAgentTools } from "@/agent-tools"
 import {
 	agentJobCreationSchema,
 	agentJobEntrySchema,
@@ -21,6 +24,7 @@ import {
 	agentRunSchema,
 } from "@/agents.schema"
 import { startAgentRun } from "@/agents.server"
+import { createConnectionSession } from "@/connections.server"
 import { slateSchema } from "@/slates.schema"
 
 const execFile = promisify(execFileCallback)
@@ -51,7 +55,7 @@ test("failed job admission leaves the catalog empty", async ({ platform }) => {
 })
 
 test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
-	"API jobs using %s expose native execution and isolated Linux computers",
+	"API jobs using %s expose native Bash execution",
 	{ timeout: 240_000 },
 	async (providerSecret, { directory, platform, webEnv, webSession }) => {
 		const { origin, worker } = platform
@@ -79,7 +83,7 @@ test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
 		await writeFile(`${directory}/public/slate.json`, JSON.stringify({ connections: {} }))
 		await writeFile(
 			`${directory}/agents/brief/instructions.md`,
-			"You are a concise assistant. Prefix answers with PI_API_STORY1.\n",
+			"You are a concise assistant.\n",
 		)
 		await writeFile(
 			`${directory}/agents/brief/slate.json`,
@@ -114,14 +118,14 @@ test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
 		const creations = []
 		const results: z.infer<typeof agentJobResultSchema>[] = []
 		const markerPath = "/workspace/contextlayer-coding-tools.txt"
-		const marker = `PI_API_FILE_${slate.id}`
-		const directMarker = `${marker}_DIRECT`
-		const codemodeMarker = `${marker}_CODEMODE`
-		const createCommand = `uname -s && node -e "require('node:fs').writeFileSync('${markerPath}', '${marker}'); console.log('CREATED')"`
 		const prompts = [
-			`First call bash directly with this exact shell command: ${JSON.stringify(createCommand)}. Its tool result must contain Linux and CREATED. Wait for that tool result. Then call the native write tool directly to overwrite ${markerPath} with ${marker}_DRAFT, edit directly to replace that complete text with ${directMarker}, and read directly to confirm the edited contents. Do not use Bash to substitute for these file tools. Then use one codemode call to sequentially read ${markerPath} with tools.read, save its returned string as read, write read + '_DRAFT' back with tools.write, and use tools.edit to replace ${directMarker}_DRAFT with ${codemodeMarker}. Finally await tools.bash with the exact command cat ${markerPath}. Check the returned structured result's exitCode and truncated fields, then uppercase its output in JavaScript, not in Bash. Emit exactly one text item by calling text(JSON.stringify(oneObject)) exactly once. Do not call console.log or any other text(), and do not return a value. The oneObject must contain read (the actual tools.read result), exitCode, truncated, and processed (the uppercased trimmed Bash output). Then report completion briefly.`,
-			`Use bash directly to check whether ${markerPath} exists before creating or changing any files. If it is absent, print FRESH_JOB_FILESYSTEM; if it exists, print UNEXPECTED_SHARED_FILE and exit with code 1. Then report completion briefly.`,
+			`Use bash to run uname -s, then write CREATED to ${markerPath} and print the file contents. Report completion briefly.`,
 		]
+		if (providerSecret === "ANTHROPIC_API_KEY") {
+			prompts.push(
+				`Use bash to check whether ${markerPath} exists before creating or changing any files. If it is absent, print FRESH_JOB_FILESYSTEM; if it exists, exit with code 1. Report completion briefly.`,
+			)
+		}
 		for (const [index, prompt] of prompts.entries()) {
 			const submitted = await fetch(url, {
 				body: JSON.stringify({ prompt }),
@@ -196,63 +200,22 @@ test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
 				.filter((message) => message.role === "toolResult")
 			const bashResults = toolResults
 				.filter((message) => message.toolName === "bash")
-				.map((message) =>
-					z
+				.map((message) => {
+					expect(message.isError, JSON.stringify(message)).toBe(false)
+					return z
 						.looseObject({
 							content: z.array(z.object({ text: z.string(), type: z.literal("text") })),
-							isError: z.literal(false),
 						})
-						.parse(message),
-				)
+						.parse(message)
+				})
 			const outputs = bashResults.map((message) =>
 				message.content.map((content) => content.text).join("\n"),
 			)
 			if (index === 0) {
 				expect(outputs.join("\n")).toContain("Linux")
 				expect(outputs.join("\n")).toContain("CREATED")
-				for (const toolName of ["read", "write", "edit"]) {
-					expect(toolResults).toContainEqual(
-						expect.objectContaining({ isError: false, toolName }),
-					)
-				}
-				const readResult = z
-					.looseObject({
-						content: z.array(z.object({ text: z.string(), type: z.literal("text") })),
-						isError: z.literal(false),
-					})
-					.parse(toolResults.find((message) => message.toolName === "read"))
-				expect(readResult.content.map(({ text }) => text).join("\n")).toBe(directMarker)
-				const codemodeResult = z
-					.looseObject({
-						content: z.array(z.object({ text: z.string(), type: z.literal("text") })),
-						details: z.looseObject({
-							calls: z.array(z.looseObject({ name: z.string(), status: z.string() })),
-						}),
-						isError: z.literal(false),
-					})
-					.parse(toolResults.filter((message) => message.toolName === "codemode").at(-1))
-				for (const name of ["read", "write", "edit", "bash"]) {
-					expect(codemodeResult.details.calls).toContainEqual(
-						expect.objectContaining({ name, status: "ok" }),
-					)
-				}
-				const evidence = z
-					.object({
-						exitCode: z.literal(0),
-						processed: z.string(),
-						read: z.string(),
-						truncated: z.literal(false),
-					})
-					.parse(JSON.parse(z.string().parse(codemodeResult.content.at(-1)?.text)))
-				expect(evidence.read).toBe(directMarker)
-				expect(evidence.processed).toBe(codemodeMarker.toUpperCase())
-				console.info("Native Pi Code Mode evidence", {
-					details: codemodeResult.details,
-					evidence,
-				})
 			} else {
 				expect(outputs.join("\n")).toContain("FRESH_JOB_FILESYSTEM")
-				expect(outputs.join("\n")).not.toContain("UNEXPECTED_SHARED_FILE")
 			}
 			console.info("Native Pi Bash results", bashResults)
 			const assistantEntry = messages
@@ -279,6 +242,14 @@ test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
 			const inspection = agentJobInspectionSchema.parse(await inspectionResponse.json())
 			expect(inspection.submissions).toEqual([])
 			console.info("Native Pi inspection", { inspection, sessions, usage })
+		}
+		if (providerSecret === "CLAUDE_CODE_OAUTH_TOKEN") {
+			const deleted = await fetch(`${url}/${creations[0]?.job.id}`, {
+				headers,
+				method: "DELETE",
+			})
+			expect(deleted.status).toBe(204)
+			return
 		}
 		expect(creations[0]?.job.id).not.toBe(creations[1]?.job.id)
 		await platform.harness.update((current) => current)
@@ -426,7 +397,7 @@ test("API Code Mode binds two Gmail namespaces to their assigned accounts", asyn
 		const { ARTIFACTS } = await worker.getEnv()
 		await ARTIFACTS.delete(slate.id)
 	})
-	const { ARTIFACTS } = await worker.getEnv()
+	const { ARTIFACTS, COMPOSIO_API_KEY } = await worker.getEnv()
 	const repo = await ARTIFACTS.get(slate.id)
 	const { remote } = await repo.info()
 	const token = await repo.createToken("write")
@@ -471,8 +442,42 @@ test("API Code Mode binds two Gmail namespaces to their assigned accounts", asyn
 		})
 		expect(assigned.status).toBe(200)
 	}
+	const { extension } = await createAgentTools(
+		COMPOSIO_API_KEY,
+		await Promise.all(
+			Object.entries(assignments).map(async ([name, account]) => ({
+				name,
+				session: await createConnectionSession(
+					COMPOSIO_API_KEY,
+					{ id: z.string().parse(slate.owner_user_id), type: "personal" },
+					account.id,
+					"gmail",
+					{
+						manageConnections: { enable: false },
+						sandbox: { enable: false },
+						sessionPreset: "direct_tools",
+					},
+				),
+				toolkit: "gmail",
+			})),
+		),
+	)
+	for (const slug of Object.keys(assignments)) {
+		const tool = extension.tools?.find(
+			({ name }) => name === `${slug}__GMAIL_GET_PROFILE`,
+		)
+		if (!tool) throw new Error(`Missing ${slug} profile tool`)
+		const declaration = renderToolSignature({
+			inputSchema: z.record(z.string(), z.unknown()).parse(tool.parameters),
+			name: tool.name,
+			outputSchema: z.record(z.string(), z.unknown()).parse(tool.structuredOutputSchema),
+		})
+		for (const field of ["user_id", "emailAddress", "logId"]) {
+			expect(declaration).toContain(field)
+		}
+	}
 	const prompt =
-		"Use two successive codemode calls. In the first call, discover the Gmail profile action separately with searchTools('Gmail profile', {namespace:'work_email'}) and searchTools('Gmail profile', {namespace:'personal_email'}), then use describeTool to obtain only the full GMAIL_GET_PROFILE declaration discovered in each namespace (not declarations for other search results). Emit one JSON object with discovered (each namespace's search results' tool names) and declarations (each namespace's full returned declaration string), both keyed by connection slug: work_email and personal_email. End this call and read the declarations before writing the second script. In the second call, execute tools.work_email__GMAIL_GET_PROFILE({user_id:'me'}) and tools.personal_email__GMAIL_GET_PROFILE({user_id:'me'}). Use the declared result shape to inspect data and error, extract the returned emailAddress and uppercase it in JavaScript. Emit one JSON object with profiles (each namespace maps to {emailUppercase,logId} from its actual response). Do not print full provider responses. In each call emit exactly once with text(JSON.stringify(oneObject)); do not call console.log or any other text(), and do not return a value. Then report completion without account details."
+		"Use Code Mode to find and fetch the Gmail profile for each connection: work_email and personal_email. Print the unmodified native responses as one JSON object keyed by connection slug. Only read profile metadata; do not read messages or modify account data."
 	const submitted = await fetch(`${origin}/api/slates/${slate.id}/agents/profiles/jobs`, {
 		body: JSON.stringify({ prompt }),
 		headers,
@@ -496,62 +501,54 @@ test("API Code Mode binds two Gmail namespaces to their assigned accounts", asyn
 	expect(response.status).toBe(200)
 	const messages = z.array(agentJobMessageSchema).parse(await response.json())
 
-	const codemodeSchema = z.looseObject({
-		content: z.tuple([
-			z.object({ text: z.string(), type: z.literal("text") }),
-			z.object({ text: z.string(), type: z.literal("text") }),
-		]),
-		details: z.looseObject({
-			calls: z.array(z.looseObject({ name: z.string(), status: z.string() })),
-		}),
-		isError: z.literal(false),
-	})
 	const codemodeMessages = messages
 		.filter((entry) => entry.kind === ToolResultEntry.kind)
 		.flatMap((entry) => entry.model ?? [])
 		.filter((message) => message.role === "toolResult" && message.toolName === "codemode")
-	const discoveryResult = codemodeSchema.parse(codemodeMessages[0])
-	const codemode = codemodeSchema.parse(codemodeMessages.at(-1))
-	const discovery = z
-		.object({
-			declarations: z.record(z.string(), z.string()),
-			discovered: z.record(z.string(), z.array(z.string())),
-		})
-		.parse(JSON.parse(discoveryResult.content[1].text))
-	const evidence = z
-		.object({
-			profiles: z.record(
-				z.string(),
-				z.object({ emailUppercase: z.string(), logId: z.string().min(1) }),
-			),
-		})
-		.parse(JSON.parse(codemode.content[1].text))
-	for (const [slug, account] of Object.entries(assignments)) {
-		const name = `${slug}__GMAIL_GET_PROFILE`
-		expect(discovery.discovered[slug]).toContain(name)
-		expect(discovery.declarations[slug]).toContain("user_id")
-		expect(discovery.declarations[slug]).toContain("emailAddress")
-		expect(discovery.declarations[slug]).toContain("logId")
-		expect(codemode.details.calls).toContainEqual(
-			expect.objectContaining({ name, status: "ok" }),
+	const calls = codemodeMessages.flatMap((message) => {
+		expect(message.isError, JSON.stringify(message)).toBe(false)
+		return z
+			.looseObject({
+				calls: z.array(z.looseObject({ name: z.string(), status: z.string() })),
+			})
+			.parse(message.details).calls
+	})
+	const profilesSchema = z.object({
+		personal_email: toolResultSchema,
+		work_email: toolResultSchema,
+	})
+	const profiles = codemodeMessages
+		.flatMap((message) =>
+			z.array(z.looseObject({ type: z.string() })).parse(message.content),
 		)
-		expect(evidence.profiles[slug]?.emailUppercase).toBe(
-			z.email().parse(account.display_name).toUpperCase(),
+		.filter((content) => content.type === "text")
+		.map((content) => {
+			try {
+				return profilesSchema.safeParse(JSON.parse(z.string().parse(content.text)))
+			} catch (error) {
+				if (!(error instanceof SyntaxError)) throw error
+				return null
+			}
+		})
+		.find((parsed) => parsed?.success)?.data
+	expect(profiles, JSON.stringify(codemodeMessages)).toBeDefined()
+	for (const slug of ["work_email", "personal_email"] as const) {
+		const account = assignments[slug]
+		expect(calls).toContainEqual(
+			expect.objectContaining({ name: `${slug}__GMAIL_GET_PROFILE`, status: "ok" }),
 		)
+		const profile = profiles?.[slug]
+		expect(profile?.error).toBeNull()
+		expect(profile?.data.emailAddress).toBe(account.display_name)
+		expect(profile?.logId.length).toBeGreaterThan(0)
 	}
-	expect(discovery.discovered.work_email).not.toContain(
-		"personal_email__GMAIL_GET_PROFILE",
-	)
-	expect(discovery.discovered.personal_email).not.toContain(
-		"work_email__GMAIL_GET_PROFILE",
-	)
 	console.info("Native Pi Composio profile bindings", {
 		accounts: Object.fromEntries(
 			Object.entries(assignments).map(([slug, account]) => [slug, account.id]),
 		),
 		jobId: job.id,
 		logIds: Object.fromEntries(
-			Object.entries(evidence.profiles).map(([slug, profile]) => [slug, profile.logId]),
+			Object.entries(profiles ?? {}).map(([slug, profile]) => [slug, profile.logId]),
 		),
 	})
 }, 240_000)

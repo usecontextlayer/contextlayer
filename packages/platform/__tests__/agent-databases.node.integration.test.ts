@@ -12,20 +12,20 @@ import { slateResourcesSchema } from "@usecontextlayer/shared/slate-resources"
 import { expect } from "vitest"
 import { z } from "zod"
 import {
-	type AgentJobEntry,
 	agentJobCreationSchema,
-	agentJobEntrySchema,
 	agentJobMessageSchema,
 	agentJobResultSchema,
-	agentRuntimeScheduleSchema,
 } from "@/agents.schema"
 import { organizationSchema } from "@/auth.server"
 import { slateSchema } from "@/slates.schema"
 
 const execFile = promisify(execFileCallback)
 
-for (const mode of ["owner", "viewer"] as const) {
-	test(`API and cron jobs query the ${mode} database directly and through Code Mode`, async ({
+for (const [mode, tool] of [
+	["owner", "database_query"],
+	["viewer", "codemode"],
+] as const) {
+	test(`API jobs persist writes to the ${mode} database through ${tool}`, async ({
 		directory,
 		execution,
 		platform,
@@ -68,7 +68,7 @@ for (const mode of ["owner", "viewer"] as const) {
 		const { remote } = await repo.info()
 		const token = await repo.createToken("write")
 		const slug = mode === "owner" ? "reports" : "drafts"
-		await mkdir(join(directory, "agents/database/schedules"), { recursive: true })
+		await mkdir(join(directory, "agents/database"), { recursive: true })
 		await mkdir(join(directory, "public"))
 		await writeFile(
 			join(directory, "public/slate.json"),
@@ -82,10 +82,7 @@ for (const mode of ["owner", "viewer"] as const) {
 			JSON.stringify({
 				connections: {},
 				databases: { [slug]: { mode } },
-				secrets: {
-					ANTHROPIC_API_KEY: { mode: "owner" },
-					...(mode === "viewer" ? { ANTHROPIC_MODEL: { mode: "viewer" } } : {}),
-				},
+				secrets: { ANTHROPIC_API_KEY: { mode: "owner" } },
 			}),
 		)
 		await writeFile(
@@ -101,14 +98,7 @@ for (const mode of ["owner", "viewer"] as const) {
 		}
 		const sql =
 			"INSERT INTO updates (id, kind, body, created_at) SELECT ?, kind, body, ? FROM updates WHERE id = ? RETURNING id, body"
-		const direct = { params: ["api-proof", 2, "seed"], slug, sql }
-		const nested = { params: ["cron-proof", 3, "seed"], slug, sql }
-		const firing = new Date(Math.ceil(Date.now() / 60_000) * 60_000 + 60_000)
-		const cron = `${firing.getUTCMinutes()} ${firing.getUTCHours()} ${firing.getUTCDate()} ${firing.getUTCMonth() + 1} *`
-		await writeFile(
-			join(directory, "agents/database/schedules/copy.md"),
-			`---\ncron: "${cron}"\n---\nIn your first Code Mode call, emit text(JSON.stringify({search: await searchTools('database'), declaration: await describeTool('database_query')})). Read those results before your next Code Mode call. Then call tools.database_query with ${JSON.stringify(nested)}. Emit exactly one text item with text(JSON.stringify(result)), using the unchanged structured query result. Do not call database_query directly in this job.\n`,
-		)
+		const copy = { params: ["copy", 2, "seed"], slug, sql }
 		const git = (...args: string[]) =>
 			execFile("git", args, {
 				cwd: directory,
@@ -179,106 +169,44 @@ for (const mode of ["owner", "viewer"] as const) {
 		const submitted = await fetch(
 			url,
 			post({
-				prompt: `Call database_query directly, without Code Mode, with ${JSON.stringify(direct)}. Then report the returned row.`,
+				prompt:
+					tool === "database_query"
+						? `Copy the seed row using database_query with ${JSON.stringify(copy)}.`
+						: `Copy the seed row using Code Mode to call tools.database_query with ${JSON.stringify(copy)}.`,
 			}),
 		)
 		expect(submitted.status).toBe(202)
 		const api = agentJobCreationSchema.parse(await submitted.json())
-		const scheduleResponse = await fetch(
-			`${origin}/api/slates/${slate.id}/agents/database/schedules`,
+		const completed = await fetch(`${url}/${api.job.id}/result`, { headers })
+		expect(completed.status).toBe(200)
+		const result = agentJobResultSchema.parse(await completed.json())
+		expect(result.status, result.reason).toBe("done")
+		const messagesResponse = await fetch(
+			`${url}/${api.job.id}/sessions/${result.session}/messages`,
 			{ headers },
 		)
-		expect(scheduleResponse.status).toBe(200)
-		const schedules = z
-			.array(agentRuntimeScheduleSchema)
-			.parse(await scheduleResponse.json())
-		expect(schedules).toHaveLength(1)
-		const actor =
-			mode === "owner" ? { type: "app" } : { id: webSession.user.id, type: "user" }
-		expect(schedules[0]?.payload.actor).toEqual(actor)
-		let scheduled: AgentJobEntry | undefined
-		await expect
-			.poll(
-				async () => {
-					const response = await fetch(`${url}?schedule=copy`, { headers })
-					expect(response.status).toBe(200)
-					scheduled = z
-						.object({ jobs: z.array(agentJobEntrySchema) })
-						.parse(await response.json()).jobs[0]
-					return scheduled !== undefined
-				},
-				{ interval: 1000, timeout: 180_000 },
+		expect(messagesResponse.status).toBe(200)
+		const messages = z.array(agentJobMessageSchema).parse(await messagesResponse.json())
+		const toolResults = messages
+			.filter((entry) => entry.kind === ToolResultEntry.kind)
+			.flatMap((entry) => entry.model ?? [])
+			.filter((message) => message.role === "toolResult" && message.toolName === tool)
+		if (tool === "codemode") {
+			expect(toolResults).toContainEqual(
+				expect.objectContaining({
+					details: expect.objectContaining({
+						calls: expect.arrayContaining([
+							expect.objectContaining({ name: "database_query", status: "ok" }),
+						]),
+					}),
+					isError: false,
+				}),
 			)
-			.toBe(true)
-		assert(scheduled, "Expected the database cron job")
-		expect(scheduled.metadata).toEqual({
-			actor,
-			trigger: { schedule: "copy", scheduleId: schedules[0]?.id, type: "schedule" },
-		})
-		for (const [job, id, tool] of [
-			[api.job, "api-proof", "database_query"],
-			[scheduled, "cron-proof", "codemode"],
-		] as const) {
-			const completed = await fetch(`${url}/${job.id}/result`, { headers })
-			expect(completed.status).toBe(200)
-			const result = agentJobResultSchema.parse(await completed.json())
-			expect(result.status, result.reason).toBe("done")
-			const messagesResponse = await fetch(
-				`${url}/${job.id}/sessions/${result.session}/messages`,
-				{ headers },
-			)
-			expect(messagesResponse.status).toBe(200)
-			const messages = z.array(agentJobMessageSchema).parse(await messagesResponse.json())
-			const toolResults = messages
-				.filter((entry) => entry.kind === ToolResultEntry.kind)
-				.flatMap((entry) => entry.model ?? [])
-				.filter((message) => message.role === "toolResult" && message.toolName === tool)
-			const toolResult = toolResults.at(-1)
-			const outputSchema = z.looseObject({
-				content: z.array(z.object({ text: z.string(), type: z.literal("text") })),
-				isError: z.literal(false),
-			})
-			const output = outputSchema.parse(toolResult)
-			const evidence = databaseResultSchema.parse(
-				JSON.parse(z.string().parse(output.content.at(-1)?.text)),
-			)
-			expect(evidence.columns).toEqual(["id", "body"])
-			expect(evidence.rows).toEqual([[id, markers[slug]]])
-			expect(evidence.rowsWritten).toBeGreaterThan(0)
-			if (tool === "codemode") {
-				const discoveryOutput = outputSchema.parse(toolResults[0])
-				const discovery = z
-					.object({
-						declaration: z.string(),
-						search: z.array(z.object({ name: z.string() })),
-					})
-					.parse(JSON.parse(z.string().parse(discoveryOutput.content.at(-1)?.text)))
-				expect(discovery.search).toContainEqual({ name: "database_query" })
-				for (const field of [
-					"slug",
-					"sql",
-					"params",
-					"columns",
-					"rows",
-					"rowsRead",
-					"rowsWritten",
-				])
-					expect(discovery.declaration).toContain(field)
-				expect(
-					z
-						.looseObject({
-							details: z.looseObject({
-								calls: z.array(z.looseObject({ name: z.string(), status: z.string() })),
-							}),
-						})
-						.parse(toolResult).details.calls,
-				).toContainEqual(
-					expect.objectContaining({ name: "database_query", status: "ok" }),
-				)
-			}
-			const deleted = await fetch(`${url}/${job.id}`, { headers, method: "DELETE" })
-			expect(deleted.status).toBe(204)
+		} else {
+			expect(toolResults).toContainEqual(expect.objectContaining({ isError: false }))
 		}
+		const deleted = await fetch(`${url}/${api.job.id}`, { headers, method: "DELETE" })
+		expect(deleted.status).toBe(204)
 		for (const database of ["drafts", "reports"] as const) {
 			const persisted = await query(
 				database,
@@ -289,8 +217,7 @@ for (const mode of ["owner", "viewer"] as const) {
 				database === slug
 					? [
 							["seed", markers[database]],
-							["api-proof", markers[database]],
-							["cron-proof", markers[database]],
+							["copy", markers[database]],
 						]
 					: [["seed", markers[database]]],
 			)

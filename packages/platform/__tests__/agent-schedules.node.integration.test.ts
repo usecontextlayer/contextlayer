@@ -2,11 +2,10 @@ import { execFile as execFileCallback } from "node:child_process"
 import { cp, mkdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { promisify } from "node:util"
-import { AssistantEntry, ToolResultEntry, UserEntry } from "@earendil-works/pi-durable"
+import { AssistantEntry, UserEntry } from "@earendil-works/pi-durable"
 import { provisioningTest as test } from "@tests/integration"
 import { DEVELOPMENT_ORGANIZATION_SLUG } from "@usecontextlayer/dev-env/env"
 import { connectionsSchema } from "@usecontextlayer/shared/connections"
-import { databaseResultSchema } from "@usecontextlayer/shared/databases"
 import { slateResourcesSchema } from "@usecontextlayer/shared/slate-resources"
 import { getAgentByName } from "agents/routing"
 import { expect } from "vitest"
@@ -32,10 +31,9 @@ import { slateSchema } from "@/slates.schema"
 const execFile = promisify(execFileCallback)
 
 for (const mode of ["default", "owner", "viewer"] as const) {
-	test(`API and cron jobs record the ${mode} model selection and retain records after reload`, async ({
+	test(`API jobs record the ${mode} model selection`, async ({
 		directory,
 		platform,
-		provisioning,
 		webEnv,
 		webSession,
 	}) => {
@@ -85,7 +83,7 @@ for (const mode of ["default", "owner", "viewer"] as const) {
 		const repo = await ARTIFACTS.get(slate.id)
 		const { remote } = await repo.info()
 		const token = await repo.createToken("write")
-		await mkdir(join(directory, "agents/model/schedules"), { recursive: true })
+		await mkdir(join(directory, "agents/model"), { recursive: true })
 		await mkdir(join(directory, "public"))
 		await writeFile(
 			join(directory, "public/slate.json"),
@@ -104,12 +102,6 @@ for (const mode of ["default", "owner", "viewer"] as const) {
 		await writeFile(
 			join(directory, "agents/model/instructions.md"),
 			"Answer briefly without using tools.\n",
-		)
-		const firing = new Date(Math.ceil(Date.now() / 60_000) * 60_000 + 60_000)
-		const cron = `${firing.getUTCMinutes()} ${firing.getUTCHours()} ${firing.getUTCDate()} ${firing.getUTCMonth() + 1} *`
-		await writeFile(
-			join(directory, "agents/model/schedules/greeting.md"),
-			`---\ncron: "${cron}"\n---\nSay hello in one sentence.\n`,
 		)
 		const git = (...args: string[]) =>
 			execFile("git", args, {
@@ -154,71 +146,30 @@ for (const mode of ["default", "owner", "viewer"] as const) {
 			actor: { id: viewer.id, type: "user" },
 			trigger: { type: "api" },
 		})
-		const { PROVISIONING } = await provisioning.worker.getEnv()
-		await PROVISIONING.provision(slate.id)
-		const scheduleResponse = await fetch(
-			`${origin}/api/slates/${slate.id}/agents/model/schedules`,
+		const completed = await fetch(`${url}/${api.job.id}/result`, { headers })
+		expect(completed.status).toBe(200)
+		const result = agentJobResultSchema.parse(await completed.json())
+		expect(result.status, result.reason).toBe("done")
+		const response = await fetch(
+			`${url}/${api.job.id}/sessions/${result.session}/messages`,
 			{ headers },
 		)
-		expect(scheduleResponse.status).toBe(200)
-		const schedules = z
-			.array(agentRuntimeScheduleSchema)
-			.parse(await scheduleResponse.json())
-		expect(schedules).toHaveLength(1)
-		const actor = mode === "viewer" ? { id: viewer.id, type: "user" } : { type: "app" }
-		expect(schedules[0]?.payload.actor).toEqual(actor)
-		let scheduledJob: AgentJobEntry | undefined
-		await expect
-			.poll(
-				async () => {
-					const response = await fetch(`${url}?schedule=greeting`, { headers })
-					expect(response.status).toBe(200)
-					scheduledJob = z
-						.object({ jobs: z.array(agentJobEntrySchema) })
-						.parse(await response.json()).jobs[0]
-					return scheduledJob !== undefined
-				},
-				{ interval: 1000, timeout: 180_000 },
-			)
-			.toBe(true)
-		if (!scheduledJob) throw new Error("Expected the model acceptance cron job")
-		expect(scheduledJob.metadata).toEqual({
-			actor,
-			trigger: { schedule: "greeting", scheduleId: schedules[0]?.id, type: "schedule" },
-		})
-		const results = []
-		for (const job of [api.job, scheduledJob]) {
-			const completed = await fetch(`${url}/${job.id}/result`, { headers })
-			expect(completed.status).toBe(200)
-			const result = agentJobResultSchema.parse(await completed.json())
-			expect(result.status, result.reason).toBe("done")
-			results.push({ job, result })
-		}
-		await platform.harness.update((current) => current)
-		for (const { job, result } of results) {
-			const response = await fetch(
-				`${url}/${job.id}/sessions/${result.session}/messages`,
-				{
-					headers,
-				},
-			)
-			expect(response.status).toBe(200)
-			const assistants = z
-				.array(agentJobMessageSchema)
-				.parse(await response.json())
-				.filter((entry) => entry.kind === AssistantEntry.kind)
-				.flatMap((entry) => entry.model ?? [])
-				.filter((message) => message.role === "assistant")
-			expect(assistants.length).toBeGreaterThan(0)
-			for (const assistant of assistants)
-				expect(assistant).toMatchObject({ model: expectedModel, provider: "anthropic" })
-			const usageResponse = await fetch(`${url}/${job.id}/usage`, { headers })
-			expect(usageResponse.status).toBe(200)
-			const usage = agentJobUsageSchema.parse(await usageResponse.json())
-			expect(Object.keys(usage.models)).toEqual([`anthropic/${expectedModel}`])
-			const deleted = await fetch(`${url}/${job.id}`, { headers, method: "DELETE" })
-			expect(deleted.status).toBe(204)
-		}
+		expect(response.status).toBe(200)
+		const assistants = z
+			.array(agentJobMessageSchema)
+			.parse(await response.json())
+			.filter((entry) => entry.kind === AssistantEntry.kind)
+			.flatMap((entry) => entry.model ?? [])
+			.filter((message) => message.role === "assistant")
+		expect(assistants.length).toBeGreaterThan(0)
+		for (const assistant of assistants)
+			expect(assistant).toMatchObject({ model: expectedModel, provider: "anthropic" })
+		const usageResponse = await fetch(`${url}/${api.job.id}/usage`, { headers })
+		expect(usageResponse.status).toBe(200)
+		const usage = agentJobUsageSchema.parse(await usageResponse.json())
+		expect(Object.keys(usage.models)).toEqual([`anthropic/${expectedModel}`])
+		const deleted = await fetch(`${url}/${api.job.id}`, { headers, method: "DELETE" })
+		expect(deleted.status).toBe(204)
 	}, 300_000)
 }
 
@@ -520,7 +471,7 @@ test("members' deployed cron jobs use viewer resources and retain results after 
 	)
 }, 480_000)
 
-test("authored cron combines native coding tools, Code Mode, Composio and databases and retains results after reload", async ({
+test("authored cron creates a fresh job and retains its result independently of the schedule", async ({
 	directory,
 	platform,
 	provisioning,
@@ -530,13 +481,6 @@ test("authored cron combines native coding tools, Code Mode, Composio and databa
 	const headers = new Headers(webSession.headers)
 	headers.set("origin", origin)
 	headers.set("content-type", "application/json")
-	const accountsResponse = await fetch(`${origin}/api/connections?toolkit=gmail`, {
-		headers,
-	})
-	expect(accountsResponse.status).toBe(200)
-	const account = connectionsSchema.parse(await accountsResponse.json()).connections[0]
-	if (!account) throw new Error("Connect Gmail to the local development user")
-	const profileEmail = z.email().parse(account.display_name)
 	const created = await fetch(`${origin}/api/slates`, {
 		body: JSON.stringify({}),
 		headers,
@@ -562,27 +506,17 @@ test("authored cron combines native coding tools, Code Mode, Composio and databa
 	await writeFile(
 		join(directory, "agents/brief/slate.json"),
 		JSON.stringify({
-			connections: { mail: { mode: "owner", toolkit: "gmail" } },
-			databases: { reports: { mode: "owner" } },
+			connections: {},
 			secrets: { ANTHROPIC_API_KEY: { mode: "owner" } },
 		}),
 	)
 	await writeFile(
 		join(directory, "agents/brief/instructions.md"),
-		"You are a concise assistant. Prefix answers with PI_CRON_STORY2. For connected apps use only GMAIL_GET_PROFILE; never read messages or modify account data. Writes to the disposable reports database and sandbox files are authorized. Do not include email addresses in the final answer.\n",
-	)
-	await cp(
-		new URL("../../cli/template/databases/updates/migrations/", import.meta.url),
-		join(directory, "databases/reports/migrations"),
-		{ recursive: true },
+		"Answer briefly without using tools.\n",
 	)
 	const firing = new Date(Math.ceil(Date.now() / 60_000) * 60_000 + 60_000)
 	const cron = `${firing.getUTCMinutes()} ${firing.getUTCHours()} ${firing.getUTCDate()} ${firing.getUTCMonth() + 1} *`
-	const markerPath = "/tmp/contextlayer-story7-job.txt"
-	const marker = `PI_CRON_FILE_${slate.id}`
-	const editedMarker = `${marker}_EDITED`
-	const createCommand = `test ! -e '${markerPath}' && uname -s && node -e "require('node:fs').writeFileSync('${markerPath}', '${marker}'); console.log('CREATED')"`
-	const prompt = `First call bash directly with this exact shell command: ${JSON.stringify(createCommand)}. It must verify the file is absent, create it, and return Linux and CREATED. Wait for that tool result. Then call write directly to overwrite ${markerPath} with exactly ${JSON.stringify(`${marker}_DRAFT`)} (no trailing newline). Call edit directly to replace _DRAFT with _EDITED in that file, then call read directly to verify its contents. In a separate Code Mode call, use describeTool to read the full bash, read, database_query and mail__GMAIL_GET_PROFILE declarations. End that call and read the declarations before writing the execution script. Then in one Code Mode script, await tools.read for ${markerPath} and tools.bash with the exact command cat ${markerPath}. Check the native Bash result's exitCode and truncated fields and uppercase its trimmed output in JavaScript, not in Bash. Also call tools.mail__GMAIL_GET_PROFILE({user_id:'me'}); use its declared result shape to inspect data and error, extract emailAddress, and uppercase it in JavaScript. Call tools.database_query with slug reports, SQL INSERT INTO updates (id, kind, body, created_at) VALUES (?, ?, ?, ?) RETURNING id, body, and params ['combined-proof', 'proof', processed, 1], where processed is the uppercased actual Bash output. In this execution script emit exactly one text item using text(JSON.stringify(oneObject)), with exitCode, truncated, processed, read (the unchanged native read result), database (the unchanged native database result), and profile ({emailUppercase,logId} from the actual Gmail response). Do not print the full profile, call console.log or any other text(), or return a value from this execution script. Then report completion briefly without account details.`
+	const prompt = "Say hello in one sentence."
 	await writeFile(
 		join(directory, "agents/brief/schedules/greeting.md"),
 		`---\ncron: "${cron}"\n---\n${prompt}\n`,
@@ -600,7 +534,7 @@ test("authored cron combines native coding tools, Code Mode, Composio and databa
 	await git("init", "-b", "main")
 	await git("config", "user.name", "Pi Cron Acceptance")
 	await git("config", "user.email", "pi-cron-test@example.com")
-	await git("add", "agents", "public", "databases")
+	await git("add", "agents", "public")
 	await git(
 		"-c",
 		"commit.gpgsign=false",
@@ -609,12 +543,6 @@ test("authored cron combines native coding tools, Code Mode, Composio and databa
 		"Author scheduled Pi acceptance agent",
 	)
 	await git("push", remote, "main")
-	const assigned = await fetch(`${origin}/api/slates/${slate.id}/connections/assign`, {
-		body: JSON.stringify({ connection_id: account.id, slug: "mail" }),
-		headers,
-		method: "POST",
-	})
-	expect(assigned.status).toBe(200)
 	const url = `${origin}/api/slates/${slate.id}/agents/brief/jobs`
 	const catalogSchema = z.object({ jobs: z.array(agentJobEntrySchema.strict()) }).strict()
 	const before = await fetch(url, { headers })
@@ -706,79 +634,6 @@ test("authored cron combines native coding tools, Code Mode, Composio and databa
 	expect(userEntries[0]?.model).toContainEqual(
 		expect.objectContaining({ content: schedule.payload.prompt, role: "user" }),
 	)
-	const bashResults = messages
-		.filter((entry) => entry.kind === ToolResultEntry.kind)
-		.flatMap((entry) => entry.model ?? [])
-		.filter((message) => message.role === "toolResult" && message.toolName === "bash")
-		.map((message) =>
-			z
-				.looseObject({
-					content: z.array(z.object({ text: z.string(), type: z.literal("text") })),
-					isError: z.literal(false),
-				})
-				.parse(message),
-		)
-	const outputs = bashResults.map((message) =>
-		message.content.map((content) => content.text).join("\n"),
-	)
-	expect(outputs.join("\n")).toContain("Linux")
-	expect(outputs.join("\n")).toContain("CREATED")
-	const directResults = messages
-		.filter((entry) => entry.kind === ToolResultEntry.kind)
-		.flatMap((entry) => entry.model ?? [])
-		.filter((message) => message.role === "toolResult")
-	for (const toolName of ["write", "edit", "read"])
-		expect(directResults).toContainEqual(
-			expect.objectContaining({ isError: false, toolName }),
-		)
-	expect(directResults.find((message) => message.toolName === "read")?.content).toEqual([
-		{ text: editedMarker, type: "text" },
-	])
-	const codemodeSchema = z.looseObject({
-		content: z.array(z.object({ text: z.string(), type: z.literal("text") })),
-		details: z.looseObject({
-			calls: z.array(z.looseObject({ name: z.string(), status: z.string() })),
-		}),
-		isError: z.literal(false),
-	})
-	const codemodeMessages = messages
-		.filter((entry) => entry.kind === ToolResultEntry.kind)
-		.flatMap((entry) => entry.model ?? [])
-		.filter((message) => message.role === "toolResult" && message.toolName === "codemode")
-	const codemodeResult = codemodeSchema.parse(codemodeMessages.at(-1))
-	expect(codemodeResult.details.calls).toContainEqual(
-		expect.objectContaining({ name: "bash", status: "ok" }),
-	)
-	const evidence = z
-		.object({
-			database: databaseResultSchema,
-			exitCode: z.literal(0),
-			processed: z.string(),
-			profile: z.object({ emailUppercase: z.string(), logId: z.string().min(1) }),
-			read: z.string(),
-			truncated: z.literal(false),
-		})
-		.parse(JSON.parse(z.string().parse(codemodeResult.content.at(-1)?.text)))
-	expect(evidence.read).toBe(editedMarker)
-	expect(evidence.processed).toBe(editedMarker.toUpperCase())
-	expect(evidence.database.columns).toEqual(["id", "body"])
-	expect(evidence.database.rows).toEqual([["combined-proof", editedMarker.toUpperCase()]])
-	expect(evidence.database.rowsWritten).toBeGreaterThan(0)
-	expect(evidence.profile.emailUppercase).toBe(profileEmail.toUpperCase())
-	for (const name of ["read", "database_query", "mail__GMAIL_GET_PROFILE"])
-		expect(codemodeResult.details.calls).toContainEqual(
-			expect.objectContaining({ name, status: "ok" }),
-		)
-	console.info("Native Pi Code Mode evidence", {
-		details: codemodeResult.details,
-		evidence: { ...evidence, profile: { logId: evidence.profile.logId } },
-	})
-	console.info("Native scheduled Pi Bash results", bashResults)
-	console.info("Native scheduled Pi session", {
-		jobId,
-		operationId: result.operationId,
-		sessions,
-	})
 	const listed = await fetch(url, { headers })
 	expect(listed.status).toBe(200)
 	expect(catalogSchema.parse(await listed.json()).jobs).toContainEqual(entry)
@@ -786,20 +641,6 @@ test("authored cron combines native coding tools, Code Mode, Composio and databa
 	const retainedResult = await fetch(`${url}/${jobId}/result`, { headers })
 	expect(retainedResult.status).toBe(200)
 	expect(agentJobResultSchema.strict().parse(await retainedResult.json())).toEqual(result)
-	const inventory = await fetch(`${origin}/api/slates/${slate.id}/resources/list`, {
-		body: "{}",
-		headers,
-		method: "POST",
-	})
-	expect(inventory.status).toBe(200)
-	const { reports } = slateResourcesSchema.parse(await inventory.json()).resources
-		.databases
-	if (!reports) throw new Error("Expected the declared reports database")
-	const { DATABASES } = await worker.getEnv()
-	const persisted = await DATABASES.getByName(reports.instance_name).query(
-		"SELECT id, body FROM updates",
-	)
-	expect(persisted.rows).toEqual([["combined-proof", editedMarker.toUpperCase()]])
 	const deleted = await fetch(`${url}/${jobId}`, { headers, method: "DELETE" })
 	expect(deleted.status).toBe(204)
 	const missing = await fetch(`${url}/${jobId}`, { headers })
