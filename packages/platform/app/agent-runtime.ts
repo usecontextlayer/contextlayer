@@ -36,9 +36,14 @@ export class SlateAgent extends Agent<PlatformEnv["Bindings"]> {
 	): Promise<{ job: RoutedAgentEntry<AgentJobMetadata>; receipt: PiReceipt }> {
 		return this.ctx.blockConcurrencyWhile(async () => {
 			const entry = await this.jobs.create({ metadata: { actor: run.actor, trigger } })
-			const job = await this.jobs.get(entry.id)
-			assert(job)
-			return { job: entry, receipt: await job.start(run) }
+			try {
+				const job = await this.jobs.get(entry.id)
+				assert(job)
+				return { job: entry, receipt: await job.start(run) }
+			} catch (error) {
+				await this.jobs.delete(entry.id)
+				throw error
+			}
 		})
 	}
 

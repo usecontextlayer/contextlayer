@@ -823,7 +823,7 @@ export function createApi() {
 					content: { "application/json": { schema: z.array(agentJobSessionSchema) } },
 					description: "Native Pi sessions within this job",
 				},
-				400: { description: "Invalid slate target, agent name, job ID, or session" },
+				400: { description: "Invalid slate target, agent name, or job ID" },
 				401: { description: "A valid ContextLayer login is required" },
 				403: {
 					description:
@@ -908,7 +908,7 @@ export function createApi() {
 					content: { "application/json": { schema: agentJobUsageSchema } },
 					description: "Native Pi model and tool usage across the job conversations",
 				},
-				400: { description: "Invalid slate target, agent name, job ID, or session" },
+				400: { description: "Invalid slate target, agent name, or job ID" },
 				401: { description: "A valid ContextLayer login is required" },
 				403: {
 					description:
@@ -950,7 +950,7 @@ export function createApi() {
 					content: { "application/json": { schema: agentJobInspectionSchema } },
 					description: "Native Pi scheduling, live tasks, and unfinished submissions",
 				},
-				400: { description: "Invalid slate target, agent name, job ID, or session" },
+				400: { description: "Invalid slate target, agent name, or job ID" },
 				401: { description: "A valid ContextLayer login is required" },
 				403: {
 					description:
@@ -1113,13 +1113,13 @@ export function createApi() {
 					},
 					description: "Native provisioned authored cron schedule records",
 				},
-				400: { description: "Invalid slate target, agent name, or schedule ID" },
+				400: { description: "Invalid slate target or agent name" },
 				401: { description: "A valid ContextLayer login is required" },
 				403: {
 					description:
 						"Only the Owner or owning organization members may inspect schedules",
 				},
-				404: { description: "Slate or schedule not found" },
+				404: { description: "Slate not found" },
 			},
 			security,
 		}),

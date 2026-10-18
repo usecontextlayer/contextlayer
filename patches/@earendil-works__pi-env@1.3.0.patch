@@ -188,13 +188,12 @@ index 693836b26ef17fd6824dc189bbd2848d2365fce7..0dcbc2ce8ba9b6ef2882821de2079d17
          const pending = [...session.pending.values()];
          session.pending.clear();
          for (const request of pending)
-@@ -328,4 +346,22 @@ export class Connection {
+@@ -328,4 +346,21 @@ export class Connection {
              pending.reject(new RemoteError(json));
      }
  }
 -//# sourceMappingURL=connection.js.map
 \ No newline at end of file
-+/** Node commands use the same stream transport as remote container processes. */
 +async function startNodeProcess(command, token) {
 +    const [program, ...args] = command;
 +    if (program === undefined)

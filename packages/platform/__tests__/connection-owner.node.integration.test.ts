@@ -191,6 +191,12 @@ test("configuration includes agent-only connections and projects app requirement
 				toolkit: "github",
 			},
 		},
+		databases: {
+			reports: {
+				instance_name: expect.stringMatching(/.+/),
+				owner: { id: "alice", type: "personal" },
+			},
+		},
 		prompt: "Summarize the repository.",
 		secrets: { MODEL_API_KEY: { id: "alice", type: "personal" } },
 		slateId: slate.id,

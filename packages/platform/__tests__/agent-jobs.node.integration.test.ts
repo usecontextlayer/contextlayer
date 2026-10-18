@@ -5,8 +5,10 @@ import { AssistantEntry, ToolResultEntry, UserEntry } from "@earendil-works/pi-d
 import { test } from "@tests/integration"
 import { signInViewer } from "@usecontextlayer/dev-env/viewer"
 import { connectionsSchema } from "@usecontextlayer/shared/connections"
+import { getAgentByName } from "agents/routing"
 import { expect } from "vitest"
 import { z } from "zod"
+import { getAgentInstanceName } from "@/agent-instance"
 import {
 	agentJobCreationSchema,
 	agentJobEntrySchema,
@@ -16,10 +18,37 @@ import {
 	agentJobResultSchema,
 	agentJobSessionSchema,
 	agentJobUsageSchema,
+	agentRunSchema,
 } from "@/agents.schema"
+import { startAgentRun } from "@/agents.server"
 import { slateSchema } from "@/slates.schema"
 
 const execFile = promisify(execFileCallback)
+
+test("failed job admission leaves the catalog empty", async ({ platform }) => {
+	const run = agentRunSchema.parse({
+		actor: { type: "app" },
+		agent: {
+			commit: "admission-fixture",
+			instructions: "Answer briefly.",
+			name: "missing-model",
+		},
+		connections: {},
+		databases: {},
+		prompt: "Say hello.",
+		secrets: {
+			ANTHROPIC_MODEL: { id: crypto.randomUUID(), type: "personal" },
+		},
+		slateId: crypto.randomUUID(),
+	})
+	const { AGENTS } = await platform.worker.getEnv()
+	await expect(startAgentRun(AGENTS, run)).rejects.toThrow()
+	const agent = await getAgentByName(
+		AGENTS,
+		getAgentInstanceName(run.slateId, run.agent.name, run.actor),
+	)
+	expect(await agent.listJobs()).toEqual([])
+})
 
 test("API jobs expose native execution and isolated Linux computers", async ({
 	directory,
