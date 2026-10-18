@@ -198,26 +198,32 @@ test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
 				.filter((entry) => entry.kind === ToolResultEntry.kind)
 				.flatMap((entry) => entry.model ?? [])
 				.filter((message) => message.role === "toolResult")
-			const bashResults = toolResults
-				.filter((message) => message.toolName === "bash")
+			const executionResults = toolResults
+				.filter((message) => message.toolName === "bash" || message.toolName === "read")
 				.map((message) => {
 					expect(message.isError, JSON.stringify(message)).toBe(false)
 					return z
 						.looseObject({
 							content: z.array(z.object({ text: z.string(), type: z.literal("text") })),
+							toolName: z.enum(["bash", "read"]),
 						})
 						.parse(message)
 				})
-			const outputs = bashResults.map((message) =>
-				message.content.map((content) => content.text).join("\n"),
-			)
+			const outputs = executionResults.map((message) => ({
+				text: message.content.map((content) => content.text).join("\n"),
+				toolName: message.toolName,
+			}))
+			const bashOutput = outputs
+				.filter((output) => output.toolName === "bash")
+				.map((output) => output.text)
+				.join("\n")
 			if (index === 0) {
-				expect(outputs.join("\n")).toContain("Linux")
-				expect(outputs.join("\n")).toContain("CREATED")
+				expect(bashOutput).toContain("Linux")
+				expect(outputs.map((output) => output.text).join("\n")).toContain("CREATED")
 			} else {
-				expect(outputs.join("\n")).toContain("FRESH_JOB_FILESYSTEM")
+				expect(bashOutput).toContain("FRESH_JOB_FILESYSTEM")
 			}
-			console.info("Native Pi Bash results", bashResults)
+			console.info("Native Pi execution results", executionResults)
 			const assistantEntry = messages
 				.filter((entry) => entry.kind === AssistantEntry.kind)
 				.at(-1)
