@@ -13,6 +13,7 @@ export async function setSlateSecret(
 	artifacts: Artifacts,
 	databases: PlatformEnv["Bindings"]["DATABASES"],
 	agents: PlatformEnv["Bindings"]["AGENTS"],
+	meridian: PlatformEnv["Bindings"]["MERIDIAN"],
 	config: PlatformConfig,
 	access: OwnerSlateAccess,
 	name: string,
@@ -22,7 +23,14 @@ export async function setSlateSecret(
 	const requirement = snapshot.resources.secrets[name]
 	if (!requirement) return { allowed: false, reason: "not-found" } as const
 	const owner = getCredentialOwner(requirement.mode, access.slate, access.identity.user)
-	const saved = await setSharedSecret(config, access.identity, owner, name, input)
+	const saved = await setSharedSecret(
+		meridian,
+		config,
+		access.identity,
+		owner,
+		name,
+		input,
+	)
 	if (!saved.allowed) return { allowed: false, reason: "forbidden" } as const
 	await addSlateMember(
 		db,

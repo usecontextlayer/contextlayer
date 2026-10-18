@@ -46,6 +46,7 @@ import {
 	databaseContext,
 	databasesContext,
 	identityContext,
+	meridianContext,
 } from "@/context"
 import { getCredentialOwner } from "@/owner"
 import type { Route } from "@/routes/+types/chrome"
@@ -104,6 +105,7 @@ export async function action({ request, params, context }: Route.ActionArgs) {
 			context.get(artifactsContext),
 			context.get(databasesContext),
 			context.get(agentsContext),
+			context.get(meridianContext),
 			context.get(configContext),
 			access,
 			input.data.name,

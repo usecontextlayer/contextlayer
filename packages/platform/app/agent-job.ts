@@ -1,7 +1,6 @@
 import assert from "node:assert/strict"
 import { Composio } from "@composio/core"
 import { createModels } from "@earendil-works/pi-ai/models"
-import { anthropicProvider } from "@earendil-works/pi-ai/providers/anthropic"
 import { createInlineCodemodeSandbox } from "@earendil-works/pi-codemode/cloudflare"
 import { createRegistry, defineTool, Harness } from "@earendil-works/pi-durable"
 import { createCodemodeExtension } from "@earendil-works/pi-durable/codemode"
@@ -18,6 +17,7 @@ import {
 	COMPUTER_INACTIVITY_TIMEOUT_MS,
 	createContainerConnection,
 } from "@/agent-computer"
+import { createAgentProvider } from "@/agent-provider"
 import { createAgentTools } from "@/agent-tools"
 import { type AgentRun, agentRunSchema } from "@/agents.schema"
 import { createConnectionSession } from "@/connections.server"
@@ -46,18 +46,15 @@ export class SlateAgentJob extends Agent<
 		defaults: { model: { id: "claude-haiku-4-5", provider: "anthropic" } },
 		harness: async ({ storage, context }) => {
 			this.piContext = context
-			const models = createModels({
-				authContext: {
-					env: async (name) => {
-						if (name !== "ANTHROPIC_API_KEY") return undefined
-						const owner = this.run.secrets.ANTHROPIC_API_KEY
-						assert(owner)
-						return loadSharedSecret(this.env, owner, name)
-					},
-					fileExists: async () => false,
-				},
-			})
-			models.setProvider(anthropicProvider())
+			const models = createModels()
+			models.setProvider(
+				createAgentProvider(
+					this.env,
+					this.env.MERIDIAN,
+					() => this.run.secrets,
+					this.name,
+				),
+			)
 			this.registry.install(CodingTools)
 			this.registry.install({
 				name: "contextlayer",

@@ -20,6 +20,13 @@
 			"class_name": "SlateAgentJob",
 			"images": { "workspace": { "dockerfile": "./Dockerfile" } },
 			"scheduling_policy": "durable_object"
+		},
+		{
+			"class_name": "Meridian",
+			"image": "./Dockerfile.meridian",
+			"instance_type": "lite",
+			"max_instances": 1,
+			"scheduling_policy": "default"
 		}
 	],
 	"dev": {
@@ -46,6 +53,10 @@
 			{
 				"class_name": "SlateAgentJob",
 				"name": "AGENT_JOBS"
+			},
+			{
+				"class_name": "Meridian",
+				"name": "MERIDIAN"
 			}
 		]
 	},
@@ -63,6 +74,13 @@
 					"class_name": "SlateAgentJob",
 					"images": { "workspace": { "dockerfile": "./Dockerfile" } },
 					"scheduling_policy": "durable_object"
+				},
+				{
+					"class_name": "Meridian",
+					"image": "./Dockerfile.meridian",
+					"instance_type": "lite",
+					"max_instances": 1,
+					"scheduling_policy": "default"
 				}
 			],
 			"dispatch_namespaces": [
@@ -85,6 +103,10 @@
 					{
 						"class_name": "SlateAgentJob",
 						"name": "AGENT_JOBS"
+					},
+					{
+						"class_name": "Meridian",
+						"name": "MERIDIAN"
 					}
 				]
 			},
@@ -121,6 +143,10 @@
 		{
 			"new_sqlite_classes": ["SlateAgentJob"],
 			"tag": "v3"
+		},
+		{
+			"new_sqlite_classes": ["Meridian"],
+			"tag": "v4"
 		}
 	],
 	"name": "contextlayer-platform",

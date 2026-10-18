@@ -414,6 +414,7 @@ export function createApi() {
 		async (c) => {
 			const { name, owner_id, type } = c.req.valid("param")
 			const result = await setSharedSecret(
+				c.env.MERIDIAN,
 				c.var.config,
 				c.var.identity,
 				{ id: owner_id, type },
@@ -444,6 +445,7 @@ export function createApi() {
 		async (c) => {
 			const { name, owner_id, type } = c.req.valid("param")
 			const result = await dropSharedSecret(
+				c.env.MERIDIAN,
 				c.var.config,
 				c.var.identity,
 				{ id: owner_id, type },
@@ -1379,6 +1381,7 @@ export function createApi() {
 				c.env.ARTIFACTS,
 				c.env.DATABASES,
 				c.env.AGENTS,
+				c.env.MERIDIAN,
 				c.var.config,
 				c.var.slateAccess,
 				c.req.valid("param").name,

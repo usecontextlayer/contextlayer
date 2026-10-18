@@ -15,6 +15,7 @@ import {
 	databaseContext,
 	databasesContext,
 	identityContext,
+	meridianContext,
 	slatesContext,
 } from "@/context"
 import { createPlatformDb } from "@/database"
@@ -25,6 +26,7 @@ export { SlateDatabase } from "@usecontextlayer/shared/database-worker"
 export { SlateAgentJob } from "@/agent-job"
 export { SlateAgent } from "@/agent-runtime"
 export { Execution } from "@/execution.server"
+export { Meridian } from "@/meridian"
 export { Provisioning } from "@/provisioning.server"
 
 const publicDashboardPaths = ["/dashboard/chrome/slates/*", "/dashboard/__manifest"]
@@ -66,6 +68,7 @@ export default await createHonoServer<OwnerIdentityEnv>({
 		context.set(identityContext, c.var.identity ?? null)
 		context.set(configContext, c.var.config)
 		context.set(databasesContext, c.env.DATABASES)
+		context.set(meridianContext, c.env.MERIDIAN)
 		context.set(agentsContext, c.env.AGENTS)
 		return context
 	},

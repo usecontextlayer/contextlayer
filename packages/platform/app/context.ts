@@ -5,6 +5,7 @@ import type { SlateAgent } from "@/agent-runtime"
 import type { OwnerIdentity } from "@/auth.server"
 import type { PlatformDb } from "@/database"
 import type { PlatformBindings, PlatformConfig } from "@/env"
+import type { Meridian } from "@/meridian"
 
 export const databaseContext = createContext<PlatformDb>()
 export const slatesContext = createContext<DispatchNamespace>()
@@ -12,10 +13,12 @@ export const artifactsContext = createContext<Artifacts>()
 export const identityContext = createContext<OwnerIdentity | null>(null)
 export const configContext = createContext<PlatformConfig>()
 export const databasesContext = createContext<PlatformEnv["Bindings"]["DATABASES"]>()
+export const meridianContext = createContext<PlatformEnv["Bindings"]["MERIDIAN"]>()
 export const agentsContext = createContext<PlatformEnv["Bindings"]["AGENTS"]>()
 
 export type PlatformEnv = {
 	Bindings: PlatformBindings & {
+		MERIDIAN: DurableObjectNamespace<Meridian>
 		AGENTS: DurableObjectNamespace<SlateAgent>
 		AGENT_JOBS: DurableObjectNamespace<SlateAgentJob>
 		SLATES: DispatchNamespace

@@ -1,0 +1,19 @@
+FROM docker.io/cloudflare/sandbox:1.0.1 AS sandbox
+FROM node:24-trixie-slim
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates curl git \
+    && rm -rf /var/lib/apt/lists/*
+RUN npm install --global pnpm@11.22.0
+WORKDIR /opt/meridian
+RUN pnpm add --save-exact --allow-build=@rynfar/meridian --allow-build=@anthropic-ai/claude-code @rynfar/meridian@1.83.1
+COPY --from=sandbox /usr/local/bin/sandbox-shim /usr/local/bin/sandbox-shim
+RUN node -e 'require("node:fs").writeFileSync("/etc/machine-id", require("node:crypto").randomBytes(16).toString("hex") + "\n")' \
+    && mkdir /meridian && chown node:node /meridian && chmod 700 /meridian
+ENV MERIDIAN_CONFIG_DIR=/meridian \
+    MERIDIAN_HOST_ID=contextlayer \
+    MERIDIAN_HOST=0.0.0.0 \
+    MERIDIAN_PORT=3456 \
+    MERIDIAN_DEFAULT_PROFILE=unconfigured
+USER node
+EXPOSE 3456
+CMD ["sh", "-c", "umask 077; until test -f /meridian/profiles.json; do sleep 0.1; done; exec /opt/meridian/node_modules/.bin/meridian"]
