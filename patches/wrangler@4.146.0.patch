@@ -1,0 +1,23 @@
+diff --git a/wrangler-dist/cli.js b/wrangler-dist/cli.js
+index b682402e4763ef57d5a0898221d39227711e3e6f..66e3d9782a1a3d3ad096c99ba92a605284a7cfc3 100644
+--- a/wrangler-dist/cli.js
++++ b/wrangler-dist/cli.js
+@@ -370152,8 +370152,16 @@ function createTestHarness(options) {
+           inspector: false,
+           registry: void 0,
+           structuredLogsHandler: /* @__PURE__ */ __name((log2) => captureStructuredLog(log2), "structuredLogsHandler"),
+-          outboundService: /* @__PURE__ */ __name((request4) => {
+-            return globalThis.fetch(request4.url, request4);
++          outboundService: /* @__PURE__ */ __name(async (request4) => {
++            const response = await globalThis.fetch(request4.url, request4);
++            if (response.body !== null && response.headers.get("content-encoding")?.trim().toLowerCase() === "gzip") {
++              // Node fetch decoded the body but retained its compressed wire headers.
++              const decoded = new Response(response.body, response);
++              decoded.headers.delete("content-encoding");
++              decoded.headers.delete("content-length");
++              return decoded;
++            }
++            return response;
+           }, "outboundService"),
+           multiworkerPrimary: isMultiworker ? isPrimaryWorker : void 0,
+           inferOriginFromRoutes: false,

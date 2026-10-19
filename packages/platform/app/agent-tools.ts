@@ -5,7 +5,7 @@ import {
 	type Tool,
 	ToolRouterSessionExecuteResponseSchema,
 } from "@composio/core"
-import { defineTool, type Extension } from "@earendil-works/pi-durable"
+import type { Extension, ToolRegistration } from "@earendil-works/pi-durable"
 import type { CodemodeNamespace } from "@earendil-works/pi-durable/codemode"
 import { z } from "zod"
 import { zodToJsonSchema } from "zod-to-json-schema"
@@ -19,7 +19,7 @@ export async function createAgentTools(
 		session: Awaited<ReturnType<Composio["use"]>>
 		toolkit: string
 	}[],
-): Promise<{ extension: Extension; namespaces: CodemodeNamespace[] }> {
+) {
 	const composio = new Composio({ apiKey })
 	const namespaces: CodemodeNamespace[] = connections.map(({ name, toolkit }) => ({
 		description: toolkit,
@@ -34,7 +34,7 @@ export async function createAgentTools(
 				)
 				return actions.map((action) => {
 					assert(action.inputParameters)
-					return defineTool({
+					return {
 						callers: ["tools"],
 						deferred: true,
 						description: action.description ?? action.name,
@@ -53,7 +53,7 @@ export async function createAgentTools(
 						name: `${name}__${action.slug}`,
 						parameters: action.inputParameters,
 						structuredOutputSchema: actionResultSchema(action),
-					})
+					} satisfies ToolRegistration
 				})
 			}),
 		)
@@ -73,7 +73,7 @@ export async function createAgentTools(
 			tools,
 		},
 		namespaces,
-	}
+	} satisfies { extension: Extension; namespaces: CodemodeNamespace[] }
 }
 
 function actionResultSchema(action: Tool) {

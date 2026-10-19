@@ -6,6 +6,7 @@ import { nodeIntegrationTestInclude } from "../../vitest.shared.ts"
 export default defineConfig({
 	resolve: { tsconfigPaths: true },
 	test: {
+		fileParallelism: false,
 		hookTimeout: 300_000,
 		include: nodeIntegrationTestInclude,
 		name: "@usecontextlayer/platform:integration:node",

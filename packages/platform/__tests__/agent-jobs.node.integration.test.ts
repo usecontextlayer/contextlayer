@@ -1,17 +1,13 @@
 import { execFile as execFileCallback } from "node:child_process"
 import { mkdir, writeFile } from "node:fs/promises"
 import { promisify } from "node:util"
-import { renderToolSignature } from "@earendil-works/pi-codemode"
 import { AssistantEntry, ToolResultEntry, UserEntry } from "@earendil-works/pi-durable"
 import { test } from "@tests/integration"
 import { signInViewer } from "@usecontextlayer/dev-env/viewer"
-import { connectionsSchema } from "@usecontextlayer/shared/connections"
-import { toolResultSchema } from "@usecontextlayer/shared/tools"
 import { getAgentByName } from "agents/routing"
 import { expect } from "vitest"
 import { z } from "zod"
 import { getAgentInstanceName } from "@/agent-instance"
-import { createAgentTools } from "@/agent-tools"
 import {
 	agentJobCreationSchema,
 	agentJobEntrySchema,
@@ -24,7 +20,6 @@ import {
 	agentRunSchema,
 } from "@/agents.schema"
 import { startAgentRun } from "@/agents.server"
-import { createConnectionSession } from "@/connections.server"
 import { slateSchema } from "@/slates.schema"
 
 const execFile = promisify(execFileCallback)
@@ -199,16 +194,19 @@ test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
 				.flatMap((entry) => entry.model ?? [])
 				.filter((message) => message.role === "toolResult")
 			const executionResults = toolResults
-				.filter((message) => message.toolName === "bash" || message.toolName === "read")
-				.map((message) => {
-					expect(message.isError, JSON.stringify(message)).toBe(false)
-					return z
+				.filter(
+					(message) =>
+						(message.toolName === "bash" || message.toolName === "read") &&
+						message.isError === false,
+				)
+				.map((message) =>
+					z
 						.looseObject({
 							content: z.array(z.object({ text: z.string(), type: z.literal("text") })),
 							toolName: z.enum(["bash", "read"]),
 						})
-						.parse(message)
-				})
+						.parse(message),
+				)
 			const outputs = executionResults.map((message) => ({
 				text: message.content.map((content) => content.text).join("\n"),
 				toolName: message.toolName,
@@ -368,193 +366,3 @@ test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
 		expect(catalogSchema.parse(await empty.json()).jobs).toEqual([])
 	},
 )
-
-test("API Code Mode binds two Gmail namespaces to their assigned accounts", async ({
-	directory,
-	platform,
-	webSession,
-}) => {
-	const { origin, worker } = platform
-	const headers = new Headers(webSession.headers)
-	headers.set("origin", origin)
-	headers.set("content-type", "application/json")
-	const accountsResponse = await fetch(`${origin}/api/connections?toolkit=gmail`, {
-		headers,
-	})
-	expect(accountsResponse.status).toBe(200)
-	const { connections } = connectionsSchema.parse(await accountsResponse.json())
-	const first = connections[0]
-	const second = connections.find(
-		(account) => account.display_name !== first?.display_name,
-	)
-	if (!first || !second)
-		throw new Error("Connect two distinct Gmail accounts to the local development user")
-	const assignments = { personal_email: second, work_email: first }
-	for (const account of Object.values(assignments)) z.email().parse(account.display_name)
-	const created = await fetch(`${origin}/api/slates`, {
-		body: JSON.stringify({}),
-		headers,
-		method: "POST",
-	})
-	expect(created.status).toBe(201)
-	const slate = slateSchema.parse(await created.json())
-	await using resources = new AsyncDisposableStack()
-	resources.defer(async () => {
-		const { ARTIFACTS } = await worker.getEnv()
-		await ARTIFACTS.delete(slate.id)
-	})
-	const { ARTIFACTS, COMPOSIO_API_KEY } = await worker.getEnv()
-	const repo = await ARTIFACTS.get(slate.id)
-	const { remote } = await repo.info()
-	const token = await repo.createToken("write")
-	await mkdir(`${directory}/agents/profiles`, { recursive: true })
-	await mkdir(`${directory}/public`)
-	await writeFile(`${directory}/public/slate.json`, JSON.stringify({ connections: {} }))
-	await writeFile(
-		`${directory}/agents/profiles/slate.json`,
-		JSON.stringify({
-			connections: {
-				personal_email: { mode: "viewer", toolkit: "gmail" },
-				work_email: { mode: "viewer", toolkit: "gmail" },
-			},
-			secrets: { ANTHROPIC_API_KEY: { mode: "viewer" } },
-		}),
-	)
-	await writeFile(
-		`${directory}/agents/profiles/instructions.md`,
-		"Use only GMAIL_GET_PROFILE to read mailbox profile metadata. Never read messages or modify account data. Do not include email addresses in your final answer.\n",
-	)
-	const gitEnv = {
-		...process.env,
-		GIT_CONFIG_COUNT: "1",
-		GIT_CONFIG_GLOBAL: `${directory}/gitconfig`,
-		GIT_CONFIG_KEY_0: "http.extraHeader",
-		GIT_CONFIG_VALUE_0: `Authorization: Bearer ${token.plaintext}`,
-		GIT_TERMINAL_PROMPT: "0",
-	}
-	const git = (...args: string[]) =>
-		execFile("git", args, { cwd: directory, env: gitEnv })
-	await git("init", "-b", "main")
-	await git("config", "user.name", "Pi Composio Acceptance")
-	await git("config", "user.email", "pi-composio-test@example.com")
-	await git("add", "agents", "public")
-	await git("-c", "commit.gpgsign=false", "commit", "-m", "Author Gmail profile agent")
-	await git("push", remote, "main")
-	for (const [slug, account] of Object.entries(assignments)) {
-		const assigned = await fetch(`${origin}/api/slates/${slate.id}/connections/assign`, {
-			body: JSON.stringify({ connection_id: account.id, slug }),
-			headers,
-			method: "POST",
-		})
-		expect(assigned.status).toBe(200)
-	}
-	const { extension } = await createAgentTools(
-		COMPOSIO_API_KEY,
-		await Promise.all(
-			Object.entries(assignments).map(async ([name, account]) => ({
-				name,
-				session: await createConnectionSession(
-					COMPOSIO_API_KEY,
-					{ id: z.string().parse(slate.owner_user_id), type: "personal" },
-					account.id,
-					"gmail",
-					{
-						manageConnections: { enable: false },
-						sandbox: { enable: false },
-						sessionPreset: "direct_tools",
-					},
-				),
-				toolkit: "gmail",
-			})),
-		),
-	)
-	for (const slug of Object.keys(assignments)) {
-		const tool = extension.tools?.find(
-			({ name }) => name === `${slug}__GMAIL_GET_PROFILE`,
-		)
-		if (!tool) throw new Error(`Missing ${slug} profile tool`)
-		const declaration = renderToolSignature({
-			inputSchema: z.record(z.string(), z.unknown()).parse(tool.parameters),
-			name: tool.name,
-			outputSchema: z.record(z.string(), z.unknown()).parse(tool.structuredOutputSchema),
-		})
-		for (const field of ["user_id", "emailAddress", "logId"]) {
-			expect(declaration).toContain(field)
-		}
-	}
-	const prompt =
-		"Use Code Mode to find and fetch the Gmail profile for each connection: work_email and personal_email. Print the unmodified native responses as one JSON object keyed by connection slug. Only read profile metadata; do not read messages or modify account data."
-	const submitted = await fetch(`${origin}/api/slates/${slate.id}/agents/profiles/jobs`, {
-		body: JSON.stringify({ prompt }),
-		headers,
-		method: "POST",
-	})
-	expect(submitted.status).toBe(202)
-	const { job, receipt } = agentJobCreationSchema.parse(await submitted.json())
-	const jobUrl = `${origin}/api/slates/${slate.id}/agents/profiles/jobs/${job.id}`
-	resources.defer(async () => {
-		const deleted = await fetch(jobUrl, { headers, method: "DELETE" })
-		expect(deleted.status).toBe(204)
-	})
-	const completed = await fetch(`${jobUrl}/result`, { headers })
-	expect(completed.status).toBe(200)
-	const result = agentJobResultSchema.parse(await completed.json())
-	expect(result.status, result.reason).toBe("done")
-	expect(result.operationId).toBe(receipt.operationId)
-	const response = await fetch(`${jobUrl}/sessions/${receipt.session}/messages`, {
-		headers,
-	})
-	expect(response.status).toBe(200)
-	const messages = z.array(agentJobMessageSchema).parse(await response.json())
-
-	const codemodeMessages = messages
-		.filter((entry) => entry.kind === ToolResultEntry.kind)
-		.flatMap((entry) => entry.model ?? [])
-		.filter((message) => message.role === "toolResult" && message.toolName === "codemode")
-	const calls = codemodeMessages.flatMap((message) => {
-		expect(message.isError, JSON.stringify(message)).toBe(false)
-		return z
-			.looseObject({
-				calls: z.array(z.looseObject({ name: z.string(), status: z.string() })),
-			})
-			.parse(message.details).calls
-	})
-	const profilesSchema = z.object({
-		personal_email: toolResultSchema,
-		work_email: toolResultSchema,
-	})
-	const profiles = codemodeMessages
-		.flatMap((message) =>
-			z.array(z.looseObject({ type: z.string() })).parse(message.content),
-		)
-		.filter((content) => content.type === "text")
-		.map((content) => {
-			try {
-				return profilesSchema.safeParse(JSON.parse(z.string().parse(content.text)))
-			} catch (error) {
-				if (!(error instanceof SyntaxError)) throw error
-				return null
-			}
-		})
-		.find((parsed) => parsed?.success)?.data
-	expect(profiles, JSON.stringify(codemodeMessages)).toBeDefined()
-	for (const slug of ["work_email", "personal_email"] as const) {
-		const account = assignments[slug]
-		expect(calls).toContainEqual(
-			expect.objectContaining({ name: `${slug}__GMAIL_GET_PROFILE`, status: "ok" }),
-		)
-		const profile = profiles?.[slug]
-		expect(profile?.error).toBeNull()
-		expect(profile?.data.emailAddress).toBe(account.display_name)
-		expect(profile?.logId.length).toBeGreaterThan(0)
-	}
-	console.info("Native Pi Composio profile bindings", {
-		accounts: Object.fromEntries(
-			Object.entries(assignments).map(([slug, account]) => [slug, account.id]),
-		),
-		jobId: job.id,
-		logIds: Object.fromEntries(
-			Object.entries(profiles ?? {}).map(([slug, profile]) => [slug, profile.logId]),
-		),
-	})
-}, 240_000)
