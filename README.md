@@ -1,6 +1,6 @@
 <div align="center">
 
-# ContextLayer
+# contextlayer
 
 The platform for bespoke software.
 
