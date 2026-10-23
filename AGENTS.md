@@ -231,7 +231,7 @@ For true CLI passthrough commands, prefer transparent child-process behavior ove
 
 #### Test-First Is Opt-In
 
-**Implement directly and cover with tests where the repo's conventions call for them; do not run the red→green ceremony by default.** Bugs still get a regression test — that is a coverage rule, not an ordering one. Reach for test-first when the user asks for it on a task, or when a failing test is the cheapest proof that a subtle defect (a concurrency or ordering bug) is real. The ceremony costs real wall-clock on mechanical changes and earns its place only where the failing test is itself the evidence. A general standard that mandates test-first everywhere does not override this repo's stance.
+**Implement directly and cover with tests where the repo's conventions call for them; do not run the red→green ceremony by default.** Reach for test-first when the user asks for it on a task, or when a failing test is the cheapest proof that a subtle defect (a concurrency or ordering bug) is real. The ceremony costs real wall-clock on mechanical changes and earns its place only where the failing test is itself the evidence. A general standard that mandates test-first everywhere does not override this repo's stance.
 
 #### Placement & Tiers
 

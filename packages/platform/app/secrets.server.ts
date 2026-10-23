@@ -67,8 +67,19 @@ export async function loadSharedSecret(
 		},
 	})
 	if (!response.ok) throw new Error(`Secret load failed: HTTP ${response.status}`)
-	return z.object({ value: z.object({ raw: z.string() }) }).parse(await response.json())
-		.value.raw
+	const { value } = z
+		.object({ value: z.object({ raw: z.string().nullable() }) })
+		.parse(await response.json())
+	if (value.raw === null) {
+		const setup =
+			owner.type === "personal"
+				? `Sign in as that user and run: ctx secrets set ${name}`
+				: `As a member of that organization, run: ctx secrets --org <organization-slug> set ${name}`
+		throw new Error(
+			`Secret ${name} is not configured for ${owner.type} Owner ${owner.id}. ${setup}`,
+		)
+	}
+	return value.raw
 }
 
 export async function setSharedSecret(
