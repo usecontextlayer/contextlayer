@@ -1,5 +1,4 @@
 export {
-	DatabaseProvisioning,
 	Databases,
 	SlateDatabase,
 	Tools,

@@ -1,4 +1,9 @@
 {
 	"connections": {},
+	"databases": {
+		"notes": {
+			"mode": "owner"
+		}
+	},
 	"secrets": {}
 }
