@@ -3,15 +3,12 @@
 // leftovers from a previously killed run (the documented SIGKILL leak mode)
 // and over concurrent compositions, both of which are normal here.
 
-import { resolve } from "node:path"
 import postgres from "postgres"
 import { expect, test } from "vitest"
 import { provisionEphemeralDatabases } from "@/database"
 import { readDevelopmentEnv } from "@/env"
 
-const databaseUrl = readDevelopmentEnv(
-	resolve(import.meta.dirname, "../../.."),
-).CTX_PLATFORM_DATABASE_URL
+const databaseUrl = readDevelopmentEnv().CTX_PLATFORM_DATABASE_URL
 const adminUrl = new URL(databaseUrl)
 adminUrl.pathname = "/postgres"
 

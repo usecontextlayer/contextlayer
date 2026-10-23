@@ -1,4 +1,3 @@
-import { basename } from "node:path"
 import { z } from "zod"
 
 const url = z.url().transform((value) => new URL(value))
@@ -20,7 +19,9 @@ const portsSchema = serviceSchema.extend({
 export type DevelopmentPorts = z.infer<typeof portsSchema>
 
 const schema = serviceSchema.extend({
-	CTX_PLATFORM_DATABASE_URL: z.url(),
+	CTX_PLATFORM_DATABASE_URL: z
+		.url()
+		.default("postgresql://postgres:postgres@127.0.0.1:6489/contextlayer_platform"),
 	DATABASE_URL: z
 		.url()
 		.default("postgresql://postgres:postgres@127.0.0.1:5489/contextlayer_web"),
@@ -28,14 +29,10 @@ const schema = serviceSchema.extend({
 
 export type DevelopmentEnv = z.infer<typeof schema>
 
-// Each checkout gets its own platform database, named after its folder, so
-// concurrent faux-worktree stacks never run their branch migrations against
-// one database. Web's database stays shared because the web checkout is.
-export function readDevelopmentEnv(root: string) {
+export function readDevelopmentEnv() {
 	return schema.parse({
 		BETTER_AUTH_URL: "http://localhost:0",
 		CTX_DISPATCHER_URL: "http://localhost:0",
-		CTX_PLATFORM_DATABASE_URL: `postgresql://postgres:postgres@127.0.0.1:6489/${basename(root)}_platform`,
 		CTX_PLATFORM_URL: "http://localhost:0",
 		CTX_VIEWER_AUTH_URL: "http://localhost:0",
 		...process.env,

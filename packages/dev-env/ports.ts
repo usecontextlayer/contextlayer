@@ -1,7 +1,7 @@
 import { once } from "node:events"
 import { readFile, writeFile } from "node:fs/promises"
 import { type AddressInfo, createServer } from "node:net"
-import { resolve } from "node:path"
+import { basename, resolve } from "node:path"
 import waitOn from "wait-on"
 import {
 	type DevelopmentPorts,
@@ -29,7 +29,7 @@ export async function readDevelopmentPorts(root: string) {
 		throw new Error(
 			"Start this checkout with pnpm dev before running connected commands.",
 		)
-	return { ...readDevelopmentEnv(root), ...parseDevelopmentPorts(ports) }
+	return { ...readDevelopmentEnv(), ...parseDevelopmentPorts(ports) }
 }
 
 export async function saveDevelopmentPorts(root: string, ports: DevelopmentPorts) {
@@ -44,7 +44,14 @@ export async function saveDevelopmentPorts(root: string, ports: DevelopmentPorts
 export async function assignDevelopmentPorts(root: string) {
 	const previous = await readSavedPorts(root)
 	const saved = previous === undefined ? undefined : parseDevelopmentServiceUrls(previous)
-	const addresses = { ...readDevelopmentEnv(root), ...saved }
+	const env = readDevelopmentEnv()
+	// Each checkout gets its own platform database on the environment's server,
+	// named after its folder, so concurrent faux-worktree stacks never run their
+	// branch migrations against one database. Web's database stays shared
+	// because the web checkout is.
+	const database = new URL(env.CTX_PLATFORM_DATABASE_URL)
+	database.pathname = `/${basename(root)}_platform`
+	const addresses = { ...env, ...saved, CTX_PLATFORM_DATABASE_URL: database.href }
 	const previousPorts = developmentServiceKeys.map((key) => Number(addresses[key].port))
 	if (saved && previousPorts.every((port) => port >= MINIMUM_PORT)) {
 		try {
