@@ -311,7 +311,7 @@ Browser verification must use HTTPS on different sites for the slate and the chr
 
 Follow [Connected development](../../DEVELOPING.md#connected-development), then open the platform dashboard's account menu. Existing web device sessions should be listed; switching accounts should update the user and navigate to Personal, loading that user's slate list. Add account opens web sign-in with the dashboard return URL. Sign out revokes the session through web and returns to sign-in. Restore the baseline user in the regular browser after verifying account switching.
 
-The Owner switcher beside the user menu navigates between `/dashboard/personal/slates` and `/dashboard/org/<slug>/slates`. Open `/dashboard` to start in Personal. Verify the selected Owner name, navigate between Owners, and refresh the organization URL. For local creation, use `pnpm dev:ctx init my-slate` for Personal and `pnpm dev:ctx init --org <selected-slug> my-slate` for organizations. Testing organization-owned creation locally requires a CLI login issued by the same local web server used by platform.
+The Owner switcher beside the user menu navigates between `/dashboard/personal/slates` and `/dashboard/org/<slug>/slates`. Open `/dashboard` to start in Personal. Verify the selected Owner name, navigate between Owners, and refresh the organization URL. For local creation, use `pnpm dev:ctx init ../my-slate` for Personal and `pnpm dev:ctx init --org <selected-slug> ../my-slate` for organizations, outside the repository as [Developing with a local slate](../../DEVELOPING.md#developing-with-a-local-slate) requires. Testing organization-owned creation locally requires a CLI login issued by the same local web server used by platform.
 
 ### Remote resources for integration tests
 

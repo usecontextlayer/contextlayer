@@ -253,7 +253,7 @@ Tests are sorted by a **filename suffix** along two orthogonal axes defined in `
 
 A package carries a tier's config and script only when it uses that tier. Unit configs exclude the integration markers through `unitTestExclude`; only a package that actually runs browser tests may exclude that runtime's marker from its Node unit project. Misplaced tests therefore run in Node and fail instead of silently disappearing. When adding the first test of a tier, add the matching per-package config and task using the includes exported by `vitest.shared.ts`.
 
-[DEVELOPING.md](DEVELOPING.md#tests-and-local-postgres) owns test prerequisites and tier commands; a package's own suites are described in its AGENTS.md. Preserve CI coverage when changing test placement.
+[DEVELOPING.md](DEVELOPING.md#tests-and-local-postgres) owns suite prerequisites and run commands. Preserve CI coverage when changing test placement.
 
 #### Assert on the Contract, Not the Inside
 
