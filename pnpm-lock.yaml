@@ -5,7 +5,7 @@ settings:
   excludeLinksFromLockfile: false
 
 patchedDependencies:
-  '@cloudflare/ci@0.2.0': 1885e9390697b46237b616b9c486b11df6d0e6cfb6da4f402e9f1155fe063ec8
+  '@cloudflare/ci@0.2.0': d85edfeb831a9f9dc7537a92487286ff14a58a8476afd459d0becc870d81d4ea
   '@earendil-works/pi-env@1.3.0': b6b974cb9999c0b24f865f23ecc1e2019bf0bb738dfa5b056a9d0a2ef119900c
   postgres: 3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935
   wrangler@4.146.0: 17ac17fe8debb12bc68b8921f0b53c75515cc7c68d7ad6bb2daa791c74a36e64
@@ -80,7 +80,7 @@ importers:
     dependencies:
       '@cloudflare/ci':
         specifier: 0.2.0
-        version: 0.2.0(patch_hash=1885e9390697b46237b616b9c486b11df6d0e6cfb6da4f402e9f1155fe063ec8)
+        version: 0.2.0(patch_hash=d85edfeb831a9f9dc7537a92487286ff14a58a8476afd459d0becc870d81d4ea)
     devDependencies:
       '@cloudflare/workers-types':
         specifier: ^5.20260730.1
@@ -7307,7 +7307,7 @@ snapshots:
       fast-wrap-ansi: 0.2.2
       sisteransi: 1.0.5
 
-  '@cloudflare/ci@0.2.0(patch_hash=1885e9390697b46237b616b9c486b11df6d0e6cfb6da4f402e9f1155fe063ec8)':
+  '@cloudflare/ci@0.2.0(patch_hash=d85edfeb831a9f9dc7537a92487286ff14a58a8476afd459d0becc870d81d4ea)':
     dependencies:
       '@cloudflare/sandbox': 0.12.1
       zod: 4.6.5

@@ -11,10 +11,10 @@ index 9603fd2ff9548c4640fa202aa951ca4fc8256cb0..448d60ef6c59fc6b4b8218a8e17ded03
  
    const cache = prepared.cacheKey
 diff --git a/src/ci/runners/runner.ts b/src/ci/runners/runner.ts
-index aa6068d5ab399caf3f018e5c7c4a691da57931a7..cfaa7db2f3972aa056a0590e653d20405c8885ad 100644
+index aa6068d5ab399caf3f018e5c7c4a691da57931a7..00ced22304dd823fb8dee429675a493a396aa775 100644
 --- a/src/ci/runners/runner.ts
 +++ b/src/ci/runners/runner.ts
-@@ -1,6 +1,7 @@
+@@ -1,15 +1,18 @@
  // Copyright (c) 2026 Cloudflare, Inc.
  // SPDX-License-Identifier: Apache-2.0
  
@@ -22,7 +22,10 @@ index aa6068d5ab399caf3f018e5c7c4a691da57931a7..cfaa7db2f3972aa056a0590e653d2040
  import type { SourceControlCheckout } from '../../source-control';
  
  export type RunStepInput = {
-@@ -10,6 +11,7 @@ export type RunStepInput = {
+   label: string;
+   command: string;
++  createSnapshot?: boolean;
+   cwd?: string;
    timeoutMs?: number;
    source: SourceControlCheckout;
    extraEnv?: Record<string, string>;
@@ -31,9 +34,22 @@ index aa6068d5ab399caf3f018e5c7c4a691da57931a7..cfaa7db2f3972aa056a0590e653d2040
    ttlSeconds?: number;
  };
 diff --git a/src/ci/runners/sandbox.ts b/src/ci/runners/sandbox.ts
-index 4fb4a42354cdc9fbc18c930b0f3396c7a979d036..5322fd74f931d850a685c3941894d9b75624db63 100644
+index 4fb4a42354cdc9fbc18c930b0f3396c7a979d036..5cf2c40fc5b03c7679b7217ea7b2217f3c37fbc0 100644
 --- a/src/ci/runners/sandbox.ts
 +++ b/src/ci/runners/sandbox.ts
+@@ -28,10 +28,10 @@ const INLINE_LOG_BYTES = 300_000;
+ export class SandboxRunner implements Runner<DirectoryBackup> {
+   readonly name = 'sandbox';
+ 
+-  constructor(private readonly env: Bindings) {}
++  constructor(private readonly env: Pick<Bindings, 'SANDBOX'>) {}
+ 
+   /**
+-   * Copies source, runs the command, and snapshots `/workspace` after a
++   * Copies source, runs the command, and by default snapshots `/workspace` after a
+    * successful exit. A restored Snapshot is overlaid with the current source.
+    * Large log streams keep the Sandbox alive until they are read or cancelled.
+    */
 @@ -47,6 +47,9 @@ export class SandboxRunner implements Runner<DirectoryBackup> {
  
      let cleanupTransferredToStreams = false;
@@ -44,6 +60,29 @@ index 4fb4a42354cdc9fbc18c930b0f3396c7a979d036..5322fd74f931d850a685c3941894d9b7
        // Containers without FUSE must restore through the local R2 binding and
        // unsquashfs. RPC streams those archives instead of base64-encoding them
        // into a single request, which can exceed the local dev request limit.
+@@ -95,13 +98,15 @@ export class SandboxRunner implements Runner<DirectoryBackup> {
+         return { exitCode, logs: preview, preview };
+       }
+ 
+-      const snapshot = await sandbox.createBackup({
+-        dir: WORKSPACE_DIR,
+-        name: input.label,
+-        multipart: true,
+-        ttl: input.ttlSeconds,
+-        localBucket,
+-      });
++      const snapshot = input.createSnapshot === false
++        ? undefined
++        : await sandbox.createBackup({
++            dir: WORKSPACE_DIR,
++            name: input.label,
++            multipart: true,
++            ttl: input.ttlSeconds,
++            localBucket,
++          });
+       const rawLogs = await readLogs(sandbox);
+       const streams = [rawLogs.stdout, rawLogs.stderr].filter(
+         (value): value is ReadableStream<Uint8Array> =>
 diff --git a/src/pipeline/ci-workflow.ts b/src/pipeline/ci-workflow.ts
 index a0ac164d44c2caace0a209652d181b013a2138e9..403da8b2e32ce7780b37bef60e4386fa25e0cb43 100644
 --- a/src/pipeline/ci-workflow.ts
@@ -87,3 +126,31 @@ index a1f5ff3aa8c30350300f3bd8d1f25cbc850aff65..388ff5d625a7de40d1565d17c8bdfc14
    // Names identify durable Workflow steps and must be deterministic.
    name: string;
    command: string;
+diff --git a/src/source-control.ts b/src/source-control.ts
+index 83946a318ec5493d258581f33babf8ed43a9e909..debe4bfe725aad68aec49bae999bc6a86efe5921 100644
+--- a/src/source-control.ts
++++ b/src/source-control.ts
+@@ -33,7 +33,7 @@ export function matchSourceControlTreeBlobs(
+ function globToRegExp(glob: string): RegExp {
+   let pattern = '^';
+   for (let index = 0; index < glob.length; index++) {
+-    const char = glob[index];
++    const char = glob.charAt(index);
+     if (char === '*' && glob[index + 1] === '*') {
+       if (glob[index + 2] === '/') {
+         pattern += '(?:.*/)?';
+diff --git a/src/worker.ts b/src/worker.ts
+index 3d37e16ab2a6d9fd321d3173a35610dc22e5f43b..e20ad2c58e3fd3ba48b324a9984f430612442d31 100644
+--- a/src/worker.ts
++++ b/src/worker.ts
+@@ -1,7 +1,10 @@
+ // Copyright (c) 2026 Cloudflare, Inc.
+ // SPDX-License-Identifier: Apache-2.0
+ 
++export { ContainerProxy } from '@cloudflare/sandbox';
+ export { CiSandbox } from './ci/sandbox';
++export { SandboxRunner } from './ci/runners/sandbox';
++export type { RunOutput, RunStepInput, RunStepResult, Runner } from './ci/runners/runner';
+ export { restartCiRun, startCiRun } from './ci/dispatch';
+ export type {
+   CreatePullRequestResult,
