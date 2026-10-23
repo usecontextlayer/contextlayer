@@ -54,7 +54,7 @@ Browser tests and integration suites that need local services may fail inside th
 
 When the run changes the tree, the driver re-runs `pnpm run check`, `pnpm run test`, `npx turbo run build` unsandboxed during review. Report what you ran; do not spend turns diagnosing any of these walls, and never end with `-- NEEDS REPLY --` over one — a sandbox wall is not a decision.
 
-A type error, a failing test, or a broken build in code you touched is YOUR defect, not a pre-existing condition — fix it. If a gate was already red before you started, say so in the summary with the evidence. Never turn a gate green by loosening an assertion, deleting a test, or suppressing a diagnostic.
+A type error, a failing test, or a broken build in code you touched is YOUR defect, not a pre-existing condition — fix it. If a gate was already red before you started, say so in the summary with the evidence. Never turn a gate green by loosening an assertion, deleting a test, or suppressing a diagnostic. Deleting a test because an assigned check condemns it as a parallel implementation is a correction, not a gate fix: the check says what to try first, and the summary names the coverage that went with it.
 
 ## Finish with a summary
 - **Gate state** — the exact commands you ran and their outcome. If anything is red, say so first and plainly; a summary that omits a red gate is worse than no summary.

@@ -1,6 +1,6 @@
 # tests-pin-behavior
 
-Added or changed tests assert observable behavior tightly enough to catch the regression they exist for, and stay decoupled from implementation shape.
+Added or changed tests assert observable behavior tightly enough to catch the regression they exist for, and stay decoupled from implementation shape. How a test reaches production — `choosing-the-idiomatic-shape` before cutting test scope — is `tests-reuse-production`'s question; this check asks what the test asserts once it does.
 
 **Verdict test:** for each added/changed test, ask two questions. (1) Would it survive an internal refactor unchanged? (2) Would it fail if the behavior it guards regressed? A "no" to either FAILs.
 
@@ -14,18 +14,20 @@ Added or changed tests assert observable behavior tightly enough to catch the re
 - An exact equality assertion is loosened to a tolerance (`toBeCloseTo`, an epsilon literal, `abs().lessThan(…)`) to make a residual pass. A residual is a finding, not noise.
 - A test is framed around a prior bug's literal symptom — asserting the old broken output no longer appears — instead of asserting the correct idiomatic behavior. (Bugs DO get regression tests; they observe behavior, they don't enshrine the old symptom's exact values.)
 - Production code grows test-only seams: `*ForTest` exports, test-only branches, cross-layer hooks that exist solely to make code testable instead of an idiomatic injection boundary.
-- A correctness-critical, pure, invariant-bearing algorithm is added or changed with only hand-picked example tests where property-based tests (fast-check) would exercise its stated invariants.
 
 ## Do NOT flag
 
+- Missing coverage or the absence of a property suite. This check judges added or changed tests; it does not prescribe a testing technique or demand new cases.
 - Unit-scope behavioral tests — behavioral does not mean end-to-end-only; the boundary is the unit's public contract.
 - Fixtures for data this project itself defines and owns.
-- A hermetic fake standing in for an external system in a CI-runnable tier, WHEN the behavior it imitates is pinned against the real dependency in the tier that can host it and the fake is anchored to that. The fake is how CI keeps coverage of our own logic; the integration test is what keeps the fake honest. Flag the fake only when no such anchor exists. (Ruled 2026-07-28 during the guest-death review: scripted exec events in the unit tier are correct precisely because a real-guest test pins what a guest actually emits.)
+- A hermetic fake standing in for an external system in a CI-runnable tier, WHEN the behavior it imitates is pinned against the real dependency in the tier that can host it and the fake is anchored to that. The fake is how CI keeps coverage of our own logic; the integration test is what keeps the fake honest. Under this check, flag the fake only when no such anchor exists; a fake that carries the replaced system's rules is `tests-reuse-production`'s finding, anchored or not. (Ruled 2026-07-28 during the guest-death review: scripted exec events in the unit tier are correct precisely because a real-guest test pins what a guest actually emits.)
 - A real behavior deliberately left UNASSERTED because it measured non-deterministic, where the test records what was observed and why it is not assertable. That is a finding, not a coverage gap — asserting it would only pass when the flake fell the right way, and a test that launders a coin flip into a claim is worse than none.
 - Test edits that track a *deliberate* behavior change made in the same body of work.
 - CVA-variant class proofs: asserting a variant's styling class (`text-success`, `font-medium`, …) proves the variant exists in the CVA — the class IS the observable contract of a variant. (Ruled 2026-07-14 during the Table component review.)
 
 ## Calibration
+
+The coverage ask below is met through the production path or left unmet; it never licenses a parallel implementation (`tests-reuse-production`).
 
 > "i need the tests to be behavioural tests that test behvaiour and not implementation details … and i want them to cover all of the behavioural cases we have"
 

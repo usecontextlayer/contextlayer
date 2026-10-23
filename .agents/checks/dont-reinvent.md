@@ -18,7 +18,7 @@ New code must not re-implement something that already has an owner — in this r
 - A new integration hand-rolling a divergent enable/config mechanism when a sibling integration already established the earned pattern.
 - A new CLI-framework/utility dependency for a job an existing in-repo script convention already covers plainly.
 
-**Owner search order:** same package → shared workspace packages → Web/Node stdlib (`Intl`, `URL`, `crypto`) → already-installed deps. A brand-new dependency is a discussion, not a default.
+**Owner search order:** the framework you are inside → an already-installed library → an existing codebase pattern (same package, then shared workspace packages) → the Web/Node platform standard (`Intl`, `URL`, `crypto`). Use the owner's concepts and lifecycle as-is; a local workaround does not outrank the framework's intended path merely because it already exists. A brand-new dependency is a discussion, not a default.
 
 ## Do NOT flag
 

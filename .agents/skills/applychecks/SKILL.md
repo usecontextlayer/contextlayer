@@ -25,6 +25,7 @@ Each codex run applies one group. The group decides which check files reach code
 | `layering` | `monorepo-mechanics` |
 | `ownership` | `dont-reinvent` |
 | `ownership` | `delete-the-old-world` |
+| `testing` | `tests-reuse-production` |
 | `testing` | `tests-pin-behavior` |
 | `language` | `names-are-concepts` |
 | `language` | `comments-say-what-code-cant` |
@@ -213,7 +214,7 @@ The prompt explains why the ladder uses the aggregate `pnpm run check`. It is a 
 
 **Read the group's check files before you review.** They are the standard codex was held to. Judged by a general principle instead, a pattern the check explicitly requires — an exhaustiveness guard `fail-loud` names, say — reads as ceremony and gets flagged as a defect.
 
-**Then review through `choosing-the-idiomatic-shape` and `cutting-to-the-base-case`** — load both. Did codex add a shim, a wrapper, or a second way beside one that already exists? Did it add handling for a case — a guard, a fallback, a retry, a check, or a test built to exercise one? Each addition needs to earn its place by satisfying the assigned checks; functionality unrelated to them is a finding. Where the check names the pattern, the check wins over the lens. Report observations outside the group as concerns, separately from violations of the assigned checks.
+**Then review through `choosing-the-idiomatic-shape` and `cutting-to-the-base-case`** — load both, shape before amount: find the intended production shape first, then reduce what is built within it. Did codex add a shim, a wrapper, or a second way beside one that already exists? Did it add handling for a case — a guard, a fallback, a retry, a check, or a test built to exercise one? Each addition needs to earn its place by satisfying the assigned checks; functionality unrelated to them is a finding. Where the check names the pattern, the check wins over the lens. Report observations outside the group as concerns, separately from violations of the assigned checks.
 
 Tell the user what you make of it. Lead with the run's size — files touched and lines added and removed, from `git -C <worktree> diff --no-ext-diff --stat` plus the new files `status` lists — and include any red gate in that opening line. Follow with what codex got right, what looks wrong, and what you would push back on. Verify anything load-bearing against the actual code before asserting it; a summary line is a claim, not a verdict. codex's own summary is in the latest turn's last-message file.
 

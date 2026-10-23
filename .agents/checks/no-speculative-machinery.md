@@ -20,6 +20,7 @@ The change under review builds only what the work needs now — no structure for
 ## Do NOT flag
 
 - Structure the work genuinely requires now, built properly. YAGNI is timing, not a ban on design — if you need it, build it, and build it correctly.
+- A refactor that gives production and a real test consumer one implementation. The test is a second consumer that exists now, not premature DRY (`tests-reuse-production`).
 - A provisional hardcode surfaced as an OBVIOUS named constant with a "fix later" comment — that is the *required* form of deferral, not speculation.
 - Robustness that is load-bearing for the real deployment. Verify against how the thing actually runs, not against a generic checklist.
 
