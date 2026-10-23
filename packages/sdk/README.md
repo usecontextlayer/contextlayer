@@ -127,7 +127,9 @@ Keep the generated `workers/app.ts` wiring to `createSlateWorker` from `@usecont
 
 ## A loader that queries cached data
 
-Declare a database slug in `public/slate.json` and the same slug in `agents/<name>/slate.json` when both should share data, following the [resource invariants](https://github.com/usecontextlayer/contextlayer/blob/main/ARCHITECTURE.md#resource-configuration-and-execution--principles). Store its authored SQL migrations under `databases/<slug>/migrations`. The template supplies Drizzle configuration and query schema; `pnpm db:migration --config databases/<slug>/drizzle.config.ts --name <change>` scaffolds a blank migration for you to write explicitly. Commit the SQL and native `meta/_journal.json` together. Update the TypeScript schema for query types alongside the migration; it does not create tables.
+Declare a database slug in `public/slate.json` and the same slug in `agents/<name>/slate.json` when both should share data, following the [resource invariants](https://github.com/usecontextlayer/contextlayer/blob/main/ARCHITECTURE.md#resource-configuration-and-execution--principles). Store its authored SQL migrations under `databases/<slug>/migrations`. Create the database’s Drizzle configuration and query schema under `databases/<slug>`; `pnpm db:migration --config databases/<slug>/drizzle.config.ts --name <change>` scaffolds a blank migration for you to write explicitly. Commit the SQL and native `meta/_journal.json` together. Update the TypeScript schema for query types alongside the migration; it does not create tables.
+
+The following query assumes you have declared and migrated an `updates` database and authored its query schema at `databases/updates/schema.ts`; these example files are not included in a new slate.
 
 ```ts
 import { database, databasesContext } from "@usecontextlayer/sdk"

@@ -1,8 +1,9 @@
 #!/usr/bin/env node
-import { cp, readFile, writeFile } from "node:fs/promises"
+import { cp, readFile, rm, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { Argument, Command } from "commander"
 import { execa } from "execa"
+import { experimental_patchConfig } from "wrangler"
 import { z } from "zod"
 import { connectAccount, listAccounts } from "@/accounts"
 import { runLocalAgent } from "@/agents"
@@ -100,6 +101,11 @@ program
 		process.exitCode = result.exitCode
 		if (result.exitCode !== 0) return
 
+		await rm(join(directory, "app/welcome"), { force: true, recursive: true })
+		experimental_patchConfig(join(directory, "wrangler.jsonc"), {
+			vars: { VALUE_FROM_CLOUDFLARE: undefined },
+		})
+
 		const tsconfigPath = join(directory, "tsconfig.json")
 		const tsconfig = z
 			.looseObject({ compilerOptions: z.record(z.string(), z.unknown()) })
@@ -178,7 +184,16 @@ program
 			.looseObject({ scripts: z.record(z.string(), z.string()) })
 			.parse(JSON.parse(await readFile(packagePath, "utf8")))
 		checkoutPackage.scripts["db:migration"] = "drizzle-kit generate --custom"
+		delete checkoutPackage.scripts.deploy
+		delete checkoutPackage.scripts.preview
 		await writeFile(packagePath, `${JSON.stringify(checkoutPackage, null, 2)}\n`)
+		const types = await execa("pnpm", ["exec", "wrangler", "types"], {
+			cwd: directory,
+			reject: false,
+			stdio: "inherit",
+		})
+		process.exitCode = types.exitCode
+		if (types.exitCode !== 0) return
 
 		const response = await fetch(new URL("/api/slates", env.CTX_PLATFORM_URL), {
 			body: JSON.stringify(input),

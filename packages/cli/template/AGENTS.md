@@ -4,7 +4,7 @@ Follow ContextLayer's [domain model and resource invariants](https://github.com/
 
 ## Databases and migrations
 
-Keep persistent slate data in declared SQLite databases and treat agent filesystem files as scratch data. Keep each database's Drizzle configuration, query schema, and migration history under `databases/<slug>`. The `updates` directory is an example; declare it where needed or create the corresponding directory for another database.
+Keep persistent slate data in declared SQLite databases and treat agent filesystem files as scratch data. The starter declares no databases. When adding one, create its Drizzle configuration, query schema, and migration history under `databases/<slug>` and declare it in each consumer that uses it.
 
 Write SQL migrations explicitly, following the [README workflow](README.md#store-slate-data). Separate statements with Drizzle's `--> statement-breakpoint` marker. Commit the SQL and generated metadata together. Never generate migrations from schema changes, run `drizzle-kit push`, or change deployed schemas ad hoc. Update `schema.ts` for typed queries alongside the SQL; the schema does not create tables.
 

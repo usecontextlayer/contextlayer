@@ -29,7 +29,7 @@ The installed SDK guide at `node_modules/@usecontextlayer/sdk/README.md` gives t
 
 Declare database slugs in `public/slate.json` or `agents/<name>/slate.json`, following the [resource invariants](https://github.com/usecontextlayer/contextlayer/blob/main/ARCHITECTURE.md#resource-configuration-and-execution--principles). Local development persists SQLite state in ignored `.contextlayer/databases`.
 
-Keep each database’s Drizzle configuration, query schema and migrations under `databases/<slug>`. Run `pnpm db:migration --config databases/<slug>/drizzle.config.ts --name <change>`, then write the blank SQL migration explicitly and update the query schema. Commit the SQL and native journal together. The query schema supplies types and does not generate the deployed database schema. The installed SDK guide documents `databasesContext` and the native Drizzle query client.
+The starter contains no example database. Create each database’s Drizzle configuration, query schema and migrations under `databases/<slug>`. Run `pnpm db:migration --config databases/<slug>/drizzle.config.ts --name <change>`, then write the blank SQL migration explicitly and update the query schema. Commit the SQL and native journal together. The query schema supplies types and does not generate the deployed database schema. The installed SDK guide documents `databasesContext` and the native Drizzle query client.
 
 Restart local development after adding a migration. Push committed migrations to `main` for hosted provisioning; see [database ownership and provisioning](https://github.com/usecontextlayer/contextlayer/blob/main/ARCHITECTURE.md#slate-databases-and-authored-migrations) for its lifecycle. Use `database_query` for persistent agent data.
 
