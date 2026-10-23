@@ -2,8 +2,8 @@ import { once } from "node:events"
 import { mkdtemp, readFile, rm } from "node:fs/promises"
 import { createServer } from "node:net"
 import { tmpdir } from "node:os"
-import { join } from "node:path"
-import { test as base, expect } from "vitest"
+import { basename, join } from "node:path"
+import { test as base, expect, vi } from "vitest"
 import { developmentServiceKeys } from "@/env"
 import {
 	assignDevelopmentPorts,
@@ -63,4 +63,19 @@ test("replaces every port when one saved port is occupied", async ({ directory }
 		...next,
 		CTX_AUTH_CLIENT_ID: "next-local-cli",
 	})
+})
+
+test("selects the checkout's platform database and publishes the one startup chose", async ({
+	directory,
+}) => {
+	const derived = await assignDevelopmentPorts(directory)
+	expect(new URL(derived.CTX_PLATFORM_DATABASE_URL).pathname).toBe(
+		`/${basename(directory)}_platform`,
+	)
+	const selected = "postgresql://postgres:postgres@127.0.0.1:6489/selected_platform"
+	vi.stubEnv("CTX_PLATFORM_DATABASE_URL", selected)
+	const addresses = await assignDevelopmentPorts(directory)
+	vi.unstubAllEnvs()
+	await saveDevelopmentPorts(directory, { ...addresses, CTX_AUTH_CLIENT_ID: "local-cli" })
+	expect((await readDevelopmentPorts(directory)).CTX_PLATFORM_DATABASE_URL).toBe(selected)
 })

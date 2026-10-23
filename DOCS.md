@@ -11,4 +11,4 @@ Each document has a distinct purpose. Keep information with the document that ow
 
 Keeping documentation current means correcting an affected concept, principle, contract, or workflow in its owning document. A feature change does not automatically require edits to every document. Exact UI copy, icon colors, component wiring, callback mechanics, and per-slice status belong in code or the relevant ExecPlan. Promote a decision into the lasting docs when it establishes a durable invariant or development requirement, rather than copying the implementation narrative across them.
 
-Notes that are specific to a package should go into the AGENTS.md for that package. The root ARCHITECTURE.md and DEVELOPING.md files are for repo-wide notes.
+Notes that are specific to a package go into that package's AGENTS.md. A package usually has only an AGENTS.md; split it into its own DEVELOPING.md and ARCHITECTURE.md only when that file grows too large. The root ARCHITECTURE.md and DEVELOPING.md files are for repo-wide notes.

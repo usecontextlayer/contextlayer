@@ -18,6 +18,10 @@ This rule triggers on what you are about to **do**, never on your judgment about
 
 Customer data means anything that is theirs: records in their Planner, Dataverse, mail, or calendar; content in their systems; their chats. Operating their deployment — deploying, restarting, reading — is ordinary sanctioned work and is not covered here. If you are unsure whether something is theirs, it is.
 
+## Production Is Never a Development Target
+
+The production platform, the production web issuer, and the saved login in `~/.contextlayer` are the user's own production account. The built CLI defaults to all three, so running it outside the connected environment acts as the user in production. Development work runs against the connected stack in DEVELOPING.md. Before any command that reaches a platform, know which platform URL and which login it will use; a production answer is a stop that needs the user's explicit direction for that specific action.
+
 **Read the companion documents when their domain comes up:**
 
 - **[`DOCS.md`](DOCS.md)** — each document’s purpose and where information belongs.
@@ -186,7 +190,7 @@ If the package does not already have an `env.ts`, create one first and route env
 - Keep all normalization and defaults centralized in `env.ts`.
 - Keep hard-fail/required-variable checks centralized in `env.ts`.
 - Do not implement env defaults/fallbacks in non-`env.ts` modules (including shared/runtime libraries).
-- Compose connected command and test settings from startup’s completed `.env.json` record through the shared dev-env reader; pass server and credential-directory settings explicitly to in-process auth and subprocess consumers. Preserve the [connection-facts invariants](ARCHITECTURE.md#oauth-resources-and-scopes) and use [Platform development](DEVELOPING.md#platform-development) for the startup/port-reuse workflow. Do not add a global environment registry, hostname pool, or platform-resource setting; the platform OAuth resource is a protocol constant, never configuration.
+- Compose connected command and test settings from startup’s completed `.env.json` record through the shared dev-env reader; pass server and credential-directory settings explicitly to in-process auth and subprocess consumers. Preserve the [connection-facts invariants](ARCHITECTURE.md#oauth-resources-and-scopes) and use [Connected development](DEVELOPING.md#connected-development) for the startup/port-reuse workflow. Do not add a global environment registry, hostname pool, or platform-resource setting; the platform OAuth resource is a protocol constant, never configuration.
 
 #### Environment Variable Naming
 
@@ -249,7 +253,7 @@ Tests are sorted by a **filename suffix** along two orthogonal axes defined in `
 
 A package carries a tier's config and script only when it uses that tier. Unit configs exclude the integration markers through `unitTestExclude`; only a package that actually runs browser tests may exclude that runtime's marker from its Node unit project. Misplaced tests therefore run in Node and fail instead of silently disappearing. When adding the first test of a tier, add the matching per-package config and task using the includes exported by `vitest.shared.ts`.
 
-[DEVELOPING.md](DEVELOPING.md#tests-and-local-postgres) owns suite prerequisites and run commands. Preserve CI coverage when changing test placement.
+[DEVELOPING.md](DEVELOPING.md#tests-and-local-postgres) owns test prerequisites and tier commands; a package's own suites are described in its AGENTS.md. Preserve CI coverage when changing test placement.
 
 #### Assert on the Contract, Not the Inside
 

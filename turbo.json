@@ -1,7 +1,8 @@
 {
 	"$schema": "https://turbo.build/schema.json",
 	// Pass runtime configuration through without adding it to cache keys.
-	// TMPDIR preserves the caller's temporary-directory location.
+	// TMPDIR preserves the caller's temporary-directory location; INIT_CWD
+	// preserves the directory pnpm was invoked from.
 	"globalPassThroughEnv": [
 		"CTX*",
 		"TWILIO*",
@@ -9,7 +10,8 @@
 		"POLAR_*",
 		"BETTER_AUTH_URL",
 		"DATABASE_URL",
-		"TMPDIR"
+		"TMPDIR",
+		"INIT_CWD"
 	],
 	"tasks": {
 		"//#format.verify": {

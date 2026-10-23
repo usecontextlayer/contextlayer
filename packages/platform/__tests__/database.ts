@@ -1,11 +1,14 @@
+import { resolve } from "node:path"
 import { test as base } from "@tests/workers"
 import { provisionEphemeralDatabases } from "@usecontextlayer/dev-env/database"
 import { readDevelopmentEnv } from "@usecontextlayer/dev-env/env"
 import { createPlatformDb } from "@/database"
 import { migrateToLatest } from "@/database/migrate"
 
+const root = resolve(import.meta.dirname, "../../..")
+
 export const test = base
-	.extend("addresses", { scope: "file" }, () => readDevelopmentEnv())
+	.extend("addresses", { scope: "file" }, () => readDevelopmentEnv(root))
 	.extend("databases", async ({ addresses }, { onCleanup }) => {
 		const databases = await provisionEphemeralDatabases(
 			addresses.CTX_PLATFORM_DATABASE_URL,

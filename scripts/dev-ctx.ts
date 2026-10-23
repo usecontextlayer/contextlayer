@@ -10,6 +10,7 @@ const result = await execa(
 	process.execPath,
 	[resolve(root, "packages/cli/dist/cli.mjs"), ...process.argv.slice(2)],
 	{
+		cwd: process.env.INIT_CWD,
 		env,
 		reject: false,
 		stdio: "inherit",

@@ -29,13 +29,14 @@ export async function readDevelopmentPorts(root: string) {
 		throw new Error(
 			"Start this checkout with pnpm dev before running connected commands.",
 		)
-	return { ...readDevelopmentEnv(), ...parseDevelopmentPorts(ports) }
+	return { ...readDevelopmentEnv(root), ...parseDevelopmentPorts(ports) }
 }
 
 export async function saveDevelopmentPorts(root: string, ports: DevelopmentPorts) {
 	const values = {
 		...Object.fromEntries(developmentServiceKeys.map((key) => [key, ports[key]])),
 		CTX_AUTH_CLIENT_ID: ports.CTX_AUTH_CLIENT_ID,
+		CTX_PLATFORM_DATABASE_URL: ports.CTX_PLATFORM_DATABASE_URL,
 	}
 	await writeFile(resolve(root, ".env.json"), `${JSON.stringify(values, null, 2)}\n`)
 }
@@ -43,7 +44,7 @@ export async function saveDevelopmentPorts(root: string, ports: DevelopmentPorts
 export async function assignDevelopmentPorts(root: string) {
 	const previous = await readSavedPorts(root)
 	const saved = previous === undefined ? undefined : parseDevelopmentServiceUrls(previous)
-	const addresses = { ...readDevelopmentEnv(), ...saved }
+	const addresses = { ...readDevelopmentEnv(root), ...saved }
 	const previousPorts = developmentServiceKeys.map((key) => Number(addresses[key].port))
 	if (saved && previousPorts.every((port) => port >= MINIMUM_PORT)) {
 		try {

@@ -22,7 +22,7 @@ test("reads initialized local command settings without web or provider discovery
 	directories.push(directory)
 	vi.stubEnv("CTX_CONFIG_DIR", join(directory, "other-account"))
 	const addresses = {
-		...readDevelopmentEnv(),
+		...readDevelopmentEnv(directory),
 		BETTER_AUTH_URL: new URL("http://localhost:43001/"),
 		CTX_DISPATCHER_URL: new URL("http://localhost:43004/"),
 		CTX_PLATFORM_URL: new URL("http://localhost:43002/"),

@@ -20,7 +20,7 @@ import { dropSecret, secretNameSchema, secretOptionsSchema, setSecret } from "@/
 const program = new Command().name("ctx").description("ContextLayer CLI").version(version)
 program.addHelpText(
 	"afterAll",
-	"\nEnvironment:\n  CTX_CONFIG_DIR  Saved-login directory (default: ~/.contextlayer); one login per directory.\n\nRun without a global install: npx @usecontextlayer/cli <command>",
+	`\nEnvironment (current values):\n  CTX_PLATFORM_URL    ${env.CTX_PLATFORM_URL}\n  CTX_AUTH_ISSUER     ${env.CTX_AUTH_ISSUER}\n  CTX_AUTH_CLIENT_ID  ${env.CTX_AUTH_CLIENT_ID}\n  CTX_CONFIG_DIR      ${env.CTX_CONFIG_DIR}  Saved-login directory; one login per directory.\n\nRun without a global install: npx @usecontextlayer/cli <command>`,
 )
 
 async function authenticate(command: Command) {
@@ -165,9 +165,14 @@ program
 	.action(gitCredential)
 program
 	.command("whoami")
-	.description("Show your ContextLayer user ID verified by the auth server")
+	.description(
+		"Show your ContextLayer user ID verified by the auth server, with the issuer and platform URL in use",
+	)
 	.action(async (_options, command: Command) => {
-		console.log((await authenticate(command)).id)
+		const { id } = await authenticate(command)
+		console.log(
+			`User: ${id}\nIssuer: ${env.CTX_AUTH_ISSUER}\nPlatform: ${env.CTX_PLATFORM_URL}`,
+		)
 	})
 
 const accounts = program
