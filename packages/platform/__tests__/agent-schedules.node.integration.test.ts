@@ -1,8 +1,9 @@
 import { execFile as execFileCallback } from "node:child_process"
-import { cp, mkdir, writeFile } from "node:fs/promises"
+import { mkdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { promisify } from "node:util"
 import { AssistantEntry, UserEntry } from "@earendil-works/pi-durable"
+import { writeDatabase, writeDatabaseProject } from "@tests/database-project"
 import { provisioningTest as test } from "@tests/integration"
 import { DEVELOPMENT_ORGANIZATION_SLUG } from "@usecontextlayer/dev-env/env"
 import { connectionsSchema } from "@usecontextlayer/shared/connections"
@@ -287,13 +288,9 @@ test("members' deployed cron jobs use viewer resources and retain results after 
 			scheduleFile,
 			'---\ncron: "0 0 1 1 *"\n---\nInspect only mailbox profile metadata with a read-only Gmail tool. Report only whether it succeeded.\n',
 		)
-		for (const slug of ["inbox", "reports"])
-			await cp(
-				new URL("../../cli/template/databases/updates/migrations/", import.meta.url),
-				join(checkout, "databases", slug, "migrations"),
-				{ recursive: true },
-			)
-		await git("add", "public", "agents", "databases")
+		await writeDatabaseProject(checkout)
+		for (const slug of ["inbox", "reports"]) await writeDatabase(checkout, slug)
+		await git("add", ".")
 		await git("-c", "commit.gpgsign=false", "commit", "-m", "Deploy scheduled agent")
 		await git("push", "origin", "main")
 		const refusal = await fetch(
@@ -324,7 +321,9 @@ test("members' deployed cron jobs use viewer resources and retain results after 
 				? { id: organizationId, type: "organization" }
 				: { id: user.id, type: "personal" },
 		)
-		await PROVISIONING.provision(slate.id)
+		const prepared = await PROVISIONING.prepare(slate.id, await git("rev-parse", "HEAD"))
+		await PROVISIONING.migrate(prepared)
+		await PROVISIONING.provisionSchedules(prepared)
 		const memberInstance = await getAgentByName(
 			AGENTS,
 			getAgentInstanceName(slate.id, "daily-summary", { id: user.id, type: "user" }),
@@ -366,7 +365,9 @@ test("members' deployed cron jobs use viewer resources and retain results after 
 			"Refresh scheduled prompt and cron",
 		)
 		await git("push", "origin", "main")
-		await PROVISIONING.provision(slate.id)
+		const prepared = await PROVISIONING.prepare(slate.id, await git("rev-parse", "HEAD"))
+		await PROVISIONING.migrate(prepared)
+		await PROVISIONING.provisionSchedules(prepared)
 		const schedules = z
 			.array(z.object({ payload: scheduledAgentRunSchema }))
 			.parse(await memberInstance.listSchedules())
@@ -549,7 +550,18 @@ test("authored cron creates a fresh job and retains its result independently of 
 	expect(before.status).toBe(200)
 	expect(catalogSchema.parse(await before.json()).jobs).toEqual([])
 	const { PROVISIONING } = await provisioning.worker.getEnv()
-	await PROVISIONING.provision(slate.id)
+	const commit = (await git("rev-parse", "HEAD")).stdout.trim()
+	await writeFile(
+		join(directory, "agents/brief/schedules/greeting.md"),
+		`---\ncron: "${cron}"\n---\nThis prompt belongs to a later push.\n`,
+	)
+	await git("add", "agents")
+	await git("-c", "commit.gpgsign=false", "commit", "-m", "Push a later schedule")
+	await git("push", remote, "main")
+	const prepared = await PROVISIONING.prepare(slate.id, commit)
+	expect(prepared.snapshot.commit).toBe(commit)
+	await PROVISIONING.migrate(prepared)
+	await PROVISIONING.provisionSchedules(prepared)
 	const scheduleUrl = `${origin}/api/slates/${slate.id}/agents/brief/schedules`
 	const scheduled = await fetch(scheduleUrl, { headers })
 	expect(scheduled.status).toBe(200)

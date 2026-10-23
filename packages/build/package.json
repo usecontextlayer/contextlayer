@@ -1,6 +1,7 @@
 {
 	"dependencies": {
-		"@cloudflare/ci": "0.2.0"
+		"@cloudflare/ci": "0.2.0",
+		"@usecontextlayer/shared": "workspace:*"
 	},
 	"devDependencies": {
 		"@cloudflare/workers-types": "^5.20260730.1",

@@ -2,6 +2,7 @@ import type { Usage } from "@earendil-works/pi-ai"
 import type { UsageState } from "@earendil-works/pi-durable"
 import { z } from "@hono/zod-openapi"
 import { secretNameSchema } from "@usecontextlayer/shared/declaration"
+import { agentActorSchema } from "@usecontextlayer/shared/slate-provisioning"
 import { slateResourceConfigurationSchema } from "@usecontextlayer/shared/slate-resources"
 import { ownerSchema } from "@usecontextlayer/shared/slate-usage"
 import type { Schedule } from "agents"
@@ -12,8 +13,11 @@ import type {
 	PiSessionInfo,
 } from "agents/harness/pi"
 import type { RoutedAgentEntry } from "agents/routing"
-import { userSchema } from "@/auth.server"
+
 import { slateSchema, slateTargetSchema } from "@/slates.schema"
+
+export type { AgentActor } from "@usecontextlayer/shared/slate-provisioning"
+export { agentActorSchema } from "@usecontextlayer/shared/slate-provisioning"
 
 export const agentSchema = z.object({
 	commit: z.string(),
@@ -51,11 +55,6 @@ export const agentJobOperationSchema = z.union([
 	agentJobPendingSchema,
 	agentJobResultSchema,
 ])
-export const agentActorSchema = z.discriminatedUnion("type", [
-	z.object({ type: z.literal("app") }),
-	z.object({ id: userSchema.shape.id, type: z.literal("user") }),
-])
-
 export const agentJobTriggerSchema = z.discriminatedUnion("type", [
 	z.object({ type: z.literal("api") }),
 	z.object({ schedule: z.string(), scheduleId: z.string(), type: z.literal("schedule") }),
@@ -235,6 +234,5 @@ export type AgentRunRequest = z.infer<typeof agentRunRequestSchema>
 export type AgentRun = z.infer<typeof agentRunSchema>
 export type AgentJobOperation = z.infer<typeof agentJobOperationSchema>
 export type AgentJobEntry = z.infer<typeof agentJobEntrySchema>
-export type AgentActor = z.infer<typeof agentActorSchema>
 export type AgentSchedule = z.infer<typeof agentScheduleSchema>
 export type ScheduledAgentRun = z.infer<typeof scheduledAgentRunSchema>

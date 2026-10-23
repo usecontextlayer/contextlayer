@@ -1,25 +1,18 @@
-import { readDatabaseMigrations } from "@usecontextlayer/shared/databases"
-import { provisionAgentSchedules } from "@/agent-schedules.server"
-import type { AgentActor } from "@/agents.schema"
-import type { PlatformEnv } from "@/context"
-import {
-	readSlateDeclarations,
-	type SlateDeclarationSnapshot,
-} from "@/slate-declarations.server"
+import type {
+	AgentActor,
+	SlateDeclarationSnapshot,
+	SlateProvisioning,
+} from "@usecontextlayer/shared/slate-provisioning"
+import { getSlateOwner } from "@/owner"
 import { prepareSlateDatabaseConfiguration } from "@/slate-resource-configuration.server"
 import type { Slate } from "@/slates.schema"
 
-export async function provisionSlate(
-	artifacts: Artifacts,
-	databases: PlatformEnv["Bindings"]["DATABASES"],
-	agents: PlatformEnv["Bindings"]["AGENTS"],
+export function prepareSlateProvisioning(
 	slate: Slate,
 	actors: AgentActor[],
-	declarations?: SlateDeclarationSnapshot,
-) {
-	const snapshot = declarations ?? (await readSlateDeclarations(artifacts, slate.id))
-	if (!snapshot.allowed) return
-	const instances = new Map<string, string>()
+	snapshot: SlateDeclarationSnapshot,
+): SlateProvisioning {
+	const instances = new Map<string, SlateProvisioning["databases"][number]>()
 	for (const actor of actors) {
 		const configuration = prepareSlateDatabaseConfiguration(
 			slate,
@@ -31,17 +24,13 @@ export async function provisionSlate(
 				),
 			),
 		)
-		for (const [slug, { instance_name }] of Object.entries(configuration))
-			instances.set(instance_name, slug)
+		for (const [slug, { instance_name, owner }] of Object.entries(configuration))
+			instances.set(instance_name, { instance_name, owner, slug })
 	}
-	using repo = await artifacts.get(slate.id)
-	for (const slug of Object.keys(snapshot.resources.databases)) {
-		const migrations = await readDatabaseMigrations(slug, async (path) => {
-			const file = await repo.readFile({ path, ref: snapshot.commit })
-			return file ? file.text() : null
-		})
-		for (const [name, instanceSlug] of instances)
-			if (instanceSlug === slug) await databases.getByName(name).migrate(migrations)
+	return {
+		actors,
+		databases: [...instances.values()],
+		slate: { id: slate.id, owner: getSlateOwner(slate) },
+		snapshot,
 	}
-	await provisionAgentSchedules(artifacts, agents, slate.id, actors, snapshot)
 }

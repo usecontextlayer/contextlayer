@@ -6,6 +6,7 @@ import { type Databases, databaseResultSchema } from "@usecontextlayer/shared/da
 import { resourcesForConsumer } from "@usecontextlayer/shared/declaration"
 import type { LocalResourceConfiguration } from "@usecontextlayer/shared/slate-resources"
 import type { LocalToolsProps } from "@usecontextlayer/shared/tools-worker"
+import { execa } from "execa"
 import type { Plugin, ViteDevServer } from "vite"
 import { getPlatformProxy, type PlatformProxy } from "wrangler"
 import { getAccessToken } from "@/auth"
@@ -38,23 +39,7 @@ export function getPreparedLocalBindings(server: ViteDevServer) {
 export async function getLocalResourcesBindings() {
 	const configuration = await prepareLocalResourceConfiguration()
 	const { connections, databases } = resourcesForConsumer(configuration, { type: "app" })
-	const workerName = `ctx-local-resources-${createHash("sha256").update(process.cwd()).digest("hex").slice(0, 16)}`
-	const proxyConfigPath = resolve(".contextlayer/database-proxy.json")
-	await writeFile(
-		proxyConfigPath,
-		JSON.stringify({
-			compatibility_date: "2026-10-02",
-			name: `${workerName}-proxy`,
-			services: [
-				{
-					binding: "DATABASE_PROVISIONING",
-					entrypoint: "DatabaseProvisioning",
-					props: { databases: configuration.databases },
-					service: workerName,
-				},
-			],
-		}),
-	)
+	const workerName = getLocalResourcesWorkerName()
 	return {
 		configuration,
 		databaseProps: { databases },
@@ -65,10 +50,13 @@ export async function getLocalResourcesBindings() {
 					slateId: await getLocalSlateId(),
 				} satisfies LocalToolsProps)
 			: undefined,
-		proxyConfigPath,
 		vars: { CTX_PLATFORM_URL: env.CTX_PLATFORM_URL },
 		workerName,
 	}
+}
+
+export function getLocalResourcesWorkerName() {
+	return `ctx-local-resources-${createHash("sha256").update(process.cwd()).digest("hex").slice(0, 16)}`
 }
 
 export async function openLocalDatabases(
@@ -118,19 +106,18 @@ export async function openLocalDatabases(
 export async function provisionLocalDatabases(
 	bindings: Awaited<ReturnType<typeof getLocalResourcesBindings>>,
 ) {
-	const proxy = await getPlatformProxy<{ DATABASE_PROVISIONING: Fetcher }>({
-		configPath: bindings.proxyConfigPath,
-		persist: false,
-		remoteBindings: false,
-	})
-	try {
-		const response = await proxy.env.DATABASE_PROVISIONING.fetch(
-			"http://local/databases/provision",
-			{ method: "POST" },
+	for (const slug of Object.keys(bindings.configuration.databases)) {
+		await execa(
+			"pnpm",
+			[
+				"exec",
+				"kysely",
+				"--config",
+				`databases/${slug}/kysely.config.ts`,
+				"migrate",
+				"latest",
+			],
+			{ stdio: "inherit" },
 		)
-		if (!response.ok)
-			throw new Error(`Local database provisioning failed: ${await response.text()}`)
-	} finally {
-		await proxy.dispose()
 	}
 }

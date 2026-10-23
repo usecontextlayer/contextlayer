@@ -9,6 +9,12 @@ export default defineConfig({
 	plugins: [
 		tailwindcss(),
 		cloudflare({
+			auxiliaryWorkers: [
+				{
+					configPath: fileURLToPath(new URL("../build/wrangler.jsonc", import.meta.url)),
+					devOnly: true,
+				},
+			],
 			config: { main: fileURLToPath(new URL("./app/server.ts", import.meta.url)) },
 			inspectorPort: 0,
 			viteEnvironment: { name: "ssr" },

@@ -16,6 +16,7 @@ import {
 	databasesContext,
 	identityContext,
 	meridianContext,
+	sandboxContext,
 	slatesContext,
 } from "@/context"
 import { createPlatformDb } from "@/database"
@@ -67,6 +68,7 @@ export default await createHonoServer<OwnerIdentityEnv>({
 		context.set(artifactsContext, c.env.ARTIFACTS)
 		context.set(identityContext, c.var.identity ?? null)
 		context.set(configContext, c.var.config)
+		context.set(sandboxContext, c.env.SANDBOX)
 		context.set(databasesContext, c.env.DATABASES)
 		context.set(meridianContext, c.env.MERIDIAN)
 		context.set(agentsContext, c.env.AGENTS)

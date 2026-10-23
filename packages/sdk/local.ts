@@ -1,5 +1,4 @@
 export {
-	LocalDatabaseProvisioning as DatabaseProvisioning,
 	LocalDatabases as Databases,
 	SlateDatabase,
 } from "@usecontextlayer/shared/database-worker"

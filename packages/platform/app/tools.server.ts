@@ -5,7 +5,7 @@ import { createConnectionSession } from "@/connections.server"
 import type { PlatformEnv } from "@/context"
 import type { PlatformDb } from "@/database"
 import type { PlatformConfig } from "@/env"
-import { readSlateDeclarations } from "@/slate-declarations.server"
+import { readLatestSlateDeclarations } from "@/slate-declarations.server"
 import { resolveSlateConnection } from "@/slate-resource-execution.server"
 import { resolveSlateForViewing, type SlateAccess } from "@/slates.server"
 import type { connectionToolCallSchema, toolCallSchema } from "@/tools.schema"
@@ -13,18 +13,18 @@ import type { connectionToolCallSchema, toolCallSchema } from "@/tools.schema"
 export async function callTool(
 	db: PlatformDb,
 	artifacts: Artifacts,
-	databases: PlatformEnv["Bindings"]["DATABASES"],
+	sandbox: PlatformEnv["Bindings"]["SANDBOX"],
 	agents: PlatformEnv["Bindings"]["AGENTS"],
 	config: PlatformConfig,
 	access: SlateAccess,
 	call: z.infer<typeof toolCallSchema>,
 ) {
-	const snapshot = await readSlateDeclarations(artifacts, access.slate.id)
+	const snapshot = await readLatestSlateDeclarations(artifacts, access.slate.id)
 	if (!snapshot.allowed) return { allowed: false, reason: "not-declared" } as const
 	const resolved = await resolveSlateConnection(
 		db,
 		artifacts,
-		databases,
+		sandbox,
 		agents,
 		config,
 		access,

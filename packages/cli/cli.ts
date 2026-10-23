@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { cp, readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
+import { databaseSlugSchema } from "@usecontextlayer/shared/declaration"
 import { Argument, Command } from "commander"
 import { execa } from "execa"
 import { z } from "zod"
@@ -13,6 +14,7 @@ import {
 	listConnections,
 	listSlateConnections,
 } from "@/connections"
+import { generateDatabaseTypes } from "@/database-codegen"
 import { env } from "@/env"
 import { configureGit, gitCredential } from "@/git-credential"
 import { ownerOptionsSchema } from "@/owner"
@@ -114,7 +116,7 @@ program
 			})
 			.parse(JSON.parse(await readFile(cloudflareTsconfigPath, "utf8")))
 		cloudflareTsconfig.compilerOptions.paths = tsconfig.compilerOptions.paths
-		cloudflareTsconfig.include.push("databases/**/schema.ts")
+		cloudflareTsconfig.include.push("databases/**/types.ts")
 		await writeFile(
 			cloudflareTsconfigPath,
 			`${JSON.stringify(cloudflareTsconfig, null, 2)}\n`,
@@ -157,7 +159,7 @@ program
 
 		const install = await execa(
 			"pnpm",
-			["add", `@usecontextlayer/sdk@${version}`, "zod@^4.4.3", "drizzle-orm@0.45.3"],
+			["add", `@usecontextlayer/sdk@${version}`, "zod@^4.4.3", "kysely@0.29.5"],
 			{
 				cwd: directory,
 				reject: false,
@@ -167,18 +169,22 @@ program
 		process.exitCode = install.exitCode
 		if (install.exitCode !== 0) return
 
-		const migrationTool = await execa("pnpm", ["add", "-D", "drizzle-kit@0.31.11"], {
-			cwd: directory,
-			reject: false,
-			stdio: "inherit",
-		})
+		const migrationTool = await execa(
+			"pnpm",
+			["add", "-D", "kysely-ctl@0.22.0", `@usecontextlayer/cli@${version}`],
+			{
+				cwd: directory,
+				reject: false,
+				stdio: "inherit",
+			},
+		)
 		process.exitCode = migrationTool.exitCode
 		if (migrationTool.exitCode !== 0) return
 		const packagePath = join(directory, "package.json")
 		const checkoutPackage = z
 			.looseObject({ scripts: z.record(z.string(), z.string()) })
 			.parse(JSON.parse(await readFile(packagePath, "utf8")))
-		checkoutPackage.scripts["db:migration"] = "drizzle-kit generate --custom"
+		checkoutPackage.scripts["db.codegen"] = "ctx db.codegen"
 		await writeFile(packagePath, `${JSON.stringify(checkoutPackage, null, 2)}\n`)
 
 		const response = await fetch(new URL("/api/slates", env.CTX_PLATFORM_URL), {
@@ -371,6 +377,15 @@ secrets
 		const input = secretNameSchema.parse(name)
 		const options = secretOptionsSchema.parse(command.optsWithGlobals())
 		await dropSecret(input, options.org)
+	})
+
+program
+	.command("db.codegen <slug>")
+	.description(
+		"Generate databases/<slug>/types.ts from the running local database; run from the slate root after applying migrations with pnpm exec kysely",
+	)
+	.action(async (slug) => {
+		await generateDatabaseTypes(databaseSlugSchema.parse(slug))
 	})
 
 await program.parseAsync()

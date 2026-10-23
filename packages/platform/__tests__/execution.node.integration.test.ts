@@ -1,9 +1,10 @@
 import assert from "node:assert/strict"
 import { randomUUID } from "node:crypto"
-import { cp, mkdir, writeFile } from "node:fs/promises"
+import { mkdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { createPolarCore } from "@polar-sh/sdk/2026-10"
 import { listEvents } from "@polar-sh/sdk/2026-10/services/events"
+import { writeDatabase, writeDatabaseProject } from "@tests/database-project"
 import { provisioningTest as test } from "@tests/integration"
 import { signInViewer } from "@usecontextlayer/dev-env/viewer"
 import { connectionsSchema } from "@usecontextlayer/shared/connections"
@@ -147,13 +148,8 @@ test("native resource capabilities enforce access and report exact slate-Owner t
 				databases: { drafts: { mode: "viewer" }, reports: { mode: "owner" } },
 			}),
 		)
-		for (const slug of ["drafts", "reports"]) {
-			await cp(
-				new URL("../../cli/template/databases/updates/migrations", import.meta.url),
-				join(checkout, "databases", slug, "migrations"),
-				{ recursive: true },
-			)
-		}
+		await writeDatabaseProject(checkout)
+		for (const slug of ["drafts", "reports"]) await writeDatabase(checkout, slug)
 		const execute = execa({ cwd: checkout })
 		const git = (...args: string[]) =>
 			execute("git", args, {
@@ -174,10 +170,15 @@ test("native resource capabilities enforce access and report exact slate-Owner t
 		await git("config", "user.name", "Execution Test")
 		await git("config", "user.email", "execution-test@example.com")
 		await git("remote", "add", "origin", `${origin}/git/${slate.id}`)
-		await git("add", "public", "databases")
+		await git("add", ".")
 		await git("-c", "commit.gpgsign=false", "commit", "-m", "Declare app resources")
 		await git("push", "origin", "main")
-		await PROVISIONING.provision(slate.id)
+		const prepared = await PROVISIONING.prepare(
+			slate.id,
+			(await git("rev-parse", "HEAD")).stdout.trim(),
+		)
+		await PROVISIONING.migrate(prepared)
+		await PROVISIONING.provisionSchedules(prepared)
 		expect(
 			await callExecution("callTool", [
 				slate.id,

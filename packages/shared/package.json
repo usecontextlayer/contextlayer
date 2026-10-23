@@ -2,7 +2,7 @@
 	"dependencies": {
 		"@modelcontextprotocol/core": "2.3.1",
 		"@polar-sh/sdk": "1.0.1",
-		"drizzle-orm": "0.45.3",
+		"kysely": "0.29.5",
 		"zod": "^4.6.5"
 	},
 	"devDependencies": {
@@ -18,6 +18,10 @@
 		"./connections": {
 			"import": "./dist/connections.mjs",
 			"types": "./dist/connections.d.mts"
+		},
+		"./database-dialect": {
+			"import": "./dist/database-dialect.mjs",
+			"types": "./dist/database-dialect.d.mts"
 		},
 		"./database-worker": {
 			"import": "./dist/database-worker.mjs",
@@ -42,6 +46,10 @@
 		"./slate-connections": {
 			"import": "./dist/slate-connections.mjs",
 			"types": "./dist/slate-connections.d.mts"
+		},
+		"./slate-provisioning": {
+			"import": "./dist/slate-provisioning.mjs",
+			"types": "./dist/slate-provisioning.d.mts"
 		},
 		"./slate-resources": {
 			"import": "./dist/slate-resources.mjs",

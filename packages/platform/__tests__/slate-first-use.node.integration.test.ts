@@ -1,7 +1,8 @@
 import assert from "node:assert/strict"
 import { randomUUID } from "node:crypto"
-import { cp, mkdir, writeFile } from "node:fs/promises"
+import { mkdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
+import { writeDatabase, writeDatabaseProject } from "@tests/database-project"
 import { provisioningTest as test } from "@tests/integration"
 import { signInViewer } from "@usecontextlayer/dev-env/viewer"
 import { databaseResultSchema } from "@usecontextlayer/shared/databases"
@@ -87,14 +88,10 @@ test("first use provisions personal data and schedules once, after the whole sla
 			databases: { inbox: { mode: "viewer" } },
 		}),
 	)
-	for (const slug of ["drafts", "inbox", "reports"])
-		await cp(
-			new URL("../../cli/template/databases/updates/migrations/", import.meta.url),
-			join(checkout, "databases", slug, "migrations"),
-			{ recursive: true },
-		)
+	await writeDatabaseProject(checkout)
+	for (const slug of ["drafts", "inbox", "reports"]) await writeDatabase(checkout, slug)
 	const push = async (message: string) => {
-		await git("add", "public", "agents", "databases")
+		await git("add", ".")
 		await git("-c", "commit.gpgsign=false", "commit", "-m", message)
 		await git("push", "origin", "main")
 	}
@@ -111,7 +108,12 @@ test("first use provisions personal data and schedules once, after the whole sla
 	const inbox = resources.databases.inbox
 	assert(reports && inbox)
 	const { PROVISIONING } = await provisioning.worker.getEnv()
-	await PROVISIONING.provision(slate.id)
+	const prepared = await PROVISIONING.prepare(
+		slate.id,
+		(await git("rev-parse", "HEAD")).stdout.trim(),
+	)
+	await PROVISIONING.migrate(prepared)
+	await PROVISIONING.provisionSchedules(prepared)
 	expect(await members()).toEqual([])
 	expect(
 		(await DATABASES.getByName(reports.instance_name).query("SELECT * FROM updates"))

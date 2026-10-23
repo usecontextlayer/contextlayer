@@ -11,7 +11,7 @@ import type { OwnerSlateAccess } from "@/slates.server"
 export async function setSlateSecret(
 	db: PlatformDb,
 	artifacts: Artifacts,
-	databases: PlatformEnv["Bindings"]["DATABASES"],
+	sandbox: PlatformEnv["Bindings"]["SANDBOX"],
 	agents: PlatformEnv["Bindings"]["AGENTS"],
 	meridian: PlatformEnv["Bindings"]["MERIDIAN"],
 	config: PlatformConfig,
@@ -35,7 +35,7 @@ export async function setSlateSecret(
 	await addSlateMember(
 		db,
 		artifacts,
-		databases,
+		sandbox,
 		agents,
 		config,
 		access.slate,

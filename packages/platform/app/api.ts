@@ -711,7 +711,7 @@ export function createApi() {
 			const result = await startAgentJob(
 				c.var.db,
 				c.env.ARTIFACTS,
-				c.env.DATABASES,
+				c.env.SANDBOX,
 				c.env.AGENTS,
 				c.var.config,
 				c.var.slateAccess,
@@ -1339,7 +1339,7 @@ export function createApi() {
 			const result = await assignSlateConnection(
 				c.var.db,
 				c.env.ARTIFACTS,
-				c.env.DATABASES,
+				c.env.SANDBOX,
 				c.env.AGENTS,
 				c.var.config,
 				c.var.slateAccess,
@@ -1379,7 +1379,7 @@ export function createApi() {
 			const result = await setSlateSecret(
 				c.var.db,
 				c.env.ARTIFACTS,
-				c.env.DATABASES,
+				c.env.SANDBOX,
 				c.env.AGENTS,
 				c.env.MERIDIAN,
 				c.var.config,

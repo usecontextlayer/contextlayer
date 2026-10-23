@@ -1,18 +1,17 @@
 import { resourcesForConsumer } from "@usecontextlayer/shared/declaration"
+import type { SlateProvisioning } from "@usecontextlayer/shared/slate-provisioning"
 import { getAgentByName } from "agents/routing"
 import { getAgentInstanceName, getAgentUnattendedScope } from "@/agent-instance"
-import { type AgentActor, agentScheduleSchema } from "@/agents.schema"
+import { agentScheduleSchema } from "@/agents.schema"
 import type { PlatformEnv } from "@/context"
-import type { SlateId } from "@/database/models/public/Slate"
-import type { SlateDeclarationSnapshot } from "@/slate-declarations.server"
+import { slateSchema } from "@/slates.schema"
 
 export async function provisionAgentSchedules(
 	artifacts: Artifacts,
 	agents: PlatformEnv["Bindings"]["AGENTS"],
-	slateId: SlateId,
-	actors: AgentActor[],
-	snapshot: SlateDeclarationSnapshot,
+	{ slate, actors, snapshot }: SlateProvisioning,
 ) {
+	const slateId = slateSchema.shape.id.parse(slate.id)
 	const { parseSkillFrontmatter } = await import("agents/skills")
 	using repo = await artifacts.get(slateId)
 	for (const definition of snapshot.agentTrees) {

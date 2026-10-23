@@ -4,7 +4,7 @@ import type { z } from "zod"
 import type { PlatformEnv } from "@/context"
 import type { PlatformDb } from "@/database"
 import type { PlatformConfig } from "@/env"
-import { readSlateDeclarations } from "@/slate-declarations.server"
+import { readLatestSlateDeclarations } from "@/slate-declarations.server"
 import type { ResolvedSlateResourceConfiguration } from "@/slate-resource-configuration.server"
 import { prepareSlateResourceExecution } from "@/slate-resource-execution.server"
 import type { SlateAccess } from "@/slates.server"
@@ -13,12 +13,13 @@ export async function querySlateDatabase(
 	db: PlatformDb,
 	artifacts: Artifacts,
 	databases: PlatformEnv["Bindings"]["DATABASES"],
+	sandbox: PlatformEnv["Bindings"]["SANDBOX"],
 	agents: PlatformEnv["Bindings"]["AGENTS"],
 	config: PlatformConfig,
 	{ slate, identity }: SlateAccess,
 	input: z.infer<typeof databaseQuerySchema>,
 ) {
-	const snapshot = await readSlateDeclarations(artifacts, slate.id)
+	const snapshot = await readLatestSlateDeclarations(artifacts, slate.id)
 	if (!snapshot.allowed) return { allowed: false, reason: "not-declared" } as const
 	const selected = resourcesForConsumer(snapshot.resources, { type: "app" })
 	const requirement = selected.databases[input.slug]
@@ -26,7 +27,7 @@ export async function querySlateDatabase(
 	const resolved = await prepareSlateResourceExecution(
 		db,
 		artifacts,
-		databases,
+		sandbox,
 		agents,
 		config,
 		slate,

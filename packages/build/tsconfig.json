@@ -9,5 +9,9 @@
 	},
 	"extends": "../../tsconfig.base.json",
 	"include": ["*.ts"],
-	"references": []
+	"references": [
+		{
+			"path": "../shared"
+		}
+	]
 }

@@ -55,7 +55,7 @@ export class Execution
 			const result = await callTool(
 				db,
 				this.env.ARTIFACTS,
-				this.env.DATABASES,
+				this.env.SANDBOX,
 				this.env.AGENTS,
 				config,
 				access,
@@ -93,6 +93,7 @@ export class Execution
 				db,
 				this.env.ARTIFACTS,
 				this.env.DATABASES,
+				this.env.SANDBOX,
 				this.env.AGENTS,
 				config,
 				access,
