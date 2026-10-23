@@ -6,6 +6,10 @@ export function readLocalSecret(name: string) {
 	return process.env[name] ?? null
 }
 
+export const databaseEnv = z
+	.object({ CTX_DATABASE_URL: z.url().optional() })
+	.parse(process.env)
+
 export const env = z
 	.object({
 		CTX_AUTH_CLIENT_ID: z.string().min(1).default("QBFOYTTCdjpEiXwgDNnovDPoJBYAfRpF"),

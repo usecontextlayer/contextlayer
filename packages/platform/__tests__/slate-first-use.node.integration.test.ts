@@ -2,6 +2,7 @@ import assert from "node:assert/strict"
 import { randomUUID } from "node:crypto"
 import { mkdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
+import { writeDatabase, writeDatabaseProject } from "@tests/database-project"
 import { provisioningTest as test } from "@tests/integration"
 import { signInViewer } from "@usecontextlayer/dev-env/viewer"
 import { databaseResultSchema } from "@usecontextlayer/shared/databases"
@@ -87,9 +88,10 @@ test("first use provisions personal data and schedules once, after the whole sla
 			databases: { inbox: { mode: "viewer" } },
 		}),
 	)
-	// # TODO: Kysely branch agent: after rebasing onto the merged papercuts branch, supply drafts, inbox and reports database migrations and make this scenario pass before merging. Preserve the existing assertions; database setup is intentionally incomplete.
+	await writeDatabaseProject(checkout)
+	for (const slug of ["drafts", "inbox", "reports"]) await writeDatabase(checkout, slug)
 	const push = async (message: string) => {
-		await git("add", "public", "agents", "databases")
+		await git("add", ".")
 		await git("-c", "commit.gpgsign=false", "commit", "-m", message)
 		await git("push", "origin", "main")
 	}
@@ -106,7 +108,12 @@ test("first use provisions personal data and schedules once, after the whole sla
 	const inbox = resources.databases.inbox
 	assert(reports && inbox)
 	const { PROVISIONING } = await provisioning.worker.getEnv()
-	await PROVISIONING.provision(slate.id)
+	const prepared = await PROVISIONING.prepare(
+		slate.id,
+		(await git("rev-parse", "HEAD")).stdout.trim(),
+	)
+	await PROVISIONING.migrate(prepared)
+	await PROVISIONING.provisionSchedules(prepared)
 	expect(await members()).toEqual([])
 	expect(
 		(await DATABASES.getByName(reports.instance_name).query("SELECT * FROM updates"))

@@ -57,6 +57,11 @@
 			{
 				"class_name": "Meridian",
 				"name": "MERIDIAN"
+			},
+			{
+				"class_name": "CiSandbox",
+				"name": "SANDBOX",
+				"script_name": "contextlayer-build"
 			}
 		]
 	},
@@ -107,6 +112,11 @@
 					{
 						"class_name": "Meridian",
 						"name": "MERIDIAN"
+					},
+					{
+						"class_name": "CiSandbox",
+						"name": "SANDBOX",
+						"script_name": "contextlayer-build-test"
 					}
 				]
 			},

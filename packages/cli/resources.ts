@@ -1,6 +1,5 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { resolve } from "node:path"
-import { readDatabaseMigrations } from "@usecontextlayer/shared/databases"
 import { resourcesSchema } from "@usecontextlayer/shared/declaration"
 import {
 	type LocalResourceConfiguration,
@@ -44,18 +43,10 @@ export async function prepareLocalResourceConfiguration(
 			]),
 		),
 		databases: Object.fromEntries(
-			await Promise.all(
-				Object.entries(resources.databases).map(async ([slug, requirement]) => [
-					slug,
-					{
-						...requirement,
-						instance_name: slug,
-						migrations: await readDatabaseMigrations(slug, (path) =>
-							readOptionalFile(resolve(directory, path)),
-						),
-					},
-				]),
-			),
+			Object.entries(resources.databases).map(([slug, requirement]) => [
+				slug,
+				{ ...requirement, instance_name: slug },
+			]),
 		),
 		secrets: Object.fromEntries(
 			Object.entries(resources.secrets).map(([name, requirement]) => [

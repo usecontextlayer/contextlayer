@@ -57,10 +57,6 @@ test("assembles local configuration before consumer selection without Git, crede
 	expect(app.secrets.CTX_LOCAL_TEST_SECRET?.value).toBe("local-only-value")
 	expect(agent.databases.reports?.instance_name).toBe("reports")
 	expect(app.databases.reports).toEqual(agent.databases.reports)
-	expect(agent.databases.reports?.migrations).toEqual({
-		journal: { entries: [] },
-		migrations: {},
-	})
 	await expect(
 		readFile(join(directory, ".contextlayer/connections.json")),
 	).rejects.toMatchObject({ code: "ENOENT" })

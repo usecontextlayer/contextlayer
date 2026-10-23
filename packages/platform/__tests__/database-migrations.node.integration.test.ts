@@ -1,0 +1,129 @@
+import assert from "node:assert/strict"
+import { execFile as execFileCallback } from "node:child_process"
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
+import { promisify } from "node:util"
+import { test as base } from "@tests/database"
+import { writeDatabase, writeDatabaseProject } from "@tests/database-project"
+import type { Workers } from "@tests/workers"
+import { expect } from "vitest"
+import type { PlatformEnv } from "@/context"
+import type { Provisioning } from "@/provisioning.server"
+import { slateMemberSchema } from "@/slate-members.schema"
+import { prepareSlateProvisioning } from "@/slate-provisioning.server"
+import { slateSchema } from "@/slates.schema"
+
+const execFile = promisify(execFileCallback)
+
+const test = base.extend("workers", ({ databases }): Workers => [
+	{
+		configPath: new URL("../wrangler.jsonc", import.meta.url),
+		env: "test",
+		prebuiltWorkerDir: new URL("../build/server", import.meta.url),
+		secrets: { CTX_PLATFORM_DATABASE_URL: databases.urls.ctx_platform_test },
+	},
+	{
+		configPath: new URL("../../build/wrangler.jsonc", import.meta.url),
+		env: "test",
+		prebuiltWorkerDir: new URL("../../build/dist", import.meta.url),
+	},
+])
+
+test("native sandbox CLI migrates its selected database and preserves native failure semantics", async ({
+	db,
+	harness,
+}) => {
+	await using resources = new AsyncDisposableStack()
+	const directory = await mkdtemp(join(tmpdir(), "slate-migrations-"))
+	resources.defer(() => rm(directory, { force: true, recursive: true }))
+	await harness.listen()
+	const { ARTIFACTS, DATABASES } = await harness
+		.getWorker<PlatformEnv["Bindings"]>("contextlayer-platform-test")
+		.getEnv()
+	const { PROVISIONING } = await harness
+		.getWorker<{ PROVISIONING: Service<Provisioning> }>("contextlayer-build-test")
+		.getEnv()
+	const slate = slateSchema.parse({
+		id: crypto.randomUUID(),
+		owner_organization_id: null,
+		owner_user_id: "migration-acceptance",
+		public_hostname: "migration-acceptance",
+		visibility: "private",
+	})
+	await db.insertInto("slate").values(slate).execute()
+	await db
+		.insertInto("slate_member")
+		.values(slateMemberSchema.parse({ slate_id: slate.id, user_id: "first" }))
+		.execute()
+	const repo = await ARTIFACTS.create(slate.id)
+	resources.defer(async () => {
+		await ARTIFACTS.delete(slate.id)
+	})
+	const git = async (...args: string[]) =>
+		(
+			await execFile("git", args, {
+				cwd: directory,
+				env: {
+					...process.env,
+					GIT_CONFIG_COUNT: "1",
+					GIT_CONFIG_GLOBAL: join(directory, "gitconfig"),
+					GIT_CONFIG_KEY_0: "http.extraHeader",
+					GIT_CONFIG_VALUE_0: `Authorization: Bearer ${repo.token}`,
+					GIT_TERMINAL_PROMPT: "0",
+				},
+			})
+		).stdout.trim()
+	await writeDatabaseProject(directory)
+	await writeDatabase(directory, "reports")
+	await mkdir(join(directory, "public"))
+	await writeFile(
+		join(directory, "public/slate.json"),
+		JSON.stringify({ connections: {}, databases: { reports: { mode: "viewer" } } }),
+	)
+	await git("init", "-b", "main")
+	await git("config", "user.name", "Migration Acceptance")
+	await git("config", "user.email", "migration-acceptance@example.com")
+	await git("add", ".")
+	await git("-c", "commit.gpgsign=false", "commit", "-m", "Author native migration")
+	await git("push", repo.remote, "main")
+	const prepared = await PROVISIONING.prepare(slate.id, await git("rev-parse", "HEAD"))
+	const other = prepareSlateProvisioning(
+		slate,
+		[{ id: "second", type: "user" }],
+		prepared.snapshot,
+	)
+	const selected = prepared.databases[0]
+	const unselected = other.databases[0]
+	assert(selected && unselected)
+	await PROVISIONING.migrate(prepared)
+	const database = DATABASES.getByName(selected.instance_name)
+	expect((await database.query("SELECT * FROM updates")).rows).toEqual([])
+	expect((await database.query("SELECT name FROM kysely_migration")).rows).toEqual([
+		["001_create_updates"],
+	])
+	await expect(
+		DATABASES.getByName(unselected.instance_name).query("SELECT * FROM updates"),
+	).rejects.toThrow()
+
+	await writeFile(
+		join(directory, "databases/reports/migrations/002_failure.ts"),
+		`import { sql, type Kysely } from "kysely"
+export async function up(db: Kysely<unknown>) {
+  await sql\`CREATE TABLE partial_migration (id TEXT NOT NULL)\`.execute(db)
+  await sql\`ALTER TABLE nonexistent_migration_table ADD COLUMN value TEXT\`.execute(db)
+}
+`,
+	)
+	await git("add", "databases")
+	await git("-c", "commit.gpgsign=false", "commit", "-m", "Author failing migration")
+	await git("push", repo.remote, "main")
+	const failed = await PROVISIONING.prepare(slate.id, await git("rev-parse", "HEAD"))
+	await expect(async () => await PROVISIONING.migrate(failed)).rejects.toThrow(
+		"nonexistent_migration_table",
+	)
+	expect((await database.query("SELECT * FROM partial_migration")).rows).toEqual([])
+	expect((await database.query("SELECT name FROM kysely_migration")).rows).toEqual([
+		["001_create_updates"],
+	])
+}, 900_000)

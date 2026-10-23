@@ -1,5 +1,4 @@
 import { z } from "zod"
-import { databaseMigrationsSchema } from "@/lib/databases"
 import { resourcesSchema } from "@/lib/declaration"
 import { ownerSchema } from "@/lib/slate-usage"
 
@@ -52,7 +51,6 @@ export const localResourceConfigurationSchema = resourcesSchema.extend({
 		resourcesSchema.shape.databases.keyType,
 		resourcesSchema.shape.databases.valueType.extend({
 			instance_name: z.string().min(1),
-			migrations: databaseMigrationsSchema,
 		}),
 	),
 	secrets: z.record(

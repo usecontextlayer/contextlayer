@@ -3,19 +3,31 @@ import {
 	declarationSchema,
 	type SlateDeclarations,
 } from "@usecontextlayer/shared/declaration"
+import type { SlateDeclarationSnapshot } from "@usecontextlayer/shared/slate-provisioning"
 import { noCommitSchema } from "@usecontextlayer/shared/slate-resources"
 import type { SlateId } from "@/database/models/public/Slate"
 
-export type SlateDeclarationSnapshot = Extract<
-	Awaited<ReturnType<typeof readSlateDeclarations>>,
-	{ allowed: true }
->
+export type { SlateDeclarationSnapshot } from "@usecontextlayer/shared/slate-provisioning"
 
-export async function readSlateDeclarations(artifacts: Artifacts, slateId: SlateId) {
+export async function readLatestSlateDeclarations(
+	artifacts: Artifacts,
+	slateId: SlateId,
+) {
 	using repo = await artifacts.get(slateId)
 	const [commit] = await repo.log({ limit: 1, ref: "main" })
 	if (!commit)
 		return { allowed: false, reason: noCommitSchema.shape.reason.value } as const
+	return readSlateDeclarations(artifacts, slateId, commit.hash)
+}
+
+export async function readSlateDeclarations(
+	artifacts: Artifacts,
+	slateId: SlateId,
+	revision: string,
+): Promise<SlateDeclarationSnapshot> {
+	using repo = await artifacts.get(slateId)
+	const commit = await repo.readCommit(revision)
+	if (!commit) throw new Error(`Slate commit not found: ${revision}`)
 
 	const root = (await repo.readTree(commit.treeHash)) as ArtifactsTreeEntry[]
 	const directory = root.find((entry) => entry.name === "agents" && entry.type === "tree")

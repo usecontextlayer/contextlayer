@@ -18,7 +18,7 @@ import type { PlatformEnv } from "@/context"
 import type { PlatformDb } from "@/database"
 import type { SlateId } from "@/database/models/public/Slate"
 import type { PlatformConfig } from "@/env"
-import { readSlateDeclarations } from "@/slate-declarations.server"
+import { readLatestSlateDeclarations } from "@/slate-declarations.server"
 import type { ResolvedSlateResourceConfiguration } from "@/slate-resource-configuration.server"
 import { prepareSlateResourceExecution } from "@/slate-resource-execution.server"
 import type { Slate } from "@/slates.schema"
@@ -114,14 +114,14 @@ export function prepareAgentRun(
 export async function getAgentRun(
 	db: PlatformDb,
 	artifacts: Artifacts,
-	databases: PlatformEnv["Bindings"]["DATABASES"],
+	sandbox: PlatformEnv["Bindings"]["SANDBOX"],
 	agents: PlatformEnv["Bindings"]["AGENTS"],
 	config: PlatformConfig,
 	slate: Slate,
 	actor: AgentActor,
 	input: AgentRunRequest,
 ) {
-	const snapshot = await readSlateDeclarations(artifacts, slate.id)
+	const snapshot = await readLatestSlateDeclarations(artifacts, slate.id)
 	if (!snapshot.allowed)
 		return { allowed: false, reason: "agent-definition-missing" } as const
 	const result = await readAgent(artifacts, slate.id, input.name, snapshot.commit)
@@ -134,7 +134,7 @@ export async function getAgentRun(
 	const resolved = await prepareSlateResourceExecution(
 		db,
 		artifacts,
-		databases,
+		sandbox,
 		agents,
 		config,
 		slate,
@@ -373,7 +373,7 @@ export async function getAgentSchedule(
 export async function startAgentJob(
 	db: PlatformDb,
 	artifacts: Artifacts,
-	databases: PlatformEnv["Bindings"]["DATABASES"],
+	sandbox: PlatformEnv["Bindings"]["SANDBOX"],
 	agents: PlatformEnv["Bindings"]["AGENTS"],
 	config: PlatformConfig,
 	access: SlateAccess,
@@ -382,7 +382,7 @@ export async function startAgentJob(
 	const prepared = await getAgentRun(
 		db,
 		artifacts,
-		databases,
+		sandbox,
 		agents,
 		config,
 		access.slate,

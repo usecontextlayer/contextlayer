@@ -22,6 +22,11 @@
 			{
 				"class_name": "CiSandbox",
 				"name": "SANDBOX"
+			},
+			{
+				"class_name": "SlateDatabase",
+				"name": "DATABASES",
+				"script_name": "contextlayer-platform"
 			}
 		]
 	},
@@ -47,6 +52,11 @@
 					{
 						"class_name": "CiSandbox",
 						"name": "SANDBOX"
+					},
+					{
+						"class_name": "SlateDatabase",
+						"name": "DATABASES",
+						"script_name": "contextlayer-platform-test"
 					}
 				]
 			},
@@ -56,7 +66,9 @@
 					"bucket_name": "contextlayer-test-build-backups"
 				}
 			],
-			"secrets": { "required": [] },
+			"secrets": {
+				"required": []
+			},
 			"services": [
 				{
 					"binding": "PROVISIONING",
@@ -64,7 +76,9 @@
 					"service": "contextlayer-platform-test"
 				}
 			],
-			"triggers": { "events": [] },
+			"triggers": {
+				"events": []
+			},
 			"vars": {
 				"BACKUP_BUCKET_NAME": "contextlayer-test-build-backups",
 				"CLOUDFLARE_ACCOUNT_ID": "662809b9404bec57077de451f84b26cb"

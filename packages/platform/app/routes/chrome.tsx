@@ -44,9 +44,9 @@ import {
 	artifactsContext,
 	configContext,
 	databaseContext,
-	databasesContext,
 	identityContext,
 	meridianContext,
+	sandboxContext,
 } from "@/context"
 import { getCredentialOwner } from "@/owner"
 import type { Route } from "@/routes/+types/chrome"
@@ -112,7 +112,7 @@ export async function action({ request, params, context }: Route.ActionArgs) {
 		const result = await setSlateSecret(
 			context.get(databaseContext),
 			context.get(artifactsContext),
-			context.get(databasesContext),
+			context.get(sandboxContext),
 			context.get(agentsContext),
 			context.get(meridianContext),
 			context.get(configContext),
@@ -140,7 +140,7 @@ export async function action({ request, params, context }: Route.ActionArgs) {
 	const result = await assignSlateConnection(
 		context.get(databaseContext),
 		context.get(artifactsContext),
-		context.get(databasesContext),
+		context.get(sandboxContext),
 		context.get(agentsContext),
 		context.get(configContext),
 		access,

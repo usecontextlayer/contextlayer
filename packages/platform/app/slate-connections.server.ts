@@ -12,7 +12,7 @@ import type { OwnerSlateAccess } from "@/slates.server"
 export async function assignSlateConnection(
 	db: PlatformDb,
 	artifacts: Artifacts,
-	databases: PlatformEnv["Bindings"]["DATABASES"],
+	sandbox: PlatformEnv["Bindings"]["SANDBOX"],
 	agents: PlatformEnv["Bindings"]["AGENTS"],
 	config: PlatformConfig,
 	access: OwnerSlateAccess,
@@ -40,7 +40,7 @@ export async function assignSlateConnection(
 	await addSlateMember(
 		db,
 		artifacts,
-		databases,
+		sandbox,
 		agents,
 		config,
 		access.slate,

@@ -109,7 +109,7 @@ export class SlateAgent extends Agent<PlatformEnv["Bindings"]> {
 			const prepared = await getAgentRun(
 				db,
 				this.env.ARTIFACTS,
-				this.env.DATABASES,
+				this.env.SANDBOX,
 				this.env.AGENTS,
 				config,
 				slate,

@@ -1,8 +1,9 @@
 import assert from "node:assert/strict"
 import { execFile as execFileCallback } from "node:child_process"
-import { mkdir, writeFile } from "node:fs/promises"
+import { mkdir, readdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { promisify } from "node:util"
+import { writeDatabase, writeDatabaseProject } from "@tests/database-project"
 import { provisioningTest as test } from "@tests/integration"
 import { DEVELOPMENT_ORGANIZATION_SLUG } from "@usecontextlayer/dev-env/env"
 import { signInViewer } from "@usecontextlayer/dev-env/viewer"
@@ -19,7 +20,8 @@ import { organizationSchema } from "@/auth.server"
 import { type Slate, slateSchema } from "@/slates.schema"
 
 const execFile = promisify(execFileCallback)
-test("deploy provisions slate-owned databases and existing members' personal databases", async ({
+
+test("native CLI provisioning initializes owner and member databases and applies schema changes", async ({
 	db,
 	directory: dir,
 	execution,
@@ -126,13 +128,14 @@ test("deploy provisions slate-owned databases and existing members' personal dat
 		await git("config", "user.name", "Database Test")
 		await git("config", "user.email", "database-test@example.com")
 		await git("remote", "add", "origin", `${origin}/git/${slate.id}`)
-		// # TODO: Kysely branch agent: after rebasing onto the merged papercuts branch, supply drafts, inbox and reports database migrations and make this scenario pass before merging. Preserve the existing assertions; database setup is intentionally incomplete.
+		await writeDatabaseProject(checkout)
+		for (const slug of ["drafts", "inbox", "reports"]) await writeDatabase(checkout, slug)
 		if (slate.id === joinedBeforeProvisioning.id) {
 			await writeFile(
 				join(checkout, "public/slate.json"),
 				JSON.stringify({ connections: {}, databases: { drafts: { mode: "viewer" } } }),
 			)
-			await git("add", "public", "databases")
+			await git("add", ".")
 			await git("-c", "commit.gpgsign=false", "commit", "-m", "Declare personal drafts")
 			await git("push", "origin", "main")
 			await firstUse(slate)
@@ -160,7 +163,7 @@ test("deploy provisions slate-owned databases and existing members' personal dat
 			scheduleFile,
 			'---\ncron: "0 0 1 1 *"\n---\nSave a scheduled document.\n',
 		)
-		await git("add", "public", "agents", "databases")
+		await git("add", ".")
 		await git(
 			"-c",
 			"commit.gpgsign=false",
@@ -195,7 +198,9 @@ test("deploy provisions slate-owned databases and existing members' personal dat
 			getAgentInstanceName(slate.id, "daily-summary", { id: user.id, type: "user" }),
 		)
 		expect(await instance.listSchedules()).toEqual([])
-		await PROVISIONING.provision(slate.id)
+		const prepared = await PROVISIONING.prepare(slate.id, await git("rev-parse", "HEAD"))
+		await PROVISIONING.migrate(prepared)
+		await PROVISIONING.provisionSchedules(prepared)
 		expect(await instance.listSchedules()).toHaveLength(
 			slate.id === joinedBeforeProvisioning.id ? 1 : 0,
 		)
@@ -235,7 +240,31 @@ test("deploy provisions slate-owned databases and existing members' personal dat
 			checkouts[1]?.configuration.databases[slug]?.instance_name,
 		)
 	for (const { slate, checkout, git, scheduleFile, instance } of checkouts) {
-		// # TODO: Kysely branch agent: after rebasing onto the merged papercuts branch, author the reports migration adding source with default email through the Kysely workflow, and make the existing evolution/persistence assertions pass before merging.
+		await execFile(
+			"pnpm",
+			[
+				"exec",
+				"kysely",
+				"--config",
+				"databases/reports/kysely.config.ts",
+				"migrate",
+				"make",
+				"add_source",
+			],
+			{ cwd: checkout },
+		)
+		const migration = (
+			await readdir(join(checkout, "databases/reports/migrations"))
+		).find((name) => name.endsWith("_add_source.ts"))
+		assert(migration)
+		await writeFile(
+			join(checkout, "databases/reports/migrations", migration),
+			`import { sql, type Kysely } from "kysely"
+export async function up(db: Kysely<unknown>) {
+  await sql\`ALTER TABLE updates ADD COLUMN source TEXT NOT NULL DEFAULT 'email'\`.execute(db)
+}
+`,
+		)
 		await writeFile(
 			join(checkout, "public/slate.json"),
 			JSON.stringify({
@@ -251,7 +280,7 @@ test("deploy provisions slate-owned databases and existing members' personal dat
 			scheduleFile,
 			'---\ncron: "0 1 1 1 *"\n---\nSave a refreshed scheduled document.\n',
 		)
-		await git("add", "public", "agents", "databases")
+		await git("add", ".")
 		await git(
 			"-c",
 			"commit.gpgsign=false",
@@ -266,14 +295,16 @@ test("deploy provisions slate-owned databases and existing members' personal dat
 		const reports = z
 			.object({ instance_name: z.string() })
 			.parse(configuration.databases.reports)
-		// # TODO: Kysely branch agent: after rebasing onto the merged papercuts branch, supply archive database migrations and make this scenario pass before merging. Preserve the existing assertions; database setup is intentionally incomplete.
+		await writeDatabase(checkout, "archive")
 		await git("add", "databases")
 		await git("-c", "commit.gpgsign=false", "commit", "-m", "Add archive migrations")
 		await git("push", "origin", "main")
 		await expect(
 			DATABASES.getByName(archive.instance_name).query("SELECT * FROM updates"),
 		).rejects.toThrow()
-		await PROVISIONING.provision(slate.id)
+		const prepared = await PROVISIONING.prepare(slate.id, await git("rev-parse", "HEAD"))
+		await PROVISIONING.migrate(prepared)
+		await PROVISIONING.provisionSchedules(prepared)
 		expect(
 			(
 				await DATABASES.getByName(reports.instance_name).query(
@@ -297,6 +328,7 @@ test("deploy provisions slate-owned databases and existing members' personal dat
 			.parse(await instance.listSchedules())
 		expect(schedules).toHaveLength(1)
 		expect(schedules[0]?.payload.prompt).toContain("refreshed scheduled document")
-		await PROVISIONING.provision(slate.id)
+		await PROVISIONING.migrate(prepared)
+		await PROVISIONING.provisionSchedules(prepared)
 	}
-}, 120_000)
+}, 1_800_000)

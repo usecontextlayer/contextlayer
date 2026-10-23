@@ -4,6 +4,7 @@ import { mkdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { promisify } from "node:util"
 import { ToolResultEntry } from "@earendil-works/pi-durable"
+import { writeDatabase, writeDatabaseProject } from "@tests/database-project"
 import { provisioningTest as test } from "@tests/integration"
 import { DEVELOPMENT_ORGANIZATION_SLUG } from "@usecontextlayer/dev-env/env"
 import { signInViewer } from "@usecontextlayer/dev-env/viewer"
@@ -89,7 +90,8 @@ for (const [mode, tool] of [
 			join(directory, "agents/database/instructions.md"),
 			"Use the requested database tool. These are disposable acceptance databases; the requested SQL writes are authorized. Do not use Bash. Report completion briefly.\n",
 		)
-		// # TODO: Kysely branch agent: after rebasing onto the merged papercuts branch, supply drafts and reports database migrations and make this scenario pass before merging. Preserve the existing assertions; database setup is intentionally incomplete.
+		await writeDatabaseProject(directory)
+		for (const database of ["drafts", "reports"]) await writeDatabase(directory, database)
 		const sql =
 			"INSERT INTO updates (id, kind, body, created_at) SELECT ?, kind, body, ? FROM updates WHERE id = ? RETURNING id, body"
 		const copy = { params: ["copy", 2, "seed"], slug, sql }
@@ -108,11 +110,16 @@ for (const [mode, tool] of [
 		await git("init", "-b", "main")
 		await git("config", "user.name", "Pi Database Acceptance")
 		await git("config", "user.email", "pi-database-test@example.com")
-		await git("add", "agents", "public", "databases")
+		await git("add", ".")
 		await git("-c", "commit.gpgsign=false", "commit", "-m", "Declare agent databases")
 		await git("push", remote, "main")
 		const { PROVISIONING } = await provisioning.worker.getEnv()
-		await PROVISIONING.provision(slate.id)
+		const prepared = await PROVISIONING.prepare(
+			slate.id,
+			(await git("rev-parse", "HEAD")).stdout.trim(),
+		)
+		await PROVISIONING.migrate(prepared)
+		await PROVISIONING.provisionSchedules(prepared)
 		const viewerHeaders = await signInViewer({
 			authURL: serviceEnv.addresses.CTX_VIEWER_AUTH_URL.origin,
 			returnTo: `https://${slate.public_hostname}/`,

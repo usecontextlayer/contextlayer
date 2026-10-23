@@ -8,6 +8,7 @@ export default defineConfig({
 	},
 	dts: true,
 	entry: {
+		"database-cli": "database-cli.ts",
 		html: "html.ts",
 		index: "index.ts",
 		local: "local.ts",

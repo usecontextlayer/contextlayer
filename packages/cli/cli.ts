@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { fileURLToPath } from "node:url"
+import { databaseSlugSchema } from "@usecontextlayer/shared/declaration"
 import { Argument, Command } from "commander"
 import { execa } from "execa"
 import { z } from "zod"
@@ -11,6 +12,7 @@ import {
 	connectionsCommandSchema,
 	listSlateConnections,
 } from "@/connections"
+import { generateDatabaseTypes } from "@/database-codegen"
 import { env } from "@/env"
 import { configureGit, gitCredential } from "@/git-credential"
 import { ownerOptionsSchema } from "@/owner"
@@ -300,6 +302,15 @@ secrets
 		const input = secretNameSchema.parse(name)
 		const options = secretOptionsSchema.parse(command.optsWithGlobals())
 		await dropSecret(input, options.org)
+	})
+
+program
+	.command("db.codegen <slug>")
+	.description(
+		"Generate databases/<slug>/types.ts from the running local database; run from the slate root after applying migrations with pnpm exec kysely",
+	)
+	.action(async (slug) => {
+		await generateDatabaseTypes(databaseSlugSchema.parse(slug))
 	})
 
 await program.parseAsync()
