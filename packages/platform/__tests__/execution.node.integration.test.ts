@@ -43,7 +43,7 @@ test("native resource capabilities enforce access and report exact slate-Owner t
 	const connection = connections.find(({ status }) => status === "ACTIVE")
 	assert(
 		connection,
-		"Connect a Gmail account for the local development user with pnpm dev:ctx connections add gmail, then approve the link in your browser.",
+		"Connect a Gmail account for the local development user with pnpm dev:ctx accounts add gmail, then approve the link in your browser.",
 	)
 	const { ARTIFACTS, DATABASES } = await worker.getEnv()
 	const { PROVISIONING } = await provisioning.worker.getEnv()

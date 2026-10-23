@@ -5,24 +5,32 @@ import { noCommitSchema } from "@usecontextlayer/shared/slate-resources"
 import { z } from "zod"
 import { getAccessToken } from "@/auth"
 import { env } from "@/env"
-import { ownerPath, resolveOwner } from "@/owner"
 import { prepareLocalResourceConfiguration, saveLocalConnection } from "@/resources"
 
-export const connectionAssignmentSchema = z
-	.object({
-		connection_id: z.string().min(1).optional(),
-		slug: z.string().min(1),
+export const connectionsCommandSchema = z.discriminatedUnion("operation", [
+	z.object({
+		connection_id: z.undefined(),
+		operation: z.literal("list"),
+		slug: z.undefined(),
 		target: z.string().min(1),
-	})
-	.superRefine((input, ctx) => {
-		if (input.target !== "local" && input.connection_id === undefined) {
-			ctx.addIssue({
-				code: "custom",
-				message: "Hosted assignment requires a connection ID",
-				path: ["connection_id"],
-			})
-		}
-	})
+	}),
+	z
+		.object({
+			connection_id: z.string().min(1).optional(),
+			operation: z.literal("assign"),
+			slug: z.string().min(1),
+			target: z.string().min(1),
+		})
+		.superRefine((input, ctx) => {
+			if (input.target !== "local" && input.connection_id === undefined) {
+				ctx.addIssue({
+					code: "custom",
+					message: "Hosted assignment requires a connection ID",
+					path: ["connection_id"],
+				})
+			}
+		}),
+])
 
 export async function assignSlateConnection(
 	target: string,
@@ -46,7 +54,7 @@ export async function assignSlateConnection(
 		const { connections } = connectionsSchema.parse(await response.json())
 		if (connections.length === 0)
 			throw new Error(
-				`No personal connected accounts for ${requirement.toolkit}. Run npx @usecontextlayer/cli connections add ${requirement.toolkit} to connect an account in your browser, then rerun this assignment.`,
+				`No personal connected accounts for ${requirement.toolkit}. Run npx @usecontextlayer/cli accounts add ${requirement.toolkit} to connect an account in your browser, then rerun this assignment.`,
 			)
 		if (connectionId === undefined) {
 			const accountId = await select({
@@ -99,29 +107,13 @@ export async function assignSlateConnection(
 	console.log(`${assignment.slug} → ${assignment.connection_id}`)
 }
 
-export async function listSlateConnections(target: string) {
+async function prepareSlateConnections(target: string) {
 	if (target === "local") {
 		const { connections } = await prepareLocalResourceConfiguration()
-		if (Object.keys(connections).length === 0) {
-			console.log("No connection requirements.")
-			return
-		}
-		console.table(
-			Object.entries(connections).map(
-				([slug, { connection_id, consumers, mode, toolkit }]) => ({
-					connected_account: connection_id ?? "unassigned",
-					consumers: consumers
-						.map((consumer) =>
-							consumer.type === "app" ? "app" : `agent:${consumer.name}`,
-						)
-						.join(", "),
-					mode,
-					slug,
-					toolkit,
-				}),
-			),
-		)
-		return
+		return Object.entries(connections).map(([slug, connection]) => ({
+			...connection,
+			slug,
+		}))
 	}
 	const response = await fetch(
 		new URL(
@@ -143,66 +135,22 @@ export async function listSlateConnections(target: string) {
 		)
 	if (!response.ok)
 		throw new Error(`Slate connections request failed: HTTP ${response.status}`)
-	const { connections } = slateConnectionsSchema.parse(await response.json())
+	return slateConnectionsSchema.parse(await response.json()).connections
+}
+
+export async function listSlateConnections(target: string) {
+	const connections = await prepareSlateConnections(target)
 	if (!connections.length) {
 		console.log("No connection requirements.")
 		return
 	}
 	console.table(
-		connections.map(({ connection_id, ...requirement }) => ({
+		connections.map(({ connection_id, consumers, ...requirement }) => ({
 			...requirement,
 			connected_account: connection_id ?? "unassigned",
+			consumers: consumers
+				.map((consumer) => (consumer.type === "app" ? "app" : `agent:${consumer.name}`))
+				.join(", "),
 		})),
 	)
-}
-
-export async function connectAccount(toolkit: string, org: string | undefined) {
-	const headers = { authorization: `Bearer ${await getAccessToken(env)}` }
-	const owner = await resolveOwner(org, headers)
-	const response = await fetch(
-		new URL(`/api/connections/${ownerPath(owner)}`, env.CTX_PLATFORM_URL),
-		{
-			body: JSON.stringify({ toolkit }),
-			headers: {
-				...headers,
-				"content-type": "application/json",
-			},
-			method: "POST",
-		},
-	)
-	if (!response.ok) throw new Error(`Connecting account failed: HTTP ${response.status}`)
-	const { redirect_url } = z
-		.object({ redirect_url: z.url() })
-		.parse(await response.json())
-	console.log(`Open this link to connect the Owner's account:\n${redirect_url}`)
-	console.log(
-		"After connecting in your browser, assign the connected account to a slate's declared connection.",
-	)
-	if (!org) {
-		console.log(
-			"From your checkout, assign your connected account to a connection declared in slate.json:\n  npx @usecontextlayer/cli connection local assign <slug>",
-		)
-	}
-	console.log(
-		`For a hosted slate, get the connected account ID and assign it:\n  npx @usecontextlayer/cli connections${org ? ` --org '${org.replaceAll("'", "'\\''")}'` : ""} list\n  npx @usecontextlayer/cli connection <SlateID-or-hostname> assign <slug> <connection_id>`,
-	)
-}
-
-export async function listConnections(org: string | undefined) {
-	const headers = { authorization: `Bearer ${await getAccessToken(env)}` }
-	const owner = await resolveOwner(org, headers)
-	const response = await fetch(
-		new URL(`/api/connections/${ownerPath(owner)}`, env.CTX_PLATFORM_URL),
-		{
-			headers,
-		},
-	)
-	if (!response.ok)
-		throw new Error(`Connected account list failed: HTTP ${response.status}`)
-	const { connections } = connectionsSchema.parse(await response.json())
-	if (connections.length === 0) {
-		console.log("No connected accounts.")
-		return
-	}
-	console.table(connections)
 }

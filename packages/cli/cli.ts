@@ -4,13 +4,12 @@ import { join } from "node:path"
 import { Argument, Command } from "commander"
 import { execa } from "execa"
 import { z } from "zod"
+import { connectAccount, listAccounts } from "@/accounts"
 import { runLocalAgent } from "@/agents"
 import { getAccessToken, getCurrentUser, LoginRequiredError, login } from "@/auth"
 import {
 	assignSlateConnection,
-	connectAccount,
-	connectionAssignmentSchema,
-	listConnections,
+	connectionsCommandSchema,
 	listSlateConnections,
 } from "@/connections"
 import { env } from "@/env"
@@ -247,47 +246,29 @@ program
 		console.log((await authenticate(command)).id)
 	})
 
-const connections = program
-	.command("connections")
-	.description(
-		"Manage Owner-owned connected accounts or list app and agent connections and assignments; local reads only the current checkout and its saved development assignments",
-	)
+const accounts = program
+	.command("accounts")
+	.description("Connect and list the selected Owner's connected accounts")
 	.option(
 		"--org <slug>",
 		"Manage this organization's connected accounts; defaults to the signed-in user",
 	)
-	.argument(
-		"[target]",
-		"SlateID or public hostname (pushed requirements), or local (current checkout; no platform request)",
-	)
-	.addArgument(
-		new Argument("[operation]", "Slate connection operation").choices(["list"]),
-	)
-	.hook("preAction", async (command, actionCommand) => {
-		if (actionCommand !== command || command.args[0] !== "local") {
-			await requireLogin(actionCommand)
-		}
-	})
-	.action(async (target, operation) => {
-		if (!target || !operation)
-			connections.error("Expected: ctx connections <target> list")
-		await listSlateConnections(target)
-	})
+	.hook("preAction", requireLogin)
 
-connections
+accounts
 	.command("list")
 	.description(
 		"List the selected Owner's connected accounts with their toolkit, identity, and status",
 	)
 	.action(async (_options, command: Command) => {
 		const options = ownerOptionsSchema.parse(command.optsWithGlobals())
-		await listConnections(options.org)
+		await listAccounts(options.org)
 	})
 
-connections
+accounts
 	.command("add <toolkit>")
 	.description(
-		"Connect the selected Owner's account in your browser (for example, gmail), then assign the connected account to a slate's declared connection with ctx connection",
+		"Connect the selected Owner's account in your browser (for example, gmail), then assign it with ctx connections <target> assign <slug> [connection_id]",
 	)
 	.action(async (toolkit, _options, command: Command) => {
 		const options = ownerOptionsSchema.parse(command.optsWithGlobals())
@@ -295,25 +276,44 @@ connections
 	})
 
 program
-	.command("connection")
+	.command("connections")
 	.description(
-		"Assign a connected account to a declared connection: local saves a personal connected account assignment in .contextlayer/connections.json; SlateID/hostname saves a hosted assignment under its declared Owner",
+		"List declared app and agent connections or assign connected accounts; local reads and saves checkout configuration, SlateID/hostname uses pushed declarations and hosted assignments",
 	)
 	.argument("<target>", "SlateID, public hostname, or local (run from the checkout root)")
-	.addArgument(new Argument("<operation>").choices(["assign"]))
-	.argument("<slug>", "Connection slug declared in slate.json (for example, work-email)")
+	.addArgument(new Argument("<operation>").choices(["list", "assign"]))
+	.argument(
+		"[slug]",
+		"Required for assign: connection slug declared in slate.json (for example, work-email)",
+	)
 	.argument(
 		"[connection_id]",
-		"Connected account ID; omit locally to assign a connected account for the declared toolkit interactively; required for hosted targets",
+		"For assign: connected account ID; omit locally to choose interactively; required for hosted targets",
 	)
-	.hook("preAction", requireLogin)
-	.action(async (target, _operation, slug, connectionId) => {
-		const input = connectionAssignmentSchema.parse({
+	.action(async (target, operation, slug, connectionId, _options, command: Command) => {
+		const parsed = connectionsCommandSchema.safeParse({
 			connection_id: connectionId,
+			operation,
 			slug,
 			target,
 		})
-		await assignSlateConnection(input.target, input.slug, input.connection_id)
+		if (!parsed.success)
+			command.error(parsed.error.issues.map((issue) => issue.message).join("\n"))
+		const input = parsed.data
+		if (input.operation !== "list" || input.target !== "local")
+			await requireLogin(command)
+		switch (input.operation) {
+			case "list":
+				await listSlateConnections(input.target)
+				break
+			case "assign":
+				await assignSlateConnection(input.target, input.slug, input.connection_id)
+				break
+			default:
+				throw new Error(
+					`Unhandled connections operation: ${JSON.stringify(input satisfies never)}`,
+				)
+		}
 	})
 
 program

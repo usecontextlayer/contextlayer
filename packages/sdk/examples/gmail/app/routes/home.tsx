@@ -65,7 +65,7 @@ export default function Home() {
 											restart <code>pnpm dev</code>:
 										</p>
 										<pre className="mt-4 overflow-x-auto">
-											<code>{`npx @usecontextlayer/cli connection local assign ${result.connectionRequired}`}</code>
+											<code>{`npx @usecontextlayer/cli connections local assign ${result.connectionRequired}`}</code>
 										</pre>
 									</>
 								) : (

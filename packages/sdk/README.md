@@ -15,7 +15,7 @@ The CLI installs this package and configures local development. Open the local U
 
 ## Local login and assignment
 
-Declare resources in `public/slate.json` and `agents/<name>/slate.json`, following the [resource invariants](https://github.com/usecontextlayer/contextlayer/blob/main/ARCHITECTURE.md#resource-configuration-and-execution--principles). Use `npx @usecontextlayer/cli connections --help` and `npx @usecontextlayer/cli connection --help` for listing, connecting personal accounts, and assignment syntax. Local assignments are saved in ignored `.contextlayer/connections.json`.
+Declare resources in `public/slate.json` and `agents/<name>/slate.json`, following the [resource invariants](https://github.com/usecontextlayer/contextlayer/blob/main/ARCHITECTURE.md#resource-configuration-and-execution--principles). Use `npx @usecontextlayer/cli accounts --help` and `npx @usecontextlayer/cli connections --help` for listing, connecting personal accounts, and assignment syntax. Local assignments are saved in ignored `.contextlayer/connections.json`.
 
 For local tool calls, assign your personal connected accounts even when the hosted declaration uses `owner` mode or the slate belongs to an organization. Keep `.contextlayer/` ignored in Git. Local database state lives in `.contextlayer/databases`; local secret values come from environment variables with their declared names.
 
@@ -87,13 +87,13 @@ The example’s [server entry](examples/gmail/app/entry.server.tsx) is React Rou
 If you have no connected Gmail account yet, connect one:
 
 ```sh
-npx @usecontextlayer/cli connections add gmail
+npx @usecontextlayer/cli accounts add gmail
 ```
 
 Open the printed link to connect your Gmail account in your browser. Next, assign the connected account to this slate's `work-email` connection, then start development. If your Gmail account is already connected, begin with assignment:
 
 ```sh
-npx @usecontextlayer/cli connection local assign work-email
+npx @usecontextlayer/cli connections local assign work-email
 pnpm dev
 ```
 

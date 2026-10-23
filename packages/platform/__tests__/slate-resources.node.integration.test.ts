@@ -50,7 +50,7 @@ test("hosted resources report no commit through the API, CLI and chrome", async 
 	const cli = join(import.meta.dirname, "../../cli/dist/cli.mjs")
 	for (const args of [
 		["connections", slate.id, "list"],
-		["connection", slate.id, "assign", "mail", "test-account"],
+		["connections", slate.id, "assign", "mail", "test-account"],
 	]) {
 		await expect(
 			execFile(process.execPath, [cli, ...args], {
@@ -120,7 +120,7 @@ test("hosted configuration uses pushed declarations independently of developer-l
 				...cliEnv,
 			},
 		})
-	const listedAccounts = await command("connections", "list")
+	const listedAccounts = await command("accounts", "list")
 	expect(listedAccounts.stdout).toContain("ACTIVE")
 	expect(listedAccounts.stdout).not.toContain("EXPIRED")
 	const gitEnv = {

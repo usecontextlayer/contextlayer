@@ -45,7 +45,7 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
 								<code>pnpm dev</code>:
 							</p>
 							<pre className="mt-4 overflow-x-auto">
-								<code>{`npx @usecontextlayer/cli connection local assign ${unassignedConnection.data.slug}`}</code>
+								<code>{`npx @usecontextlayer/cli connections local assign ${unassignedConnection.data.slug}`}</code>
 							</pre>
 						</>
 					) : (

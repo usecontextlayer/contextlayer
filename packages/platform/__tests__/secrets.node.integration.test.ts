@@ -92,7 +92,7 @@ test("non-writing: CLI requires explicit stdin input and resolves organization m
 	expect(unknownOrg.all).toContain("Organization is not in your memberships")
 })
 
-test("non-writing: Owner connections enforce access and list through the real API and CLI", async ({
+test("non-writing: Owner accounts enforce access and list through the real API and CLI", async ({
 	identity,
 	organization,
 	platform,
@@ -127,10 +127,10 @@ test("non-writing: Owner connections enforce access and list through the real AP
 		}
 	}
 	for (const [url, args] of [
-		[personalUrl, ["connections", "list"]],
+		[personalUrl, ["accounts", "list"]],
 		[
 			`${origin}/api/connections/org/${encodeURIComponent(organization.id)}`,
-			["connections", "--org", slug, "list"],
+			["accounts", "--org", slug, "list"],
 		],
 	] as const) {
 		const response = await fetch(url, { headers })
@@ -141,7 +141,7 @@ test("non-writing: Owner connections enforce access and list through the real AP
 		if (connections.length === 0) expect(cli.all).toContain("No connected accounts.")
 		for (const account of connections) expect(cli.all).toContain(account.id)
 	}
-	const unknownOrg = await runCli(["connections", "--org", "not-a-member", "list"])
+	const unknownOrg = await runCli(["accounts", "--org", "not-a-member", "list"])
 	expect(unknownOrg.exitCode).toBe(1)
 	expect(unknownOrg.all).toContain("Organization is not in your memberships")
 	const { paths } = z
