@@ -1,8 +1,8 @@
 packages:
   - 'packages/*'
 
-# db-infra uses this postgres 3.4.9 patch to settle COPY errors and reject writes to a closed socket. Keep it identical to pggit's driver patch when updating either copy.
 patchedDependencies:
+  '@cloudflare/ci@0.2.0': patches/@cloudflare__ci@0.2.0.patch
   '@earendil-works/pi-env@1.3.0': patches/@earendil-works__pi-env@1.3.0.patch
   postgres: patches/postgres.patch
   wrangler@4.146.0: patches/wrangler@4.146.0.patch

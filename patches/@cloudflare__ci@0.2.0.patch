@@ -1,0 +1,89 @@
+diff --git a/src/ci/capabilities.ts b/src/ci/capabilities.ts
+index 9603fd2ff9548c4640fa202aa951ca4fc8256cb0..448d60ef6c59fc6b4b8218a8e17ded033e4f0919 100644
+--- a/src/ci/capabilities.ts
++++ b/src/ci/capabilities.ts
+@@ -161,6 +161,7 @@ async function executeStep(
+     source: prepared.checkout,
+     ttlSeconds: input.snapshotTtlSeconds ?? DEFAULT_SNAPSHOT_TTL_SECONDS,
+     extraEnv: prepared.extraEnv,
++    outboundByHost: input.outboundByHost,
+   };
+ 
+   const cache = prepared.cacheKey
+diff --git a/src/ci/runners/runner.ts b/src/ci/runners/runner.ts
+index aa6068d5ab399caf3f018e5c7c4a691da57931a7..cfaa7db2f3972aa056a0590e653d20405c8885ad 100644
+--- a/src/ci/runners/runner.ts
++++ b/src/ci/runners/runner.ts
+@@ -1,6 +1,7 @@
+ // Copyright (c) 2026 Cloudflare, Inc.
+ // SPDX-License-Identifier: Apache-2.0
+ 
++import type { Sandbox } from '@cloudflare/sandbox';
+ import type { SourceControlCheckout } from '../../source-control';
+ 
+ export type RunStepInput = {
+@@ -10,6 +11,7 @@ export type RunStepInput = {
+   timeoutMs?: number;
+   source: SourceControlCheckout;
+   extraEnv?: Record<string, string>;
++  outboundByHost?: Parameters<Sandbox['setOutboundByHosts']>[0];
+   // Snapshot TTL in seconds. Omitted falls back to the sandbox default (3 days).
+   ttlSeconds?: number;
+ };
+diff --git a/src/ci/runners/sandbox.ts b/src/ci/runners/sandbox.ts
+index 4fb4a42354cdc9fbc18c930b0f3396c7a979d036..5322fd74f931d850a685c3941894d9b75624db63 100644
+--- a/src/ci/runners/sandbox.ts
++++ b/src/ci/runners/sandbox.ts
+@@ -47,6 +47,9 @@ export class SandboxRunner implements Runner<DirectoryBackup> {
+ 
+     let cleanupTransferredToStreams = false;
+     try {
++      if (input.outboundByHost) {
++        await sandbox.setOutboundByHosts(input.outboundByHost);
++      }
+       // Containers without FUSE must restore through the local R2 binding and
+       // unsquashfs. RPC streams those archives instead of base64-encoding them
+       // into a single request, which can exceed the local dev request limit.
+diff --git a/src/pipeline/ci-workflow.ts b/src/pipeline/ci-workflow.ts
+index a0ac164d44c2caace0a209652d181b013a2138e9..403da8b2e32ce7780b37bef60e4386fa25e0cb43 100644
+--- a/src/pipeline/ci-workflow.ts
++++ b/src/pipeline/ci-workflow.ts
+@@ -159,6 +159,7 @@ export abstract class CIWorkflow<
+               sourceControlCredentials: options.sourceControlCredentials,
+               cachePaths: options.cache?.inputs,
+               env: options.env,
++              outboundByHost: options.outboundByHost,
+               secrets: options.secrets,
+             })
+           )
+diff --git a/src/pipeline/types.ts b/src/pipeline/types.ts
+index a1f5ff3aa8c30350300f3bd8d1f25cbc850aff65..388ff5d625a7de40d1565d17c8bdfc14bdd4d6e9 100644
+--- a/src/pipeline/types.ts
++++ b/src/pipeline/types.ts
+@@ -1,6 +1,8 @@
+ // Copyright (c) 2026 Cloudflare, Inc.
+ // SPDX-License-Identifier: Apache-2.0
+ 
++import type { Sandbox } from '@cloudflare/sandbox';
++
+ // Shared contract between the static CI workflow and its sandbox runner.
+ 
+ export type SourceControlProviderDefinition<
+@@ -108,6 +110,8 @@ export type RunnerConfig = StepConfig & {
+ };
+ 
+ export type CiRunStepInput = {
++  // Trusted per-run host handlers, including parameters supplied to the handler.
++  outboundByHost?: Parameters<Sandbox['setOutboundByHosts']>[0];
+   label: string;
+   command: string;
+   cwd?: string;
+@@ -151,6 +155,8 @@ export type CiRunStepOutput = {
+ };
+ 
+ export type RunnerOptions = {
++  // Applied before commands run; parameters stay in trusted Worker configuration.
++  outboundByHost?: CiRunStepInput['outboundByHost'];
+   // Names identify durable Workflow steps and must be deterministic.
+   name: string;
+   command: string;
