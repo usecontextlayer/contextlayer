@@ -53,30 +53,36 @@ The caller owns the content, form destination, validation and authorization flow
 
 ## A loader that reads Gmail
 
-Pass the connection slug from `public/slate.json` as the first argument to `tools.call`, followed by the tool name and its arguments:
+Pass the connection slug from `public/slate.json` as the first argument to `tools.call`, followed by the tool name and its arguments. Gmail is a live provider call on every page view. Return its promise inside the loader data so React Router can render the page shell while the inbox loads:
 
 ```ts
 import { toolsContext } from "@usecontextlayer/sdk"
 import type { LoaderFunctionArgs } from "react-router"
 
-export async function loader({ context }: LoaderFunctionArgs) {
-  return context.get(toolsContext).call("work-email", "GMAIL_FETCH_EMAILS", {
+export function loader({ context }: LoaderFunctionArgs) {
+  const inbox = context.get(toolsContext).call("work-email", "GMAIL_FETCH_EMAILS", {
     max_results: 5,
     label_ids: ["INBOX"],
     include_payload: false,
     verbose: false,
   })
+  return { inbox }
 }
 ```
 
-Calls return `{ data, logId }`. Validate the tool-specific `data` in your loader. The [Gmail route](examples/gmail/app/routes/home.tsx) validates the response with Zod and renders a message list. Its [declaration](examples/gmail/public/slate.json) declares `work-email` as viewer-mode Gmail. The example follows the same `app/routes/home.tsx` and `public/slate.json` layout as your checkout.
+Calls resolve to `{ data, logId }`. Validate the tool-specific `data` when the promise resolves, then render that promise with React Router’s `Await` inside React’s `Suspense`. Keep the page heading outside the boundary and put an inbox loading message in its fallback. Awaiting the call in the loader, or returning the call directly as the loader result, makes the whole page wait. This uses [React Router’s native streaming pattern](https://reactrouter.com/how-to/suspense); it does not cache results or shorten the provider call.
 
-From a newly generated checkout's root, copy both files from the installed SDK:
+The complete [Gmail route](examples/gmail/app/routes/home.tsx) validates the response with Zod, shows the loading state, and renders a message list through `Suspense` and `Await`. It also handles an unassigned connection as described below. Its [declaration](examples/gmail/public/slate.json) declares `work-email` as viewer-mode Gmail. The example follows the same `app/routes/home.tsx` and `public/slate.json` layout as your checkout.
+
+From a newly generated checkout's root, copy the example files from the installed SDK:
 
 ```sh
 cp node_modules/@usecontextlayer/sdk/examples/gmail/app/routes/home.tsx app/routes/home.tsx
+cp node_modules/@usecontextlayer/sdk/examples/gmail/app/entry.server.tsx app/entry.server.tsx
 cp node_modules/@usecontextlayer/sdk/examples/gmail/public/slate.json public/slate.json
 ```
+
+The example’s [server entry](examples/gmail/app/entry.server.tsx) is React Router’s standard web-stream entry with `streamTimeout` set to 30 seconds. The framework default is five seconds, which can reject a pending inbox before Gmail returns. If your app already has a server entry, adjust its `streamTimeout` and keep the render abort deadline longer than that timeout instead of replacing the file.
 
 If you have no connected Gmail account yet, connect one:
 
@@ -91,9 +97,9 @@ npx @usecontextlayer/cli connection local assign work-email
 pnpm dev
 ```
 
-Open the local URL printed by the development server to see your inbox. If development is already running, restart it after copying the declaration and assigning the connected account so startup reads the new configuration.
+Open the local URL printed by the development server. The page heading and “Loading your inbox…” appear first; the message list replaces the loading state when Gmail returns. If development is already running, restart it after copying the declaration and assigning the connected account so startup reads the new configuration.
 
-If the declared connection has no assignment yet, the generated app's error boundary shows guidance for the unassigned connection. Locally, follow its assignment command and restart `pnpm dev`. In a hosted slate, open the setup menu in the chrome's header, assign a connected account, and refresh the page. Private-slate membership is established automatically once personal setup is complete; see [membership and provisioning](https://github.com/usecontextlayer/contextlayer/blob/main/ARCHITECTURE.md#slate-forking-membership-and-resource-ownership).
+If the declared connection has no assignment yet, the Gmail example shows assignment guidance in the inbox area. A deferred promise rejection does not pass through React Router’s normal loader `Response` handling: rejecting it with the SDK’s HTTP 409 `Response` produces an unknown error. The example catches that response, validates it with `connectionRequiredSchema`, and resolves to setup data for `Await` to render. Other failures still throw and reach the route error boundary. Locally, follow the assignment command and restart `pnpm dev`. In a hosted slate, open the setup menu in the chrome’s header, assign a connected account, and refresh the page. Private-slate membership is established automatically once personal setup is complete; see [membership and provisioning](https://github.com/usecontextlayer/contextlayer/blob/main/ARCHITECTURE.md#slate-forking-membership-and-resource-ownership).
 
 ## Handling tool errors
 
