@@ -218,8 +218,10 @@ function planBump(version: string): BumpChange[] {
 	const before = fs.readFileSync(STARTER_MANIFEST_PATH, "utf8")
 	const starter = JSON.parse(before) as {
 		dependencies: { "@usecontextlayer/sdk": string }
+		devDependencies: { "@usecontextlayer/cli": string }
 	}
 	starter.dependencies["@usecontextlayer/sdk"] = version
+	starter.devDependencies["@usecontextlayer/cli"] = version
 	const after = stringifyNpmManifest(starter)
 	if (before !== after) {
 		changes.push({
@@ -296,14 +298,19 @@ function runVerify(target: string | undefined): void {
 		return
 	}
 	const all = collectNpmPackages()
-	const starter = readJson<{ dependencies: { "@usecontextlayer/sdk": string } }>(
-		STARTER_MANIFEST_PATH,
-	)
+	const starter = readJson<{
+		dependencies: { "@usecontextlayer/sdk": string }
+		devDependencies: { "@usecontextlayer/cli": string }
+	}>(STARTER_MANIFEST_PATH)
 	const versions = [
 		...all,
 		{
 			manifestPath: `${STARTER_MANIFEST_PATH} dependencies.@usecontextlayer/sdk`,
 			version: starter.dependencies["@usecontextlayer/sdk"],
+		},
+		{
+			manifestPath: `${STARTER_MANIFEST_PATH} devDependencies.@usecontextlayer/cli`,
+			version: starter.devDependencies["@usecontextlayer/cli"],
 		},
 	]
 	const offenders = findDrift(versions, (pkg) => pkg.version, target)
@@ -318,7 +325,7 @@ function runVerify(target: string | undefined): void {
 	}
 	const v = target ?? all[0]?.version ?? UNVERSIONED
 	console.log(
-		`All ${all.length} package versions and the starter SDK dependency at ${v}.`,
+		`All ${all.length} package versions and the starter SDK/CLI dependencies at ${v}.`,
 	)
 }
 

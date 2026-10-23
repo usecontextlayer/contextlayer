@@ -19,7 +19,7 @@ Declare resources in `public/slate.json` and `agents/<name>/slate.json`, followi
 
 For local tool calls, assign your personal connected accounts even when the hosted declaration uses `owner` mode or the slate belongs to an organization. Keep `.contextlayer/` ignored in Git. Local database state lives in `.contextlayer/databases`; local secret values come from environment variables with their declared names.
 
-When the app declares connections, Vite startup needs a matching CLI login and the generated Git origin to identify the slate. This also applies when running a local agent because that command starts Vite. Restart `pnpm dev` after changing declarations, assignments, secret values, or migrations, and when the startup access token expires. The [local resource architecture](https://github.com/usecontextlayer/contextlayer/blob/main/ARCHITECTURE.md#resource-configuration-and-execution--principles) describes preparation and credential boundaries.
+When the app declares connections, Vite startup needs a matching CLI login and the generated Git origin to identify the slate. This also applies when running a local agent because that command starts Vite. Restart `pnpm dev` after changing declarations, assignments, or secret values, and when the startup access token expires. Apply new migrations with the native Kysely CLI while development is running. The [local resource architecture](https://github.com/usecontextlayer/contextlayer/blob/main/ARCHITECTURE.md#resource-configuration-and-execution--principles) describes preparation and credential boundaries.
 
 ## App Layout
 
@@ -103,7 +103,7 @@ If the declared connection has no assignment yet, the Gmail example shows assign
 
 ## Handling tool errors
 
-For a custom error boundary, use React Router's `isRouteErrorResponse(error)` and the SDK's `connectionRequiredSchema.safeParse(error.data)` to recognize the HTTP 409 payload `{ reason: "connection-required", slug }`. Use `secretRequiredSchema.safeParse(error.data)` for `{ reason: "secret-required", name }` when a viewer-mode secret is missing. The generated root handles both responses. Direct hosted database queries throw these same native setup Responses, but Drizzle wraps query failures in its own error, so its helper currently produces a generic route error instead of this setup guidance. See the [execution boundary](https://github.com/usecontextlayer/contextlayer/blob/main/ARCHITECTURE.md#resource-configuration-and-execution--principles) for authorization and credential handling.
+For a custom error boundary, use React Router's `isRouteErrorResponse(error)` and the SDK's `connectionRequiredSchema.safeParse(error.data)` to recognize the HTTP 409 payload `{ reason: "connection-required", slug }`. Use `secretRequiredSchema.safeParse(error.data)` for `{ reason: "secret-required", name }` when a viewer-mode secret is missing. The generated root handles both responses. Hosted database queries throw these same native setup Responses. See the [execution boundary](https://github.com/usecontextlayer/contextlayer/blob/main/ARCHITECTURE.md#resource-configuration-and-execution--principles) for authorization and credential handling.
 
 ## Vite and Worker configuration
 
@@ -127,20 +127,39 @@ Keep the generated `workers/app.ts` wiring to `createSlateWorker` from `@usecont
 
 ## A loader that queries cached data
 
-Declare a database slug in `public/slate.json` and the same slug in `agents/<name>/slate.json` when both should share data, following the [resource invariants](https://github.com/usecontextlayer/contextlayer/blob/main/ARCHITECTURE.md#resource-configuration-and-execution--principles). Store its authored SQL migrations under `databases/<slug>/migrations`. Create the database’s Drizzle configuration and query schema under `databases/<slug>`; `pnpm db:migration --config databases/<slug>/drizzle.config.ts --name <change>` scaffolds a blank migration for you to write explicitly. Commit the SQL and native `meta/_journal.json` together. Update the TypeScript schema for query types alongside the migration; it does not create tables.
-
-The following query assumes you have declared and migrated an `updates` database and authored its query schema at `databases/updates/schema.ts`; these example files are not included in a new slate.
+Declare a database slug in `public/slate.json` and the same slug in `agents/<name>/slate.json` when both should share data, following the [resource invariants](https://github.com/usecontextlayer/contextlayer/blob/main/ARCHITECTURE.md#resource-configuration-and-execution--principles). Each database has a native config, migrations, and generated query types under `databases/<slug>`. The starter wires a shared `notes` database into its route.
 
 ```ts
 import { database, databasesContext } from "@usecontextlayer/sdk"
-import { eq } from "drizzle-orm"
 import type { LoaderFunctionArgs } from "react-router"
-import * as schema from "@/databases/updates/schema"
+import type { DB } from "@/databases/notes/types"
 
 export async function loader({ context }: LoaderFunctionArgs) {
-  const db = database(context.get(databasesContext), "updates", schema)
-  return db.select().from(schema.updates).where(eq(schema.updates.kind, "email"))
+  const db = database<DB>(context.get(databasesContext), "notes")
+  return db.selectFrom("notes").selectAll().orderBy("id", "desc").execute()
 }
 ```
 
-For direct SQL, use `context.get(databasesContext).query("updates", sql, params)`. Agents use `database_query` for persistent data. Restart local development after adding migrations, and push committed migrations to `main` for hosted provisioning. See [database ownership and provisioning](https://github.com/usecontextlayer/contextlayer/blob/main/ARCHITECTURE.md#slate-databases-and-authored-migrations) for the lifecycle and isolation rules.
+The helper returns a native Kysely instance with SQLite compilation. Use `.returning()` for mutation results; the SQL capability does not supply mutation counts or insert IDs. SQL transactions are unsupported by Durable Object storage. Direct SQL remains `context.get(databasesContext).query("notes", sql, params)`, and agents use `database_query`.
+
+A database's native config selects only its declared logical slug. ContextLayer supplies the local connection during development or the scoped connection inside the hosted sandbox:
+
+```ts
+import { databaseDialect } from "@usecontextlayer/sdk/database"
+import { defineConfig } from "kysely-ctl"
+
+export default defineConfig({
+  dialect: databaseDialect("notes"),
+  migrations: { migrationFolder: "./migrations" },
+})
+```
+
+With `pnpm dev` running, use the native CLI to create a migration, edit its `up(db)` and optional `down(db)`, then apply it. Type generation is a separate command:
+
+```sh
+pnpm exec kysely --config databases/notes/kysely.config.ts migrate make add_created_at
+pnpm exec kysely --config databases/notes/kysely.config.ts migrate latest
+pnpm db.codegen notes
+```
+
+Commit the authored migrations and generated `databases/notes/types.ts`; do not hand-maintain query types. Local startup also applies the local checkout’s migrations before queries. Local tools access only local storage. Push builds the selected commit, runs its migrations in an isolated sandbox, then deploys; new members use the same native CLI to initialize their database. Migration failure blocks deployment or provisioning, while earlier successful SQL statements may remain applied. See [database ownership and provisioning](https://github.com/usecontextlayer/contextlayer/blob/main/ARCHITECTURE.md#slate-databases-and-authored-migrations) for lifecycle and isolation.

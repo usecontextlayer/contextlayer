@@ -22,6 +22,6 @@
 		"lib/**/*",
 		"workers/**/*",
 		"worker-configuration.d.ts",
-		"databases/**/schema.ts"
+		"databases/**/types.ts"
 	]
 }
