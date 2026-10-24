@@ -1,6 +1,7 @@
 import fs from "node:fs"
-import { createRequire } from "node:module"
+import { createRequire, findPackageJSON } from "node:module"
 import path from "node:path"
+import { pathToFileURL } from "node:url"
 import { __unstable__loadDesignSystem } from "@tailwindcss/node"
 import { Scanner } from "@tailwindcss/oxide"
 import Parser from "tree-sitter"
@@ -106,6 +107,9 @@ function findStylesheets(): { packageDir: string; stylesheetPath: string }[] {
 			exclude: ["**/node_modules/**", "**/dist/**", "**/build/**", "**/.*/**"],
 		})) {
 			const stylesheetPath = path.join(packageDir, file)
+			if (findPackageJSON(pathToFileURL(stylesheetPath)) !== path.resolve(manifestPath)) {
+				continue
+			}
 			const css = fs.readFileSync(stylesheetPath, "utf8").replace(/\/\*[\s\S]*?\*\//g, "")
 			if (TAILWIND_IMPORT.test(css)) {
 				stylesheets.push({ packageDir, stylesheetPath })
