@@ -13,7 +13,6 @@ function Chrome() {
 			`${chromePath}/slates/${encodeURIComponent(target)}`,
 			browserEnv.CTX_PLATFORM_URL,
 		)
-		url.searchParams.set("parentOrigin", window.location.origin)
 		function resize(event: MessageEvent) {
 			if (event.origin !== url.origin || event.source !== frame.current?.contentWindow)
 				return
