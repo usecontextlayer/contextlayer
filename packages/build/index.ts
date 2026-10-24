@@ -67,8 +67,10 @@ export class Build extends CIWorkflow<CloudflareArtifacts, BuildBindings> {
 			command: "pnpm install --frozen-lockfile && pnpm build",
 			name: "build",
 		})
-		await step.do("migrate slate databases", { timeout: "1 hour" }, () =>
-			this.env.PROVISIONING.migrate(prepared, build.snapshot),
+		await step.do(
+			"migrate slate databases",
+			{ retries: { delay: "1 second", limit: 0 }, timeout: "1 hour" },
+			() => this.env.PROVISIONING.migrate(prepared, build.snapshot),
 		)
 		await build.runner({
 			cloudflareCredentials: true,

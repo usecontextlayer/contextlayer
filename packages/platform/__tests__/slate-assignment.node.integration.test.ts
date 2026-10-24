@@ -1,7 +1,8 @@
 import assert from "node:assert/strict"
 import { mkdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
-import { test } from "@tests/integration"
+import { writeDatabase, writeDatabaseProject } from "@tests/database-project"
+import { provisioningTest as test } from "@tests/integration"
 import { connectionsSchema } from "@usecontextlayer/shared/connections"
 import { slateResourcesSchema } from "@usecontextlayer/shared/slate-resources"
 import { getAgentByName } from "agents/routing"
@@ -70,7 +71,8 @@ test("chrome and API final assignments enable agent-only personal resources with
 			join(checkout, "agents/daily/schedules/daily.md"),
 			'---\ncron: "0 0 1 1 *"\n---\nWrite a personal update.\n',
 		)
-		// # TODO: Kysely branch agent: after rebasing onto the merged papercuts branch, supply inbox database migrations and make this scenario pass before merging. Preserve the existing assertions; database setup is intentionally incomplete.
+		await writeDatabaseProject(checkout)
+		await writeDatabase(checkout, "inbox")
 		const execute = execa({
 			cwd: checkout,
 			env: {
@@ -87,7 +89,7 @@ test("chrome and API final assignments enable agent-only personal resources with
 		await git("config", "user.name", "Assignment test")
 		await git("config", "user.email", "assignment-test@example.com")
 		await git("remote", "add", "origin", `${platform.origin}/git/${slate.id}`)
-		await git("add", "public", "agents", "databases")
+		await git("add", ".")
 		await git("-c", "commit.gpgsign=false", "commit", "-m", "Declare agent-only setup")
 		await git("push", "origin", "main")
 		const partial = await fetch(

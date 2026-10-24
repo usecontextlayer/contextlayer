@@ -16,19 +16,22 @@ import { slateSchema } from "@/slates.schema"
 
 const execFile = promisify(execFileCallback)
 
-const test = base.extend("workers", ({ databases }): Workers => [
-	{
-		configPath: new URL("../wrangler.jsonc", import.meta.url),
-		env: "test",
-		prebuiltWorkerDir: new URL("../build/server", import.meta.url),
-		secrets: { CTX_PLATFORM_DATABASE_URL: databases.urls.ctx_platform_test },
-	},
-	{
-		configPath: new URL("../../build/wrangler.jsonc", import.meta.url),
-		env: "test",
-		prebuiltWorkerDir: new URL("../../build/dist", import.meta.url),
-	},
-])
+const test = base.extend(
+	"workers",
+	({ databases }): Workers => [
+		{
+			configPath: new URL("../wrangler.jsonc", import.meta.url),
+			env: "test",
+			prebuiltWorkerDir: new URL("../build/server", import.meta.url),
+			secrets: { CTX_PLATFORM_DATABASE_URL: databases.urls.ctx_platform_test },
+		},
+		{
+			configPath: new URL("../../build/wrangler.jsonc", import.meta.url),
+			env: "test",
+			prebuiltWorkerDir: new URL("../../build/dist", import.meta.url),
+		},
+	],
+)
 
 test("native sandbox CLI migrates its selected database and preserves native failure semantics", async ({
 	db,
