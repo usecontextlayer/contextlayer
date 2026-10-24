@@ -200,7 +200,7 @@ Run these commands from the repository root. Connected suites need the [connecte
 pnpm exec turbo run build --filter=@usecontextlayer/platform --filter=@usecontextlayer/cli --filter=@usecontextlayer/dispatcher
 ```
 
-Shared fixtures acquire Doppler-backed service prerequisites only when selected; command settings come from the checkout record. Invoke test commands directly without a `doppler run` wrapper. Authored-slate test builds must run Vite with `NODE_ENV=production` in the build subprocess. Fixtures select the native web session and sign it out, read the saved CLI identity and baseline organization membership, and share service configuration. Tests select an isolated platform database, platform Worker, dispatcher Worker, build Worker and temporary directory as needed; the CLI environment targets the selected platform Worker. The Free-enrollment suite selects the running development database and platform instead. Hosted-agent suites are under [hosted agent integration suites](#hosted-agent-integration-suites).
+Shared fixtures acquire Doppler-backed service prerequisites only when selected; command settings come from the checkout record. Invoke test commands directly without a `doppler run` wrapper. Authored-slate test builds must run Vite with `NODE_ENV=production` in the build subprocess. Hosted-agent suites are under [hosted agent integration suites](#hosted-agent-integration-suites).
 
 ### Slate creation and ownership verification
 

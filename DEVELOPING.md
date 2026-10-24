@@ -67,7 +67,7 @@ After initialization, `dev:ctx`, `dev:env`, and connected fixtures read the comp
 `dev:env` writes shell assignments to stdout and leaves command banners and diagnostics on stderr. Use its output directly with `eval`, without `--silent`, in a subshell so the parent shell stays unchanged:
 
 ```sh
-(eval "$(pnpm dev:env)" && python my-script.py)
+(ctx_env=$(pnpm dev:env) && eval "$ctx_env" && python my-script.py)
 ```
 
 Wrangler’s native `secrets.required` list imports process configuration into Worker bindings; do not maintain a `.dev.vars` copy. `CTX_SLATES_DOMAIN` defaults to `contextlayer.xyz`. The default `ARTIFACTS` and `SLATES` bindings select `contextlayer-prod`; connected startup and integration harnesses select native `test` bindings using remote `contextlayer-test` repositories and user Workers.
@@ -77,7 +77,7 @@ The platform package's `dev:watch` uses Cloudflare Vite with the source entrypoi
 Apply `008_polar_customer_state_refreshed_at` before starting platform against an existing database in each environment. It replaces `event_timestamp` with non-null, database-stamped `refreshed_at`, including for existing rows. Production migrations run separately from Worker deployment. Connected startup migrates without regenerating source. To migrate and regenerate Kanel types against the same selected platform database, use the initialized command environment:
 
 ```sh
-(eval "$(pnpm dev:env)" && pnpm exec turbo run db.latest --filter=@usecontextlayer/platform)
+(ctx_env=$(pnpm dev:env) && eval "$ctx_env" && pnpm exec turbo run db.latest --filter=@usecontextlayer/platform)
 ```
 
 The migration command reads `CTX_PLATFORM_DATABASE_URL` and passes that URL to Kanel as its child-process `DATABASE_URL`. A bare `doppler run -p platform -c dev -- …` selects Doppler's database URL, which need not match the one startup recorded.
@@ -112,13 +112,13 @@ pnpm -C <path-to-this-checkout> dev:ctx connections local assign <slug> <connect
 From inside the slate checkout, start its own dev server inside a `dev:env` subshell so its Vite startup finds the stack's issuer, client and login:
 
 ```sh
-(eval "$(pnpm -C /path/to/contextlayer-checkout dev:env)" && pnpm dev)
+(ctx_env=$(pnpm -C /path/to/contextlayer-checkout dev:env) && eval "$ctx_env" && pnpm dev)
 ```
 
 For Git source verification, push from inside the slate checkout with the connected environment so Git's credential helper uses the local issuer, client and saved login. Commit any edits you want to include before pushing. This stores source in `contextlayer-test`; it does not trigger a Cloudflare build or deployment:
 
 ```sh
-(eval "$(pnpm -C /path/to/contextlayer-checkout dev:env)" && git push origin HEAD:main)
+(ctx_env=$(pnpm -C /path/to/contextlayer-checkout dev:env) && eval "$ctx_env" && git push origin HEAD:main)
 ```
 
 `/api/openapi.json` describes creation, listing, hostname resolution, and visibility updates.
