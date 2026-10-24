@@ -1,12 +1,14 @@
 import type { ComputerConformance } from "@tests/computer/worker"
-import { expect, onTestFinished, test } from "vitest"
-import { createTestHarness } from "wrangler"
+import { test as base } from "@tests/workers"
+import { expect } from "vitest"
 
-test("the attached Linux computer satisfies Pi's ExecutionEnv contract", async () => {
-	const harness = createTestHarness({
-		workers: [{ configPath: new URL("./computer/wrangler.jsonc", import.meta.url) }],
-	})
-	onTestFinished(() => harness.close())
+const test = base.extend("workers", [
+	{ configPath: new URL("./computer/wrangler.jsonc", import.meta.url) },
+])
+
+test("the attached Linux computer satisfies Pi's ExecutionEnv contract", async ({
+	harness,
+}) => {
 	await harness.listen()
 	const worker = harness.getWorker<{
 		COMPUTERS: DurableObjectNamespace<ComputerConformance>

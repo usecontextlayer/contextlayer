@@ -1,6 +1,6 @@
+import { test as base } from "@tests/workers"
 import { provisionEphemeralDatabases } from "@usecontextlayer/dev-env/database"
 import { readDevelopmentEnv } from "@usecontextlayer/dev-env/env"
-import { test as base } from "vitest"
 import { createPlatformDb } from "@/database"
 import { migrateToLatest } from "@/database/migrate"
 

@@ -13,7 +13,7 @@ import { DEVELOPMENT_ORGANIZATION_SLUG } from "@usecontextlayer/dev-env/env"
 import { readDevelopmentPorts } from "@usecontextlayer/dev-env/ports"
 import { signInWeb } from "@usecontextlayer/dev-env/web"
 import type { HostedExecution } from "@usecontextlayer/shared/tools-worker"
-import { createTestHarness, type TestHarnessOptions } from "wrangler"
+import type { TestHarnessOptions } from "wrangler"
 import type { PlatformEnv } from "@/context"
 import { createPlatformDb } from "@/database"
 import { parsePlatformEnv } from "@/env"
@@ -88,9 +88,7 @@ export const test = base
 			secrets: platformEnv,
 		},
 	])
-	.extend("platform", async ({ platformEnv: env, workers }, { onCleanup }) => {
-		const harness = createTestHarness({ workers })
-		onCleanup(() => harness.close())
+	.extend("platform", async ({ platformEnv: env, workers, harness }) => {
 		const origin = (await harness.listen()).url.origin
 		if (
 			workers.some(
