@@ -1,0 +1,11 @@
+$schema: https://api.gitbook.com/gitbook-docs.yaml
+site:
+  title: ContextLayer Docs
+  structure:
+    - type: space
+      key: space-product-docs
+      title: Product Docs
+      path: docs
+      default: true
+      content:
+        directory: ./docs
