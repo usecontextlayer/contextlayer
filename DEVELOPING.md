@@ -96,17 +96,17 @@ pnpm dev:ctx login
 pnpm dev:ctx init ../my-slate
 ```
 
-`dev:ctx` runs the built CLI with the stack's issuer, client, platform URL and checkout-local login, so the slate is registered in the local platform and appears at `/dashboard/personal/slates` immediately. Approve the device code in the browser session signed in as the baseline user, as described under [Connected development](#connected-development). See `ctx init --help` for organization selection. Run `pnpm exec turbo run dev:watch --filter=@usecontextlayer/cli` to rebuild the CLI as its source changes.
+`dev:ctx` runs the built CLI with the stack's issuer, client, platform URL and checkout-local login, so the slate is registered in the local platform and appears at `/dashboard/personal/slates` immediately. Approve the device code in the browser session signed in as the baseline user, as described under [Connected development](#connected-development). See `ctx init --help` for organization selection. Run `pnpm exec turbo run dev:watch --filter=@usecontextlayer/cli` to rebuild the CLI and starter as their source changes. Initialize a fresh slate to verify starter edits; rebuilding does not update an existing slate's files.
 
-Create slates outside this repository. Create Cloudflare reuses an enclosing Git repository instead of initializing a nested one, so a slate inside this repo would have no Git root or origin of its own. The pnpm executable must also work from the generated checkout; a machine-wide mise default supplies it outside repo-local tool configuration, without `mise exec` or a CLI workaround.
+Create slates outside this repository so they have an independent Git root and package-manager workspace. The pnpm executable must also work from the generated checkout; a machine-wide mise default supplies it outside repo-local tool configuration, without `mise exec` or a CLI workaround.
 
-`ctx init <directory>` uses the official Cloudflare React Router scaffold through `pnpm create cloudflare@latest`, accepting defaults, initializing Git, and disabling deployment. The generated checkout owns its `pnpm dev` and `pnpm build` commands. Initialization requires the saved login and Git author identity before scaffolding or slate creation; the slate starts on `main` and nothing is pushed. Missing or rejected login receives the shared `ctx login` guidance; Git's own error output supplies missing-identity configuration instructions. Relative directories resolve from the calling directory. The version comes from `packages/cli/package.json`.
+Before starting the slate to verify unpublished CLI or SDK changes, follow [Verifying unpublished CLI and SDK in a slate checkout](#verifying-unpublished-cli-and-sdk-in-a-slate-checkout) to install matching local packages.
 
 Commands that act on the slate checkout, such as a local connection assignment or a local agent run, read the current directory. Run them from inside the checkout through this checkout's `dev:ctx`, which keeps the directory pnpm was invoked from:
 
 ```sh
 cd ../my-slate
-pnpm -C <path-to-this-checkout> dev:ctx connection local assign <slug> <connection_id>
+pnpm -C <path-to-this-checkout> dev:ctx connections local assign <slug> <connection_id>
 ```
 
 From inside the slate checkout, start its own dev server inside a `dev:env` subshell so its Vite startup finds the stack's issuer, client and login:
@@ -115,7 +115,7 @@ From inside the slate checkout, start its own dev server inside a `dev:env` subs
 (eval "$(pnpm -C /path/to/contextlayer-checkout dev:env)" && pnpm dev)
 ```
 
-For Git source verification, commit the generated checkout’s changes, then push from inside the slate checkout with the connected environment so Git's credential helper uses the local issuer, client and saved login. This stores source in `contextlayer-test`; it does not trigger a Cloudflare build or deployment:
+For Git source verification, push from inside the slate checkout with the connected environment so Git's credential helper uses the local issuer, client and saved login. Commit any edits you want to include before pushing. This stores source in `contextlayer-test`; it does not trigger a Cloudflare build or deployment:
 
 ```sh
 (eval "$(pnpm -C /path/to/contextlayer-checkout dev:env)" && git push origin HEAD:main)
@@ -139,10 +139,12 @@ Run the connected stack from the worktree as from any checkout. It selects its o
 
 ## Verifying unpublished CLI and SDK in a slate checkout
 
-To verify unpublished CLI or SDK source, build both packages, run `pnpm pack` in `packages/cli` and `packages/sdk`, and install both tarballs in a slate created outside this repository:
+`dev:ctx` runs this workspace's CLI, but the slate's Vite integration loads its installed SDK and CLI packages. `dev:env` supplies connection settings; it does not select package source. To verify unpublished CLI or SDK changes, build and pack both packages from the repository root, then install the resulting tarballs in the slate:
 
 ```sh
 pnpm exec turbo run build --filter=@usecontextlayer/cli --filter=@usecontextlayer/sdk
+(cd packages/cli && pnpm pack)
+(cd packages/sdk && pnpm pack)
 cd ../my-slate
 pnpm add /absolute/path/to/usecontextlayer-cli-<version>.tgz /absolute/path/to/usecontextlayer-sdk-<version>.tgz
 ```
@@ -158,7 +160,7 @@ This belongs only in the temporary unpublished-package setup; published matching
 
 ## Local slate resources
 
-Local CLI configuration uses only the current checkout's `public/slate.json` and `agents/{name}/slate.json`, ignored `.contextlayer/connections.json` assignments, exact-name secret environment variables, and native database configuration and committed migrations. Listing does not require Git metadata, a login, a running development server, or a platform request. The CLI adds `/.contextlayer/` to the slate's `.gitignore` while preserving existing content. Local SQLite-backed Durable Objects persist in `.contextlayer/databases`. Use the commands' `--help` for connecting and assigning accounts. For a live smoke check, call a read-only tool or query through an authored route and verify its observable response. React Router index actions require the native `?index` query parameter on direct POST requests, as framework Form submissions supply.
+Local CLI configuration uses only the current checkout's `public/slate.json` and `agents/{name}/slate.json`, ignored `.contextlayer/connections.json` assignments, exact-name secret environment variables, and native database configuration and committed migrations. Listing does not require Git metadata, a login, a running development server, or a platform request. Local SQLite-backed Durable Objects persist in `.contextlayer/databases`. Use the commands' `--help` for connecting and assigning accounts. For a live smoke check, call a read-only tool or query through an authored route and verify its observable response. React Router index actions require the native `?index` query parameter on direct POST requests, as framework Form submissions supply.
 
 Run the generated checkout's `pnpm dev` command for local resources. Development-startup inputs require restarting pnpm dev after declaration/configuration changes.
 
@@ -172,9 +174,7 @@ See [Authored agents](ARCHITECTURE.md#authored-agents) for local instruction com
 
 ## Authored database development
 
-`ctx init` installs native Drizzle ORM/Kit and supplies the SQL-first `db:migration` script, template instructions and `databases/updates` example. Keep each database’s configuration, query schema and native migration output under `databases/<slug>`. Declare its slug/mode in the app or agent declaration. Run `pnpm db:migration --config databases/<slug>/drizzle.config.ts --name <change>`, write the blank SQL explicitly, and update `schema.ts` for query types. Commit SQL and the native `meta/_journal.json` together. Never run schema-diff generation or `drizzle-kit push`. Multiple statements use the native `--> statement-breakpoint` separator.
-
-Use the [SDK database example](packages/sdk/README.md#a-loader-that-queries-cached-data) from loaders and actions to verify the migrated schema through an authored route.
+Follow the [SDK database guide](packages/sdk/README.md#a-loader-that-queries-cached-data) to declare databases, author their migrations and query them through a loader or action.
 
 Restart local development to apply edited migration files. Push committed migrations through the normal slate deployment workflow for existing members; provisioning applies the latest committed history for new members when they join. See [Database provisioning and resource ownership](ARCHITECTURE.md#slate-forking-membership-and-resource-ownership) for provisioning and execution invariants.
 
@@ -220,7 +220,7 @@ Do not stop, restart or reset the shared Postgres instance. Reclaim only databas
 
 The root commands `test:integration:node`, `test:integration:browser`, and `test:integration:claude` select individual tiers. `test:integration` requests all three.
 
-Platform's integration suites, their prerequisites, their external writes and their run commands are documented in [platform integration suites](packages/platform/AGENTS.md#platform-integration-suites); fixture selection, Worker harness configuration and timeouts in [platform integration fixtures](packages/platform/AGENTS.md#platform-integration-fixtures).
+Platform's integration suites, their prerequisites, their external writes and their run commands are documented in [platform integration suites](packages/platform/AGENTS.md#platform-integration-suites); fixture ownership and resource lifetimes in [platform integration fixtures](packages/platform/AGENTS.md#platform-integration-fixtures).
 
 ## OAuth registration and migration
 
