@@ -35,7 +35,7 @@ export async function prepareLocalResourceConfiguration(
 ): Promise<LocalResourceConfiguration> {
 	const resources = await readLocalResources(directory)
 	const assignments = new Map(Object.entries(await readLocalConnections(directory)))
-	const configuration = localResourceConfigurationSchema.parse({
+	return localResourceConfigurationSchema.parse({
 		connections: Object.fromEntries(
 			Object.entries(resources.connections).map(([slug, requirement]) => [
 				slug,
@@ -55,9 +55,6 @@ export async function prepareLocalResourceConfiguration(
 			]),
 		),
 	})
-	await mkdir(resolve(directory, ".contextlayer"), { recursive: true })
-
-	return configuration
 }
 
 export async function saveLocalConnection(

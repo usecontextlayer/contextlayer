@@ -14,7 +14,6 @@ export const artifactsContext = createContext<Artifacts>()
 export const identityContext = createContext<OwnerIdentity | null>(null)
 export const configContext = createContext<PlatformConfig>()
 export const sandboxContext = createContext<PlatformEnv["Bindings"]["SANDBOX"]>()
-export const databasesContext = createContext<PlatformEnv["Bindings"]["DATABASES"]>()
 export const meridianContext = createContext<PlatformEnv["Bindings"]["MERIDIAN"]>()
 export const agentsContext = createContext<PlatformEnv["Bindings"]["AGENTS"]>()
 

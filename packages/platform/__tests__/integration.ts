@@ -136,18 +136,7 @@ export const dispatcherTest = test
 		),
 	}))
 
-export const executionTest = test
-	.extend("workers", ({ workers }): WorkerConfig[] => [
-		...workers,
-		{
-			configPath: new URL("./fixtures/execution/wrangler.jsonc", import.meta.url),
-		},
-	])
-	.extend("execution", ({ platform }) => ({
-		worker: platform.harness.getWorker("contextlayer-execution-caller-test"),
-	}))
-
-export const provisioningTest = executionTest
+export const provisioningTest = test
 	.extend("workers", ({ workers }): WorkerConfig[] => [
 		...workers,
 		{
@@ -161,4 +150,15 @@ export const provisioningTest = executionTest
 		worker: platform.harness.getWorker<{ PROVISIONING: Service<Provisioning> }>(
 			"contextlayer-build-test",
 		),
+	}))
+
+export const executionTest = provisioningTest
+	.extend("workers", ({ workers }): WorkerConfig[] => [
+		...workers,
+		{
+			configPath: new URL("./fixtures/execution/wrangler.jsonc", import.meta.url),
+		},
+	])
+	.extend("execution", ({ platform }) => ({
+		worker: platform.harness.getWorker("contextlayer-execution-caller-test"),
 	}))

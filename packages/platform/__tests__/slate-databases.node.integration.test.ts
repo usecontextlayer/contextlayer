@@ -4,7 +4,7 @@ import { mkdir, readdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { promisify } from "node:util"
 import { writeDatabase, writeDatabaseProject } from "@tests/database-project"
-import { provisioningTest as test } from "@tests/integration"
+import { executionTest as test } from "@tests/integration"
 import { DEVELOPMENT_ORGANIZATION_SLUG } from "@usecontextlayer/dev-env/env"
 import { signInViewer } from "@usecontextlayer/dev-env/viewer"
 import {

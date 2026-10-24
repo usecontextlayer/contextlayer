@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { createHash } from "node:crypto"
-import { writeFile } from "node:fs/promises"
-import { resolve } from "node:path"
+import { mkdir, writeFile } from "node:fs/promises"
+import { dirname, resolve } from "node:path"
 import { type Databases, databaseResultSchema } from "@usecontextlayer/shared/databases"
 import { resourcesForConsumer } from "@usecontextlayer/shared/declaration"
 import type { LocalResourceConfiguration } from "@usecontextlayer/shared/slate-resources"
@@ -63,12 +63,13 @@ export async function openLocalDatabases(
 	workerName: string,
 	databases: LocalResourceConfiguration["databases"],
 ): Promise<{ databases: Databases; dispose: PlatformProxy["dispose"] }> {
-	const configPath = resolve(".contextlayer/agent-database-proxy.json")
+	const configPath = resolve(".contextlayer/database-proxy.json")
+	await mkdir(dirname(configPath), { recursive: true })
 	await writeFile(
 		configPath,
 		JSON.stringify({
 			compatibility_date: "2026-10-02",
-			name: `${workerName}-agent-proxy`,
+			name: `${workerName}-database-proxy`,
 			services: [
 				{
 					binding: "DATABASES",

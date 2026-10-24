@@ -13,7 +13,6 @@ import {
 	artifactsContext,
 	configContext,
 	databaseContext,
-	databasesContext,
 	identityContext,
 	meridianContext,
 	sandboxContext,
@@ -66,7 +65,6 @@ export default await createHonoServer<OwnerIdentityEnv>({
 		context.set(identityContext, c.var.identity ?? null)
 		context.set(configContext, c.var.config)
 		context.set(sandboxContext, c.env.SANDBOX)
-		context.set(databasesContext, c.env.DATABASES)
 		context.set(meridianContext, c.env.MERIDIAN)
 		context.set(agentsContext, c.env.AGENTS)
 		return context

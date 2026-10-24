@@ -19,7 +19,6 @@
 		"@usecontextlayer/shared": "workspace:*",
 		"commander": "^15.0.0",
 		"execa": "^10.0.1",
-		"kysely-ctl": "0.22.0",
 		"openid-client": "^6.8.8",
 		"tsdown": "latest",
 		"zod": "^4.4.3"

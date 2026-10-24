@@ -1,15 +1,3 @@
-diff --git a/src/ci/capabilities.ts b/src/ci/capabilities.ts
-index 9603fd2ff9548c4640fa202aa951ca4fc8256cb0..448d60ef6c59fc6b4b8218a8e17ded033e4f0919 100644
---- a/src/ci/capabilities.ts
-+++ b/src/ci/capabilities.ts
-@@ -161,6 +161,7 @@ async function executeStep(
-     source: prepared.checkout,
-     ttlSeconds: input.snapshotTtlSeconds ?? DEFAULT_SNAPSHOT_TTL_SECONDS,
-     extraEnv: prepared.extraEnv,
-+    outboundByHost: input.outboundByHost,
-   };
- 
-   const cache = prepared.cacheKey
 diff --git a/src/ci/runners/runner.ts b/src/ci/runners/runner.ts
 index aa6068d5ab399caf3f018e5c7c4a691da57931a7..00ced22304dd823fb8dee429675a493a396aa775 100644
 --- a/src/ci/runners/runner.ts
@@ -83,49 +71,6 @@ index 4fb4a42354cdc9fbc18c930b0f3396c7a979d036..5cf2c40fc5b03c7679b7217ea7b2217f
        const rawLogs = await readLogs(sandbox);
        const streams = [rawLogs.stdout, rawLogs.stderr].filter(
          (value): value is ReadableStream<Uint8Array> =>
-diff --git a/src/pipeline/ci-workflow.ts b/src/pipeline/ci-workflow.ts
-index a0ac164d44c2caace0a209652d181b013a2138e9..403da8b2e32ce7780b37bef60e4386fa25e0cb43 100644
---- a/src/pipeline/ci-workflow.ts
-+++ b/src/pipeline/ci-workflow.ts
-@@ -159,6 +159,7 @@ export abstract class CIWorkflow<
-               sourceControlCredentials: options.sourceControlCredentials,
-               cachePaths: options.cache?.inputs,
-               env: options.env,
-+              outboundByHost: options.outboundByHost,
-               secrets: options.secrets,
-             })
-           )
-diff --git a/src/pipeline/types.ts b/src/pipeline/types.ts
-index a1f5ff3aa8c30350300f3bd8d1f25cbc850aff65..388ff5d625a7de40d1565d17c8bdfc14bdd4d6e9 100644
---- a/src/pipeline/types.ts
-+++ b/src/pipeline/types.ts
-@@ -1,6 +1,8 @@
- // Copyright (c) 2026 Cloudflare, Inc.
- // SPDX-License-Identifier: Apache-2.0
- 
-+import type { Sandbox } from '@cloudflare/sandbox';
-+
- // Shared contract between the static CI workflow and its sandbox runner.
- 
- export type SourceControlProviderDefinition<
-@@ -108,6 +110,8 @@ export type RunnerConfig = StepConfig & {
- };
- 
- export type CiRunStepInput = {
-+  // Trusted per-run host handlers, including parameters supplied to the handler.
-+  outboundByHost?: Parameters<Sandbox['setOutboundByHosts']>[0];
-   label: string;
-   command: string;
-   cwd?: string;
-@@ -151,6 +155,8 @@ export type CiRunStepOutput = {
- };
- 
- export type RunnerOptions = {
-+  // Applied before commands run; parameters stay in trusted Worker configuration.
-+  outboundByHost?: CiRunStepInput['outboundByHost'];
-   // Names identify durable Workflow steps and must be deterministic.
-   name: string;
-   command: string;
 diff --git a/src/source-control.ts b/src/source-control.ts
 index 83946a318ec5493d258581f33babf8ed43a9e909..debe4bfe725aad68aec49bae999bc6a86efe5921 100644
 --- a/src/source-control.ts
