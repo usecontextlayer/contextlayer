@@ -56,8 +56,7 @@
 		}
 	},
 	"files": [
-		"dist",
-		"examples"
+		"dist"
 	],
 	"license": "MIT",
 	"name": "@usecontextlayer/sdk",

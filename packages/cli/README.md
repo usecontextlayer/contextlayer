@@ -19,7 +19,7 @@ Approve login in your browser. Initialization uses the complete starter bundled 
 
 The checkout's README explains local development, connections, and deployment. The [SDK guide](https://www.npmjs.com/package/@usecontextlayer/sdk) describes loaders, tools, and the shared app layout.
 
-Connect an account to ContextLayer in your browser, then assign the connected account to a connection declared by your slate. Already connected accounts can go directly to assignment. The SDK's Gmail recipe includes this full sequence.
+Connect an account to ContextLayer in your browser, then assign the connected account to a connection declared by your slate. Already connected accounts can go directly to assignment.
 
 Command syntax and options live in the CLI's help:
 

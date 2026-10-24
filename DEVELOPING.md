@@ -166,7 +166,7 @@ Local CLI configuration uses only the current checkout's `public/slate.json` and
 
 Run the generated checkout's `pnpm dev` command for local resources. Development-startup inputs require restarting pnpm dev after declaration/configuration changes.
 
-[The SDK README](packages/sdk/README.md) documents the loader API and Gmail example. [Architecture](ARCHITECTURE.md#key-contract-slate-resource-requirements) owns the connection-slug contract and runtime boundaries. To verify unpublished source, follow [Verifying unpublished CLI and SDK in a slate checkout](#verifying-unpublished-cli-and-sdk-in-a-slate-checkout).
+[The SDK README](packages/sdk/README.md) documents the loader API and connected-service setup. [Architecture](ARCHITECTURE.md#key-contract-slate-resource-requirements) owns the connection-slug contract and runtime boundaries. To verify unpublished source, follow [Verifying unpublished CLI and SDK in a slate checkout](#verifying-unpublished-cli-and-sdk-in-a-slate-checkout).
 
 ## Running an agent locally
 

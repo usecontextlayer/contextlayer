@@ -90,7 +90,7 @@ export async function loader({ context }: LoaderFunctionArgs) {
 }
 ```
 
-The [Gmail walkthrough](packages/sdk/README.md#a-loader-that-reads-gmail) includes account setup, response validation, and a working inbox screen. The [database example](packages/sdk/README.md#a-loader-that-queries-cached-data) shows how to query stored records with Kysely. Locally, you use your own connected accounts and local database state; hosted assignments are configured separately.
+The [SDK guide](packages/sdk/README.md#call-connected-services) explains calling connected services. The [database example](packages/sdk/README.md#a-loader-that-queries-cached-data) shows how to query stored records with Kysely. Locally, you use your own connected accounts and local database state; hosted assignments are configured separately.
 
 ## What else can a slate do?
 

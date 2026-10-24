@@ -23,7 +23,7 @@ npx @usecontextlayer/cli accounts --help
 npx @usecontextlayer/cli connections --help
 ```
 
-The installed SDK guide at `node_modules/@usecontextlayer/sdk/README.md` gives the complete Gmail sequence: copy its route and declaration, connect a Gmail account when needed, assign it to `work-email`, and start development. Local assignments are saved in ignored `.contextlayer/connections.json`. Restart `pnpm dev` after changing declarations or local assignments.
+Local assignments are saved in ignored `.contextlayer/connections.json`. Restart `pnpm dev` after changing declarations or local assignments.
 
 ## Store slate data
 
