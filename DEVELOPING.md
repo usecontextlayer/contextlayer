@@ -86,7 +86,7 @@ The local server prints its root URL; open `/dashboard/personal/slates` for the 
 
 ## Developing with a local slate
 
-A slate created against the connected stack is the vehicle for developing most of the system: web as the issuer and baseline user, platform for slate creation, the dashboard, connections, assignment and tool execution, the SDK installed in the slate, and the CLI for init, login and the Vite plugin that serves local resources. The hosted path is not reached this way: the build Worker, dispatcher serving a deployed slate, viewer auth on a hosted URL, and the chrome, which is disabled in local development. See [Build Worker](#build-worker) and [slate chrome verification](packages/platform/AGENTS.md#slate-chrome-verification) for those.
+A slate created against the connected stack is the vehicle for developing most of the system: web as the issuer and baseline user, platform for slate creation, the dashboard, connections, assignment and tool execution, the SDK installed in the slate, and the CLI for init, login and the Vite plugin that serves local resources. The ordinary development loop runs the slate's own dev server against this stack.
 
 With `pnpm dev` running, build the CLI, log in through the stack, and create the slate outside this repository:
 
@@ -109,13 +109,19 @@ cd ../my-slate
 pnpm -C <path-to-this-checkout> dev:ctx connection local assign <slug> <connection_id>
 ```
 
-Start the slate's own dev server inside a `dev:env` subshell so its Vite startup finds the stack's issuer, client and login:
+From inside the slate checkout, start its own dev server inside a `dev:env` subshell so its Vite startup finds the stack's issuer, client and login:
 
 ```sh
-(eval "$(pnpm dev:env)" && cd ../my-slate && pnpm dev)
+(eval "$(pnpm -C /path/to/contextlayer-checkout dev:env)" && pnpm dev)
 ```
 
-Commit the generated checkout’s changes, then push with `git push origin HEAD:main`. `/api/openapi.json` describes creation, listing, hostname resolution, and visibility updates.
+For Git source verification, commit the generated checkout’s changes, then push from inside the slate checkout with the connected environment so Git's credential helper uses the local issuer, client and saved login. This stores source in `contextlayer-test`; it does not trigger a Cloudflare build or deployment:
+
+```sh
+(eval "$(pnpm -C /path/to/contextlayer-checkout dev:env)" && git push origin HEAD:main)
+```
+
+`/api/openapi.json` describes creation, listing, hostname resolution, and visibility updates.
 
 The `ctx login` / `ctx whoami` flow requires web's OAuth device extension and a public CLI client linked to the platform resource; connected startup initializes that client. Only localhost/127.0.0.1 issuers permit HTTP in the CLI. Credentials are written to `auth.json` in the selected CLI config directory with owner-only permissions on creation. `ctx --help` prints the issuer, client, platform URL and config directory in use, and `ctx whoami` prints the identity those settings verify. `dev:ctx` keeps one login per checkout in `.contextlayer/cli`. Approve its device code as the intended web identity; for example, impersonate that user in web before approving. Interactive login remains a CLI command; connected tools pass the same directory setting through `@usecontextlayer/cli/auth`.
 
@@ -259,9 +265,11 @@ The [Twilio README](packages/twilio/README.md) owns its service configuration an
 
 Build and typecheck `packages/build` from the repository root with `pnpm exec turbo run build tsc --filter=@usecontextlayer/build`. Building the configured Sandbox image requires Docker. Deployment of the build Worker itself uses the shared repository-root workflow described under [Releases and deployment](#releases-and-deployment).
 
+Verify provisioning through the existing [test service-binding setup](packages/platform/AGENTS.md#remote-resources-for-integration-tests).
+
 The `contextlayer-build-backups` R2 bucket stores Cloudflare CI build snapshots. Manage bucket-scoped Object Read & Write credentials as `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY`, and the authored-slate Workers deployment API token as `CF_TOKEN`, centrally in Doppler `platform/prod`. Declare those three runtime secrets in the build Worker's native `secrets.required`; the shared deployment workflow supplies them through Wrangler without a `.dev.vars` copy. Platform must export the named `Provisioning` entrypoint before deploying the build Worker that calls it, and its production Artifacts namespace, dispatch namespace, and R2 bucket must exist before slate deployment runs.
 
-Push a checkout created by `ctx init` through the running platform’s Git endpoint. In the Cloudflare dashboard, open Workflows → `contextlayer-build` and inspect the new instance’s `build` step. Its command output and status show whether the pushed commit built; a successful result includes the Cloudflare CI build snapshot. Cloudflare account access is required to inspect these runs. Inspect both the `build` and `deploy` steps to confirm deployment. To update a scheduled agent, keep public/slate.json and every agents/<name>/slate.json valid, commit its schedules/<prompt>.md with canonical five-field UTC cron frontmatter and a Markdown user prompt, and push normally.
+For production slate deployments, push a checkout created against the production platform through that platform’s Git endpoint. Pushes to its `contextlayer-prod` Artifacts namespace trigger the deployed build workflow. In the Cloudflare dashboard, open Workflows → `contextlayer-build` and inspect the new instance’s `build` step. Its command output and status show whether the pushed commit built; a successful result includes the Cloudflare CI build snapshot. Cloudflare account access is required to inspect these runs. Inspect both the `build` and `deploy` steps to confirm deployment. To update a scheduled agent, keep public/slate.json and every agents/<name>/slate.json valid, commit its schedules/<prompt>.md with canonical five-field UTC cron frontmatter and a Markdown user prompt, and push normally.
 
 ## Dispatch Worker
 
