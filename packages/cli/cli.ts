@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { databaseSlugSchema } from "@usecontextlayer/shared/declaration"
 import { Argument, Command } from "commander"
@@ -304,13 +305,34 @@ secrets
 	})
 
 program
-	.command("db.codegen <slug>")
-	.description(
-		"Generate databases/<slug>/types.ts from the running local database; run from the slate root after applying migrations with pnpm exec kysely",
+	.command("db.codegen")
+	.argument(
+		"<slug>",
+		"Database declared in public/slate.json or agents/<name>/slate.json",
 	)
-	.action(async (slug) => {
+	.description("Generate databases/<slug>/types.ts from the migrated local database")
+	.addHelpText(
+		"after",
+		"\nRun from the slate root with pnpm dev running.\nApply migrations with pnpm exec kysely before generating types.\n\nExample:\n  pnpm db.codegen notes",
+	)
+	.action(async (slug, _options, command: Command) => {
 		const { generateDatabaseTypes } = await import("@/database-codegen")
-		await generateDatabaseTypes(databaseSlugSchema.parse(slug))
+		try {
+			await generateDatabaseTypes(databaseSlugSchema.parse(slug))
+		} catch (error) {
+			if (
+				error instanceof Error &&
+				"code" in error &&
+				error.code === "ENOENT" &&
+				"path" in error &&
+				error.path === resolve("public/slate.json")
+			) {
+				command.error(
+					`Missing ${error.path}. Run pnpm db.codegen from the slate root containing public/slate.json.`,
+				)
+			}
+			throw error
+		}
 	})
 
 await program.parseAsync()
