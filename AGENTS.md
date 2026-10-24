@@ -1,6 +1,6 @@
 # AGENTS
 
-Read [ARCHITECTURE.md](ARCHITECTURE.md) for package ownership and [the domain model](ARCHITECTURE.md#domain-model) for canonical terminology. This file owns construction rules; [DOCS.md](DOCS.md) identifies the owner of each kind of documentation.
+Read [ARCHITECTURE.md](ARCHITECTURE.md) for package ownership and [the domain model](ARCHITECTURE.md#domain-model) for canonical terminology. This file owns construction rules; [DOCS.md](DOCS.md) identifies the owner of each kind of documentation AND THE DOCUMENTATION STANDARDS.
 
 ## Never Write to Customer Data Without Per-Write Permission
 
