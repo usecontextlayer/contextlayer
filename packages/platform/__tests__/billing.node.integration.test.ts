@@ -77,7 +77,7 @@ test("Owner subscriptions gate execution while declaration access stays availabl
 					post({ arguments: {}, slate_id: slate.id, tool: "EXAMPLE", toolkit: "gmail" }),
 				)
 			).status,
-		).toBe(402)
+		).toBe(403)
 	}
 	const slateWithoutPolarCustomer = slateSchema.parse(
 		await db

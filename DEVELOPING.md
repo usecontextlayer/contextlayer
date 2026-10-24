@@ -202,7 +202,7 @@ For live connection assignment, use the intended CTX_PLATFORM_URL and the auth i
 
 ## Tests and local Postgres
 
-`pnpm test` runs the unit tier. `AGENTS.md` and `vitest.shared.ts` define the Node/browser runtimes and node/browser/Claude integration tiers. CI runs unit tests; integration tests are opt-in. Node unit suites run in cli, sdk, shared, dev-env, platform and mcp-microsoft-planner-premium; Node integration suites run in dev-env (Postgres) and platform (Cloudflare Artifacts, Polar sandbox and Postgres). Dispatcher behavior runs through platform’s native usage and MCP integrations.
+`pnpm test` runs the unit tier. `AGENTS.md` and `vitest.shared.ts` define the Node/browser runtimes and node/browser/Claude integration tiers. CI runs unit tests; integration tests are opt-in. Node unit suites run in cli, sdk, shared, dev-env, dispatcher, platform and mcp-microsoft-planner-premium; Node integration suites run in dev-env (Postgres) and platform (Cloudflare Artifacts, Polar sandbox and Postgres). Dispatcher browser-policy unit tests exercise the production Hono middleware; dispatch behavior runs through platform’s native usage and MCP integrations.
 
 Platform integration tests provision isolated databases on the server selected by `CTX_PLATFORM_DATABASE_URL`, defaulting to Compose Postgres on `127.0.0.1:6489`; see [Connected development](#connected-development) for address selection. Web's persistent development database on port 5489 is separate from the isolated platform SQL. Connected suites use the running web service and can create sessions, OAuth registrations and grants there; each suite’s paragraph records its writes and cleanup. If the shared Compose server is not running, start it once:
 

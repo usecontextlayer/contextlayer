@@ -4,6 +4,12 @@ Follow ARCHITECTURE.md's [domain model](../../ARCHITECTURE.md#domain-model) and 
 
 Keep the deployed `*.contextlayer.xyz/*` route on dispatcher and the platform origin at `https://platform.usecontextlayer.com` in `CTX_PLATFORM_URL`. Follow [DEVELOPING.md](../../DEVELOPING.md#dispatch-worker) for local and deployed configuration. Validate environment variables in `env.ts`. Forward the incoming Authorization header and existing `ctx-viewer-auth` cookie for ordinary browser resolution. Redirect 401 to auth's `/start` with `return_to`, and forward other failures. MCP uses the explicit bearer-only boundary below. Strip Authorization and the viewer cookie before invoking authored code. Do not duplicate platform's session verification, viewing policy, or membership checks.
 
+## Browser request and response policy
+
+Mount the shared Hono `browserSecurity` middleware after the MCP routes and before the browser wildcard. Accept requests with absent Fetch Metadata, `Sec-Fetch-Site: same-origin` or `none`, and top-level GET navigation (`Sec-Fetch-Mode: navigate`, `Sec-Fetch-Dest: document`). Reject other cross-origin requests with 403 before resolution, capabilities, authored execution or metering; sibling slate hosts are cross-origin even though they are same-site. Preserve ordinary navigation and its loader side effects. Vary responses on these three Fetch Metadata headers.
+
+Apply the trusted response policy to assets as well as documents. Append `frame-ancestors 'self'` as an additional CSP policy so authored restrictions remain effective. Remove every `Set-Cookie` whose exact cookie name is `ctx-viewer-auth`, regardless of Domain or Path, and preserve ordinary slate cookies. Hono owns response-header mutation; native `Headers.getSetCookie()` preserves separate cookie fields.
+
 ## Viewer capabilities
 
 After resolution succeeds, construct the shared `Tools` and `Databases` capabilities through Cloudflare's native loopback exports only when the request carries a viewer cookie. Bind the resolved SlateID and typed viewer-session credential in native props, and pass the RPC stubs through dynamic-dispatch `props.tools` and `props.databases`. Requests without that cookie receive empty props. Keep `cloudflare.d.ts`'s main-module declaration so the loopback exports remain typed.

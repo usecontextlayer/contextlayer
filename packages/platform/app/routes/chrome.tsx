@@ -57,11 +57,20 @@ import { listSlateResources } from "@/slate-resource-configuration.server"
 import { getSlateResources } from "@/slate-resource-execution.server"
 import { setSlateSecret } from "@/slate-secrets.server"
 import { slateTargetSchema } from "@/slates.schema"
-import { resolveSlateForViewing } from "@/slates.server"
+import { resolveSlate, resolveSlateForViewing } from "@/slates.server"
 
-export const headers: Route.HeadersFunction = ({ actionHeaders }) => {
+export const headers: Route.HeadersFunction = ({ loaderHeaders, actionHeaders }) => {
+	const policy = loaderHeaders.get("Content-Security-Policy")
+	if (policy) actionHeaders.set("Content-Security-Policy", policy)
 	actionHeaders.set("Cache-Control", "no-store")
 	return actionHeaders
+}
+
+function chromeHeaders(parentOrigin: string) {
+	return {
+		"Cache-Control": "no-store",
+		"Content-Security-Policy": `frame-ancestors ${parentOrigin}; base-uri 'none'; object-src 'none'; form-action 'self' https://connect.composio.dev https://dashboard.composio.dev`,
+	}
 }
 
 const chromeActionSchema = z.discriminatedUnion("intent", [
@@ -143,19 +152,20 @@ export async function action({ request, params, context }: Route.ActionArgs) {
 	return result.assignment
 }
 
-export async function loader({ request, params, context }: Route.LoaderArgs) {
-	const url = new URL(request.url)
-	const parentOrigin = new URL(z.url().parse(url.searchParams.get("parentOrigin"))).origin
+export async function loader({ params, context }: Route.LoaderArgs) {
 	const config = context.get(configContext)
 	const issuer = config.CTX_AUTH_ISSUER
 	const identity = context.get(identityContext)
-	if (!identity)
-		return data(
-			{ parentOrigin, user: null },
-			{ headers: { "Cache-Control": "no-store" } },
-		)
 	const db = context.get(databaseContext)
+	if (!identity) {
+		const slate = await resolveSlate(db, slateTargetSchema.parse(params.target))
+		if (!slate) throw new Response(null, { status: 404 })
+		const parentOrigin = `https://${slate.public_hostname}`
+		return data({ parentOrigin, user: null }, { headers: chromeHeaders(parentOrigin) })
+	}
 	const { access, snapshot } = await getChromeSlate({ context, params }, identity)
+	const parentOrigin = `https://${access.slate.public_hostname}`
+	const responseHeaders = chromeHeaders(parentOrigin)
 	if (!snapshot.allowed)
 		return data(
 			{
@@ -163,7 +173,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
 				parentOrigin,
 				user: await getCurrentUser(identity, issuer),
 			},
-			{ headers: { "Cache-Control": "no-store" } },
+			{ headers: responseHeaders },
 		)
 	const { resources } = await listSlateResources(db, config, access, snapshot.resources)
 	const connections = Object.entries(resources.connections)
@@ -231,7 +241,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
 			parentOrigin,
 			user,
 		},
-		{ headers: { "Cache-Control": "no-store" } },
+		{ headers: responseHeaders },
 	)
 }
 

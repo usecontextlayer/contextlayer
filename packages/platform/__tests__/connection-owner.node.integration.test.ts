@@ -21,6 +21,7 @@ import {
 	resolveSlateResourceConfiguration,
 } from "@/slate-resource-configuration.server"
 import { slateSchema } from "@/slates.schema"
+import { callConnectionTool } from "@/tools.server"
 
 const config = parsePlatformEnv({
 	COMPOSIO_API_KEY: "unused-in-sql-only-test",
@@ -31,6 +32,33 @@ const config = parsePlatformEnv({
 	POLAR_ENVIRONMENT: "sandbox",
 	POLAR_FREE_PRODUCT_ID: "00000000-0000-4000-8000-000000000002",
 	POLAR_WEBHOOK_SECRET: "unused-in-sql-only-test",
+})
+
+test("personal-account execution cannot charge another person's public slate", async ({
+	db,
+}) => {
+	const slate = await db
+		.insertInto("slate")
+		.values({
+			owner_user_id: "alice",
+			public_hostname: "billing-owner.example.com",
+			visibility: "public",
+		})
+		.returningAll()
+		.executeTakeFirstOrThrow()
+	const bob = {
+		credential: { cookie: "unused-for-personal-slate", type: "cookie" },
+		type: "owner",
+		user: { id: "bob" },
+	} as const satisfies OwnerIdentity
+	expect(
+		await callConnectionTool(db, config, bob, "bob-mail", {
+			arguments: {},
+			slate_id: slate.id,
+			tool: "GMAIL_GET_PROFILE",
+			toolkit: "gmail",
+		}),
+	).toEqual({ allowed: false, reason: "forbidden" })
 })
 
 test("configuration includes agent-only connections and projects app requirements", async ({

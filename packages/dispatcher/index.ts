@@ -7,6 +7,7 @@ import {
 } from "@usecontextlayer/shared/slate-usage"
 import { Hono } from "hono"
 import { getCookie } from "hono/cookie"
+import { browserSecurity } from "@/browser-security"
 import { type Bindings, parseEnv } from "@/env"
 import { serveMcp } from "@/mcp"
 
@@ -36,6 +37,8 @@ app.all("/mcp", async (c) => {
 	const resolved = resolvedSlateSchema.parse(await response.json())
 	return serveMcp(c.req.raw, c.env.SLATES, resolved, env, c.executionCtx)
 })
+
+app.use("*", browserSecurity)
 
 app.all("*", async (c) => {
 	const env = parseEnv(c.env)

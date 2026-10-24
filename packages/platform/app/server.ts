@@ -44,13 +44,10 @@ export default await createHonoServer<OwnerIdentityEnv>({
 				c.executionCtx.waitUntil(db.destroy())
 			}
 		})
-		app.use("/dashboard/chrome/slates/*", async (c, next) => {
-			const local = new URL(c.req.url).hostname === "localhost"
+		app.use("/dashboard/*", async (c, next) => {
 			await next()
-			c.header(
-				"Content-Security-Policy",
-				`frame-ancestors https://*.${c.var.config.CTX_SLATES_DOMAIN}${local ? " http://localhost:*" : ""}; base-uri 'none'; object-src 'none'; form-action 'self' https://connect.composio.dev https://dashboard.composio.dev`,
-			)
+			if (!c.res.headers.has("Content-Security-Policy"))
+				c.header("Content-Security-Policy", "frame-ancestors 'none'")
 		})
 		app.route("/api", createApi())
 		app.use("*", except("/dashboard/__manifest", identifyUser))

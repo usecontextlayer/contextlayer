@@ -63,6 +63,28 @@ test("viewer cookies authenticate runtime requests but not management APIs", asy
 	}
 })
 
+test("dashboard denies framing and chrome permits only its canonical slate", async ({
+	slate,
+	webSession,
+	platform: { origin },
+}) => {
+	const dashboard = await fetch(`${origin}/dashboard/personal/slates`, {
+		headers: webSession.headers,
+	})
+	expect(dashboard.status).toBe(200)
+	expect(dashboard.headers.get("content-security-policy")).toBe("frame-ancestors 'none'")
+	const chrome = new URL(`/dashboard/chrome/slates/${slate.id}`, origin)
+	chrome.searchParams.set("parentOrigin", "https://another-slate.contextlayer.xyz")
+	for (const headers of [undefined, webSession.headers]) {
+		const response = await fetch(chrome, { headers })
+		expect(response.status).toBe(200)
+		expect(response.headers.get("cache-control")).toBe("no-store")
+		expect(response.headers.get("content-security-policy")).toBe(
+			`frame-ancestors https://${slate.public_hostname}; base-uri 'none'; object-src 'none'; form-action 'self' https://connect.composio.dev https://dashboard.composio.dev`,
+		)
+	}
+})
+
 test("hosted execution is a native capability rather than a public HTTP operation", async ({
 	slate,
 	identity,
@@ -186,7 +208,7 @@ test("native sessions and CLI tokens can manage slates and accept only scoped re
 				headers,
 				method: "POST",
 			})
-		expect((await callConnection(concreteCall)).status).toBe(402)
+		expect((await callConnection(concreteCall)).status).toBe(403)
 		expect(
 			(await callConnection({ ...concreteCall, resources: { connections: {} } })).status,
 		).toBe(400)
@@ -211,7 +233,7 @@ test("native sessions and CLI tokens can manage slates and accept only scoped re
 	}
 })
 
-test("personal connected account execution requires permission to view its slate", async ({
+test("personal connected account execution requires permission to manage its slate", async ({
 	slate,
 	db,
 	identity,
@@ -219,7 +241,7 @@ test("personal connected account execution requires permission to view its slate
 }) => {
 	await db
 		.updateTable("slate")
-		.set({ owner_user_id: crypto.randomUUID() })
+		.set({ owner_user_id: crypto.randomUUID(), visibility: "public" })
 		.where("id", "=", slate.id)
 		.execute()
 	const headers = new Headers(identity.headers)

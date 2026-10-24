@@ -18,6 +18,7 @@
 	"private": true,
 	"scripts": {
 		"build": "wrangler deploy --env=\"\" --dry-run --outdir dist",
+		"test": "vitest run --config vitest.config.ts",
 		"tsc": "tsc --noEmit"
 	},
 	"type": "module",

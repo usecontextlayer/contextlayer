@@ -7,7 +7,7 @@ import type { PlatformDb } from "@/database"
 import type { PlatformConfig } from "@/env"
 import { readSlateDeclarations } from "@/slate-declarations.server"
 import { resolveSlateConnection } from "@/slate-resource-execution.server"
-import { resolveSlateForViewing, type SlateAccess } from "@/slates.server"
+import { getSlate, type SlateAccess } from "@/slates.server"
 import type { connectionToolCallSchema, toolCallSchema } from "@/tools.schema"
 
 export async function callTool(
@@ -51,7 +51,7 @@ export async function callConnectionTool(
 	connectionId: string,
 	call: z.infer<typeof connectionToolCallSchema>,
 ) {
-	const access = await resolveSlateForViewing(
+	const access = await getSlate(
 		db,
 		{ id: call.slate_id },
 		identity,
