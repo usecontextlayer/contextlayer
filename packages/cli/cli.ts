@@ -121,6 +121,12 @@ program
 			cloudflareTsconfigPath,
 			`${JSON.stringify(cloudflareTsconfig, null, 2)}\n`,
 		)
+		const nodeTsconfigPath = join(directory, "tsconfig.node.json")
+		const nodeTsconfig = z
+			.looseObject({ include: z.array(z.string()) })
+			.parse(JSON.parse(await readFile(nodeTsconfigPath, "utf8")))
+		nodeTsconfig.include.push("databases/**/*.ts")
+		await writeFile(nodeTsconfigPath, `${JSON.stringify(nodeTsconfig, null, 2)}\n`)
 		await writeFile(tsconfigPath, `${JSON.stringify(tsconfig, null, 2)}\n`)
 
 		const ui = await execa(

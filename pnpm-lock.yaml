@@ -109,6 +109,9 @@ importers:
       kysely-codegen:
         specifier: 0.20.0
         version: 0.20.0(kysely@0.29.5)(pg@8.23.1)(tarn@3.1.2)(typescript@7.0.2)
+      typescript:
+        specifier: latest
+        version: 7.0.2
       vite:
         specifier: ^8.3.2
         version: 8.3.2(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0)
@@ -143,9 +146,6 @@ importers:
       tsdown:
         specifier: latest
         version: 0.23.1(tsx@4.23.15)(typescript@7.0.2)
-      typescript:
-        specifier: latest
-        version: 7.0.2
       zod:
         specifier: ^4.4.3
         version: 4.6.5

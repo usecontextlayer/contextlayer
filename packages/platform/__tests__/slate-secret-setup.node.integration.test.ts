@@ -1,7 +1,8 @@
 import assert from "node:assert/strict"
-import { cp, mkdir, writeFile } from "node:fs/promises"
+import { mkdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
-import { test as base } from "@tests/integration"
+import { writeDatabase, writeDatabaseProject } from "@tests/database-project"
+import { provisioningTest as base } from "@tests/integration"
 import { slateResourcesSchema } from "@usecontextlayer/shared/slate-resources"
 import { getAgentByName } from "agents/routing"
 import { execa } from "execa"
@@ -56,11 +57,8 @@ const test = base.extend(
 			join(directory, "agents/daily/schedules/daily.md"),
 			'---\ncron: "0 0 1 1 *"\n---\nSave a personal update.\n',
 		)
-		await cp(
-			new URL("../../cli/template/databases/updates/migrations/", import.meta.url),
-			join(directory, "databases/inbox/migrations"),
-			{ recursive: true },
-		)
+		await writeDatabaseProject(directory)
+		await writeDatabase(directory, "inbox")
 		const execute = execa({
 			cwd: directory,
 			env: {
@@ -77,7 +75,7 @@ const test = base.extend(
 		await git("config", "user.name", "Secret setup test")
 		await git("config", "user.email", "secret-setup-test@example.com")
 		await git("remote", "add", "origin", `${platform.origin}/git/${slate.id}`)
-		await git("add", "public", "agents", "databases")
+		await git("add", ".")
 		await git(
 			"-c",
 			"commit.gpgsign=false",

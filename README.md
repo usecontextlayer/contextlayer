@@ -56,10 +56,10 @@ public/slate.json                     # Resources the app uses
 agents/follow-ups/instructions.md     # What the agent does
 agents/follow-ups/slate.json          # Resources the agent uses
 agents/follow-ups/schedules/daily.md  # Cron schedule and task prompt
-databases/follow-ups/                 # Schema and SQL migrations
+databases/follow-ups/                 # Kysely config, migrations, and query types
 ```
 
-Declare a resource with `viewer` mode to select the person using the slate, or `owner` mode to select the slate's owning person or organization. Apps and agents that declare the same database slug and mode share its data. ContextLayer provisions the databases and applies your committed SQL migrations.
+Declare a resource with `viewer` mode to select the person using the slate, or `owner` mode to select the slate's owning person or organization. Apps and agents that declare the same database slug and mode share its data. ContextLayer provisions the databases and applies your committed Kysely migrations.
 
 ## Connect it to your tools
 
@@ -90,7 +90,7 @@ export async function loader({ context }: LoaderFunctionArgs) {
 }
 ```
 
-The [Gmail walkthrough](packages/sdk/README.md#a-loader-that-reads-gmail) includes account setup, response validation, and a working inbox screen. The [database example](packages/sdk/README.md#a-loader-that-queries-cached-data) shows how to query stored records with Drizzle. Locally, you use your own connected accounts and local database state; hosted assignments are configured separately.
+The [Gmail walkthrough](packages/sdk/README.md#a-loader-that-reads-gmail) includes account setup, response validation, and a working inbox screen. The [database example](packages/sdk/README.md#a-loader-that-queries-cached-data) shows how to query stored records with Kysely. Locally, you use your own connected accounts and local database state; hosted assignments are configured separately.
 
 ## What else can a slate do?
 

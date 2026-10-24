@@ -6,6 +6,7 @@
 		"@anthropic-ai/claude-agent-sdk": "0.3.289",
 		"kysely": "0.29.5",
 		"kysely-codegen": "0.20.0",
+		"typescript": "latest",
 		"vite": "^8.3.2",
 		"wrangler": "^4.146.0"
 	},
@@ -20,7 +21,6 @@
 		"kysely-ctl": "0.22.0",
 		"openid-client": "^6.8.8",
 		"tsdown": "latest",
-		"typescript": "latest",
 		"zod": "^4.4.3"
 	},
 	"engines": {

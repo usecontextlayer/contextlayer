@@ -112,6 +112,7 @@ export async function provisionLocalDatabases(
 			[
 				"exec",
 				"kysely",
+				"--no-outdated-check",
 				"--config",
 				`databases/${slug}/kysely.config.ts`,
 				"migrate",

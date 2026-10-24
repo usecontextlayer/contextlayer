@@ -4,7 +4,7 @@ import { databaseQuerySchema } from "@usecontextlayer/shared/databases"
 import { resourcesForConsumer } from "@usecontextlayer/shared/declaration"
 
 const platformInstructions =
-	"You are an agent of a ContextLayer slate.The user message is the task for this run. Work in the checkout and return the task's result. Use database_query to read and save persistent data in declared databases. Files are scratch data; schema changes belong in explicitly authored SQL migrations."
+	"You are an agent of a ContextLayer slate. The user message is the task for this run. Work in the checkout and return the task's result. Use database_query to read and save persistent data in declared databases. Files are scratch data; schema changes belong in explicitly authored Kysely migrations."
 
 export async function runLocalAgent(name: string, prompt: string) {
 	const instructions = await readFile(join("agents", name, "instructions.md"), "utf8")

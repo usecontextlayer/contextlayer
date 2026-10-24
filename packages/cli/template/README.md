@@ -44,7 +44,7 @@ pnpm db.codegen notes
 
 Commit migrations and generated `databases/notes/types.ts` together. The types come from the migrated local database; do not edit them by hand. Keep the development server running for migration and codegen commands. `pnpm exec kysely --help` provides the native migration and seed operations. For another declared database, give it its own config and migration directory, then select its slug with codegen.
 
-The route uses `database<DB>(context.get(databasesContext), "notes")` from the SDK for typed queries. Use Kysely's `.returning()` to read inserted or updated rows; mutation counts and insert IDs are not available through the query capability. Direct SQL and agents' `database_query` use the same storage.
+The route uses `database<DB>(context.get(databasesContext), "notes")` from the SDK for typed queries. Use Kysely's `.returning()` to read inserted or updated rows. The query capability supplies no mutation counts or insert IDs; Kysely defaults affected-row counts to `0n`, so do not use them to decide whether a write changed any rows. Direct SQL and agents' `database_query` use the same storage.
 
 Push committed changes to `main` for hosted provisioning. The pipeline builds the commit, runs its native Kysely migrations, then deploys it. New members' databases are initialized before use. Migration failure blocks deployment or provisioning; earlier successful SQL statements can remain applied. See [database ownership and provisioning](https://github.com/usecontextlayer/contextlayer/blob/main/ARCHITECTURE.md#slate-databases-and-authored-migrations) for its lifecycle.
 

@@ -134,7 +134,7 @@ export async function loader({ context }: LoaderFunctionArgs) {
 }
 ```
 
-The helper returns a native Kysely instance with SQLite compilation. Use `.returning()` for mutation results; the SQL capability does not supply mutation counts or insert IDs. SQL transactions are unsupported by Durable Object storage. Direct SQL remains `context.get(databasesContext).query("notes", sql, params)`, and agents use `database_query`.
+The helper returns a native Kysely instance with SQLite compilation. Use `.returning()` for mutation results. The SQL capability does not supply mutation counts or insert IDs; Kysely defaults affected-row counts to `0n`, so those counts cannot tell you whether a write changed any rows. SQL transactions are unsupported by Durable Object storage. Direct SQL remains `context.get(databasesContext).query("notes", sql, params)`, and agents use `database_query`.
 
 A database's native config selects only its declared logical slug. ContextLayer supplies the local connection during development or the scoped connection inside the hosted sandbox:
 
