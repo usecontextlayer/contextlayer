@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto"
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { resolve } from "node:path"
 import { resourcesSchema } from "@usecontextlayer/shared/declaration"
@@ -28,6 +29,10 @@ async function readLocalConnections(directory: string) {
 		resolve(directory, ".contextlayer/connections.json"),
 	)
 	return localConnectionsSchema.parse(contents === null ? {} : JSON.parse(contents))
+}
+
+export function getLocalResourcesWorkerName() {
+	return `ctx-local-resources-${createHash("sha256").update(process.cwd()).digest("hex").slice(0, 16)}`
 }
 
 export async function prepareLocalResourceConfiguration(

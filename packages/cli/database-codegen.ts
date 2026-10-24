@@ -2,7 +2,7 @@ import { resolve } from "node:path"
 import { DatabaseDialect } from "@usecontextlayer/shared/database-dialect"
 import { Kysely } from "kysely"
 import { generate, Logger, SqliteDialect } from "kysely-codegen"
-import { openLocalDatabase } from "@/database"
+import { openLocalDatabase } from "@/local-databases"
 
 export async function generateDatabaseTypes(slug: string) {
 	const db = new Kysely({ dialect: new DatabaseDialect(() => openLocalDatabase(slug)) })

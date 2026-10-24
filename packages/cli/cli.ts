@@ -12,7 +12,6 @@ import {
 	connectionsCommandSchema,
 	listSlateConnections,
 } from "@/connections"
-import { generateDatabaseTypes } from "@/database-codegen"
 import { env } from "@/env"
 import { configureGit, gitCredential } from "@/git-credential"
 import { ownerOptionsSchema } from "@/owner"
@@ -310,6 +309,7 @@ program
 		"Generate databases/<slug>/types.ts from the running local database; run from the slate root after applying migrations with pnpm exec kysely",
 	)
 	.action(async (slug) => {
+		const { generateDatabaseTypes } = await import("@/database-codegen")
 		await generateDatabaseTypes(databaseSlugSchema.parse(slug))
 	})
 

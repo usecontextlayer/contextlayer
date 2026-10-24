@@ -9,7 +9,7 @@ const platformInstructions =
 export async function runLocalAgent(name: string, prompt: string) {
 	const instructions = await readFile(join("agents", name, "instructions.md"), "utf8")
 	const { createServer } = await import("vite")
-	const { getPreparedLocalBindings, openLocalDatabases } = await import("@/vite")
+	const { getPreparedLocalBindings } = await import("@/vite")
 	const server = await createServer({
 		logLevel: "error",
 		server: { host: "127.0.0.1", port: 0 },
@@ -20,6 +20,7 @@ export async function runLocalAgent(name: string, prompt: string) {
 		name,
 		type: "agent",
 	})
+	const { openLocalDatabases } = await import("@/local-databases")
 	const storage = await openLocalDatabases(bindings.workerName, configuration.databases)
 	const { query, createSdkMcpServer, tool } = await import(
 		"@anthropic-ai/claude-agent-sdk"
