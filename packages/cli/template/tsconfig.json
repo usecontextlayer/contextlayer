@@ -1,0 +1,18 @@
+{
+	"compilerOptions": {
+		"checkJs": true,
+		"noEmit": true,
+		"paths": {
+			"@/*": ["./*"],
+			"~/*": ["./app/*"]
+		},
+		"skipLibCheck": true,
+		"strict": true,
+		"verbatimModuleSyntax": true
+	},
+	"files": [],
+	"references": [
+		{ "path": "./tsconfig.node.json" },
+		{ "path": "./tsconfig.cloudflare.json" }
+	]
+}

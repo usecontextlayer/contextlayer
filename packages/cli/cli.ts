@@ -1,9 +1,7 @@
 #!/usr/bin/env node
-import { cp, readFile, rm, writeFile } from "node:fs/promises"
-import { join } from "node:path"
+import { fileURLToPath } from "node:url"
 import { Argument, Command } from "commander"
 import { execa } from "execa"
-import { experimental_patchConfig } from "wrangler"
 import { z } from "zod"
 import { connectAccount, listAccounts } from "@/accounts"
 import { runLocalAgent } from "@/agents"
@@ -76,16 +74,21 @@ program
 		if (gitIdentity.exitCode !== 0) return
 
 		const result = await execa(
-			"pnpm",
+			process.execPath,
 			[
-				"create",
-				"cloudflare@latest",
+				fileURLToPath(
+					new URL(
+						"./dist/cli.js",
+						import.meta.resolve("create-react-router/package.json"),
+					),
+				),
 				directory,
-				"--framework=react-router",
-				"--accept-defaults",
-				"--git",
-				"--no-deploy",
-				"--",
+				"--template",
+				fileURLToPath(new URL("./template.tar.gz", import.meta.url)),
+				"--package-manager",
+				"pnpm",
+				"--install",
+				"--git-init",
 				"--yes",
 			],
 			{
@@ -100,100 +103,6 @@ program
 		)
 		process.exitCode = result.exitCode
 		if (result.exitCode !== 0) return
-
-		await rm(join(directory, "app/welcome"), { force: true, recursive: true })
-		experimental_patchConfig(join(directory, "wrangler.jsonc"), {
-			vars: { VALUE_FROM_CLOUDFLARE: undefined },
-		})
-
-		const tsconfigPath = join(directory, "tsconfig.json")
-		const tsconfig = z
-			.looseObject({ compilerOptions: z.record(z.string(), z.unknown()) })
-			.parse(JSON.parse(await readFile(tsconfigPath, "utf8")))
-		tsconfig.compilerOptions.paths = { "@/*": ["./*"], "~/*": ["./app/*"] }
-		const cloudflareTsconfigPath = join(directory, "tsconfig.cloudflare.json")
-		const cloudflareTsconfig = z
-			.looseObject({
-				compilerOptions: z.record(z.string(), z.unknown()),
-				include: z.array(z.string()),
-			})
-			.parse(JSON.parse(await readFile(cloudflareTsconfigPath, "utf8")))
-		cloudflareTsconfig.compilerOptions.paths = tsconfig.compilerOptions.paths
-		cloudflareTsconfig.include.push("databases/**/schema.ts")
-		await writeFile(
-			cloudflareTsconfigPath,
-			`${JSON.stringify(cloudflareTsconfig, null, 2)}\n`,
-		)
-		await writeFile(tsconfigPath, `${JSON.stringify(tsconfig, null, 2)}\n`)
-
-		const ui = await execa(
-			"pnpm",
-			[
-				"dlx",
-				"shadcn@latest",
-				"init",
-				"--preset",
-				"nova",
-				"--base",
-				"base",
-				"--yes",
-				"--no-monorepo",
-			],
-			{ cwd: directory, reject: false, stdio: "inherit" },
-		)
-		process.exitCode = ui.exitCode
-		if (ui.exitCode !== 0) return
-
-		await cp(new URL("./template/", import.meta.url), directory, { recursive: true })
-		const configure = await execa(
-			"pnpm",
-			[
-				"config",
-				"set",
-				"--location=project",
-				"--json",
-				"minimumReleaseAgeExclude",
-				'["@usecontextlayer/*"]',
-			],
-			{ cwd: directory, reject: false, stdio: "inherit" },
-		)
-		process.exitCode = configure.exitCode
-		if (configure.exitCode !== 0) return
-
-		const install = await execa(
-			"pnpm",
-			["add", `@usecontextlayer/sdk@${version}`, "zod@^4.4.3", "drizzle-orm@0.45.3"],
-			{
-				cwd: directory,
-				reject: false,
-				stdio: "inherit",
-			},
-		)
-		process.exitCode = install.exitCode
-		if (install.exitCode !== 0) return
-
-		const migrationTool = await execa("pnpm", ["add", "-D", "drizzle-kit@0.31.11"], {
-			cwd: directory,
-			reject: false,
-			stdio: "inherit",
-		})
-		process.exitCode = migrationTool.exitCode
-		if (migrationTool.exitCode !== 0) return
-		const packagePath = join(directory, "package.json")
-		const checkoutPackage = z
-			.looseObject({ scripts: z.record(z.string(), z.string()) })
-			.parse(JSON.parse(await readFile(packagePath, "utf8")))
-		checkoutPackage.scripts["db:migration"] = "drizzle-kit generate --custom"
-		delete checkoutPackage.scripts.deploy
-		delete checkoutPackage.scripts.preview
-		await writeFile(packagePath, `${JSON.stringify(checkoutPackage, null, 2)}\n`)
-		const types = await execa("pnpm", ["exec", "wrangler", "types"], {
-			cwd: directory,
-			reject: false,
-			stdio: "inherit",
-		})
-		process.exitCode = types.exitCode
-		if (types.exitCode !== 0) return
 
 		const response = await fetch(new URL("/api/slates", env.CTX_PLATFORM_URL), {
 			body: JSON.stringify(input),
@@ -226,10 +135,10 @@ Start locally:
   pnpm dev
 Open the local URL printed by the development server.
 
-Deploy your changes:
-  git add .
-  git commit
+Deploy the committed starter:
   git push -u origin main
+
+Commit your own changes before subsequent pushes.
 
 See README.md for the development and connection workflow.
 `)

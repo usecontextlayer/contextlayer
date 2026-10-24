@@ -15,7 +15,7 @@ cd my-slate
 pnpm dev
 ```
 
-Approve login in your browser. Open the local URL printed by the development server. Initialization prints your slate's dashboard link and hosted URL; the hosted URL becomes usable after a successful Git push deployment.
+Approve login in your browser. Initialization uses the complete starter bundled with the CLI and commits it on `main`, with local state already ignored. Open the local URL printed by the development server. Initialization prints your slate's dashboard link and hosted URL; the hosted URL becomes usable after a successful Git push deployment.
 
 The checkout's README explains local development, connections, and deployment. The [SDK guide](https://www.npmjs.com/package/@usecontextlayer/sdk) describes loaders, tools, and the shared app layout.
 
@@ -27,7 +27,7 @@ Command syntax and options live in the CLI's help:
 npx @usecontextlayer/cli --help
 ```
 
-Deploy from the checkout's `main` branch:
+The starter is already committed. Deploy it from the checkout’s `main` branch with `git push -u origin main`. After making changes, commit them before pushing:
 
 ```sh
 git add .

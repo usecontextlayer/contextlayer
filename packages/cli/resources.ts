@@ -31,18 +31,6 @@ async function readLocalConnections(directory: string) {
 	return localConnectionsSchema.parse(contents === null ? {} : JSON.parse(contents))
 }
 
-async function prepareLocalDirectory(directory: string) {
-	await mkdir(resolve(directory, ".contextlayer"), { recursive: true })
-	const ignorePath = resolve(directory, ".gitignore")
-	const contents = (await readOptionalFile(ignorePath)) ?? ""
-	if (!contents.split(/\r?\n/).includes("/.contextlayer/")) {
-		await writeFile(
-			ignorePath,
-			`${contents}${contents && !contents.endsWith("\n") ? "\n" : ""}/.contextlayer/\n`,
-		)
-	}
-}
-
 export async function prepareLocalResourceConfiguration(
 	directory = process.cwd(),
 ): Promise<LocalResourceConfiguration> {
@@ -76,7 +64,7 @@ export async function prepareLocalResourceConfiguration(
 			]),
 		),
 	})
-	await prepareLocalDirectory(directory)
+	await mkdir(resolve(directory, ".contextlayer"), { recursive: true })
 
 	return configuration
 }
@@ -88,7 +76,7 @@ export async function saveLocalConnection(
 ) {
 	const assignment = localConnectionsSchema.parse({ [slug]: connectionId })
 	const connections = { ...(await readLocalConnections(directory)), ...assignment }
-	await prepareLocalDirectory(directory)
+	await mkdir(resolve(directory, ".contextlayer"), { recursive: true })
 	await writeFile(
 		resolve(directory, ".contextlayer/connections.json"),
 		`${JSON.stringify(connections, null, 2)}\n`,

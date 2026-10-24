@@ -35,7 +35,7 @@ Restart local development after adding a migration. Push committed migrations to
 
 ## Deploy
 
-Commit your changes and push the generated `main` branch:
+Initialization commits the complete starter on `main`. Push it with `git push -u origin main`. After editing the app, commit your changes before pushing:
 
 ```sh
 git add .

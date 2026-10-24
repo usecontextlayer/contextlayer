@@ -46,7 +46,6 @@ async function createCheckout() {
 test("assembles local configuration before consumer selection without Git, credentials, or platform", async () => {
 	const directory = await createCheckout()
 	vi.stubEnv("CTX_LOCAL_TEST_SECRET", "local-only-value")
-	await writeFile(join(directory, ".gitignore"), "node_modules/")
 	const configuration = await prepareLocalResourceConfiguration(directory)
 	const app = resourcesForConsumer(configuration, { type: "app" })
 	const agent = resourcesForConsumer(configuration, { name: "summary", type: "agent" })
@@ -62,9 +61,6 @@ test("assembles local configuration before consumer selection without Git, crede
 		journal: { entries: [] },
 		migrations: {},
 	})
-	expect(await readFile(join(directory, ".gitignore"), "utf8")).toBe(
-		"node_modules/\n/.contextlayer/\n",
-	)
 	await expect(
 		readFile(join(directory, ".contextlayer/connections.json")),
 	).rejects.toMatchObject({ code: "ENOENT" })
@@ -96,7 +92,6 @@ test("preserves saved assignments and reads only the given checkout's current de
 	)
 	await rm(join(directory, "agents/summary"), { recursive: true })
 	expect((await prepareLocalResourceConfiguration(directory)).connections).toEqual({})
-	expect(await readFile(join(directory, ".gitignore"), "utf8")).toBe("/.contextlayer/\n")
 	await mkdir(join(directory, "child"))
 	await expect(
 		prepareLocalResourceConfiguration(join(directory, "child")),

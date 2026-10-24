@@ -22,6 +22,7 @@ import path from "node:path"
 
 const PACKAGES_DIR = "packages"
 const LOCKFILE_PATH = "pnpm-lock.yaml"
+const STARTER_MANIFEST_PATH = "packages/cli/template/package.json"
 
 const VERSION_RE = /^\d+\.\d+\.\d+$/
 const UNVERSIONED = "(unversioned)"
@@ -214,6 +215,19 @@ function planBump(version: string): BumpChange[] {
 			})
 		}
 	}
+	const before = fs.readFileSync(STARTER_MANIFEST_PATH, "utf8")
+	const starter = JSON.parse(before) as {
+		dependencies: { "@usecontextlayer/sdk": string }
+	}
+	starter.dependencies["@usecontextlayer/sdk"] = version
+	const after = stringifyNpmManifest(starter)
+	if (before !== after) {
+		changes.push({
+			afterContent: after,
+			beforeContent: before,
+			manifestPath: STARTER_MANIFEST_PATH,
+		})
+	}
 	return changes
 }
 
@@ -282,7 +296,17 @@ function runVerify(target: string | undefined): void {
 		return
 	}
 	const all = collectNpmPackages()
-	const offenders = findDrift(all, (pkg) => pkg.version, target)
+	const starter = readJson<{ dependencies: { "@usecontextlayer/sdk": string } }>(
+		STARTER_MANIFEST_PATH,
+	)
+	const versions = [
+		...all,
+		{
+			manifestPath: `${STARTER_MANIFEST_PATH} dependencies.@usecontextlayer/sdk`,
+			version: starter.dependencies["@usecontextlayer/sdk"],
+		},
+	]
+	const offenders = findDrift(versions, (pkg) => pkg.version, target)
 	if (offenders.length > 0) {
 		const label = target ?? "matching the workspace"
 		console.error(`Version drift detected (expected: ${label}):`)
@@ -293,7 +317,9 @@ function runVerify(target: string | undefined): void {
 		return
 	}
 	const v = target ?? all[0]?.version ?? UNVERSIONED
-	console.log(`All ${all.length} manifests at version ${v}.`)
+	console.log(
+		`All ${all.length} package versions and the starter SDK dependency at ${v}.`,
+	)
 }
 
 type BumpKind = "patch" | "minor" | "major"

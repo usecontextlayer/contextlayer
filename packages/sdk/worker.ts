@@ -26,9 +26,10 @@ export interface McpToolModule {
 	handler(args: unknown, tools: Tools): CallToolResult | Promise<CallToolResult>
 }
 
-export type SlateWorker = Required<
-	Pick<ExportedHandler<LocalBindings, unknown, unknown, SlateWorkerProps>, "fetch">
->
+export interface SlateWorker
+	extends Required<
+		Pick<ExportedHandler<LocalBindings, unknown, unknown, SlateWorkerProps>, "fetch">
+	> {}
 
 export function createSlateWorker({
 	build,
