@@ -349,9 +349,9 @@ test("members' deployed cron jobs use viewer resources and retain results after 
 	expect(completedSetup.status).toBe(200)
 	expect(await completedSetup.json()).toEqual({ connection_id: account.id, slug: "mail" })
 	expect(await checkouts[1]?.memberInstance.listSchedules()).toHaveLength(1)
-	const firing = new Date(Math.ceil(Date.now() / 60_000) * 60_000 + 60_000)
-	const cron = `${firing.getUTCMinutes()} ${firing.getUTCHours()} ${firing.getUTCDate()} ${firing.getUTCMonth() + 1} *`
 	for (const { slate, git, memberInstance, scheduleFile } of checkouts) {
+		const firing = new Date(Math.ceil(Date.now() / 60_000) * 60_000 + 60_000)
+		const cron = `${firing.getUTCMinutes()} ${firing.getUTCHours()} ${firing.getUTCDate()} ${firing.getUTCMonth() + 1} *`
 		await writeFile(
 			scheduleFile,
 			`---\ncron: "${cron}"\n---\nInspect only mailbox profile metadata with a read-only Gmail tool. Use database_query to insert a row into updates in both inbox and reports with id scheduled-proof, kind proof, body ${slate.id}, and created_at 1. Report only whether this refreshed scheduled task succeeded.\n`,
@@ -366,7 +366,6 @@ test("members' deployed cron jobs use viewer resources and retain results after 
 		)
 		await git("push", "origin", "main")
 		const prepared = await PROVISIONING.prepare(slate.id, await git("rev-parse", "HEAD"))
-		await PROVISIONING.migrate(prepared)
 		await PROVISIONING.provisionSchedules(prepared)
 		const schedules = z
 			.array(z.object({ payload: scheduledAgentRunSchema }))
