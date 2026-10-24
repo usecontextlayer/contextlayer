@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { randomUUID } from "node:crypto"
-import { mkdir, writeFile } from "node:fs/promises"
+import { writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { createPolarCore } from "@polar-sh/sdk/2026-10"
 import { listEvents } from "@polar-sh/sdk/2026-10/services/events"
@@ -140,7 +140,7 @@ test("native resource capabilities enforce access and report exact slate-Owner t
 		).toEqual(refusal)
 
 		const checkout = join(directory, slate.id)
-		await mkdir(join(checkout, "public"), { recursive: true })
+		await writeDatabaseProject(checkout)
 		await writeFile(
 			join(checkout, "public/slate.json"),
 			JSON.stringify({
@@ -148,7 +148,6 @@ test("native resource capabilities enforce access and report exact slate-Owner t
 				databases: { drafts: { mode: "viewer" }, reports: { mode: "owner" } },
 			}),
 		)
-		await writeDatabaseProject(checkout)
 		for (const slug of ["drafts", "reports"]) await writeDatabase(checkout, slug)
 		const execute = execa({ cwd: checkout })
 		const git = (...args: string[]) =>

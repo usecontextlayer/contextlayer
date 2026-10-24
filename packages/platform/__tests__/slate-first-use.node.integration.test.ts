@@ -47,7 +47,7 @@ test("first use provisions personal data and schedules once, after the whole sla
 			.execute()
 	expect(await members()).toEqual([])
 	const checkout = join(directory, "first-use")
-	await mkdir(join(checkout, "public"), { recursive: true })
+	await writeDatabaseProject(checkout)
 	await mkdir(join(checkout, "agents/daily/schedules"), { recursive: true })
 	const execute = execa({
 		cwd: checkout,
@@ -88,7 +88,6 @@ test("first use provisions personal data and schedules once, after the whole sla
 			databases: { inbox: { mode: "viewer" } },
 		}),
 	)
-	await writeDatabaseProject(checkout)
 	for (const slug of ["drafts", "inbox", "reports"]) await writeDatabase(checkout, slug)
 	const push = async (message: string) => {
 		await git("add", ".")

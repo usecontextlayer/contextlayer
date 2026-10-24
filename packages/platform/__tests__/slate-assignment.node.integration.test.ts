@@ -47,7 +47,7 @@ test("chrome and API final assignments enable agent-only personal resources with
 				.where("slate_id", "=", slate.id)
 				.execute()
 		const checkout = join(directory, mode)
-		await mkdir(join(checkout, "public"), { recursive: true })
+		await writeDatabaseProject(checkout)
 		await mkdir(join(checkout, "agents/daily/schedules"), { recursive: true })
 		await writeFile(
 			join(checkout, "public/slate.json"),
@@ -71,7 +71,6 @@ test("chrome and API final assignments enable agent-only personal resources with
 			join(checkout, "agents/daily/schedules/daily.md"),
 			'---\ncron: "0 0 1 1 *"\n---\nWrite a personal update.\n',
 		)
-		await writeDatabaseProject(checkout)
 		await writeDatabase(checkout, "inbox")
 		const execute = execa({
 			cwd: checkout,

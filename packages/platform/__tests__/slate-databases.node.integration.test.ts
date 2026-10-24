@@ -120,15 +120,14 @@ test("native CLI provisioning initializes owner and member databases and applies
 	}
 	for (const slate of slates) {
 		const checkout = join(dir, slate.id)
+		await writeDatabaseProject(checkout)
 		await mkdir(join(checkout, "agents/daily-summary/schedules"), { recursive: true })
-		await mkdir(join(checkout, "public"))
 		const git = async (...args: string[]) =>
 			(await execFile("git", args, { cwd: checkout, env: gitEnv })).stdout.trim()
 		await git("init", "-b", "main")
 		await git("config", "user.name", "Database Test")
 		await git("config", "user.email", "database-test@example.com")
 		await git("remote", "add", "origin", `${origin}/git/${slate.id}`)
-		await writeDatabaseProject(checkout)
 		for (const slug of ["drafts", "inbox", "reports"]) await writeDatabase(checkout, slug)
 		if (slate.id === joinedBeforeProvisioning.id) {
 			await writeFile(

@@ -1,11 +1,11 @@
 import assert from "node:assert/strict"
 import { execFile as execFileCallback } from "node:child_process"
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
+import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { promisify } from "node:util"
 import { test as base } from "@tests/database"
-import { writeDatabase, writeDatabaseProject } from "@tests/database-project"
+import { writeDatabaseProject } from "@tests/database-project"
 import type { Workers } from "@tests/workers"
 import { expect } from "vitest"
 import type { PlatformEnv } from "@/context"
@@ -78,11 +78,9 @@ test("native sandbox CLI migrates its selected database and preserves native fai
 			})
 		).stdout.trim()
 	await writeDatabaseProject(directory)
-	await writeDatabase(directory, "reports")
-	await mkdir(join(directory, "public"))
 	await writeFile(
 		join(directory, "public/slate.json"),
-		JSON.stringify({ connections: {}, databases: { reports: { mode: "viewer" } } }),
+		JSON.stringify({ connections: {}, databases: { notes: { mode: "viewer" } } }),
 	)
 	await git("init", "-b", "main")
 	await git("config", "user.name", "Migration Acceptance")
@@ -101,16 +99,16 @@ test("native sandbox CLI migrates its selected database and preserves native fai
 	assert(selected && unselected)
 	await PROVISIONING.migrate(prepared)
 	const database = DATABASES.getByName(selected.instance_name)
-	expect((await database.query("SELECT * FROM updates")).rows).toEqual([])
+	expect((await database.query("SELECT * FROM notes")).rows).toEqual([])
 	expect((await database.query("SELECT name FROM kysely_migration")).rows).toEqual([
-		["001_create_updates"],
+		["001_create_notes"],
 	])
 	await expect(
-		DATABASES.getByName(unselected.instance_name).query("SELECT * FROM updates"),
+		DATABASES.getByName(unselected.instance_name).query("SELECT * FROM notes"),
 	).rejects.toThrow()
 
 	await writeFile(
-		join(directory, "databases/reports/migrations/002_failure.ts"),
+		join(directory, "databases/notes/migrations/002_failure.ts"),
 		`import { sql, type Kysely } from "kysely"
 export async function up(db: Kysely<unknown>) {
   await sql\`CREATE TABLE partial_migration (id TEXT NOT NULL)\`.execute(db)
@@ -127,6 +125,6 @@ export async function up(db: Kysely<unknown>) {
 	)
 	expect((await database.query("SELECT * FROM partial_migration")).rows).toEqual([])
 	expect((await database.query("SELECT name FROM kysely_migration")).rows).toEqual([
-		["001_create_updates"],
+		["001_create_notes"],
 	])
 }, 900_000)

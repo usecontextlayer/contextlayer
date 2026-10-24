@@ -69,8 +69,8 @@ for (const [mode, tool] of [
 		const { remote } = await repo.info()
 		const token = await repo.createToken("write")
 		const slug = mode === "owner" ? "reports" : "drafts"
+		await writeDatabaseProject(directory)
 		await mkdir(join(directory, "agents/database"), { recursive: true })
-		await mkdir(join(directory, "public"))
 		await writeFile(
 			join(directory, "public/slate.json"),
 			JSON.stringify({
@@ -90,7 +90,6 @@ for (const [mode, tool] of [
 			join(directory, "agents/database/instructions.md"),
 			"Use the requested database tool. These are disposable acceptance databases; the requested SQL writes are authorized. Do not use Bash. Report completion briefly.\n",
 		)
-		await writeDatabaseProject(directory)
 		for (const database of ["drafts", "reports"]) await writeDatabase(directory, database)
 		const sql =
 			"INSERT INTO updates (id, kind, body, created_at) SELECT ?, kind, body, ? FROM updates WHERE id = ? RETURNING id, body"

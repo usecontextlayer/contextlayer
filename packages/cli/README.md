@@ -4,7 +4,7 @@ Create and deploy ContextLayer slates, and connect accounts with the `ctx` CLI.
 
 The [domain model](https://github.com/usecontextlayer/contextlayer/blob/main/ARCHITECTURE.md#domain-model) defines slates, declarations, resources, Owners, and assignments.
 
-Use Node.js 24 or newer, pnpm, and Git. Git author identity must be configured; initialization displays Git's configuration instructions when it is missing.
+Use Node.js 22.22.0 or newer, pnpm, and Git. Git author identity must be configured; initialization displays Git's configuration instructions when it is missing.
 
 Start with login, then create and run your slate:
 

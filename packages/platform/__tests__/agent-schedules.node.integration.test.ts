@@ -256,8 +256,8 @@ test("members' deployed cron jobs use viewer resources and retain results after 
 			GIT_TERMINAL_PROMPT: "0",
 		}
 		const checkout = join(dir, slate.id)
+		await writeDatabaseProject(checkout)
 		await mkdir(join(checkout, "agents/daily-summary/schedules"), { recursive: true })
-		await mkdir(join(checkout, "public"))
 		const git = async (...args: string[]) =>
 			(await execFile("git", args, { cwd: checkout, env: gitEnv })).stdout.trim()
 		await git("init", "-b", "main")
@@ -288,7 +288,6 @@ test("members' deployed cron jobs use viewer resources and retain results after 
 			scheduleFile,
 			'---\ncron: "0 0 1 1 *"\n---\nInspect only mailbox profile metadata with a read-only Gmail tool. Report only whether it succeeded.\n',
 		)
-		await writeDatabaseProject(checkout)
 		for (const slug of ["inbox", "reports"]) await writeDatabase(checkout, slug)
 		await git("add", ".")
 		await git("-c", "commit.gpgsign=false", "commit", "-m", "Deploy scheduled agent")

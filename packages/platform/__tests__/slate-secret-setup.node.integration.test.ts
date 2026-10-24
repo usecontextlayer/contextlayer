@@ -35,7 +35,7 @@ const test = base.extend(
 		onCleanup(async () => {
 			await ARTIFACTS.delete(slate.id)
 		})
-		await mkdir(join(directory, "public"), { recursive: true })
+		await writeDatabaseProject(directory)
 		await mkdir(join(directory, "agents/daily/schedules"), { recursive: true })
 		await writeFile(
 			join(directory, "public/slate.json"),
@@ -57,7 +57,6 @@ const test = base.extend(
 			join(directory, "agents/daily/schedules/daily.md"),
 			'---\ncron: "0 0 1 1 *"\n---\nSave a personal update.\n',
 		)
-		await writeDatabaseProject(directory)
 		await writeDatabase(directory, "inbox")
 		const execute = execa({
 			cwd: directory,

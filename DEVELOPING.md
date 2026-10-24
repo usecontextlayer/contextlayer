@@ -139,6 +139,8 @@ Run the connected stack from the worktree as from any checkout. It selects its o
 
 ## Verifying unpublished CLI and SDK in a slate checkout
 
+Production hosted slates must use published packages. Local development and integration tests may use unpublished CLI/SDK packages against the local platform stack, including source uploaded to an isolated `contextlayer-test` Artifacts repository. The database integration fixture uses the real starter with packed CLI/SDK overrides and normal installation; see [slate database verification](packages/platform/AGENTS.md#slate-database-verification).
+
 `dev:ctx` runs this workspace's CLI, but the slate's Vite integration loads its installed SDK and CLI packages. `dev:env` supplies connection settings; it does not select package source. To verify unpublished CLI or SDK changes, build and pack both packages from the repository root, then install the resulting tarballs in the slate:
 
 ```sh

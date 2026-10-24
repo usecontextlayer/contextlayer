@@ -58,7 +58,7 @@ async function requireLogin(command: Command) {
 program
 	.command("init <directory>")
 	.description(
-		"Create a private ContextLayer slate on main with React Router, Tailwind, and shadcn; requires login, Node.js 24+, pnpm, and Git author identity; sets the Git remote and prints how to start and deploy the slate",
+		"Create a private ContextLayer slate on main with React Router, Tailwind, and shadcn; requires login, Node.js 22.22.0+, pnpm, and Git author identity; sets the Git remote and prints how to start and deploy the slate",
 	)
 	.option("--org <slug>", "Create the slate under an organization you belong to")
 	.hook("preAction", requireLogin)
