@@ -171,7 +171,7 @@ test("hosted configuration uses pushed declarations independently of developer-l
 		join(dir, ".contextlayer/connections.json"),
 		JSON.stringify({ repository: "developer-local-repository" }),
 	)
-	await git("add", "public", "agents", ".gitignore")
+	await git("add", "public", "agents")
 	await git(
 		"-c",
 		"commit.gpgsign=false",
