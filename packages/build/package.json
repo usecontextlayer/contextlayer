@@ -3,11 +3,12 @@
 		"@cloudflare/ci": "0.2.0",
 		"@cloudflare/sandbox": "0.12.1",
 		"@usecontextlayer/shared": "workspace:*",
-		"aws4fetch": "1.0.20"
+		"jose": "^6.2.12"
 	},
 	"devDependencies": {
 		"@cloudflare/workers-types": "^5.20260730.1",
 		"@types/node": "^24.13.3",
+		"aws4fetch": "1.0.20",
 		"typescript": "latest",
 		"vitest": "4.1.11",
 		"wrangler": "4.152.0"
@@ -18,6 +19,7 @@
 	"scripts": {
 		"build": "wrangler deploy --env=\"\" --dry-run --outdir dist",
 		"test": "vitest run --config vitest.config.ts",
+		"test:integration:node": "doppler run --project platform --config dev -- vitest run --config vitest.integration.node.config.ts",
 		"tsc": "tsc --noEmit"
 	},
 	"type": "module",

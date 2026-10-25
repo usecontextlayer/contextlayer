@@ -253,7 +253,7 @@ pnpm exec turbo run build --filter=@usecontextlayer/platform --filter=@usecontex
 pnpm exec turbo run test:integration:node --filter=@usecontextlayer/platform -- build.node.integration.test.ts
 ```
 
-The suite creates and reclaims its own remote repository, Worker and R2 objects, along with isolated SQL and local runtime resources. It invokes the Workflow directly and fetches through the native dispatch binding; Artifacts event delivery and the hosted request authorization path require separate verification.
+The suite creates and reclaims its own remote repository, Worker and R2 objects, along with isolated SQL and local runtime resources. R2 cleanup must cover every object under the run's deployment prefix as well as its native snapshot data and metadata; never clean a shared prefix. Exercise the production Workflow's folder transfer, migrations and publisher through an ordinary slate build. Keep deployment-configuration and temporary-credential assertions in [Build's contract tests](../build/AGENTS.md#artifact-verification), rather than injecting test programs into the authored build. It invokes the Workflow directly and fetches through the native dispatch binding; Artifacts event delivery and the hosted request authorization path require separate verification.
 
 ### Slate database verification
 

@@ -7,7 +7,7 @@ import {
 } from "@cloudflare/ci"
 import { CiSandbox } from "@cloudflare/ci/worker"
 import { databaseStatementSchema } from "@usecontextlayer/shared/databases"
-import { signArtifactUrl } from "@/artifact"
+import { artifactTransferEnv } from "@/artifact"
 import type { BuildBindings } from "@/env"
 import { publishSlate } from "@/publish"
 
@@ -57,10 +57,8 @@ export class Build extends CIWorkflow<CloudflareArtifacts, BuildBindings> {
 		)
 		const build = await ci.runner({
 			command:
-				'pnpm install --frozen-lockfile && pnpm build && tar -czf /tmp/slate-build.tar.gz build/server build/client && curl --fail --silent --show-error --request PUT --upload-file /tmp/slate-build.tar.gz "$CTX_BUILD_ARTIFACT_URL"',
-			env: {
-				CTX_BUILD_ARTIFACT_URL: await signArtifactUrl(this.env, event.instanceId, "PUT"),
-			},
+				'pnpm install --frozen-lockfile && pnpm build && /usr/local/bin/rclone copy ./build "$CTX_BUILD_ARTIFACT_PATH" --config /dev/null',
+			env: await artifactTransferEnv(this.env, event.instanceId, "object-read-write"),
 			name: "build",
 		})
 		await step.do(

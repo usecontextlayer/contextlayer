@@ -1,5 +1,5 @@
 import { getSandbox } from "@cloudflare/sandbox"
-import { signArtifactUrl } from "@/artifact"
+import { artifactTransferEnv } from "@/artifact"
 import { slateDeploymentConfig } from "@/deployment"
 import type { BuildBindings } from "@/env"
 
@@ -13,16 +13,16 @@ export async function publishSlate(
 		transport: "rpc",
 	})
 	try {
-		const preparation = await sandbox.exec(
-			'curl --fail --silent --show-error "$CTX_BUILD_ARTIFACT_URL" --output /tmp/slate-build.tar.gz && python3 -I /opt/contextlayer/prepare-artifact.py /tmp/slate-build.tar.gz /tmp/slate-deploy',
+		const download = await sandbox.exec(
+			'/usr/local/bin/rclone copy "$CTX_BUILD_ARTIFACT_PATH" /tmp/slate-deploy/payload --config /dev/null',
 			{
 				cwd: "/",
-				env: { CTX_BUILD_ARTIFACT_URL: await signArtifactUrl(env, instanceId, "GET") },
+				env: await artifactTransferEnv(env, instanceId, "object-read-only"),
 				timeout: 120_000,
 			},
 		)
-		if (!preparation.success) {
-			throw new Error(`Deployment artifact preparation failed: ${preparation.stderr}`)
+		if (!download.success) {
+			throw new Error(`Deployment artifact download failed: ${download.stderr}`)
 		}
 		await sandbox.writeFile(
 			"/tmp/slate-deploy/wrangler.json",

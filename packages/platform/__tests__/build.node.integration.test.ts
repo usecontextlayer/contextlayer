@@ -1,7 +1,6 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
+import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
-import { fileURLToPath } from "node:url"
 import type { CiParams, CiRunnerResult, CloudflareArtifacts } from "@cloudflare/ci"
 import type { CiBindings } from "@cloudflare/ci/worker"
 import { test as base } from "@tests/database"
@@ -68,9 +67,6 @@ test("the build Workflow publishes a migrated slate with platform-owned bindings
 		await ARTIFACTS.delete(slate.id)
 	})
 
-	const wrangler = fileURLToPath(
-		new URL("../node_modules/wrangler/bin/wrangler.js", import.meta.url),
-	)
 	const execute = execa({
 		cwd: directory,
 		env: {
@@ -80,30 +76,6 @@ test("the build Workflow publishes a migrated slate with platform-owned bindings
 		},
 	})
 	const namespace = buildEnv.CTX_DISPATCH_NAMESPACE
-	const seed = join(directory, "seed")
-	await mkdir(seed)
-	await writeFile(
-		join(seed, "index.js"),
-		'export default { fetch() { return new Response("previous deployment") } }',
-	)
-	const seedConfig = join(seed, "wrangler.json")
-	await writeFile(
-		seedConfig,
-		JSON.stringify({
-			compatibility_date: "2026-10-19",
-			main: "index.js",
-			name: slate.id,
-		}),
-	)
-	await execute(process.execPath, [
-		wrangler,
-		"deploy",
-		"--config",
-		seedConfig,
-		"--env=",
-		"--dispatch-namespace",
-		namespace,
-	])
 	resources.defer(async () => {
 		await execute("pnpm", [
 			"dlx",
@@ -118,76 +90,7 @@ test("the build Workflow publishes a migrated slate with platform-owned bindings
 			"--force",
 		])
 	})
-	await execute("pnpm", [
-		"dlx",
-		"cf",
-		"workers-for-platforms",
-		"dispatch-namespaces",
-		"scripts",
-		"secrets",
-		"update",
-		slate.id,
-		"--dispatch-namespace",
-		namespace,
-		"--name",
-		"OLD_SECRET",
-		"--type",
-		"secret_text",
-		"--text",
-		"harmless-test-sentinel",
-	])
-	const bindings = async () => {
-		const { stdout } = await execute("pnpm", [
-			"dlx",
-			"cf",
-			"workers-for-platforms",
-			"dispatch-namespaces",
-			"scripts",
-			"bindings",
-			"get",
-			slate.id,
-			"--dispatch-namespace",
-			namespace,
-		])
-		return z
-			.array(z.object({ name: z.string(), type: z.string() }))
-			.parse(JSON.parse(stdout))
-	}
-	expect(await bindings()).toEqual([{ name: "OLD_SECRET", type: "secret_text" }])
-	await execute("pnpm", [
-		"dlx",
-		"cf",
-		"workers-for-platforms",
-		"dispatch-namespaces",
-		"scripts",
-		"secrets",
-		"bulk",
-		"--dispatch-namespace",
-		namespace,
-		"--script-name",
-		slate.id,
-		"--secrets",
-		JSON.stringify({ OLD_SECRET: null }),
-	])
-	expect(await bindings()).toEqual([])
-
 	await createSlateProject(resolve(import.meta.dirname, "../../.."), checkout)
-	const packagePath = join(checkout, "package.json")
-	const manifest = JSON.parse(await readFile(packagePath, "utf8"))
-	manifest.scripts.build = `node ./check-build-env.mjs && ${manifest.scripts.build}`
-	await writeFile(packagePath, JSON.stringify(manifest))
-	await writeFile(
-		join(checkout, "check-build-env.mjs"),
-		`const names = ["CF_TOKEN", "CLOUDFLARE_API_TOKEN", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY"]
-if (names.some((name) => process.env[name] !== undefined)) {
-  throw new Error("Author build received deployment credentials")
-}
-`,
-	)
-	const authorConfigPath = join(checkout, "wrangler.jsonc")
-	const authorConfig = JSON.parse(await readFile(authorConfigPath, "utf8"))
-	authorConfig.vars = { AUTHOR_SELECTED_BINDING: "not-platform-policy" }
-	await writeFile(authorConfigPath, JSON.stringify(authorConfig))
 	await writeFile(
 		join(checkout, "app/routes.ts"),
 		`import { index, route, type RouteConfig } from "@react-router/dev/routes"
@@ -220,7 +123,19 @@ export default [index("routes/home.tsx"), route("build-proof", "routes/build-pro
 	await git("push", repo.remote, "main")
 
 	const id = crypto.randomUUID()
-	resources.defer(() => buildEnv.BACKUP_BUCKET.delete(`build-artifacts/${id}.tar.gz`))
+	resources.defer(async () => {
+		let cursor: string | undefined
+		do {
+			const page = await buildEnv.BACKUP_BUCKET.list({
+				cursor,
+				prefix: `build-artifacts/${id}/`,
+			})
+			if (page.objects.length > 0) {
+				await buildEnv.BACKUP_BUCKET.delete(page.objects.map(({ key }) => key))
+			}
+			cursor = page.truncated ? page.cursor : undefined
+		} while (cursor)
+	})
 	await buildEnv.CI_WORKFLOW.create({
 		id,
 		params: {
@@ -258,7 +173,22 @@ export default [index("routes/home.tsx"), route("build-proof", "routes/build-pro
 	expect((await notes.query("SELECT name FROM kysely_migration")).rows).toEqual([
 		["001_create_notes"],
 	])
-	expect(await bindings()).toEqual([{ name: "ASSETS", type: "assets" }])
+	const { stdout } = await execute("pnpm", [
+		"dlx",
+		"cf",
+		"workers-for-platforms",
+		"dispatch-namespaces",
+		"scripts",
+		"bindings",
+		"get",
+		slate.id,
+		"--dispatch-namespace",
+		namespace,
+	])
+	const bindings = z
+		.array(z.object({ name: z.string(), type: z.string() }))
+		.parse(JSON.parse(stdout))
+	expect(bindings).toEqual([{ name: "ASSETS", type: "assets" }])
 	const deployed = SLATES.get(slate.id)
 	for (const path of ["/build-proof", "/build-proof.txt"]) {
 		const response = await deployed.fetch(`https://${slate.public_hostname}${path}`)

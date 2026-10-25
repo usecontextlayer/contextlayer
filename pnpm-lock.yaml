@@ -87,9 +87,9 @@ importers:
       "@usecontextlayer/shared":
         specifier: workspace:*
         version: link:../shared
-      aws4fetch:
-        specifier: 1.0.20
-        version: 1.0.20
+      jose:
+        specifier: ^6.2.12
+        version: 6.2.12
     devDependencies:
       "@cloudflare/workers-types":
         specifier: ^5.20260730.1
@@ -97,6 +97,9 @@ importers:
       "@types/node":
         specifier: ^24.13.3
         version: 24.13.3
+      aws4fetch:
+        specifier: 1.0.20
+        version: 1.0.20
       typescript:
         specifier: latest
         version: 7.0.2
