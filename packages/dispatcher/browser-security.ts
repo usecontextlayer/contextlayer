@@ -12,7 +12,11 @@ export const browserSecurity = createMiddleware(async (c, next) => {
 		c.res = c.text("Forbidden", 403)
 	}
 	c.header("Vary", "Sec-Fetch-Site, Sec-Fetch-Mode, Sec-Fetch-Dest", { append: true })
-	c.header("Content-Security-Policy", "frame-ancestors 'self'", { append: true })
+	c.header(
+		"Content-Security-Policy",
+		"frame-ancestors 'self'; base-uri 'self'; object-src 'none'",
+		{ append: true },
+	)
 	const cookies = c.res.headers.getSetCookie()
 	c.header("Set-Cookie", undefined)
 	for (const cookie of cookies) {

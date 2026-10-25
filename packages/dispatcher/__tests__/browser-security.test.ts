@@ -27,6 +27,9 @@ test.each<RequestInit>([
 	const response = await app.request("https://b.contextlayer.xyz/", init)
 	expect(response.status).toBe(200)
 	expect(await response.text()).toBe("slate")
+	expect(response.headers.get("Content-Security-Policy")).toBe(
+		"frame-ancestors 'self'; base-uri 'self'; object-src 'none'",
+	)
 	expect(response.headers.get("vary")).toBe(
 		"Sec-Fetch-Site, Sec-Fetch-Mode, Sec-Fetch-Dest",
 	)
@@ -58,7 +61,7 @@ test.each(["same-site", "cross-site"])(
 )
 
 test.each(["/", "/assets/app.js"])(
-	"protects viewer cookies and framing on authored responses at %s",
+	"protects viewer cookies and adds browser CSP on authored responses at %s",
 	async (path) => {
 		const app = new Hono().use(browserSecurity).all("*", () => {
 			const headers = new Headers({
@@ -83,7 +86,7 @@ test.each(["/", "/assets/app.js"])(
 			"ctx-viewer-auth-preference=compact; Path=/",
 		])
 		expect(response.headers.get("Content-Security-Policy")).toBe(
-			"default-src 'self', frame-ancestors 'self'",
+			"default-src 'self', frame-ancestors 'self'; base-uri 'self'; object-src 'none'",
 		)
 		expect(response.headers.get("Vary")).toBe(
 			"Accept-Encoding, Sec-Fetch-Site, Sec-Fetch-Mode, Sec-Fetch-Dest",
