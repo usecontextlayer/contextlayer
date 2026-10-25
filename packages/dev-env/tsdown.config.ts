@@ -12,6 +12,7 @@ export default defineConfig({
 		"polar.ts",
 		"ports.ts",
 		"services.ts",
+		"slate.ts",
 		"viewer.ts",
 		"web.ts",
 	],

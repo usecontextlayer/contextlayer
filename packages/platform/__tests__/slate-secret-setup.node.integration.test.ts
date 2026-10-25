@@ -1,8 +1,9 @@
 import assert from "node:assert/strict"
 import { mkdir, writeFile } from "node:fs/promises"
-import { join } from "node:path"
-import { writeDatabase, writeDatabaseProject } from "@tests/database-project"
+import { join, resolve } from "node:path"
+import { writeDatabase } from "@tests/database-project"
 import { provisioningTest as base } from "@tests/integration"
+import { createSlateProject } from "@usecontextlayer/dev-env/slate"
 import { slateResourcesSchema } from "@usecontextlayer/shared/slate-resources"
 import { getAgentByName } from "agents/routing"
 import { execa } from "execa"
@@ -35,7 +36,7 @@ const test = base.extend(
 		onCleanup(async () => {
 			await ARTIFACTS.delete(slate.id)
 		})
-		await writeDatabaseProject(directory)
+		await createSlateProject(resolve(import.meta.dirname, "../../.."), directory)
 		await mkdir(join(directory, "agents/daily/schedules"), { recursive: true })
 		await writeFile(
 			join(directory, "public/slate.json"),

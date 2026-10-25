@@ -1,9 +1,10 @@
 import assert from "node:assert/strict"
 import { randomUUID } from "node:crypto"
 import { mkdir, writeFile } from "node:fs/promises"
-import { join } from "node:path"
-import { writeDatabase, writeDatabaseProject } from "@tests/database-project"
+import { join, resolve } from "node:path"
+import { writeDatabase } from "@tests/database-project"
 import { executionTest as test } from "@tests/integration"
+import { createSlateProject } from "@usecontextlayer/dev-env/slate"
 import { signInViewer } from "@usecontextlayer/dev-env/viewer"
 import { databaseResultSchema } from "@usecontextlayer/shared/databases"
 import { slateResourcesSchema } from "@usecontextlayer/shared/slate-resources"
@@ -47,7 +48,7 @@ test("first use provisions personal data and schedules once, after the whole sla
 			.execute()
 	expect(await members()).toEqual([])
 	const checkout = join(directory, "first-use")
-	await writeDatabaseProject(checkout)
+	await createSlateProject(resolve(import.meta.dirname, "../../.."), checkout)
 	await mkdir(join(checkout, "agents/daily/schedules"), { recursive: true })
 	const execute = execa({
 		cwd: checkout,

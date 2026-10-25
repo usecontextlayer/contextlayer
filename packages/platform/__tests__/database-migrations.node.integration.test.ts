@@ -2,11 +2,11 @@ import assert from "node:assert/strict"
 import { execFile as execFileCallback } from "node:child_process"
 import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
-import { join } from "node:path"
+import { join, resolve } from "node:path"
 import { promisify } from "node:util"
 import { test as base } from "@tests/database"
-import { writeDatabaseProject } from "@tests/database-project"
 import type { Workers } from "@tests/workers"
+import { createSlateProject } from "@usecontextlayer/dev-env/slate"
 import { expect } from "vitest"
 import type { PlatformEnv } from "@/context"
 import type { Provisioning } from "@/provisioning.server"
@@ -77,7 +77,7 @@ test("native sandbox CLI migrates its selected database and preserves native fai
 				},
 			})
 		).stdout.trim()
-	await writeDatabaseProject(directory)
+	await createSlateProject(resolve(import.meta.dirname, "../../.."), directory)
 	await writeFile(
 		join(directory, "public/slate.json"),
 		JSON.stringify({ connections: {}, databases: { notes: { mode: "viewer" } } }),

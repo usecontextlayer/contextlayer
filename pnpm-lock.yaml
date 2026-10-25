@@ -220,6 +220,9 @@ importers:
       '@types/node':
         specifier: ^24.13.3
         version: 24.13.3
+      '@usecontextlayer/sdk':
+        specifier: workspace:*
+        version: link:../sdk
       tsdown:
         specifier: latest
         version: 0.23.1(tsx@4.23.15)(typescript@7.0.2)

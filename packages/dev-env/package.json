@@ -15,6 +15,7 @@
 	},
 	"devDependencies": {
 		"@types/node": "^24.13.3",
+		"@usecontextlayer/sdk": "workspace:*",
 		"tsdown": "latest",
 		"tsx": "^4.23.12",
 		"typescript": "latest",
@@ -52,6 +53,10 @@
 		"./services": {
 			"import": "./dist/services.mjs",
 			"types": "./dist/services.d.mts"
+		},
+		"./slate": {
+			"import": "./dist/slate.mjs",
+			"types": "./dist/slate.d.mts"
 		},
 		"./viewer": {
 			"import": "./dist/viewer.mjs",

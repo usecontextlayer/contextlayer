@@ -1,12 +1,13 @@
 import assert from "node:assert/strict"
 import { execFile as execFileCallback } from "node:child_process"
 import { mkdir, writeFile } from "node:fs/promises"
-import { join } from "node:path"
+import { join, resolve } from "node:path"
 import { promisify } from "node:util"
 import { ToolResultEntry } from "@earendil-works/pi-durable"
-import { writeDatabase, writeDatabaseProject } from "@tests/database-project"
+import { writeDatabase } from "@tests/database-project"
 import { executionTest as test } from "@tests/integration"
 import { DEVELOPMENT_ORGANIZATION_SLUG } from "@usecontextlayer/dev-env/env"
+import { createSlateProject } from "@usecontextlayer/dev-env/slate"
 import { signInViewer } from "@usecontextlayer/dev-env/viewer"
 import { type Databases, databaseResultSchema } from "@usecontextlayer/shared/databases"
 import { slateResourcesSchema } from "@usecontextlayer/shared/slate-resources"
@@ -69,7 +70,7 @@ for (const [mode, tool] of [
 		const { remote } = await repo.info()
 		const token = await repo.createToken("write")
 		const slug = mode === "owner" ? "reports" : "drafts"
-		await writeDatabaseProject(directory)
+		await createSlateProject(resolve(import.meta.dirname, "../../.."), directory)
 		await mkdir(join(directory, "agents/database"), { recursive: true })
 		await writeFile(
 			join(directory, "public/slate.json"),

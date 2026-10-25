@@ -1,11 +1,12 @@
 import assert from "node:assert/strict"
 import { execFile as execFileCallback } from "node:child_process"
 import { mkdir, readdir, writeFile } from "node:fs/promises"
-import { join } from "node:path"
+import { join, resolve } from "node:path"
 import { promisify } from "node:util"
-import { writeDatabase, writeDatabaseProject } from "@tests/database-project"
+import { writeDatabase } from "@tests/database-project"
 import { executionTest as test } from "@tests/integration"
 import { DEVELOPMENT_ORGANIZATION_SLUG } from "@usecontextlayer/dev-env/env"
+import { createSlateProject } from "@usecontextlayer/dev-env/slate"
 import { signInViewer } from "@usecontextlayer/dev-env/viewer"
 import {
 	type SlateResourceConfiguration,
@@ -120,7 +121,7 @@ test("native CLI provisioning initializes owner and member databases and applies
 	}
 	for (const slate of slates) {
 		const checkout = join(dir, slate.id)
-		await writeDatabaseProject(checkout)
+		await createSlateProject(resolve(import.meta.dirname, "../../.."), checkout)
 		await mkdir(join(checkout, "agents/daily-summary/schedules"), { recursive: true })
 		const git = async (...args: string[]) =>
 			(await execFile("git", args, { cwd: checkout, env: gitEnv })).stdout.trim()

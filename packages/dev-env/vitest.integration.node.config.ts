@@ -8,10 +8,6 @@ const projectRoot = fileURLToPath(new URL(".", import.meta.url))
 export default defineProject({
 	resolve: { tsconfigPaths: true },
 	test: {
-		// beforeAll/afterAll run the ephemeral-DB lifecycle, and CREATE/DROP
-		// DATABASE queue behind parallel suites' churn — the vitest 10s hook
-		// default flaked there (measured a 12s DROP stall under lane load).
-		hookTimeout: 30_000,
 		include: nodeIntegrationTestInclude,
 		name: "@usecontextlayer/dev-env:integration:node",
 		root: projectRoot,

@@ -1,8 +1,9 @@
 import assert from "node:assert/strict"
 import { mkdir, writeFile } from "node:fs/promises"
-import { join } from "node:path"
-import { writeDatabase, writeDatabaseProject } from "@tests/database-project"
+import { join, resolve } from "node:path"
+import { writeDatabase } from "@tests/database-project"
 import { provisioningTest as test } from "@tests/integration"
+import { createSlateProject } from "@usecontextlayer/dev-env/slate"
 import { connectionsSchema } from "@usecontextlayer/shared/connections"
 import { slateResourcesSchema } from "@usecontextlayer/shared/slate-resources"
 import { getAgentByName } from "agents/routing"
@@ -47,7 +48,7 @@ test("chrome and API final assignments enable agent-only personal resources with
 				.where("slate_id", "=", slate.id)
 				.execute()
 		const checkout = join(directory, mode)
-		await writeDatabaseProject(checkout)
+		await createSlateProject(resolve(import.meta.dirname, "../../.."), checkout)
 		await mkdir(join(checkout, "agents/daily/schedules"), { recursive: true })
 		await writeFile(
 			join(checkout, "public/slate.json"),

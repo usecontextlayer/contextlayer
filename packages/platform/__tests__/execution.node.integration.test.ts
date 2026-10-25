@@ -1,11 +1,12 @@
 import assert from "node:assert/strict"
 import { randomUUID } from "node:crypto"
 import { writeFile } from "node:fs/promises"
-import { join } from "node:path"
+import { join, resolve } from "node:path"
 import { createPolarCore } from "@polar-sh/sdk/2026-10"
 import { listEvents } from "@polar-sh/sdk/2026-10/services/events"
-import { writeDatabase, writeDatabaseProject } from "@tests/database-project"
+import { writeDatabase } from "@tests/database-project"
 import { executionTest as test } from "@tests/integration"
+import { createSlateProject } from "@usecontextlayer/dev-env/slate"
 import { signInViewer } from "@usecontextlayer/dev-env/viewer"
 import { connectionsSchema } from "@usecontextlayer/shared/connections"
 import type { Databases } from "@usecontextlayer/shared/databases-worker"
@@ -140,7 +141,7 @@ test("native resource capabilities enforce access and report exact slate-Owner t
 		).toEqual(refusal)
 
 		const checkout = join(directory, slate.id)
-		await writeDatabaseProject(checkout)
+		await createSlateProject(resolve(import.meta.dirname, "../../.."), checkout)
 		await writeFile(
 			join(checkout, "public/slate.json"),
 			JSON.stringify({

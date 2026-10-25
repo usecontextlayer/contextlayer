@@ -1,11 +1,12 @@
 import { execFile as execFileCallback } from "node:child_process"
 import { mkdir, writeFile } from "node:fs/promises"
-import { join } from "node:path"
+import { join, resolve } from "node:path"
 import { promisify } from "node:util"
 import { AssistantEntry, UserEntry } from "@earendil-works/pi-durable"
-import { writeDatabase, writeDatabaseProject } from "@tests/database-project"
+import { writeDatabase } from "@tests/database-project"
 import { provisioningTest as test } from "@tests/integration"
 import { DEVELOPMENT_ORGANIZATION_SLUG } from "@usecontextlayer/dev-env/env"
+import { createSlateProject } from "@usecontextlayer/dev-env/slate"
 import { connectionsSchema } from "@usecontextlayer/shared/connections"
 import { slateResourcesSchema } from "@usecontextlayer/shared/slate-resources"
 import { getAgentByName } from "agents/routing"
@@ -256,7 +257,7 @@ test("members' deployed cron jobs use viewer resources and retain results after 
 			GIT_TERMINAL_PROMPT: "0",
 		}
 		const checkout = join(dir, slate.id)
-		await writeDatabaseProject(checkout)
+		await createSlateProject(resolve(import.meta.dirname, "../../.."), checkout)
 		await mkdir(join(checkout, "agents/daily-summary/schedules"), { recursive: true })
 		const git = async (...args: string[]) =>
 			(await execFile("git", args, { cwd: checkout, env: gitEnv })).stdout.trim()
