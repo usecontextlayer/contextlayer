@@ -11,7 +11,7 @@ Every step below gates the next. Stop and discuss with the user whenever a step 
 
 Args: `$ARGUMENTS` — the faux worktree dir, or infer from cwd (checkout name `<repo>-<branch>`, e.g. `contextlayer-2026-07-03-foo` → branch `2026-07-03-foo`).
 
-- `git status` — if anything is uncommitted, **stage it yourself** (`git add`; gitcp never stages) and commit+push with `source ~/.zshrc && gitcp`. If the `claude` call inside gitcp is credit-blocked, retry with `LLM_STAGED_MSG_CLAUDE_CMD=claude-alnu-ca` (or `-com`).
+- `git status` — if anything is uncommitted, **stage it yourself** (`git add`; gitcp never stages) and commit+push with `gitcp`. If the `claude` call inside gitcp is credit-blocked, retry with `LLM_STAGED_MSG_CLAUDE_CMD=claude-alnu-ca` (or `-com`).
 - Confirm the branch is pushed: `git rev-parse origin/<branch>` matches HEAD.
 
 ## Step 2 — Fetch and locate yourself
@@ -50,19 +50,21 @@ The browser and Claude test obligations remain when their suites return. Do not 
 - **`npx <tool>` failing with a doubled `node_modules/node_modules/…` path is environment state, not code — and the `pnpm install --frozen-lockfile` above is a known trigger.** Some pnpm installs leave a member-local `node_modules/.bin` shim for a root-hoisted tool (tsc, tsx, vite…) with no matching member-local package dir; npm's `npx` then resolves that shim against `<repo>/node_modules` instead of `<repo>` and execs a path that does not exist. Two tells: the whole lane dies in seconds behind many identical `ELIFECYCLE Command failed` lines with nothing actually compiled, and `pnpm exec <tool> --version` succeeds where `npx <tool> --version` crashes — the shims themselves are correct, only npm's resolution is not. **A `node_modules` wipe plus clean install does NOT reliably heal it**: the reinstall regenerates the same ghosts (2026-08-15, `base-schemas` came back with ten where a healthy sibling worktree had one). Heal by deleting the ghost shims themselves — every `.bin` entry whose owning package has no dir in that member's `node_modules`, reading the owner off the shim's exec line rather than its filename (`tsc`/`tsserver` are owned by `typescript`). Check a sibling clone first: this is worktree-scoped, so a second checkout resolving `npx` fine means the repo and npm are innocent. Then re-run the lane with `--force` — a cached turbo run replays logs without ever invoking the shim, so a green board proves nothing until the cache is busted.
 - After any rebase or fix commit: `git push --force-with-lease origin <branch>` so origin's branch matches what will merge.
 
-## Step 5 — ff-merge to main and push
+## Step 5 — Confirm, then ff-merge to main and push
+
+Report the branch tip, gate results, and anything flagged in Steps 3/4, then **ask for permission to land before merging or pushing main**. On confirmation, run:
 
     git checkout -B main origin/main
     git merge --ff-only <branch>
     git push origin main
 
-If `--ff-only` refuses, main moved during the gates — go back to Step 2. Never create a merge commit here.
+`origin/main` is the cached ref from Step 2, so a local fast-forward does not detect remote main advancing during the gates; the push rejects that as non-fast-forward. If the push is rejected for that reason, or the local `--ff-only` merge refuses, switch back to `<branch>` and return to Step 2 for fetch, conceptual review, and gates. Never create a merge commit or force-push main here.
 
 - Pushing main starts `check.yml` and the configured Workers Builds deployments. Version-tag pushes start `release.yml`; manual dispatch remains available. If this change alters a contract shared with a deployed consumer, coordinate the releases so production does not run incompatible versions. Use `node --import tsx scripts/release.ts --help` for the retained release ladder; do not assume a merge alone completes a deployment.
 
-## Step 6 — Update and archive the spec
+## Step 6 — Update the spec; archive when shipped
 
-The feature's spec lives in `~/ContextLayer/internal/in-progress/`. Update its **Status** to shipped (merge hash, date, one-paragraph verification summary), then `mv` it to `~/ContextLayer/internal/archived/`. Fix inbound links to it from `internal/in-progress/` and `internal/planned/` only — archived docs are tombstones, never edited. No git commands against `~/ContextLayer/internal`.
+The feature's spec lives in `~/ContextLayer/internal/in-progress/`. Record the merge hash, date, and one-paragraph verification summary. If the feature still needs release, deployment, or shipping verification, record its status as merged with that work outstanding and leave it in `in-progress/`. Once the feature's shipping requirements are satisfied, mark it shipped and `mv` it to `~/ContextLayer/internal/archived/`. When archiving, fix inbound links to it from `internal/in-progress/` and `internal/planned/` only — archived docs are tombstones, never edited. No git commands against `~/ContextLayer/internal`.
 
 ## Step 7 — Tear down the faux worktree
 
@@ -72,6 +74,6 @@ From **outside** the checkout (it refuses to run from within, and your shell wou
 
 Then verify the remote branch is gone: `git -C ~/ContextLayer/contextlayer ls-remote --heads origin <branch>` prints nothing. Also stop/remove any session infrastructure the work stood up (background daemons, throwaway databases, docker containers) — but leave standing conventions (e.g. the test-harness Postgres container) alone.
 
-## Step 8 — Confirm, then sync the main checkout
+## Step 8 — Sync the main checkout and report
 
-Report the landing to the user (merge hash, gate results, anything flagged in Step 3/4) and **ask before this final step**. On confirmation, in `~/ContextLayer/contextlayer`: verify it is on `main` with a clean tree (if not, report and ask instead of proceeding), then `git pull` — it should be a pure fast-forward of exactly the commits you merged.
+In `~/ContextLayer/contextlayer`, verify it is on `main` with a clean tree (if not, report and ask instead of proceeding), then `git pull --ff-only`. Step 5's approval covers this sync; no separate confirmation is needed. Report the landing to the user: merge hash, gate results, anything flagged in Steps 3/4, spec status and outstanding shipping work, and the primary checkout's sync result.
