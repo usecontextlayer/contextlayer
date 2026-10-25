@@ -154,7 +154,6 @@ test("the build Workflow publishes a migrated slate with platform-owned bindings
 			.parse(JSON.parse(stdout))
 	}
 	expect(await bindings()).toEqual([{ name: "OLD_SECRET", type: "secret_text" }])
-	// Rollout removes legacy secrets before enabling the trusted publisher.
 	await execute("pnpm", [
 		"dlx",
 		"cf",

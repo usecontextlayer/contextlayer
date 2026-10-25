@@ -244,7 +244,16 @@ Hosted-agent execution and ownership verification are under [hosted agent verifi
 
 ### Slate build verification
 
-`build.node.integration.test.ts` runs the production Build Workflow against a committed starter created by `createSlateProject`. It checks credential isolation during the author build, migrated notes storage, assets-only effective bindings, and deployed module and static-asset responses through the configured test dispatch namespace. The test seeds a harmless legacy secret, removes it through native cf bulk secret deletion and asserts an empty binding set before invoking the Workflow. It needs Docker, local Postgres, package-registry access, native Cloudflare access to `contextlayer-test` Artifacts and Workers for Platforms, and Wrangler OAuth access to the remote `contextlayer-test-build-backups` R2 binding. The normal integration command loads `CF_TOKEN` and test-bucket R2 signing credentials from Doppler `platform/dev`; native remote-binding access remains separately authenticated by Wrangler. Build’s test `BACKUP_BUCKET` binding points to the same remote bucket used by the native Sandbox snapshot upload and signed artifact handoff. Build Platform, Build and Dispatcher first with `pnpm exec turbo run build --filter=@usecontextlayer/platform --filter=@usecontextlayer/build --filter=@usecontextlayer/dispatcher`, then run `pnpm exec turbo run test:integration:node --filter=@usecontextlayer/platform -- build.node.integration.test.ts`. The body creates and deletes its own Artifacts repository and remote Worker with a harmless test secret, and reclaims its build artifact and native snapshot data and metadata through the remote R2 binding; fixtures reclaim isolated SQL, local runtime state and temporary files. It invokes `CI_WORKFLOW` explicitly with the repository and committed revision, so it exercises the pipeline without testing Artifacts push-event delivery. The native dispatch-binding requests prove deployed module and asset responses; they do not exercise viewer authorization, billing, or delegated Tools/Databases. It needs no connected web identity, saved CLI login, or provider account.
+`build.node.integration.test.ts` exercises the trusted build and deployment pipeline. It needs Docker, [local Postgres](../../DEVELOPING.md#tests-and-local-postgres), package-registry access, Cloudflare access to `contextlayer-test` Artifacts and Workers for Platforms, and Wrangler OAuth access to the remote `contextlayer-test-build-backups` R2 bucket. Store a test-namespace deployment token as `CF_TOKEN` and bucket-scoped Object Read & Write credentials as `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` in Doppler `platform/dev`. The [integration command](#platform-integration-fixtures) loads them automatically; Wrangler OAuth must be configured separately. Production credentials are not a substitute.
+
+Build the three Workers before running the suite:
+
+```sh
+pnpm exec turbo run build --filter=@usecontextlayer/platform --filter=@usecontextlayer/build --filter=@usecontextlayer/dispatcher
+pnpm exec turbo run test:integration:node --filter=@usecontextlayer/platform -- build.node.integration.test.ts
+```
+
+The suite creates and reclaims its own remote repository, Worker and R2 objects, along with isolated SQL and local runtime resources. It invokes the Workflow directly and fetches through the native dispatch binding; Artifacts event delivery and the hosted request authorization path require separate verification.
 
 ### Slate database verification
 
@@ -330,7 +339,7 @@ Provision the reusable namespaces once in the configured Cloudflare account: pnp
 
 ## Platform integration fixtures
 
-The package’s `test:integration:node` script runs Vitest through `doppler run --project platform --config dev --`. Use the normal Turbo invocation; no additional Doppler prefix is needed. Wrangler imports process values named by each Worker’s selected `secrets.required` configuration. Build’s test configuration declares `CF_TOKEN`, `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY`; keep their test-scoped values in `platform/dev`. Doppler owns loading those values inside the task, so do not add a separate secret loader, manual fixture mapping or Turbo passthrough for them.
+Run platform Node integrations through the normal Turbo command. The package script loads Doppler `platform/dev`, and Wrangler imports the selected Workers' declared required secrets from that environment. Keep secret loading in this path so tests and deployment use the same Wrangler declarations; do not add a separate fixture allowlist.
 
 Platform Node integration files run serially because Wrangler's native container teardown selects containers by image ancestry. Run separate platform integration commands serially too, and avoid overlapping native harnesses using the same container images. Finish builds before starting these tests; their fixtures read the shared prebuilt output directories.
 

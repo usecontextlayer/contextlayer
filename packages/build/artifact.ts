@@ -15,7 +15,7 @@ export async function signArtifactUrl(
 	const url = new URL(
 		`https://${env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${env.BACKUP_BUCKET_NAME}/build-artifacts/${encodeURIComponent(instanceId)}.tar.gz`,
 	)
-	// Covers the native CI build's three 12-minute attempts and retry delays.
+	// The upload URL must outlive build attempts and their retry delays.
 	url.searchParams.set("X-Amz-Expires", "3600")
 	const signer = new AwsClient({
 		accessKeyId: env.R2_ACCESS_KEY_ID,
