@@ -31,7 +31,14 @@ Read `git log --oneline HEAD..<base>` and interrogate each commit:
 
 ## Method: git archaeology
 
-Use **Opus subagents** ("think carefully", read-only git) to reconstruct the other workstream's intent — or do the archaeology yourself if you can't fan out:
+Use the current harness's native subagents with read-only git to reconstruct the other workstream's intent. Select the latest available model in the required family at spawn time:
+
+- **Claude:** latest **Opus**, effort **`xhigh`**.
+- **Codex:** latest **Astra**, reasoning effort **`xhigh`**. When the spawn tool requires a fresh context for explicit model and effort overrides, use it and include the repository path, branch intent/spec, base ref, and commits to investigate in the task.
+
+Set model and effort explicitly through the harness controls; "think carefully" in the prompt does not configure effort. If you can't fan out, do the archaeology yourself.
+
+Investigate:
 
 - What workstream produced the new code, and what do its branches plan? (`git for-each-ref --sort=-committerdate refs/remotes`, `git grep <symbol> origin/<branch> -- <paths>`)
 - Does anything on the base consume the new thing yet?
