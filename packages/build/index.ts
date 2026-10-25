@@ -5,21 +5,13 @@ import {
 	type CiParams,
 	type CloudflareArtifacts,
 } from "@cloudflare/ci"
-import { CiSandbox, type DirectoryBackup } from "@cloudflare/ci/worker"
-import type { SlateDatabase } from "@usecontextlayer/shared/database-worker"
+import { CiSandbox } from "@cloudflare/ci/worker"
 import { databaseStatementSchema } from "@usecontextlayer/shared/databases"
-import type { SlateProvisioning } from "@usecontextlayer/shared/slate-provisioning"
+import { signArtifactUrl } from "@/artifact"
+import type { BuildBindings } from "@/env"
+import { publishSlate } from "@/publish"
 
 export { CiSandbox, ContainerProxy } from "@cloudflare/ci/worker"
-
-type BuildBindings = ConstructorParameters<typeof CIWorkflow>[1] & {
-	DATABASES: DurableObjectNamespace<SlateDatabase>
-	PROVISIONING: {
-		prepare(slateId: string, commit: string): Promise<SlateProvisioning>
-		migrate(prepared: SlateProvisioning, restore?: DirectoryBackup): Promise<void>
-		provisionSchedules(prepared: SlateProvisioning): Promise<void>
-	}
-}
 
 export default {} satisfies ExportedHandler<BuildBindings>
 
@@ -64,7 +56,11 @@ export class Build extends CIWorkflow<CloudflareArtifacts, BuildBindings> {
 			this.env.PROVISIONING.prepare(event.payload.repo, event.payload.sha),
 		)
 		const build = await ci.runner({
-			command: "pnpm install --frozen-lockfile && pnpm build",
+			command:
+				'pnpm install --frozen-lockfile && pnpm build && tar -czf /tmp/slate-build.tar.gz build/server build/client && curl --fail --silent --show-error --request PUT --upload-file /tmp/slate-build.tar.gz "$CTX_BUILD_ARTIFACT_URL"',
+			env: {
+				CTX_BUILD_ARTIFACT_URL: await signArtifactUrl(this.env, event.instanceId, "PUT"),
+			},
 			name: "build",
 		})
 		await step.do(
@@ -72,13 +68,14 @@ export class Build extends CIWorkflow<CloudflareArtifacts, BuildBindings> {
 			{ retries: { delay: "1 second", limit: 0 }, timeout: "1 hour" },
 			() => this.env.PROVISIONING.migrate(prepared, build.snapshot),
 		)
-		await build.runner({
-			cloudflareCredentials: true,
-			command:
-				'pnpm exec wrangler deploy --name "$CTX_SLATE_ID" --dispatch-namespace contextlayer-prod',
-			env: { CTX_SLATE_ID: event.payload.repo },
-			name: "deploy",
-		})
+		await step.do(
+			"deploy",
+			{
+				retries: { backoff: "linear", delay: "30 seconds", limit: 2 },
+				timeout: "15 minutes",
+			},
+			() => publishSlate(this.env, event.payload.repo, event.instanceId),
+		)
 		await step.do("provision slate schedules", () =>
 			this.env.PROVISIONING.provisionSchedules(prepared),
 		)

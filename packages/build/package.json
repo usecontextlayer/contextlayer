@@ -1,19 +1,23 @@
 {
 	"dependencies": {
 		"@cloudflare/ci": "0.2.0",
-		"@usecontextlayer/shared": "workspace:*"
+		"@cloudflare/sandbox": "0.12.1",
+		"@usecontextlayer/shared": "workspace:*",
+		"aws4fetch": "1.0.20"
 	},
 	"devDependencies": {
 		"@cloudflare/workers-types": "^5.20260730.1",
 		"@types/node": "^24.13.3",
 		"typescript": "latest",
-		"wrangler": "^4.146.0"
+		"vitest": "4.1.11",
+		"wrangler": "4.152.0"
 	},
 	"license": "BUSL-1.1",
 	"name": "@usecontextlayer/build",
 	"private": true,
 	"scripts": {
 		"build": "wrangler deploy --env=\"\" --dry-run --outdir dist",
+		"test": "vitest run --config vitest.config.ts",
 		"tsc": "tsc --noEmit"
 	},
 	"type": "module",
