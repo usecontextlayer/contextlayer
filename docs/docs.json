@@ -51,6 +51,10 @@
 			"github": "https://github.com/usecontextlayer/contextlayer"
 		}
 	},
+	"logo": {
+		"dark": "/logo/dark.svg",
+		"light": "/logo/light.svg"
+	},
 	"name": "ContextLayer",
 	"navbar": {
 		"links": [
