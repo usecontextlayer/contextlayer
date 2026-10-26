@@ -64,14 +64,19 @@
 		}
 	},
 	"navigation": {
-		"pages": [
+		"tabs": [
 			{
-				"group": "Getting Started",
-				"pages": ["index", "quickstart"]
+				"groups": [
+					{
+						"group": "Getting Started",
+						"pages": ["index", "quickstart"]
+					}
+				],
+				"tab": "Guides"
 			},
 			{
-				"group": "API reference",
-				"openapi": "https://platform.usecontextlayer.com/api/openapi.json"
+				"openapi": "https://platform.usecontextlayer.com/api/openapi.json",
+				"tab": "API Reference"
 			}
 		]
 	},
@@ -80,5 +85,5 @@
 			"canonical": "https://docs.usecontextlayer.com"
 		}
 	},
-	"theme": "almond"
+	"theme": "mint"
 }
