@@ -25,14 +25,6 @@
 			{
 				"items": [
 					{
-						"href": "https://www.usecontextlayer.com/consulting",
-						"label": "AI Consulting"
-					},
-					{
-						"href": "https://www.usecontextlayer.com/blog",
-						"label": "Blog"
-					},
-					{
 						"href": "https://platform.usecontextlayer.com",
 						"label": "Start building"
 					},
@@ -58,14 +50,6 @@
 	"name": "ContextLayer",
 	"navbar": {
 		"links": [
-			{
-				"href": "https://www.usecontextlayer.com/consulting",
-				"label": "AI Consulting"
-			},
-			{
-				"href": "https://www.usecontextlayer.com/blog",
-				"label": "Blog"
-			},
 			{
 				"href": "https://github.com/usecontextlayer/contextlayer",
 				"type": "github"
