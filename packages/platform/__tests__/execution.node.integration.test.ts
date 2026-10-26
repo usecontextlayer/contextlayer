@@ -5,7 +5,7 @@ import { join, resolve } from "node:path"
 import { createPolarCore } from "@polar-sh/sdk/2026-10"
 import { listEvents } from "@polar-sh/sdk/2026-10/services/events"
 import { writeDatabase } from "@tests/database-project"
-import { provisionSlate, executionTest as test } from "@tests/integration"
+import { executionTest as test } from "@tests/integration"
 import { createSlateProject } from "@usecontextlayer/dev-env/slate"
 import { signInViewer } from "@usecontextlayer/dev-env/viewer"
 import { accountsSchema } from "@usecontextlayer/shared/accounts"
@@ -177,7 +177,13 @@ test("native resource capabilities enforce access and report exact slate-Owner t
 			slate.id,
 			(await git("rev-parse", "HEAD")).stdout.trim(),
 		)
-		await provisionSlate(MEMBER_PROVISIONING, prepared)
+		{
+			await using workflow = await provisioning.worker.introspectWorkflowInstance(
+				"MEMBER_PROVISIONING",
+				(await MEMBER_PROVISIONING.create({ params: prepared })).id,
+			)
+			await workflow.waitForStatus("complete")
+		}
 		expect(
 			await callExecution("callTool", [
 				slate.id,

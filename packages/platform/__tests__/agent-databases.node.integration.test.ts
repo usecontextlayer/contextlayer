@@ -5,7 +5,7 @@ import { join, resolve } from "node:path"
 import { promisify } from "node:util"
 import { ToolResultEntry } from "@earendil-works/pi-durable"
 import { writeDatabase } from "@tests/database-project"
-import { provisionSlate, executionTest as test } from "@tests/integration"
+import { executionTest as test } from "@tests/integration"
 import { DEVELOPMENT_ORGANIZATION_SLUG } from "@usecontextlayer/dev-env/env"
 import { createSlateProject } from "@usecontextlayer/dev-env/slate"
 import { signInViewer } from "@usecontextlayer/dev-env/viewer"
@@ -118,7 +118,13 @@ for (const [mode, tool] of [
 			slate.id,
 			(await git("rev-parse", "HEAD")).stdout.trim(),
 		)
-		await provisionSlate(MEMBER_PROVISIONING, prepared)
+		{
+			await using workflow = await provisioning.worker.introspectWorkflowInstance(
+				"MEMBER_PROVISIONING",
+				(await MEMBER_PROVISIONING.create({ params: prepared })).id,
+			)
+			await workflow.waitForStatus("complete")
+		}
 		const viewerHeaders = await signInViewer({
 			authURL: serviceEnv.addresses.CTX_VIEWER_AUTH_URL.origin,
 			returnTo: `https://${slate.public_hostname}/`,

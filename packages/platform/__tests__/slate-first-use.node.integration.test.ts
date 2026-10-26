@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto"
 import { mkdir, writeFile } from "node:fs/promises"
 import { join, resolve } from "node:path"
 import { writeDatabase } from "@tests/database-project"
-import { provisionSlate, executionTest as test } from "@tests/integration"
+import { executionTest as test } from "@tests/integration"
 import { createSlateProject } from "@usecontextlayer/dev-env/slate"
 import { signInViewer } from "@usecontextlayer/dev-env/viewer"
 import { databaseResultSchema } from "@usecontextlayer/shared/databases"
@@ -112,7 +112,13 @@ test("first use joins immediately and provisions personal data and schedules in 
 		slate.id,
 		(await git("rev-parse", "HEAD")).stdout.trim(),
 	)
-	await provisionSlate(MEMBER_PROVISIONING, prepared)
+	{
+		await using workflow = await provisioning.worker.introspectWorkflowInstance(
+			"MEMBER_PROVISIONING",
+			(await MEMBER_PROVISIONING.create({ params: prepared })).id,
+		)
+		await workflow.waitForStatus("complete")
+	}
 	expect(await members()).toEqual([])
 	expect(
 		(await DATABASES.getByName(reports.instance_name).query("SELECT * FROM updates"))

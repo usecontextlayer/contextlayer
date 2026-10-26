@@ -4,7 +4,7 @@ import { mkdir, readdir, writeFile } from "node:fs/promises"
 import { join, resolve } from "node:path"
 import { promisify } from "node:util"
 import { writeDatabase } from "@tests/database-project"
-import { provisionSlate, executionTest as test } from "@tests/integration"
+import { executionTest as test } from "@tests/integration"
 import { DEVELOPMENT_ORGANIZATION_SLUG } from "@usecontextlayer/dev-env/env"
 import { createSlateProject } from "@usecontextlayer/dev-env/slate"
 import { signInViewer } from "@usecontextlayer/dev-env/viewer"
@@ -206,7 +206,13 @@ test("native CLI provisioning initializes owner and member databases and applies
 		)
 		expect(await instance.listSchedules()).toEqual([])
 		const prepared = await PROVISIONING.prepare(slate.id, await git("rev-parse", "HEAD"))
-		await provisionSlate(MEMBER_PROVISIONING, prepared)
+		{
+			await using workflow = await provisioning.worker.introspectWorkflowInstance(
+				"MEMBER_PROVISIONING",
+				(await MEMBER_PROVISIONING.create({ params: prepared })).id,
+			)
+			await workflow.waitForStatus("complete")
+		}
 		expect(await instance.listSchedules()).toHaveLength(
 			slate.id === joinedBeforeProvisioning.id ? 1 : 0,
 		)
@@ -309,7 +315,13 @@ export async function up(db: Kysely<unknown>) {
 			DATABASES.getByName(archive.instance_name).query("SELECT * FROM updates"),
 		).rejects.toThrow()
 		const prepared = await PROVISIONING.prepare(slate.id, await git("rev-parse", "HEAD"))
-		await provisionSlate(MEMBER_PROVISIONING, prepared)
+		{
+			await using workflow = await provisioning.worker.introspectWorkflowInstance(
+				"MEMBER_PROVISIONING",
+				(await MEMBER_PROVISIONING.create({ params: prepared })).id,
+			)
+			await workflow.waitForStatus("complete")
+		}
 		expect(
 			(
 				await DATABASES.getByName(reports.instance_name).query(
@@ -333,6 +345,12 @@ export async function up(db: Kysely<unknown>) {
 			.parse(await instance.listSchedules())
 		expect(schedules).toHaveLength(1)
 		expect(schedules[0]?.payload.prompt).toContain("refreshed scheduled document")
-		await provisionSlate(MEMBER_PROVISIONING, prepared)
+		{
+			await using workflow = await provisioning.worker.introspectWorkflowInstance(
+				"MEMBER_PROVISIONING",
+				(await MEMBER_PROVISIONING.create({ params: prepared })).id,
+			)
+			await workflow.waitForStatus("complete")
+		}
 	}
 }, 1_800_000)

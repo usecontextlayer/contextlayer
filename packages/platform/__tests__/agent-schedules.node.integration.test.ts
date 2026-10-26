@@ -4,7 +4,7 @@ import { join, resolve } from "node:path"
 import { promisify } from "node:util"
 import { AssistantEntry, UserEntry } from "@earendil-works/pi-durable"
 import { writeDatabase } from "@tests/database-project"
-import { provisionSlate, test } from "@tests/integration"
+import { test } from "@tests/integration"
 import { DEVELOPMENT_ORGANIZATION_SLUG } from "@usecontextlayer/dev-env/env"
 import { createSlateProject } from "@usecontextlayer/dev-env/slate"
 import { accountsSchema } from "@usecontextlayer/shared/accounts"
@@ -331,7 +331,13 @@ test("members' deployed cron jobs use viewer resources and retain results after 
 				.toHaveLength(1)
 		}
 		const prepared = await PROVISIONING.prepare(slate.id, await git("rev-parse", "HEAD"))
-		await provisionSlate(MEMBER_PROVISIONING, prepared)
+		{
+			await using workflow = await provisioning.worker.introspectWorkflowInstance(
+				"MEMBER_PROVISIONING",
+				(await MEMBER_PROVISIONING.create({ params: prepared })).id,
+			)
+			await workflow.waitForStatus("complete")
+		}
 		const memberInstance = await getAgentByName(
 			AGENTS,
 			getAgentInstanceName(slate.id, "daily-summary", { id: user.id, type: "user" }),
@@ -573,7 +579,13 @@ test("authored cron creates a fresh job and retains its result independently of 
 	await git("push", remote, "main")
 	const prepared = await PROVISIONING.prepare(slate.id, commit)
 	expect(prepared.snapshot.commit).toBe(commit)
-	await provisionSlate(MEMBER_PROVISIONING, prepared)
+	{
+		await using workflow = await provisioning.worker.introspectWorkflowInstance(
+			"MEMBER_PROVISIONING",
+			(await MEMBER_PROVISIONING.create({ params: prepared })).id,
+		)
+		await workflow.waitForStatus("complete")
+	}
 	const scheduleUrl = `${origin}/api/slates/${slate.id}/agents/brief/schedules`
 	const scheduled = await fetch(scheduleUrl, { headers })
 	expect(scheduled.status).toBe(200)

@@ -5,7 +5,6 @@ import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { promisify } from "node:util"
 import { test as base } from "@tests/database"
-import { provisionSlate } from "@tests/integration"
 import type { Workers } from "@tests/workers"
 import { createSlateProject } from "@usecontextlayer/dev-env/slate"
 import type { SlateProvisioning } from "@usecontextlayer/shared/slate-provisioning"
@@ -45,12 +44,11 @@ test("native sandbox CLI migrates its selected database and preserves native fai
 	const { ARTIFACTS, DATABASES } = await harness
 		.getWorker<PlatformEnv["Bindings"]>("contextlayer-platform-test")
 		.getEnv()
-	const { PROVISIONING, MEMBER_PROVISIONING } = await harness
-		.getWorker<{
-			PROVISIONING: Service<Provisioning>
-			MEMBER_PROVISIONING: Workflow<SlateProvisioning>
-		}>("contextlayer-build-test")
-		.getEnv()
+	const buildWorker = harness.getWorker<{
+		PROVISIONING: Service<Provisioning>
+		MEMBER_PROVISIONING: Workflow<SlateProvisioning>
+	}>("contextlayer-build-test")
+	const { PROVISIONING, MEMBER_PROVISIONING } = await buildWorker.getEnv()
 	const slate = slateSchema.parse({
 		id: crypto.randomUUID(),
 		owner_organization_id: null,
@@ -101,7 +99,11 @@ test("native sandbox CLI migrates its selected database and preserves native fai
 	const selected = prepared.databases[0]
 	const unselected = other.databases[0]
 	assert(selected && unselected)
-	await provisionSlate(MEMBER_PROVISIONING, prepared)
+	await using workflow = await buildWorker.introspectWorkflowInstance(
+		"MEMBER_PROVISIONING",
+		(await MEMBER_PROVISIONING.create({ params: prepared })).id,
+	)
+	await workflow.waitForStatus("complete")
 	const database = DATABASES.getByName(selected.instance_name)
 	expect((await database.query("SELECT * FROM notes")).rows).toEqual([])
 	expect((await database.query("SELECT name FROM kysely_migration")).rows).toEqual([
@@ -124,9 +126,14 @@ export async function up(db: Kysely<unknown>) {
 	await git("-c", "commit.gpgsign=false", "commit", "-m", "Author failing migration")
 	await git("push", repo.remote, "main")
 	const failed = await PROVISIONING.prepare(slate.id, await git("rev-parse", "HEAD"))
-	await expect(
-		async () => await provisionSlate(MEMBER_PROVISIONING, failed),
-	).rejects.toThrow("nonexistent_migration_table")
+	await using failedWorkflow = await buildWorker.introspectWorkflowInstance(
+		"MEMBER_PROVISIONING",
+		(await MEMBER_PROVISIONING.create({ params: failed })).id,
+	)
+	await failedWorkflow.waitForStatus("errored")
+	expect(await failedWorkflow.getError()).toMatchObject({
+		message: expect.stringContaining("nonexistent_migration_table"),
+	})
 	expect((await database.query("SELECT * FROM partial_migration")).rows).toEqual([])
 	expect((await database.query("SELECT name FROM kysely_migration")).rows).toEqual([
 		{ name: "001_create_notes" },
