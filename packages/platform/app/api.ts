@@ -1447,10 +1447,10 @@ export function createApi() {
 	)
 	api.route("/secrets", secrets)
 
-	api.doc31("/openapi.json", {
+	api.doc31("/openapi.json", (c) => ({
 		info: { title: "ContextLayer Platform", version: "0.1.0" },
 		openapi: "3.1.0",
-		servers: [{ url: "/api" }],
+		servers: [{ url: new URL("/api", c.req.url).href }],
 		tags: [
 			{ name: "Slates" },
 			{ name: "Slate routing" },
@@ -1460,6 +1460,6 @@ export function createApi() {
 			{ name: "Agents" },
 			{ name: "Agent jobs" },
 		],
-	})
+	}))
 	return api
 }
