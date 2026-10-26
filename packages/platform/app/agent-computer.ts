@@ -8,7 +8,7 @@ export function createContainerConnection(container: Container): Connection {
 		start: async (token) => {
 			if (!container.running) {
 				container.start({
-					enableInternet: true,
+					enableInternet: false,
 					entrypoint: ["sleep", "infinity"],
 					image: container.images.workspace,
 				})
