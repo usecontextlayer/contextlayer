@@ -310,7 +310,7 @@ export async function up(db: Kysely<unknown>) {
 				await DATABASES.getByName(reports.instance_name).query(
 					"PRAGMA table_info(updates)",
 				)
-			).rows.map((row) => row[1]),
+			).rows.map((row) => row.name),
 		).toContain("source")
 		expect(
 			(
@@ -318,7 +318,7 @@ export async function up(db: Kysely<unknown>) {
 					"SELECT source FROM updates",
 				)
 			).rows,
-		).toEqual(slate.id === joinedBeforeProvisioning.id ? [["email"]] : [])
+		).toEqual(slate.id === joinedBeforeProvisioning.id ? [{ source: "email" }] : [])
 		expect(
 			(await DATABASES.getByName(archive.instance_name).query("SELECT * FROM updates"))
 				.rows,

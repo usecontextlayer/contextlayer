@@ -8,7 +8,7 @@ test.each([
 	{
 		expected: { body: "Cached update", id: "update-1" },
 		name: "the selected record for an existing row",
-		rows: [["Cached update", "update-1"]],
+		rows: [{ body: "Cached update", id: "update-1" }],
 	},
 ])("single-row reads return $name", async ({ expected, rows }) => {
 	const client = database<DB>(

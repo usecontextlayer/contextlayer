@@ -271,7 +271,7 @@ test("native resource capabilities enforce access and report exact slate-Owner t
 			expect(response.status).toBe(200)
 			expect(await response.json()).toMatchObject({
 				columns: ["id", "body"],
-				rows: [["native-proof", slate.id]],
+				rows: [{ body: slate.id, id: "native-proof" }],
 			})
 		}
 		const toolResponse = await callCapability("tools", props, [

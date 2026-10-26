@@ -10,8 +10,10 @@ export const DATABASE_HOST = "database.contextlayer"
 export const databaseStatementSchema = databaseQuerySchema.omit({ slug: true })
 export type SqlValue = z.infer<typeof sqlValueSchema>
 export const databaseResultSchema = z.object({
+	changes: z.number().optional(),
 	columns: z.array(z.string()),
-	rows: z.array(z.array(sqlValueSchema)),
+	lastInsertRowid: z.number().optional(),
+	rows: z.array(z.record(z.string(), sqlValueSchema)),
 	rowsRead: z.number(),
 	rowsWritten: z.number(),
 })

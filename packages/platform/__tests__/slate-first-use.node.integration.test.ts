@@ -217,7 +217,7 @@ test("first use provisions personal data and schedules once, after the whole sla
 	const second = await query("SELECT body FROM updates WHERE id = ?", ["personal"])
 	expect(second.status).toBe(200)
 	expect(databaseResultSchema.parse(await second.json()).rows).toEqual([
-		["saved on first use"],
+		{ body: "saved on first use" },
 	])
 	expect(await instance.listSchedules()).toEqual(schedules)
 	expect(await members()).toEqual([{ user_id: webSession.user.id }])

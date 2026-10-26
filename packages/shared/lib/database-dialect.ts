@@ -38,14 +38,18 @@ export class DatabaseDialect implements Dialect {
 			async executeQuery<R>({ sql, parameters }: CompiledQuery): Promise<QueryResult<R>> {
 				const result = await session.query(
 					sql,
-					parameters.map((value) => sqlValueSchema.parse(value)),
+					parameters.map((value) =>
+						sqlValueSchema.parse(typeof value === "bigint" ? value.toString() : value),
+					),
 				)
 				return {
-					rows: result.rows.map((row) =>
-						Object.fromEntries(
-							result.columns.map((column, index) => [column, row[index]]),
-						),
-					) as R[],
+					insertId:
+						result.lastInsertRowid === undefined
+							? undefined
+							: BigInt(result.lastInsertRowid),
+					numAffectedRows:
+						result.changes === undefined ? undefined : BigInt(result.changes),
+					rows: result.rows as R[],
 				}
 			},
 			async *streamQuery<R>(query: CompiledQuery): AsyncIterableIterator<QueryResult<R>> {

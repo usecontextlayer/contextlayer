@@ -458,10 +458,10 @@ test("members' deployed cron jobs use viewer resources and retain results after 
 			expect(rows.rows).toEqual(
 				slate.id === joinedBeforeProvisioning.id
 					? [
-							["scheduled-proof", slate.id],
-							["api-proof", slate.id],
+							{ body: slate.id, id: "scheduled-proof" },
+							{ body: slate.id, id: "api-proof" },
 						]
-					: [["scheduled-proof", slate.id]],
+					: [{ body: slate.id, id: "scheduled-proof" }],
 			)
 		}
 	}

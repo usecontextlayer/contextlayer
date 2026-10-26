@@ -100,7 +100,7 @@ test("native sandbox CLI migrates its selected database and preserves native fai
 	const database = DATABASES.getByName(selected.instance_name)
 	expect((await database.query("SELECT * FROM notes")).rows).toEqual([])
 	expect((await database.query("SELECT name FROM kysely_migration")).rows).toEqual([
-		["001_create_notes"],
+		{ name: "001_create_notes" },
 	])
 	await expect(
 		DATABASES.getByName(unselected.instance_name).query("SELECT * FROM notes"),
@@ -124,6 +124,6 @@ export async function up(db: Kysely<unknown>) {
 	)
 	expect((await database.query("SELECT * FROM partial_migration")).rows).toEqual([])
 	expect((await database.query("SELECT name FROM kysely_migration")).rows).toEqual([
-		["001_create_notes"],
+		{ name: "001_create_notes" },
 	])
 }, 900_000)

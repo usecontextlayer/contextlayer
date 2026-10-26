@@ -217,10 +217,10 @@ for (const [mode, tool] of [
 			expect(persisted.rows).toEqual(
 				database === slug
 					? [
-							["seed", markers[database]],
-							["copy", markers[database]],
+							{ body: markers[database], id: "seed" },
+							{ body: markers[database], id: "copy" },
 						]
-					: [["seed", markers[database]]],
+					: [{ body: markers[database], id: "seed" }],
 			)
 		}
 	}, 360_000)
