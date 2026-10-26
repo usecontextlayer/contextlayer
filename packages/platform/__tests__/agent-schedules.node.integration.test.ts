@@ -4,7 +4,7 @@ import { join, resolve } from "node:path"
 import { promisify } from "node:util"
 import { AssistantEntry, UserEntry } from "@earendil-works/pi-durable"
 import { writeDatabase } from "@tests/database-project"
-import { test } from "@tests/integration"
+import { provisionSlate, test } from "@tests/integration"
 import { DEVELOPMENT_ORGANIZATION_SLUG } from "@usecontextlayer/dev-env/env"
 import { createSlateProject } from "@usecontextlayer/dev-env/slate"
 import { accountsSchema } from "@usecontextlayer/shared/accounts"
@@ -242,7 +242,7 @@ test("members' deployed cron jobs use viewer resources and retain results after 
 	if (!account)
 		throw new Error("Expected the existing active personal Gmail connected account")
 	const { AGENTS, ARTIFACTS } = await worker.getEnv()
-	const { PROVISIONING } = await provisioning.worker.getEnv()
+	const { PROVISIONING, MEMBER_PROVISIONING } = await provisioning.worker.getEnv()
 	const checkouts = []
 	for (const [index, slate] of slates.entries()) {
 		const repo = await ARTIFACTS.get(slate.id)
@@ -321,9 +321,17 @@ test("members' deployed cron jobs use viewer resources and retain results after 
 				? { id: organizationId, type: "organization" }
 				: { id: user.id, type: "personal" },
 		)
+		if (index === 0) {
+			const member = await getAgentByName(
+				AGENTS,
+				getAgentInstanceName(slate.id, "daily-summary", { id: user.id, type: "user" }),
+			)
+			await expect
+				.poll(() => member.listSchedules(), { interval: 1000, timeout: 900_000 })
+				.toHaveLength(1)
+		}
 		const prepared = await PROVISIONING.prepare(slate.id, await git("rev-parse", "HEAD"))
-		await PROVISIONING.migrate(prepared)
-		await PROVISIONING.provisionSchedules(prepared)
+		await provisionSlate(MEMBER_PROVISIONING, prepared)
 		const memberInstance = await getAgentByName(
 			AGENTS,
 			getAgentInstanceName(slate.id, "daily-summary", { id: user.id, type: "user" }),
@@ -348,7 +356,13 @@ test("members' deployed cron jobs use viewer resources and retain results after 
 	)
 	expect(completedSetup.status).toBe(200)
 	expect(await completedSetup.json()).toEqual({ account_id: account.id, slug: "mail" })
-	expect(await checkouts[1]?.memberInstance.listSchedules()).toHaveLength(1)
+	const joinedMember = checkouts[1]?.memberInstance
+	await expect
+		.poll(() => joinedMember?.listSchedules(), {
+			interval: 1000,
+			timeout: 900_000,
+		})
+		.toHaveLength(1)
 	for (const { slate, git, memberInstance, scheduleFile } of checkouts) {
 		const firing = new Date(Math.ceil(Date.now() / 60_000) * 60_000 + 60_000)
 		const cron = `${firing.getUTCMinutes()} ${firing.getUTCHours()} ${firing.getUTCDate()} ${firing.getUTCMonth() + 1} *`
@@ -548,7 +562,7 @@ test("authored cron creates a fresh job and retains its result independently of 
 	const before = await fetch(url, { headers })
 	expect(before.status).toBe(200)
 	expect(catalogSchema.parse(await before.json()).jobs).toEqual([])
-	const { PROVISIONING } = await provisioning.worker.getEnv()
+	const { PROVISIONING, MEMBER_PROVISIONING } = await provisioning.worker.getEnv()
 	const commit = (await git("rev-parse", "HEAD")).stdout.trim()
 	await writeFile(
 		join(directory, "agents/brief/schedules/greeting.md"),
@@ -559,8 +573,7 @@ test("authored cron creates a fresh job and retains its result independently of 
 	await git("push", remote, "main")
 	const prepared = await PROVISIONING.prepare(slate.id, commit)
 	expect(prepared.snapshot.commit).toBe(commit)
-	await PROVISIONING.migrate(prepared)
-	await PROVISIONING.provisionSchedules(prepared)
+	await provisionSlate(MEMBER_PROVISIONING, prepared)
 	const scheduleUrl = `${origin}/api/slates/${slate.id}/agents/brief/schedules`
 	const scheduled = await fetch(scheduleUrl, { headers })
 	expect(scheduled.status).toBe(200)

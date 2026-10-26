@@ -40,13 +40,12 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { CONNECTION_MODE_LABELS } from "@/connection-labels"
 import {
-	agentsContext,
 	artifactsContext,
 	configContext,
 	databaseContext,
 	identityContext,
+	memberProvisioningContext,
 	meridianContext,
-	sandboxContext,
 } from "@/context"
 import { getCredentialOwner } from "@/owner"
 import type { Route } from "@/routes/+types/chrome"
@@ -111,9 +110,7 @@ export async function action({ request, params, context }: Route.ActionArgs) {
 	if (input.data.intent === "set-secret") {
 		const result = await setSlateSecret(
 			context.get(databaseContext),
-			context.get(artifactsContext),
-			context.get(sandboxContext),
-			context.get(agentsContext),
+			context.get(memberProvisioningContext),
 			context.get(meridianContext),
 			context.get(configContext),
 			access,
@@ -139,9 +136,7 @@ export async function action({ request, params, context }: Route.ActionArgs) {
 	}
 	const result = await assignSlateConnection(
 		context.get(databaseContext),
-		context.get(artifactsContext),
-		context.get(sandboxContext),
-		context.get(agentsContext),
+		context.get(memberProvisioningContext),
 		context.get(configContext),
 		access,
 		{ account_id: input.data.account_id, slug: input.data.slug },

@@ -1,4 +1,8 @@
-import type { WorkflowEvent, WorkflowStep } from "cloudflare:workers"
+import {
+	WorkflowEntrypoint,
+	type WorkflowEvent,
+	type WorkflowStep,
+} from "cloudflare:workers"
 import {
 	CIWorkflow,
 	type CiContext,
@@ -7,9 +11,11 @@ import {
 } from "@cloudflare/ci"
 import { CiSandbox } from "@cloudflare/ci/worker"
 import { databaseStatementSchema } from "@usecontextlayer/shared/databases"
+import type { SlateProvisioning } from "@usecontextlayer/shared/slate-provisioning"
 import { artifactTransferEnv } from "@/artifact"
 import type { BuildBindings } from "@/env"
 import { publishSlate } from "@/publish"
+import { migrateSlateDatabases } from "@/slate-database-migrations"
 
 export { CiSandbox, ContainerProxy } from "@cloudflare/ci/worker"
 
@@ -61,11 +67,7 @@ export class Build extends CIWorkflow<CloudflareArtifacts, BuildBindings> {
 			env: await artifactTransferEnv(this.env, event.instanceId, "object-read-write"),
 			name: "build",
 		})
-		await step.do(
-			"migrate slate databases",
-			{ retries: { delay: "1 second", limit: 0 }, timeout: "1 hour" },
-			() => this.env.PROVISIONING.migrate(prepared, build.snapshot),
-		)
+		await migrateSlateDatabases(this.env, step, prepared, build.snapshot)
 		await step.do(
 			"deploy",
 			{
@@ -76,6 +78,18 @@ export class Build extends CIWorkflow<CloudflareArtifacts, BuildBindings> {
 		)
 		await step.do("provision slate schedules", () =>
 			this.env.PROVISIONING.provisionSchedules(prepared),
+		)
+	}
+}
+
+export class ProvisionSlateMember extends WorkflowEntrypoint<
+	BuildBindings,
+	SlateProvisioning
+> {
+	async run(event: WorkflowEvent<SlateProvisioning>, step: WorkflowStep) {
+		await migrateSlateDatabases(this.env, step, event.payload)
+		await step.do("provision slate schedules", () =>
+			this.env.PROVISIONING.provisionSchedules(event.payload),
 		)
 	}
 }

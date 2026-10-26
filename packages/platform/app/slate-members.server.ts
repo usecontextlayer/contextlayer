@@ -1,9 +1,7 @@
-import { provisionAgentSchedules } from "@/agent-schedules.server"
 import type { PlatformEnv } from "@/context"
 import type { PlatformDb } from "@/database"
 import type { SlateId } from "@/database/models/public/Slate"
 import type { PlatformConfig } from "@/env"
-import { migrateSlateDatabases } from "@/slate-database-migrations.server"
 import type { SlateDeclarationSnapshot } from "@/slate-declarations.server"
 import { slateMemberSchema } from "@/slate-members.schema"
 import { prepareSlateProvisioning } from "@/slate-provisioning.server"
@@ -29,9 +27,7 @@ export async function isSlateMember(
 
 export async function addSlateMember(
 	db: PlatformDb,
-	artifacts: Artifacts,
-	sandbox: PlatformEnv["Bindings"]["SANDBOX"],
-	agents: PlatformEnv["Bindings"]["AGENTS"],
+	memberProvisioning: PlatformEnv["Bindings"]["MEMBER_PROVISIONING"],
 	config: PlatformConfig,
 	slate: Slate,
 	user: { id: string },
@@ -53,23 +49,17 @@ export async function addSlateMember(
 		slate_id: slate.id,
 		user_id: user.id,
 	})
-	await db.transaction().execute(async (trx) => {
-		const inserted = await trx
-			.insertInto("slate_member")
-			.values(member)
-			.onConflict((conflict) => conflict.columns(["slate_id", "user_id"]).doNothing())
-			.returning("user_id")
-			.executeTakeFirst()
-		if (inserted) {
-			const prepared = prepareSlateProvisioning(
-				slate,
-				[{ id: user.id, type: "user" }],
-				snapshot,
-			)
-			await migrateSlateDatabases(artifacts, sandbox, prepared)
-			await provisionAgentSchedules(artifacts, agents, prepared)
-		}
-	})
+	const inserted = await db
+		.insertInto("slate_member")
+		.values(member)
+		.onConflict((conflict) => conflict.columns(["slate_id", "user_id"]).doNothing())
+		.returning("user_id")
+		.executeTakeFirst()
+	if (inserted) {
+		await memberProvisioning.create({
+			params: prepareSlateProvisioning(slate, [{ id: user.id, type: "user" }], snapshot),
+		})
+	}
 	return { allowed: true } as const
 }
 

@@ -4,7 +4,7 @@ import { mkdir, readdir, writeFile } from "node:fs/promises"
 import { join, resolve } from "node:path"
 import { promisify } from "node:util"
 import { writeDatabase } from "@tests/database-project"
-import { executionTest as test } from "@tests/integration"
+import { provisionSlate, executionTest as test } from "@tests/integration"
 import { DEVELOPMENT_ORGANIZATION_SLUG } from "@usecontextlayer/dev-env/env"
 import { createSlateProject } from "@usecontextlayer/dev-env/slate"
 import { signInViewer } from "@usecontextlayer/dev-env/viewer"
@@ -70,7 +70,7 @@ test("native CLI provisioning initializes owner and member databases and applies
 	if (!joinedBeforeProvisioning || !joinedAfterProvisioning)
 		throw new Error("Expected database test slates")
 	const { DATABASES, AGENTS } = await worker.getEnv()
-	const { PROVISIONING } = await provisioning.worker.getEnv()
+	const { PROVISIONING, MEMBER_PROVISIONING } = await provisioning.worker.getEnv()
 	const gitEnv = {
 		...process.env,
 		GIT_CONFIG_COUNT: "2",
@@ -104,13 +104,13 @@ test("native CLI provisioning initializes owner and member databases and applies
 		const response = await execution.worker.fetch("http://execution/databases", {
 			body: JSON.stringify([
 				{ credential: { token, type: "session" }, slateId: slate.id },
-				["drafts", "SELECT * FROM updates", []],
+				["drafts", "SELECT 1 AS joined", []],
 			]),
 			headers: { "content-type": "application/json" },
 			method: "POST",
 		})
 		expect(response.status, await response.clone().text()).toBe(200)
-		expect(await response.json()).toMatchObject({ rows: [] })
+		expect(await response.json()).toMatchObject({ rows: [{ joined: 1 }] })
 		expect(
 			await db
 				.selectFrom("slate_member")
@@ -118,6 +118,13 @@ test("native CLI provisioning initializes owner and member databases and applies
 				.where("slate_id", "=", slate.id)
 				.execute(),
 		).toEqual([{ slate_id: slate.id, user_id: user.id }])
+		const instance = await getAgentByName(
+			AGENTS,
+			getAgentInstanceName(slate.id, "daily-summary", { id: user.id, type: "user" }),
+		)
+		await expect
+			.poll(() => instance.listSchedules(), { interval: 1000, timeout: 900_000 })
+			.toHaveLength(1)
 	}
 	for (const slate of slates) {
 		const checkout = join(dir, slate.id)
@@ -199,8 +206,7 @@ test("native CLI provisioning initializes owner and member databases and applies
 		)
 		expect(await instance.listSchedules()).toEqual([])
 		const prepared = await PROVISIONING.prepare(slate.id, await git("rev-parse", "HEAD"))
-		await PROVISIONING.migrate(prepared)
-		await PROVISIONING.provisionSchedules(prepared)
+		await provisionSlate(MEMBER_PROVISIONING, prepared)
 		expect(await instance.listSchedules()).toHaveLength(
 			slate.id === joinedBeforeProvisioning.id ? 1 : 0,
 		)
@@ -303,8 +309,7 @@ export async function up(db: Kysely<unknown>) {
 			DATABASES.getByName(archive.instance_name).query("SELECT * FROM updates"),
 		).rejects.toThrow()
 		const prepared = await PROVISIONING.prepare(slate.id, await git("rev-parse", "HEAD"))
-		await PROVISIONING.migrate(prepared)
-		await PROVISIONING.provisionSchedules(prepared)
+		await provisionSlate(MEMBER_PROVISIONING, prepared)
 		expect(
 			(
 				await DATABASES.getByName(reports.instance_name).query(
@@ -328,7 +333,6 @@ export async function up(db: Kysely<unknown>) {
 			.parse(await instance.listSchedules())
 		expect(schedules).toHaveLength(1)
 		expect(schedules[0]?.payload.prompt).toContain("refreshed scheduled document")
-		await PROVISIONING.migrate(prepared)
-		await PROVISIONING.provisionSchedules(prepared)
+		await provisionSlate(MEMBER_PROVISIONING, prepared)
 	}
 }, 1_800_000)

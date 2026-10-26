@@ -170,7 +170,7 @@ export default [index("routes/home.tsx"), route("build-proof", "routes/build-pro
 	const notes = DATABASES.getByName(database.instance_name)
 	expect((await notes.query("SELECT * FROM notes")).rows).toEqual([])
 	expect((await notes.query("SELECT name FROM kysely_migration")).rows).toEqual([
-		["001_create_notes"],
+		{ name: "001_create_notes" },
 	])
 	const { stdout } = await execute("pnpm", [
 		"dlx",

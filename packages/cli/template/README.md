@@ -46,7 +46,7 @@ Commit migrations and generated `databases/notes/types.ts` together. The types c
 
 The route uses `database<DB>(context.get(databasesContext), "notes")` from the SDK for typed queries. Mutations return Kysely's affected-row counts and SQLite insert IDs; use `.returning()` to read inserted or updated rows instead. Direct SQL and agents' `database_query` use the same storage.
 
-Push committed changes to `main` for hosted provisioning. The pipeline builds the commit, runs its native Kysely migrations, then deploys it. New members' databases are initialized before use. Migration failure blocks deployment or provisioning; earlier successful SQL statements can remain applied. See [database ownership and provisioning](https://github.com/usecontextlayer/contextlayer/blob/main/ARCHITECTURE.md#slate-databases-and-authored-migrations) for its lifecycle.
+Push committed changes to `main` for hosted provisioning. The pipeline builds the commit, runs its native Kysely migrations, then deploys it. New membership starts a background Workflow that initializes personal databases and then provisions schedules; requests continue while that work runs. Migration failure blocks deployment or provisioning; earlier successful SQL statements can remain applied. See [database ownership and provisioning](https://github.com/usecontextlayer/contextlayer/blob/main/ARCHITECTURE.md#slate-databases-and-authored-migrations) for its lifecycle.
 
 ## Deploy
 

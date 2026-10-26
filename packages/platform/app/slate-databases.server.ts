@@ -13,8 +13,7 @@ export async function querySlateDatabase(
 	db: PlatformDb,
 	artifacts: Artifacts,
 	databases: PlatformEnv["Bindings"]["DATABASES"],
-	sandbox: PlatformEnv["Bindings"]["SANDBOX"],
-	agents: PlatformEnv["Bindings"]["AGENTS"],
+	memberProvisioning: PlatformEnv["Bindings"]["MEMBER_PROVISIONING"],
 	config: PlatformConfig,
 	{ slate, identity }: SlateAccess,
 	input: z.infer<typeof databaseQuerySchema>,
@@ -26,9 +25,7 @@ export async function querySlateDatabase(
 	if (!requirement) return { allowed: false, reason: "not-declared" } as const
 	const resolved = await prepareSlateResourceExecution(
 		db,
-		artifacts,
-		sandbox,
-		agents,
+		memberProvisioning,
 		config,
 		slate,
 		{ id: identity.user.id, type: "user" },

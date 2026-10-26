@@ -560,9 +560,7 @@ export function createApi() {
 		async (c) => {
 			const result = await assignSlateConnection(
 				c.var.db,
-				c.env.ARTIFACTS,
-				c.env.SANDBOX,
-				c.env.AGENTS,
+				c.env.MEMBER_PROVISIONING,
 				c.var.config,
 				c.var.slateAccess,
 				c.req.valid("json"),
@@ -602,9 +600,7 @@ export function createApi() {
 		async (c) => {
 			const result = await setSlateSecret(
 				c.var.db,
-				c.env.ARTIFACTS,
-				c.env.SANDBOX,
-				c.env.AGENTS,
+				c.env.MEMBER_PROVISIONING,
 				c.env.MERIDIAN,
 				c.var.config,
 				c.var.slateAccess,
@@ -796,7 +792,7 @@ export function createApi() {
 			const result = await startAgentJob(
 				c.var.db,
 				c.env.ARTIFACTS,
-				c.env.SANDBOX,
+				c.env.MEMBER_PROVISIONING,
 				c.env.AGENTS,
 				c.var.config,
 				c.var.slateAccess,

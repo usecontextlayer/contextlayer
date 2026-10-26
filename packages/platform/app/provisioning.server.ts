@@ -1,11 +1,9 @@
 import { WorkerEntrypoint } from "cloudflare:workers"
-import type { DirectoryBackup } from "@cloudflare/ci/worker"
 import type { SlateProvisioning } from "@usecontextlayer/shared/slate-provisioning"
 import { provisionAgentSchedules } from "@/agent-schedules.server"
 import type { PlatformEnv } from "@/context"
 import { createPlatformDb } from "@/database"
 import { parseDatabaseEnv } from "@/env"
-import { migrateSlateDatabases } from "@/slate-database-migrations.server"
 import { readSlateDeclarations } from "@/slate-declarations.server"
 import { listSlateMembers } from "@/slate-members.server"
 import { prepareSlateProvisioning } from "@/slate-provisioning.server"
@@ -37,10 +35,6 @@ export class Provisioning extends WorkerEntrypoint<PlatformEnv["Bindings"]> {
 		} finally {
 			await db.destroy()
 		}
-	}
-
-	async migrate(prepared: SlateProvisioning, restore?: DirectoryBackup) {
-		await migrateSlateDatabases(this.env.ARTIFACTS, this.env.SANDBOX, prepared, restore)
 	}
 
 	async provisionSchedules(prepared: SlateProvisioning) {

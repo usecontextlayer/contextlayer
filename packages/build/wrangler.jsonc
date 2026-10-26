@@ -90,6 +90,11 @@
 					"binding": "CI_WORKFLOW",
 					"class_name": "Build",
 					"name": "contextlayer-build-test"
+				},
+				{
+					"binding": "MEMBER_PROVISIONING",
+					"class_name": "ProvisionSlateMember",
+					"name": "contextlayer-member-provisioning-test"
 				}
 			]
 		}
@@ -148,6 +153,11 @@
 			"binding": "CI_WORKFLOW",
 			"class_name": "Build",
 			"name": "contextlayer-build"
+		},
+		{
+			"binding": "MEMBER_PROVISIONING",
+			"class_name": "ProvisionSlateMember",
+			"name": "contextlayer-member-provisioning"
 		}
 	]
 }

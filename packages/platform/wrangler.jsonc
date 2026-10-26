@@ -57,11 +57,6 @@
 			{
 				"class_name": "Meridian",
 				"name": "MERIDIAN"
-			},
-			{
-				"class_name": "CiSandbox",
-				"name": "SANDBOX",
-				"script_name": "contextlayer-build"
 			}
 		]
 	},
@@ -112,11 +107,6 @@
 					{
 						"class_name": "Meridian",
 						"name": "MERIDIAN"
-					},
-					{
-						"class_name": "CiSandbox",
-						"name": "SANDBOX",
-						"script_name": "contextlayer-build-test"
 					}
 				]
 			},
@@ -137,7 +127,15 @@
 					"POLAR_FREE_PRODUCT_ID",
 					"POLAR_CLIPS_METER_ID"
 				]
-			}
+			},
+			"workflows": [
+				{
+					"binding": "MEMBER_PROVISIONING",
+					"class_name": "ProvisionSlateMember",
+					"name": "contextlayer-member-provisioning-test",
+					"script_name": "contextlayer-build-test"
+				}
+			]
 		}
 	},
 	"main": "app/server.ts",
@@ -184,5 +182,13 @@
 			"POLAR_FREE_PRODUCT_ID",
 			"POLAR_CLIPS_METER_ID"
 		]
-	}
+	},
+	"workflows": [
+		{
+			"binding": "MEMBER_PROVISIONING",
+			"class_name": "ProvisionSlateMember",
+			"name": "contextlayer-member-provisioning",
+			"script_name": "contextlayer-build"
+		}
+	]
 }

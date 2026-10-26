@@ -11,9 +11,7 @@ import type { OwnerSlateAccess } from "@/slates.server"
 
 export async function assignSlateConnection(
 	db: PlatformDb,
-	artifacts: Artifacts,
-	sandbox: PlatformEnv["Bindings"]["SANDBOX"],
-	agents: PlatformEnv["Bindings"]["AGENTS"],
+	memberProvisioning: PlatformEnv["Bindings"]["MEMBER_PROVISIONING"],
 	config: PlatformConfig,
 	access: OwnerSlateAccess,
 	assignment: z.infer<typeof assignmentSchema>,
@@ -39,9 +37,7 @@ export async function assignSlateConnection(
 		.executeTakeFirstOrThrow()
 	await addSlateMember(
 		db,
-		artifacts,
-		sandbox,
-		agents,
+		memberProvisioning,
 		config,
 		access.slate,
 		access.identity.user,

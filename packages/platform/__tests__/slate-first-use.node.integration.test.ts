@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto"
 import { mkdir, writeFile } from "node:fs/promises"
 import { join, resolve } from "node:path"
 import { writeDatabase } from "@tests/database-project"
-import { executionTest as test } from "@tests/integration"
+import { provisionSlate, executionTest as test } from "@tests/integration"
 import { createSlateProject } from "@usecontextlayer/dev-env/slate"
 import { signInViewer } from "@usecontextlayer/dev-env/viewer"
 import { databaseResultSchema } from "@usecontextlayer/shared/databases"
@@ -14,8 +14,8 @@ import { expect } from "vitest"
 import { getAgentInstanceName } from "@/agent-instance"
 import { slateSchema } from "@/slates.schema"
 
-test("first use provisions personal data and schedules once, after the whole slate is complete", {
-	timeout: 180_000,
+test("first use joins immediately and provisions personal data and schedules in the background", {
+	timeout: 900_000,
 }, async ({
 	db,
 	directory,
@@ -107,13 +107,12 @@ test("first use provisions personal data and schedules once, after the whole sla
 	const reports = resources.databases.reports
 	const inbox = resources.databases.inbox
 	assert(reports && inbox)
-	const { PROVISIONING } = await provisioning.worker.getEnv()
+	const { PROVISIONING, MEMBER_PROVISIONING } = await provisioning.worker.getEnv()
 	const prepared = await PROVISIONING.prepare(
 		slate.id,
 		(await git("rev-parse", "HEAD")).stdout.trim(),
 	)
-	await PROVISIONING.migrate(prepared)
-	await PROVISIONING.provisionSchedules(prepared)
+	await provisionSlate(MEMBER_PROVISIONING, prepared)
 	expect(await members()).toEqual([])
 	expect(
 		(await DATABASES.getByName(reports.instance_name).query("SELECT * FROM updates"))
@@ -198,26 +197,30 @@ test("first use provisions personal data and schedules once, after the whole sla
 		JSON.stringify({ connections: {}, databases: { inbox: { mode: "viewer" } } }),
 	)
 	await push("Complete the input-free slate")
-	const first = await query(
-		"INSERT INTO updates (id, kind, body, created_at) VALUES (?, ?, ?, ?)",
-		["personal", "note", "saved on first use", 1],
-	)
+	const first = await query("SELECT 1 AS joined")
 	expect(first.status, await first.clone().text()).toBe(200)
-	databaseResultSchema.parse(await first.json())
+	expect(databaseResultSchema.parse(await first.json()).rows).toEqual([{ joined: 1 }])
 	expect(await members()).toEqual([{ user_id: webSession.user.id }])
-	expect(
-		(await DATABASES.getByName(inbox.instance_name).query("SELECT * FROM updates")).rows,
-	).toEqual([])
 	const instance = await getAgentByName(
 		AGENTS,
 		getAgentInstanceName(slate.id, "daily", { id: webSession.user.id, type: "user" }),
 	)
+	await expect
+		.poll(() => instance.listSchedules(), { interval: 1000, timeout: 900_000 })
+		.toHaveLength(1)
 	const schedules = await instance.listSchedules()
-	expect(schedules).toHaveLength(1)
+	expect(
+		(await DATABASES.getByName(inbox.instance_name).query("SELECT * FROM updates")).rows,
+	).toEqual([])
+	const saved = await query(
+		"INSERT INTO updates (id, kind, body, created_at) VALUES (?, ?, ?, ?)",
+		["personal", "note", "saved after provisioning", 1],
+	)
+	expect(saved.status, await saved.clone().text()).toBe(200)
 	const second = await query("SELECT body FROM updates WHERE id = ?", ["personal"])
 	expect(second.status).toBe(200)
 	expect(databaseResultSchema.parse(await second.json()).rows).toEqual([
-		{ body: "saved on first use" },
+		{ body: "saved after provisioning" },
 	])
 	expect(await instance.listSchedules()).toEqual(schedules)
 	expect(await members()).toEqual([{ user_id: webSession.user.id }])

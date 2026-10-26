@@ -12,7 +12,9 @@ import {
 import { DEVELOPMENT_ORGANIZATION_SLUG } from "@usecontextlayer/dev-env/env"
 import { readDevelopmentPorts } from "@usecontextlayer/dev-env/ports"
 import { signInWeb } from "@usecontextlayer/dev-env/web"
+import type { SlateProvisioning } from "@usecontextlayer/shared/slate-provisioning"
 import type { HostedExecution } from "@usecontextlayer/shared/tools-worker"
+import { expect } from "vitest"
 import type { TestHarnessOptions } from "wrangler"
 import type { PlatformEnv } from "@/context"
 import { createPlatformDb } from "@/database"
@@ -119,7 +121,10 @@ export const test = base
 	}))
 	.extend("provisioning", ({ platform }) => ({
 		harness: platform.harness,
-		worker: platform.harness.getWorker<{ PROVISIONING: Service<Provisioning> }>(
+		worker: platform.harness.getWorker<{
+			PROVISIONING: Service<Provisioning>
+			MEMBER_PROVISIONING: Workflow<SlateProvisioning>
+		}>(
 			"contextlayer-build-test",
 		),
 	}))
@@ -156,3 +161,18 @@ export const executionTest = test
 	.extend("execution", ({ platform }) => ({
 		worker: platform.harness.getWorker("contextlayer-execution-caller-test"),
 	}))
+
+export async function provisionSlate(
+	workflow: Workflow<SlateProvisioning>,
+	prepared: SlateProvisioning,
+) {
+	const instance = await workflow.create({ params: prepared })
+	await expect
+		.poll(async () => (await instance.status()).status, {
+			interval: 1000,
+			timeout: 900_000,
+		})
+		.toBeOneOf(["complete", "errored"])
+	const status = await instance.status()
+	if (status.error) throw new Error(status.error.message)
+}

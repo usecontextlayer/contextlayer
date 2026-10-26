@@ -13,8 +13,7 @@ import type { accountToolCallSchema, toolCallSchema } from "@/tools.schema"
 export async function callTool(
 	db: PlatformDb,
 	artifacts: Artifacts,
-	sandbox: PlatformEnv["Bindings"]["SANDBOX"],
-	agents: PlatformEnv["Bindings"]["AGENTS"],
+	memberProvisioning: PlatformEnv["Bindings"]["MEMBER_PROVISIONING"],
 	config: PlatformConfig,
 	access: SlateAccess,
 	call: z.infer<typeof toolCallSchema>,
@@ -23,9 +22,7 @@ export async function callTool(
 	if (!snapshot.allowed) return { allowed: false, reason: "not-declared" } as const
 	const resolved = await resolveSlateConnection(
 		db,
-		artifacts,
-		sandbox,
-		agents,
+		memberProvisioning,
 		config,
 		access,
 		call.slug,

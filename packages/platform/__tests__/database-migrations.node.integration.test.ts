@@ -5,8 +5,10 @@ import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { promisify } from "node:util"
 import { test as base } from "@tests/database"
+import { provisionSlate } from "@tests/integration"
 import type { Workers } from "@tests/workers"
 import { createSlateProject } from "@usecontextlayer/dev-env/slate"
+import type { SlateProvisioning } from "@usecontextlayer/shared/slate-provisioning"
 import { expect } from "vitest"
 import type { PlatformEnv } from "@/context"
 import type { Provisioning } from "@/provisioning.server"
@@ -43,8 +45,11 @@ test("native sandbox CLI migrates its selected database and preserves native fai
 	const { ARTIFACTS, DATABASES } = await harness
 		.getWorker<PlatformEnv["Bindings"]>("contextlayer-platform-test")
 		.getEnv()
-	const { PROVISIONING } = await harness
-		.getWorker<{ PROVISIONING: Service<Provisioning> }>("contextlayer-build-test")
+	const { PROVISIONING, MEMBER_PROVISIONING } = await harness
+		.getWorker<{
+			PROVISIONING: Service<Provisioning>
+			MEMBER_PROVISIONING: Workflow<SlateProvisioning>
+		}>("contextlayer-build-test")
 		.getEnv()
 	const slate = slateSchema.parse({
 		id: crypto.randomUUID(),
@@ -96,7 +101,7 @@ test("native sandbox CLI migrates its selected database and preserves native fai
 	const selected = prepared.databases[0]
 	const unselected = other.databases[0]
 	assert(selected && unselected)
-	await PROVISIONING.migrate(prepared)
+	await provisionSlate(MEMBER_PROVISIONING, prepared)
 	const database = DATABASES.getByName(selected.instance_name)
 	expect((await database.query("SELECT * FROM notes")).rows).toEqual([])
 	expect((await database.query("SELECT name FROM kysely_migration")).rows).toEqual([
@@ -119,9 +124,9 @@ export async function up(db: Kysely<unknown>) {
 	await git("-c", "commit.gpgsign=false", "commit", "-m", "Author failing migration")
 	await git("push", repo.remote, "main")
 	const failed = await PROVISIONING.prepare(slate.id, await git("rev-parse", "HEAD"))
-	await expect(async () => await PROVISIONING.migrate(failed)).rejects.toThrow(
-		"nonexistent_migration_table",
-	)
+	await expect(
+		async () => await provisionSlate(MEMBER_PROVISIONING, failed),
+	).rejects.toThrow("nonexistent_migration_table")
 	expect((await database.query("SELECT * FROM partial_migration")).rows).toEqual([])
 	expect((await database.query("SELECT name FROM kysely_migration")).rows).toEqual([
 		{ name: "001_create_notes" },

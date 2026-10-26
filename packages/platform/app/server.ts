@@ -9,13 +9,12 @@ import {
 	requireDashboardAuth,
 } from "@/auth.middleware"
 import {
-	agentsContext,
 	artifactsContext,
 	configContext,
 	databaseContext,
 	identityContext,
+	memberProvisioningContext,
 	meridianContext,
-	sandboxContext,
 	slatesContext,
 } from "@/context"
 import { createPlatformDb } from "@/database"
@@ -64,9 +63,8 @@ export default await createHonoServer<OwnerIdentityEnv>({
 		context.set(artifactsContext, c.env.ARTIFACTS)
 		context.set(identityContext, c.var.identity ?? null)
 		context.set(configContext, c.var.config)
-		context.set(sandboxContext, c.env.SANDBOX)
+		context.set(memberProvisioningContext, c.env.MEMBER_PROVISIONING)
 		context.set(meridianContext, c.env.MERIDIAN)
-		context.set(agentsContext, c.env.AGENTS)
 		return context
 	},
 })

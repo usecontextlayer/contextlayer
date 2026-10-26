@@ -211,7 +211,9 @@ test("live Doppler: API partial save and chrome final secret enable agent-only r
 		} else {
 			expect(output).toContain("Setup complete")
 			expect(await members()).toEqual([{ user_id: owner.id }])
-			expect(await instance.listSchedules()).toHaveLength(1)
+			await expect
+				.poll(() => instance.listSchedules(), { interval: 1000, timeout: 900_000 })
+				.toHaveLength(1)
 			expect((await inbox.query("SELECT * FROM updates")).rows).toEqual([])
 		}
 	}

@@ -114,8 +114,7 @@ export function prepareAgentRun(
 export async function getAgentRun(
 	db: PlatformDb,
 	artifacts: Artifacts,
-	sandbox: PlatformEnv["Bindings"]["SANDBOX"],
-	agents: PlatformEnv["Bindings"]["AGENTS"],
+	memberProvisioning: PlatformEnv["Bindings"]["MEMBER_PROVISIONING"],
 	config: PlatformConfig,
 	slate: Slate,
 	actor: AgentActor,
@@ -133,9 +132,7 @@ export async function getAgentRun(
 	})
 	const resolved = await prepareSlateResourceExecution(
 		db,
-		artifacts,
-		sandbox,
-		agents,
+		memberProvisioning,
 		config,
 		slate,
 		actor,
@@ -373,7 +370,7 @@ export async function getAgentSchedule(
 export async function startAgentJob(
 	db: PlatformDb,
 	artifacts: Artifacts,
-	sandbox: PlatformEnv["Bindings"]["SANDBOX"],
+	memberProvisioning: PlatformEnv["Bindings"]["MEMBER_PROVISIONING"],
 	agents: PlatformEnv["Bindings"]["AGENTS"],
 	config: PlatformConfig,
 	access: SlateAccess,
@@ -382,8 +379,7 @@ export async function startAgentJob(
 	const prepared = await getAgentRun(
 		db,
 		artifacts,
-		sandbox,
-		agents,
+		memberProvisioning,
 		config,
 		access.slate,
 		{ id: access.identity.user.id, type: "user" },

@@ -23,9 +23,7 @@ import type { SlateAccess } from "@/slates.server"
 
 export async function prepareSlateResourceExecution(
 	db: PlatformDb,
-	artifacts: Artifacts,
-	sandbox: PlatformEnv["Bindings"]["SANDBOX"],
-	agents: PlatformEnv["Bindings"]["AGENTS"],
+	memberProvisioning: PlatformEnv["Bindings"]["MEMBER_PROVISIONING"],
 	config: PlatformConfig,
 	slate: Slate,
 	actor: AgentActor,
@@ -38,9 +36,7 @@ export async function prepareSlateResourceExecution(
 			return { allowed: false, reason: "forbidden" } as const
 		const member = await addSlateMember(
 			db,
-			artifacts,
-			sandbox,
-			agents,
+			memberProvisioning,
 			config,
 			slate,
 			user,
@@ -64,9 +60,7 @@ export function getSlateResources(access: SlateAccess, artifacts: Artifacts) {
 
 export async function resolveSlateConnection(
 	db: PlatformDb,
-	artifacts: Artifacts,
-	sandbox: PlatformEnv["Bindings"]["SANDBOX"],
-	agents: PlatformEnv["Bindings"]["AGENTS"],
+	memberProvisioning: PlatformEnv["Bindings"]["MEMBER_PROVISIONING"],
 	config: PlatformConfig,
 	access: SlateAccess,
 	slug: SlateConnectionAssignmentSlug,
@@ -77,9 +71,7 @@ export async function resolveSlateConnection(
 	if (!declared) return { allowed: false, reason: "not-declared" } as const
 	const resolved = await prepareSlateResourceExecution(
 		db,
-		artifacts,
-		sandbox,
-		agents,
+		memberProvisioning,
 		config,
 		access.slate,
 		{ id: access.identity.user.id, type: "user" },

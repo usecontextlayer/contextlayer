@@ -5,7 +5,7 @@ import { join, resolve } from "node:path"
 import { createPolarCore } from "@polar-sh/sdk/2026-10"
 import { listEvents } from "@polar-sh/sdk/2026-10/services/events"
 import { writeDatabase } from "@tests/database-project"
-import { executionTest as test } from "@tests/integration"
+import { provisionSlate, executionTest as test } from "@tests/integration"
 import { createSlateProject } from "@usecontextlayer/dev-env/slate"
 import { signInViewer } from "@usecontextlayer/dev-env/viewer"
 import { accountsSchema } from "@usecontextlayer/shared/accounts"
@@ -48,7 +48,7 @@ test("native resource capabilities enforce access and report exact slate-Owner t
 		"Connect a Gmail account for the local development user with pnpm dev:ctx accounts add gmail, then approve the link in your browser.",
 	)
 	const { ARTIFACTS, DATABASES } = await worker.getEnv()
-	const { PROVISIONING } = await provisioning.worker.getEnv()
+	const { PROVISIONING, MEMBER_PROVISIONING } = await provisioning.worker.getEnv()
 	await using resources = new AsyncDisposableStack()
 	const post = (body: unknown) => ({
 		body: JSON.stringify(body),
@@ -177,8 +177,7 @@ test("native resource capabilities enforce access and report exact slate-Owner t
 			slate.id,
 			(await git("rev-parse", "HEAD")).stdout.trim(),
 		)
-		await PROVISIONING.migrate(prepared)
-		await PROVISIONING.provisionSchedules(prepared)
+		await provisionSlate(MEMBER_PROVISIONING, prepared)
 		expect(
 			await callExecution("callTool", [
 				slate.id,
@@ -238,6 +237,14 @@ test("native resource capabilities enforce access and report exact slate-Owner t
 				)
 			).status,
 		).toBe(200)
+		await expect
+			.poll(
+				async () =>
+					(await callCapability("databases", props, ["drafts", "SELECT id FROM updates"]))
+						.status,
+				{ interval: 1000, timeout: 900_000 },
+			)
+			.toBe(200)
 		const opened = await callCapability("databases", props, [
 			"drafts",
 			"SELECT id FROM updates",

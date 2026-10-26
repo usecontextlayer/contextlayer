@@ -10,9 +10,7 @@ import type { OwnerSlateAccess } from "@/slates.server"
 
 export async function setSlateSecret(
 	db: PlatformDb,
-	artifacts: Artifacts,
-	sandbox: PlatformEnv["Bindings"]["SANDBOX"],
-	agents: PlatformEnv["Bindings"]["AGENTS"],
+	memberProvisioning: PlatformEnv["Bindings"]["MEMBER_PROVISIONING"],
 	meridian: PlatformEnv["Bindings"]["MERIDIAN"],
 	config: PlatformConfig,
 	access: OwnerSlateAccess,
@@ -34,9 +32,7 @@ export async function setSlateSecret(
 	if (!saved.allowed) return { allowed: false, reason: "forbidden" } as const
 	await addSlateMember(
 		db,
-		artifacts,
-		sandbox,
-		agents,
+		memberProvisioning,
 		config,
 		access.slate,
 		access.identity.user,

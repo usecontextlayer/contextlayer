@@ -336,9 +336,6 @@ importers:
       '@better-auth/oauth-provider':
         specifier: 1.7.7
         version: 1.7.7(@better-auth/core@1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.5))(jose@6.2.12)(kysely@0.29.5)(nanostores@1.5.4))(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(better-auth@1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.11)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261001.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.17.2)(supports-color@10.2.2))(kysely@0.29.5)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))(pg@8.23.1)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(vitest@4.1.11))(better-call@1.4.0(zod@4.6.5))
-      '@cloudflare/ci':
-        specifier: 0.2.0
-        version: 0.2.0(patch_hash=5aeac246a51b1cffedb31389c5c4878c7ab33949de095db54744a3d9a07c06c5)
       '@cloudflare/sandbox':
         specifier: 1.0.1
         version: 1.0.1
@@ -439,6 +436,9 @@ importers:
         specifier: 3.25.2
         version: 3.25.2(zod@4.6.5)
     devDependencies:
+      '@cloudflare/ci':
+        specifier: 0.2.0
+        version: 0.2.0(patch_hash=5aeac246a51b1cffedb31389c5c4878c7ab33949de095db54744a3d9a07c06c5)
       '@cloudflare/vite-plugin':
         specifier: ^1.62.4
         version: 1.62.4(@types/node@24.13.3)(vite@8.3.2(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(wrangler@4.146.0(patch_hash=17ac17fe8debb12bc68b8921f0b53c75515cc7c68d7ad6bb2daa791c74a36e64)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.13.3))

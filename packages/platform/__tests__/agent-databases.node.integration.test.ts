@@ -5,7 +5,7 @@ import { join, resolve } from "node:path"
 import { promisify } from "node:util"
 import { ToolResultEntry } from "@earendil-works/pi-durable"
 import { writeDatabase } from "@tests/database-project"
-import { executionTest as test } from "@tests/integration"
+import { provisionSlate, executionTest as test } from "@tests/integration"
 import { DEVELOPMENT_ORGANIZATION_SLUG } from "@usecontextlayer/dev-env/env"
 import { createSlateProject } from "@usecontextlayer/dev-env/slate"
 import { signInViewer } from "@usecontextlayer/dev-env/viewer"
@@ -113,13 +113,12 @@ for (const [mode, tool] of [
 		await git("add", ".")
 		await git("-c", "commit.gpgsign=false", "commit", "-m", "Declare agent databases")
 		await git("push", remote, "main")
-		const { PROVISIONING } = await provisioning.worker.getEnv()
+		const { PROVISIONING, MEMBER_PROVISIONING } = await provisioning.worker.getEnv()
 		const prepared = await PROVISIONING.prepare(
 			slate.id,
 			(await git("rev-parse", "HEAD")).stdout.trim(),
 		)
-		await PROVISIONING.migrate(prepared)
-		await PROVISIONING.provisionSchedules(prepared)
+		await provisionSlate(MEMBER_PROVISIONING, prepared)
 		const viewerHeaders = await signInViewer({
 			authURL: serviceEnv.addresses.CTX_VIEWER_AUTH_URL.origin,
 			returnTo: `https://${slate.public_hostname}/`,
@@ -143,6 +142,13 @@ for (const [mode, tool] of [
 			expect(response.status).toBe(200)
 			return databaseResultSchema.parse(await response.json())
 		}
+		await query("drafts", "SELECT 1")
+		await expect
+			.poll(() => query("drafts", "SELECT * FROM updates"), {
+				interval: 1000,
+				timeout: 900_000,
+			})
+			.toMatchObject({ rows: [] })
 		const markers = {
 			drafts: `personal-${webSession.user.id}`,
 			reports: `org-${organization.id}`,
