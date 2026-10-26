@@ -3,27 +3,40 @@ title: "Accounts"
 description: "A connected account holds a provider's credentials for a personal or organization Owner, independently of any slate."
 ---
 
-An account is a Composio connected account that holds a provider's credentials, such as a Gmail or Slack login. ContextLayer uses it to call that provider's tools for a slate.
+An **account** is an authorized connection to an external service, such as Gmail or Slack. Composio holds its provider credentials, and ContextLayer uses the account to call that service's tools. This connected account is separate from the ContextLayer account you use to sign in.
+
+An account is separate from the requirement a slate declares. The slate might require Gmail through a connection named `work-email`; an assignment chooses which connected Gmail account satisfies that requirement.
 
 ## An account belongs to an Owner
 
-Every account belongs to an Owner: a person (a personal Owner) or an organization. It belongs to that Owner independently of any slate, so one account can be assigned to connections in several slates.
+Every account belongs to an [Owner](/core-concepts/owners-and-viewers): a person or organization. It belongs to that Owner independently of any slate, so several slates can use the same account without creating separate provider logins for each one.
 
-Members of an organization can connect and list the organization's accounts. An account that a member connects for the organization belongs to the organization, not to the member.
+Choose the Owner when connecting the account. A personal account belongs to you. An account connected for an organization belongs to that organization, and its members can connect and list the organization's accounts. The person completing provider authorization and the Owner holding the resulting account can therefore be different: an organization member can authorize an organization-owned account.
 
 ## Composio holds the credentials
 
-Composio stores the provider credentials and refreshes them. ContextLayer does not store them: an assignment records only the account's ID. Tool calls run in a Composio session for the Owner that the connection selects, so a connection can use only that Owner's accounts.
+Composio stores and refreshes the provider credentials. A ContextLayer assignment records an account ID, not an access token or password. Tool calls run in a Composio session for the Owner selected by the connection's mode, so an assignment can select only an account belonging to that Owner.
 
-## Connect once, then assign
+Your app or agent calls a tool through a declared connection; it does not need to load or refresh the provider credential itself.
 
-You connect an account once, in your browser. ContextLayer creates an authorization link for the provider's toolkit. You complete the provider's authorization at that link, and the account then belongs to the Owner you chose. You can start from:
+## Connect an account, then assign it
+
+Connecting and assigning are two separate actions:
+
+1. **Connect the account.** Choose its Owner and toolkit—the provider integration, such as Gmail. ContextLayer creates an authorization link; complete the provider's authorization in your browser.
+2. **Assign the account.** Select the connected account for a connection declared by the slate. This tells that connection which account to use.
+
+You can start account authorization from:
 
 - the CLI's `accounts` command, which prints the link;
-- the chrome, the ContextLayer header at the top of a hosted slate, next to a declared connection;
+- the [chrome](/core-concepts/slate#the-chrome), ContextLayer's header and configuration tray in a hosted slate, next to a declared connection;
 - the API operation [Create an authorization link to connect an Owner's account](https://docs.usecontextlayer.com/api-reference/accounts/create-an-authorization-link-to-connect-an-owners-account).
 
-A connected account does nothing on its own. To use it, assign it to a connection that a slate declares. [Connections and assignments](/core-concepts/resources/connections-and-assignments) explains assignments, and [Connect an account](/how-to/connect-an-account) walks through the steps. During local development, connections use your personal accounts, so connect the account for yourself.
+A connected account is available for assignment; connecting it alone does not assign it to a slate. [Connections and assignments](/core-concepts/resources/connections-and-assignments) explains how assignments work, and [Connect an account](/how-to/connect-an-account) provides the procedure.
+
+During local development, connections always use your personal accounts, regardless of the slate's Owner or the connection's mode. Connect the account for yourself when you want to use it locally.
+
+## Example: a local Gmail connection
 
 For example, an app declares a Gmail connection with the slug `work-email`:
 
@@ -38,7 +51,7 @@ For example, an app declares a Gmail connection with the slug `work-email`:
 }
 ```
 
-Assigning one of your Gmail accounts to it in the checkout saves only the account's ID, under the slug:
+Assigning one of your Gmail accounts through the CLI saves its ID under the connection slug in the checkout's ignored `.contextlayer/connections.json` file. For example:
 
 ```json .contextlayer/connections.json
 {
@@ -46,7 +59,9 @@ Assigning one of your Gmail accounts to it in the checkout saves only the accoun
 }
 ```
 
-The app's code calls tools by the slug, and each call runs with the assigned account:
+`ca_example` represents the connected account's ID. The CLI writes the actual ID when you make the assignment; this file contains no Gmail credentials and stays out of Git. A hosted assignment is configured separately and is not read from this local file.
+
+This loader excerpt calls the provider tool through `work-email`. The slug stays in code; changing the assignment changes the selected account without changing the loader:
 
 ```tsx app/routes/home.tsx
 import { toolsContext } from "@usecontextlayer/sdk"
@@ -58,9 +73,11 @@ export async function loader({ context }: Route.LoaderArgs) {
 }
 ```
 
+The call returns `{ data, logId }`: the provider's result and the execution log ID. Validate provider data before using it in your interface; see [Tools in the SDK reference](/reference/sdk#tools).
+
 ## List accounts
 
-The CLI's `accounts` command also lists an Owner's accounts with their toolkit, identity and status. Only active accounts are listed. Run `npx @usecontextlayer/cli accounts --help` for its operations and for choosing between your personal accounts and an organization's.
+Use the account list to choose an active account for an assignment. The CLI's `accounts` command lists an Owner's accounts with their toolkit, identity, and status. Only active accounts are listed. Run `npx @usecontextlayer/cli accounts --help` for its operations and for choosing between your personal accounts and an organization's.
 
 ## API
 

@@ -1,90 +1,63 @@
 ---
 title: "SDK"
-description: "The @usecontextlayer/sdk package: the slate's document Layout, its Worker, and the Tools and Databases capabilities."
+description: "Import paths, resource APIs, React Router integration, and build configuration for @usecontextlayer/sdk."
 ---
 
-ContextLayer integration for slates: the app's shared document Layout, a Worker serving app routes and MCP tools, and Tools and Databases capabilities. The [domain model](https://github.com/usecontextlayer/contextlayer/blob/main/ARCHITECTURE.md#domain-model) defines slates, declarations, resources, Owners, and assignments.
+`@usecontextlayer/sdk` connects a slate's authored code to ContextLayer. It provides the app's document layout, request-scoped Tools and Databases capabilities, and the Vite and Worker integration used by the starter.
 
-Use Node.js 22.22.0 or newer, pnpm, and Git with configured author identity. Start with login, then create and run your slate:
+The CLI installs and configures the SDK when it creates a slate. For initial setup, use [Installation](/installation) and the [Quickstart](/quickstart). This page describes the SDK's imports, contracts, and integration points.
 
-```sh
-npx @usecontextlayer/cli login
-npx @usecontextlayer/cli init my-slate
-cd my-slate
-pnpm dev
-```
+## Import paths
 
-The CLI installs this package and configures local development. Open the local URL printed by the development server. Initialization prints your dashboard link, hosted URL, and Git deployment steps; the hosted URL becomes usable after deployment succeeds. Use `npx @usecontextlayer/cli` for subsequent CLI commands. First-party `@usecontextlayer/*` packages are exempt from pnpm's release-age policy in generated checkouts.
+Use the entry point for the environment in which the import runs:
 
-## Local login and assignment
+| Import | Purpose |
+| --- | --- |
+| `@usecontextlayer/sdk` | Tools and Databases contexts, typed database helper, and setup-response schemas. |
+| `@usecontextlayer/sdk/react` | The app's document `Layout`. |
+| `@usecontextlayer/sdk/vite` | The `contextlayer` Vite plugin. |
+| `@usecontextlayer/sdk/worker` | `createSlateWorker` and its Worker type. |
+| `@usecontextlayer/sdk/database` | `databaseDialect` for native Kysely CLI configuration. |
+| `@usecontextlayer/sdk/html` | `htmlPage` for a standalone server-rendered HTML document. |
+| `@usecontextlayer/sdk/local` | The local resource Worker integration used by the generated checkout. |
 
-Declare resources in `public/slate.json` and `agents/<name>/slate.json`, following the [resource invariants](https://github.com/usecontextlayer/contextlayer/blob/main/ARCHITECTURE.md#resource-configuration-and-execution--principles). Use `npx @usecontextlayer/cli accounts --help` and `npx @usecontextlayer/cli connections --help` for listing, connecting personal accounts, and assignment syntax. Local assignments are saved in ignored `.contextlayer/connections.json`.
+The app and each agent declare their required resources in `slate.json`; importing an SDK function does not make an undeclared resource available. See [Resources](/core-concepts/resources) for declarations, modes, and assignments.
 
-For local tool calls, assign your personal connected accounts even when the hosted declaration uses `owner` mode or the slate belongs to an organization. Keep `.contextlayer/` ignored in Git. Local database state lives in `.contextlayer/databases`; local secret values come from environment variables with their declared names.
+## Tools
 
-When the app declares connections, Vite startup needs a matching CLI login and the generated Git origin to identify the slate. This also applies when running a local agent because that command starts Vite. Restart `pnpm dev` after changing declarations, assignments, or secret values, and when the startup access token expires. Apply new migrations with the native Kysely CLI while development is running. The [local resource architecture](https://github.com/usecontextlayer/contextlayer/blob/main/ARCHITECTURE.md#resource-configuration-and-execution--principles) describes preparation and credential boundaries.
+`toolsContext` supplies the Tools capability for a React Router request. Use it inside a loader or action, where ContextLayer can bind the call to the current slate and resource configuration.
 
-## App Layout
-
-The generated `app/root.tsx` re-exports the SDK's document Layout:
-
-```tsx
-export { Layout } from "@usecontextlayer/sdk/react"
-```
-
-Keep this re-export when editing the app's root component, error boundary, stylesheet, and font links. Layout supplies React Router's document elements and mounts the [chrome](https://github.com/usecontextlayer/contextlayer/blob/main/ARCHITECTURE.md#slate-chrome) outside Vite development. Use the chrome's header to configure hosted connections, then refresh the page. Use CLI assignments during local development.
-
-## Standalone HTML pages
-
-Use `htmlPage` for a complete server-rendered document with a centered, responsive white card. It loads pinned Bootstrap 6 CSS through a CDN stylesheet link and uses Bootstrap classes for layout. Supply the card's contents with Hono's `html` helper and standard Bootstrap markup; no React, custom CSS or frontend build configuration is required.
-
-```ts
-import { htmlPage } from "@usecontextlayer/sdk/html"
-import { html } from "hono/html"
-
-return c.html(htmlPage({
-  title: "Connect your account",
-  children: html`<h1 class="h4">Connect your account</h1>
-    <form action="/authorize" method="get">
-      <!-- Application-owned fields and authorization parameters -->
-      <button class="btn-solid theme-inverse" type="submit">Continue</button>
-    </form>`,
-}))
-```
-
-The caller owns the content, form destination, validation and authorization flow. The helper supplies only the document and presentation shell.
-
-## Call connected services
+### Call connected services
 
 In a loader or action, obtain Tools with `context.get(toolsContext)` from `@usecontextlayer/sdk`. Call `tools.call(connectionSlug, toolName, arguments)` with a connection slug declared in `public/slate.json`. Calls resolve to `{ data, logId }`; validate the tool-specific `data` before using it.
 
-## Handling tool errors
-
-For a custom error boundary, use React Router's `isRouteErrorResponse(error)` and the SDK's `connectionRequiredSchema.safeParse(error.data)` to recognize the HTTP 409 payload `{ reason: "connection-required", slug }`. Use `secretRequiredSchema.safeParse(error.data)` for `{ reason: "secret-required", name }` when a viewer-mode secret is missing. The generated root handles both responses. Hosted database queries throw these same native setup Responses. See the [execution boundary](https://github.com/usecontextlayer/contextlayer/blob/main/ARCHITECTURE.md#resource-configuration-and-execution--principles) for authorization and credential handling.
-
-## Vite and Worker configuration
-
-Compose `contextlayer` with the app's React Router and Tailwind plugins:
+| Argument | Meaning |
+| --- | --- |
+| `connectionSlug: string` | A connection in the app's declaration, such as `work-email`. |
+| `toolName: string` | The provider's tool name, such as `GMAIL_FETCH_EMAILS`. |
+| `arguments: Record<string, unknown>` | The input object defined by that provider tool. |
 
 ```ts
-import { contextlayer } from "@usecontextlayer/sdk/vite"
-import { reactRouter } from "@react-router/dev/vite"
-import tailwindcss from "@tailwindcss/vite"
-import { defineConfig } from "vite"
+import { toolsContext } from "@usecontextlayer/sdk"
 
-export default defineConfig((env) => ({
-  plugins: [contextlayer(env), tailwindcss(), reactRouter()],
-  resolve: { tsconfigPaths: true },
-}))
+// Inside a loader or action with a declared and assigned work-email connection:
+const tools = context.get(toolsContext)
+const { data, logId } = await tools.call("work-email", "GMAIL_FETCH_EMAILS", {
+  max_results: 5,
+})
 ```
 
-This integration supplies the Cloudflare plugin; do not add a second instance. Keep the generated `workers/local-resources/wrangler.jsonc` and `workers/local-resources/index.ts` for local development. Follow the [startup and restart prerequisites](#local-login-and-assignment) when changing resources.
+The promise resolves to `{ data: unknown, logId: string }`. `data` contains the provider result, and `logId` identifies the execution. Composio owns the provider's argument and result schemas. Treat the result as external data and parse the fields your app uses. [Connect an account](/how-to/connect-an-account) provides a complete assignment workflow.
 
-Keep the generated `workers/app.ts` wiring to `createSlateWorker` from `@usecontextlayer/sdk/worker`. It supplies the virtual React Router server build, Vite mode and development flag, and authored MCP modules. `createSlateWorker` returns the exported `SlateWorker` type. The [runtime architecture](https://github.com/usecontextlayer/contextlayer/blob/main/ARCHITECTURE.md#resource-configuration-and-execution--principles) owns capability wiring and trust boundaries.
+## Databases
 
-## A loader that queries cached data
+`databasesContext` supplies the `Databases` capability for a React Router request. `database<DB>(databases, slug)` accepts that capability and a string slug and returns a `Kysely<DB>` instance for the declared database. The root SDK entry point also exports the `Tools` and `Databases` types.
 
-Declare a database slug in `public/slate.json` and the same slug in `agents/<name>/slate.json` when both should share data, following the [resource invariants](https://github.com/usecontextlayer/contextlayer/blob/main/ARCHITECTURE.md#resource-configuration-and-execution--principles). Each database has a native config, migrations, and generated query types under `databases/<slug>`. The starter wires a shared `notes` database into its route.
+Declare the slug in `public/slate.json`. An agent that should use the same logical database must declare it too, with the same mode. The app and agent share stored rows only when their resource selection chooses the same Owner. Each database keeps its configuration, migrations, and generated query types under `databases/<slug>`.
+
+### Query through Kysely
+
+This loader excerpt selects the starter's `notes` database and reads its `notes` table. The first name selects storage; the second names a table within that storage:
 
 ```tsx
 import { database, databasesContext } from "@usecontextlayer/sdk"
@@ -97,7 +70,39 @@ export async function loader({ context }: Route.LoaderArgs) {
 }
 ```
 
-The helper returns a native Kysely instance with SQLite compilation. Mutations return Kysely's affected-row counts and SQLite insert IDs; use `.returning()` to retrieve the written rows instead. Kysely bigint parameters are converted to decimal strings before binding. SQL transactions are unsupported by Durable Object storage. Direct SQL remains `context.get(databasesContext).query("notes", sql, params)`, and agents use `database_query`; both return `rows` as objects keyed by column name.
+The helper uses SQLite compilation and returns native Kysely query results. Mutations return affected-row counts and SQLite insert IDs; use `.returning()` to retrieve the rows written by an insert or update. Bigint parameters are converted to decimal strings before binding.
+
+### Query with SQL
+
+Use the request capability directly when you need SQL:
+
+```ts
+const databases = context.get(databasesContext)
+const { rows } = await databases.query(
+  "notes",
+  "select id, body from notes where id > ? order by id desc",
+  [0],
+)
+```
+
+`query(slug, sql, params?)` takes a database slug and SQL string. The optional parameter array accepts `string`, `number`, or `null` values. Pass values through that array rather than interpolating them into SQL.
+
+The returned promise resolves to this result shape:
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `rows` | `Record<string, string \| number \| null>[]` | Result rows keyed by column name. |
+| `columns` | `string[]` | Column names in the result. |
+| `rowsRead` | `number` | Reported rows read. |
+| `rowsWritten` | `number` | Reported rows written. |
+| `changes` | `number`, optional | Mutation change count, when present. |
+| `lastInsertRowid` | `number`, optional | SQLite's last insert row ID, when present. |
+
+Agents use `database_query` to reach their own declared databases with the same SQL contract. The result type is not a named export from the SDK root; use the return type of `query` when you need to derive it.
+
+SQL transactions are not supported by the ContextLayer database interface. Kysely, direct SQL, and agent queries use the same storage when their slate, selected Owner, and slug match.
+
+### Configure migrations and generated types
 
 A database's native config selects only its declared logical slug. ContextLayer supplies the local connection during development or the scoped connection inside the hosted sandbox:
 
@@ -119,4 +124,93 @@ pnpm exec kysely --config databases/notes/kysely.config.ts migrate latest
 pnpm db.codegen notes
 ```
 
-Commit the authored migrations and generated `databases/notes/types.ts`; do not hand-maintain query types. Local startup also applies the local checkout’s pending migrations before queries. Local tools access only local storage. Push builds the selected commit, runs its migrations in an isolated sandbox, then deploys; new members start a background Workflow that uses the same native CLI to initialize their databases and then provisions schedules. Membership is established before that work finishes. Migration failure blocks deployment or provisioning, while earlier successful SQL statements may remain applied. See [database ownership and provisioning](https://github.com/usecontextlayer/contextlayer/blob/main/ARCHITECTURE.md#slate-databases-and-authored-migrations) for lifecycle and isolation.
+Commit the authored migrations and generated `databases/notes/types.ts`; do not hand-maintain query types. Local startup also applies pending migrations before app queries, and local tools access only local storage. [Add a database](/how-to/add-a-database) covers the full authoring sequence, including when to restart the app.
+
+Hosted builds apply the selected commit's migrations before deployment. New members' databases are provisioned and migrated in the background before their schedules are installed. Migration failure stops the deployment or provisioning that ran it, and earlier SQL statements may remain applied. See [Databases](/core-concepts/resources/databases) for the lifecycle and [the database architecture](https://github.com/usecontextlayer/contextlayer/blob/main/ARCHITECTURE.md#slate-databases-and-authored-migrations) for the isolation boundary.
+
+## Missing resource setup
+
+Missing required setup produces a native HTTP 409 response that React Router can render through an error boundary. The generated root already handles these responses:
+
+| Missing input | Payload | Exported schema |
+| --- | --- | --- |
+| A declared connection's account assignment | `{ reason: "connection-required", slug }` | `connectionRequiredSchema` |
+| A declared viewer-mode secret value | `{ reason: "secret-required", name }` | `secretRequiredSchema` |
+
+In a custom error boundary, first use React Router's `isRouteErrorResponse(error)`, then parse `error.data` with the appropriate schema's `safeParse()` method. A missing secret affects preparation of the consumer's resources, so these responses can arise from hosted database queries as well as tool calls. See the starter root for the existing setup UI and [the resource model](/core-concepts/resources) for selection rules.
+
+## App Layout
+
+The generated `app/root.tsx` re-exports the SDK's document Layout:
+
+```tsx
+export { Layout } from "@usecontextlayer/sdk/react"
+```
+
+Keep this re-export when editing the app's root component, error boundary, stylesheet, and font links. Layout supplies React Router's document elements and mounts the [chrome](/core-concepts/slate#the-chrome) on the hosted app. The chrome is disabled during Vite development. Configure hosted resources through the chrome and local assignments through the CLI.
+
+## Vite and Worker configuration
+
+Compose `contextlayer` with the app's React Router and Tailwind plugins:
+
+```ts vite.config.ts
+import { contextlayer } from "@usecontextlayer/sdk/vite"
+import { reactRouter } from "@react-router/dev/vite"
+import tailwindcss from "@tailwindcss/vite"
+import { defineConfig } from "vite"
+
+export default defineConfig((env) => ({
+  plugins: [contextlayer(env), tailwindcss(), reactRouter()],
+  resolve: { tsconfigPaths: true },
+}))
+```
+
+This integration supplies the Cloudflare plugin; do not add a second instance. Keep the generated `workers/local-resources/wrangler.jsonc` and `workers/local-resources/index.ts` for local development. Follow the [startup and restart prerequisites](#local-login-and-assignment) when changing resources.
+
+Keep the generated `workers/app.ts` wiring to `createSlateWorker` from `@usecontextlayer/sdk/worker`. It supplies the virtual React Router server build, Vite mode and development flag, and authored MCP modules. `createSlateWorker` returns the exported `SlateWorker` type. The [runtime architecture](https://github.com/usecontextlayer/contextlayer/blob/main/ARCHITECTURE.md#resource-configuration-and-execution--principles) owns capability wiring and trust boundaries.
+
+The Worker factory takes these options:
+
+| Option | Purpose |
+| --- | --- |
+| `build` | The server build accepted by React Router's `createRequestHandler`. |
+| `mode` | The Vite mode string. |
+| `development` | Whether the Worker is running in development. |
+| `mcp`, optional | A record of authored MCP modules, each exporting a tool definition and handler. |
+
+The Worker entry point also exports the `McpToolModule` type. Keep the starter's module discovery wiring when adding tools; [Expose MCP tools](/how-to/expose-mcp-tools) covers the authored files and deployment.
+
+## Standalone HTML pages
+
+Use `htmlPage` for a complete server-rendered document with a centered, responsive white card. It loads pinned Bootstrap 6 CSS through a CDN stylesheet link and uses Bootstrap classes for layout. Supply the card's contents with Hono's `html` helper and standard Bootstrap markup; no React, custom CSS or frontend build configuration is required.
+
+| Input | Type | Purpose |
+| --- | --- | --- |
+| `title` | `string` | The document title. |
+| `children` | The return value of Hono's `html` helper. | Markup inside the page's card. |
+
+Use it inside a Hono handler, where `c` is the request context:
+
+```ts
+import { htmlPage } from "@usecontextlayer/sdk/html"
+import { html } from "hono/html"
+
+return c.html(htmlPage({
+  title: "Connect your account",
+  children: html`<h1 class="h4">Connect your account</h1>
+    <form action="/authorize" method="get">
+      <!-- Application-owned fields and authorization parameters -->
+      <button class="btn-solid theme-inverse" type="submit">Continue</button>
+    </form>`,
+}))
+```
+
+The caller owns the content, form destination, validation and authorization flow. The helper supplies only the document and presentation shell.
+
+## Local login and assignment
+
+Declare app resources in `public/slate.json` and agent resources in `agents/<name>/slate.json`; see [Resources](/core-concepts/resources). Use the CLI's `accounts` and `connections` commands for account setup, with [Connect an account](/how-to/connect-an-account) as the walkthrough. Local assignments are saved in ignored `.contextlayer/connections.json`.
+
+For local tool calls, assign your personal connected accounts even when the hosted declaration uses `owner` mode or the slate belongs to an organization. Keep `.contextlayer/` ignored in Git. Local database state lives in `.contextlayer/databases`; local secret values come from environment variables with their declared names.
+
+When the app declares connections, Vite startup needs a matching CLI login and the generated Git origin to identify the slate. This also applies when running a local agent because that command starts Vite. Restart `pnpm dev` after changing declarations, assignments, or secret values, and when the startup access token expires. Apply new migrations with the native Kysely CLI while development is running. The [local resource architecture](https://github.com/usecontextlayer/contextlayer/blob/main/ARCHITECTURE.md#resource-configuration-and-execution--principles) describes preparation and credential boundaries.

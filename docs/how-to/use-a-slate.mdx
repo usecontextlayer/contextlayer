@@ -3,30 +3,36 @@ title: "Use a slate"
 description: "Open a slate as a viewer, sign in, and set up your own accounts and secrets in the chrome."
 ---
 
-This guide is for a viewer: a person who opens a slate's hosted URL in the browser.
+Use a slate someone has shared with you: open its hosted URL, sign in if needed, and supply any personal accounts or secrets it requires. You do not need a local checkout or the CLI to follow this guide.
 
-<Steps>
+Complete only the setup items the slate asks for. Some slates use entirely shared resources and need no personal setup.
+
+<Steps titleSize="h2">
   <Step title="Open the hosted URL">
     Open the URL, which looks like `https://<name>.contextlayer.xyz/`.
   </Step>
   <Step title="Sign in">
     A private slate sends you to sign in with your ContextLayer account, then returns you to the slate. New slates are private. A private slate opens for its owning user, or for members of its owning organization.
-  </Step>
-  <Step title="Look at the chrome">
-    The chrome is the ContextLayer header above the app. It shows your name and the slate's setup status: **Setup complete**, or the number of inputs you still need to configure. Select the status to open the setup menu.
 
-    The menu lists each connection the slate declares and each personal secret it needs, with the app or agents that use it. A slate that needs nothing shows **No setup required.**
+    A public slate can open without sign-in. That does not make its resources yours or grant permission to manage the slate.
+  </Step>
+  <Step title="Check your setup">
+    The **chrome** is the ContextLayer header above the app. It shows your signed-in identity and the slate's setup status. Select the status to open the configuration tray.
+
+    The tray lists declared connections and required personal secrets, along with the app or agents that use them. If there are no requirements, it shows **No setup required.** Otherwise, use the list to see which inputs still need configuration.
   </Step>
   <Step title="Assign your accounts">
-    A connection labelled "your connected account" is in viewer mode: you supply your own account. Open the connection's settings and choose one of your connected accounts.
+    For each connection labelled as **your connected account**, open its settings and choose the account you want the slate to use. This is a viewer-mode connection: your selection affects your use of the slate, and other people choose their own accounts.
 
-    If you have not connected one yet, select **Connect account**. The service's authorization opens in a new tab. When you have connected the account, refresh the slate and choose it.
+    If the account is not listed, select **Connect account**. In the new tab, sign in to the external service and authorize the account you intend to use. Return to the slate, refresh it, and select the newly connected account. Authorizing an account and selecting it for the connection are separate steps.
   </Step>
   <Step title="Supply your secrets">
-    A personal secret is a viewer-mode secret: you supply your own value. Open the secret's settings, enter the value and select **Save secret**. The value is saved for your account and shared with your other slates that request a secret of the same name. The chrome shows only whether a secret is saved, never its value.
+    A personal secret belongs to your personal Owner under its name. Other slates requesting the same personal secret name use the same value, so replacing it affects those slates too. The value is not shared with other viewers.
+
+    For each required personal secret, open its settings, enter your value, and select **Save secret**. This is a viewer-mode secret. The chrome confirms whether a value is saved without displaying the stored value.
   </Step>
   <Step title="Refresh the page">
-    Refresh the slate so the app uses your setup.
+    Refresh the slate so the app uses your saved setup, then carry out the task you opened it for. Reopen the tray to confirm that your selected accounts and saved-secret statuses are present.
   </Step>
 </Steps>
 
@@ -34,13 +40,23 @@ If the app needs an input you have not configured, the starter app shows **Assig
 
 ## Personal and shared resources
 
-Each declared resource has a mode, and the mode decides whose it is.
+Resource mode determines who supplies a resource:
 
-- **Viewer mode** resources are personal. The chrome describes a viewer-mode connection as "your connected account (each user of the slate uses their own)". Each user supplies their own viewer-mode secrets, and each user has their own viewer-mode databases in this slate.
-- **Owner mode** resources are shared. The chrome describes an owner-mode connection as "shared connected account (all users of the slate use this one)". Owner-mode connections, secrets and databases belong to the slate's Owner. Using them through the app gives you no permission to manage the Owner's accounts or secrets. Where you cannot manage the Owner's accounts, the chrome shows **Managed by slate Owner**.
+| Mode | What you use | What you configure |
+| --- | --- | --- |
+| **Viewer mode** | Your own account, personal secret value, or personal database within this slate. | Select your accounts and supply required secret values. ContextLayer provisions database storage. |
+| **Owner mode** | An account, secret, or database shared by the slate's Owner. | The owning user or owning-organization members configure shared accounts and secrets. |
+
+Using a shared resource through the app does not grant permission to manage its Owner's accounts or secrets. When you cannot configure a shared connection, the chrome shows **Managed by slate Owner**. If that shared connection still needs an account, the slate's Owner must configure it.
 
 Your accounts stay yours. The slate's code never receives your account credentials: Composio holds them, and ContextLayer makes the slate's tool calls with them. See [Accounts](/core-concepts/accounts).
 
 ## When your setup is complete
 
-When the chrome shows **Setup complete**, every connection the slate declares has an assigned account and every viewer-mode secret is saved. With setup complete, ContextLayer makes you a member of the slate. It then initializes your viewer-mode databases and installs the schedules of the slate's agents that run for each member, in the background. Membership does not change who can open the slate.
+When the chrome shows **Setup complete**, all connections declared by the app and its agents have assignments, and all required viewer-mode secrets are saved. This reports configuration status; opening the tray does not itself join you to the slate.
+
+For a private slate, saving a connection assignment, supplying a declared secret through the slate's setup flow, or first using a viewer-mode resource can establish your **slate membership** once whole-slate setup is complete. Membership records your participation; it does not give you permission to manage the slate or change who may open it.
+
+ContextLayer then provisions and migrates your viewer-mode databases and installs schedules for agents that run for each member. This work happens in the background after membership is established. A member remains a member if a required account or secret later needs configuration again; the affected operation still needs that missing input before it can run.
+
+Public slates do not create memberships or use viewer-mode resources. See [Owners and viewers](/core-concepts/owners-and-viewers) for the full access and membership model.

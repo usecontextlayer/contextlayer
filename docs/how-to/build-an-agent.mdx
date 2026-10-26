@@ -3,19 +3,18 @@ title: "Build an agent"
 description: "Write an agent, deploy it, run it as a hosted job, inspect what it did, and put it on a schedule."
 ---
 
-An agent is a named set of standing instructions in a slate. It runs as a hosted job: a fresh conversation, on its own Linux computer, working on one prompt. You start a hosted job with a prompt, or a schedule starts one. See [Agents](/core-concepts/slate/agents) for how agents fit into a slate.
+Build a `digest` agent that reads the starter app's `notes` database, summarizes it in a hosted job, and runs on a daily schedule. You will write its standing instructions, declare its resources, supply model credentials, and start a job through the API.
 
-This guide builds an agent called `digest` that reads the starter app's `notes` database. It assumes a slate created with `init`, as in the [Quickstart](/quickstart).
+Start with a private slate created with `init`, as in the [Quickstart](/quickstart), and work from its checkout. Use an account that can manage the slate so you can configure its owner-mode secret and inspect the job. [Agents](/core-concepts/slate/agents) explains the distinction between an agent definition and each job that runs it.
 
-<Steps>
+<Steps titleSize="h2">
   <Step title="Write the agent">
-    An agent is a directory under `agents/`, and the directory name is the agent's name. It holds two files.
+    Create `agents/digest/` and add the two files below. The directory name, `digest`, becomes the agent's name.
 
     `instructions.md` holds the agent's standing instructions. Every hosted job of this agent runs with them. The prompt you send arrives as a separate user message.
 
     ```markdown agents/digest/instructions.md
-    You summarize the notes in the `notes` database.
-    Read them with the `database_query` tool and reply in two or three sentences.
+    You summarize the notes in the `notes` table of the `notes` database. Each row stores its note text in `body`. Read them with the `database_query` tool and reply in two or three sentences.
     ```
 
     `slate.json` is the agent's declaration: the resources it needs. It uses the same schema as the app's `public/slate.json`. `connections` is required; `databases` and `secrets` are optional.
@@ -28,30 +27,23 @@ This guide builds an agent called `digest` that reads the starter app's `notes` 
     }
     ```
 
-    All declarations in a slate share one namespace for each kind of resource. The starter app declares `notes` in owner mode, so this agent uses the same database as the app. A key declared in more than one place must have the same mode everywhere, and a connection the same toolkit.
+    The starter app also declares `notes` in owner mode, so the app and this agent use the same hosted database. The API key belongs to the slate's Owner and supplies hosted model authentication.
+
+    Repeated resource names must agree across declarations: all use the same mode, and repeated connections use the same toolkit. An agent gets only its own declared resources; it does not inherit the app's declaration.
 
     Every directory under `agents/` needs a `slate.json`, even one that declares nothing: `{ "connections": {} }`.
   </Step>
-  <Step title="Choose the model and its credentials">
-    A hosted job calls Anthropic's models. The credential it uses follows the secret the agent declares under `secrets`. Declare one of these:
+  <Step title="Supply model credentials">
+    The example declares an owner-mode `ANTHROPIC_API_KEY`. Save an Anthropic API key for the slate's Owner with the CLI's `secrets set` command. It targets your personal Owner by default; choose the organization explicitly if the slate belongs to one. Run `npx @usecontextlayer/cli secrets set --help` for the input and Owner-selection syntax.
+
+    Hosted agents support these credential declarations:
 
     - `ANTHROPIC_API_KEY`: an Anthropic API key. If both are declared, this one is used.
     - `CLAUDE_CODE_OAUTH_TOKEN`: a Claude subscription token, which `claude setup-token` creates.
 
     The secret's mode decides whose value a job uses. In owner mode the slate's Owner saves one value and every job uses it. In viewer mode each person saves their own, and a job uses the value of the person it acts for. See [Secrets](/core-concepts/resources/secrets).
 
-    Save the value with the CLI's `secrets set` command. It saves to your personal Owner unless you choose an organization; `npx @usecontextlayer/cli secrets set --help` shows how. An owner-mode secret on an organization's slate belongs to that organization.
-
     Jobs use `claude-haiku-4-5` unless the agent declares `ANTHROPIC_MODEL` under `secrets`. To choose the model, declare `ANTHROPIC_MODEL` with a mode and save a full Anthropic model ID as its value, the same way as the key. Once declared, the value is required. A changed value applies to jobs started after the change.
-  </Step>
-  <Step title="Know what the agent can use">
-    Each hosted job gets a fresh Linux computer and these tools:
-
-    - **Coding tools.** `read`, `write`, `edit` and `bash` work on the job's computer. The computer has no internet access. Its files are scratch space: no other job sees them, and they last only as long as the job's computer. Keep anything that must last in a database.
-    - **`database_query`.** Runs parameterized SQL against a database the agent declares. Writes persist immediately and are visible to the app and to other jobs that use the same database. The database's tables come from its migrations under `databases/<slug>`, which ContextLayer applies when the slate deploys.
-    - **Connection tools.** For each connection the agent declares, the job gets that service's actions from Composio, bound to the account assigned to the connection and named `<slug>__<ACTION>` after the connection's slug. A job does not start until every connection the agent declares has an assigned account. Connect an account with the CLI's `accounts add` command and, after you push, assign it with the `connections` command; each command's `--help` shows how.
-
-    The model is not offered connection tools directly. It finds them through Code Mode, which searches and describes the job's tools, and calls them from short scripts. Those scripts run in a sandbox that reaches only the job's own tools, including `database_query` and the coding tools.
   </Step>
   <Step title="Deploy by pushing to main">
     Commit the agent and push `main`:
@@ -67,16 +59,23 @@ This guide builds an agent called `digest` that reads the starter app's `notes` 
   <Step title="Start a hosted job and inspect it">
     Hosted jobs start through the platform API, and only on private slates. The CLI's `agent` command runs an agent on your own machine instead; `npx @usecontextlayer/cli agent --help` describes it.
 
-    Call [Start an agent job with a prompt](/api-reference/agent-jobs/start-an-agent-job-with-a-prompt) with a prompt such as "Summarize the notes." The call returns once the job is admitted, without waiting for it to finish. Each job works on one prompt in a fresh conversation; to follow up, start another job.
+    Open the deployed notes app and add a few notes for the agent to summarize. Notes created during local development stay in the local database and are not present in the hosted database.
 
-    Then follow the job:
+    Call [Start an agent job with a prompt](/api-reference/agent-jobs/start-an-agent-job-with-a-prompt) with "Summarize the notes." Keep the job identifier returned by the API for the requests below. The start request returns after the job is accepted for execution; it does not wait for the answer.
 
-    - Whether it is still running: [Get an agent job's current operation](/api-reference/agent-jobs/get-an-agent-jobs-current-operation).
-    - Its final answer: [Wait for an agent job's operation result](/api-reference/agent-jobs/wait-for-an-agent-jobs-operation-result).
-    - What it did, including every tool call: [List the execution sessions within an agent job](/api-reference/agent-jobs/list-the-execution-sessions-within-an-agent-job), then [Read the active transcript of an agent job session](/api-reference/agent-jobs/read-the-active-transcript-of-an-agent-job-session).
-    - What it used: [Get model and tool usage for an agent job](/api-reference/agent-jobs/get-model-and-tool-usage-for-an-agent-job).
-    - Work still in progress: [Inspect an agent job's live execution state](/api-reference/agent-jobs/inspect-an-agent-jobs-live-execution-state).
-    - Who it acted for and what started it: [Get an agent job's catalog entry](/api-reference/agent-jobs/get-an-agent-jobs-catalog-entry). [List an agent's jobs available to the caller](/api-reference/agent-jobs/list-an-agents-jobs-available-to-the-caller) shows past jobs, newest first.
+    Start by checking its [current operation](/api-reference/agent-jobs/get-an-agent-jobs-current-operation), then [wait for the operation result](/api-reference/agent-jobs/wait-for-an-agent-jobs-operation-result). A successful result should summarize the notes you added. Each job starts a fresh conversation; start a new job for another task.
+
+    For more detail, use these inspection operations:
+
+    | Question | API operation |
+    | --- | --- |
+    | Who did this job act for, and what started it? | [Get its catalog entry](/api-reference/agent-jobs/get-an-agent-jobs-catalog-entry). |
+    | What other jobs can I see? | [List the agent's jobs](/api-reference/agent-jobs/list-an-agents-jobs-available-to-the-caller), newest first. |
+    | What did the model and tools do? | [List execution sessions](/api-reference/agent-jobs/list-the-execution-sessions-within-an-agent-job), then [read a session's active transcript](/api-reference/agent-jobs/read-the-active-transcript-of-an-agent-job-session). |
+    | What model and tool usage was recorded? | [Get job usage](/api-reference/agent-jobs/get-model-and-tool-usage-for-an-agent-job). |
+    | What is running now? | [Inspect live execution](/api-reference/agent-jobs/inspect-an-agent-jobs-live-execution-state). |
+
+    Private-slate viewers can start jobs and read results for their own jobs and app-actor jobs. Detailed transcripts, usage, live inspection, schedule inspection, aborting, and deletion require slate management permission.
 
     Results and transcripts stay available after the job finishes. [Abort an agent job's pending operation](/api-reference/agent-jobs/abort-an-agent-jobs-pending-operation) stops it and keeps its records. [Delete an agent job and its execution state](/api-reference/agent-jobs/delete-an-agent-job-and-its-execution-state) removes the job and releases its computer. Deleting a job does not delete rows it wrote to a database or undo what its tools did elsewhere.
   </Step>
@@ -92,6 +91,8 @@ This guide builds an agent called `digest` that reads the starter app's `notes` 
 
     `cron` takes five fields and is read in UTC. This one fires at 09:00 UTC every day. The file name without `.md` is the schedule's name.
 
+    Commit `agents/digest/schedules/daily.md`, push `main`, and wait for that deployment to succeed before checking the installed schedule.
+
     Schedules come from Git. When a push to `main` deploys successfully, ContextLayer replaces the agent's schedules with the files in that commit. Delete a file and push, and that deployment removes its schedule. [List an agent's provisioned schedules](/api-reference/agents/list-an-agents-provisioned-schedules) and [Get a provisioned agent schedule](/api-reference/agents/get-a-provisioned-agent-schedule) show what is installed.
 
     Each firing starts a fresh hosted job with the file's body as its prompt, using the agent's instructions and resources from the latest commit on `main`. Who the job acts for follows the agent's declaration:
@@ -99,6 +100,28 @@ This guide builds an agent called `digest` that reads the starter app's `notes` 
     - An agent with no viewer-mode resources, like `digest`, runs one job for the app at each firing.
     - An agent with any viewer-mode connection, database or secret runs one job for each slate member at each firing, using that member's viewer-mode resources. A person becomes a slate member when they complete the slate's setup; ContextLayer then migrates their viewer-mode databases and installs the agent's schedules for them in the background.
 
-    Scheduled jobs appear in the agent's job list under the schedule's name.
+    Check that the provisioned schedule list includes `daily`. Scheduled jobs appear in the agent's job list under that schedule name. You now have a deployed agent, a verified manual result, and a recurring daily run.
   </Step>
 </Steps>
+
+## What the hosted agent can use
+
+Each hosted job gets a fresh Linux computer and these tools:
+
+- **Coding tools.** `read`, `write`, `edit` and `bash` work on the job's computer. The computer has no internet access. Its files are scratch space: no other job sees them, and they last only as long as the job's computer. Keep anything that must last in a database.
+- **`database_query`.** Runs parameterized SQL against a database the agent declares. Writes persist immediately and are visible to the app and to other jobs that use the same database. The database's tables come from its migrations under `databases/<slug>`, which ContextLayer applies when the slate deploys.
+- **Connection tools.** For each connection the agent declares, the job gets that service's actions from Composio, bound to the account assigned to the connection and named `<slug>__<ACTION>` after the connection's slug. A job does not start until every connection the agent declares has an assigned account. Connect an account with the CLI's `accounts add` command and, after you push, assign it with the `connections` command; each command's `--help` shows how.
+
+The model is not offered connection tools directly. It finds them through Code Mode, which searches and describes the job's tools, and calls them from short scripts. Those scripts run in a sandbox that reaches only the job's own tools, including `database_query` and the coding tools. The model can also call `database_query` and coding tools directly.
+
+## Try it locally
+
+To test the authored instructions against your local notes, run this from the checkout:
+
+```sh
+npx @usecontextlayer/cli agent local run digest "Summarize the notes."
+```
+
+This uses the Claude Agent SDK, your own Claude authentication, and the checkout's local database. It starts the local development server and runs in the checkout; it does not create a hosted job or test the hosted provider secret. The declared hosted model settings do not configure this local runtime.
+
+Use a hosted job to verify the deployed database, the saved provider credential, and hosted scheduling. Use a local run while developing instructions against local data.

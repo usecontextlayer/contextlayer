@@ -1,24 +1,45 @@
 ---
 title: "Overview"
-description: "ContextLayer is the agent-first platform for bespoke software: slates that hold an app, its agents and their resources in one Git repository."
+description: "Build, run, and deploy software that brings an app, agents, and MCP tools together in one Git repository."
 ---
 
-ContextLayer is a platform for building slates: software shaped around the way people work. A slate is one Git repository that holds an app, its agents and the resources they use, and a Git push deploys it. You build it with ordinary code, React Router, TypeScript and SQL, in your editor and with your coding agent.
+ContextLayer is a platform for building software around the way you work. You write TypeScript, React Router, and SQL in your editor, with your coding agent.
+
+Your software lives in a **slate**: an app, agents, MCP tools, and declarations of the resources they need, kept together in one Git repository. Develop the slate locally, then push to deploy it. The repository holds code and resource declarations; connected-account credentials, secret values, and database contents live outside Git.
 
 ## What is in a slate
 
-A slate has an app, agents and MCPs, and the resources they declare.
+A slate brings together several ways to use the same software:
 
-- The **app** is the interactive part: a React Router app that people open in the browser.
-- **Agents** are named sets of standing instructions that run as hosted jobs, on demand or on a schedule.
-- **MCPs** expose a slate's tools and views to MCP clients.
-- **Resources** are what those three consume: **connections** to services such as Gmail or Slack, **databases**, and **secrets**. Each consumer declares the resources it needs in its `slate.json`.
+- The [**app**](/core-concepts/slate/app) is the browser interface people use to view information and take actions. It is built with React Router.
+- [**Agents**](/core-concepts/slate/agents) are named sets of standing instructions that run as hosted jobs, on demand or on a schedule.
+- [**MCPs**](/core-concepts/slate/mcp) expose tools and views to clients that support the Model Context Protocol.
+- [**Resources**](/core-concepts/resources) are the connections, databases, and secrets the app and agents use. Each app or agent declares its requirements in a `slate.json` file.
 
-An **account** is a connected account, for example your Gmail, held by its Owner independently of any slate. An **assignment** maps a connection a slate declares to an account that satisfies it.
+For example, a customer-support slate might have a browser app for reviewing requests, an agent that prepares a daily summary, and an MCP tool that formats request details supplied by another assistant.
+
+## Connections, accounts, and assignments
+
+These three terms describe different parts of connecting a slate to an external service:
+
+- A **connection** declares what the slate needs, such as a Gmail connection named `inbox`.
+- An **account** is a connected account, such as your Gmail account. It belongs to a person or organization independently of any slate.
+- An **assignment** selects the account that satisfies a connection.
+
+Declaring `inbox` says that the slate needs Gmail access. Assigning your connected Gmail account to `inbox` tells ContextLayer which account to use. See [Connections and assignments](/core-concepts/resources/connections-and-assignments) for how this works locally and after deployment.
 
 ## Owners and viewers
 
-An **Owner** is the personal or organization identity that owns a slate, an account or a shared secret. **Viewers** are the people who open a slate. Every declared resource has a mode: in **owner mode** the slate's Owner supplies it and everyone shares it; in **viewer mode** each viewer supplies their own. That is how one slate can use the Owner's shared database and each viewer's own inbox at the same time.
+An **Owner** is the personal or organization identity that owns a slate or resource. A **viewer** is a person using the slate. Ownership and viewing access answer different questions: who manages the slate, and who can use it.
+
+A declared resource's **mode** selects whose resource the hosted slate uses:
+
+| Mode | Resource Owner | Example |
+| --- | --- | --- |
+| `owner` | The slate's Owner | A shared database of customer requests. |
+| `viewer` | The person using the slate | Each person's own Gmail account. |
+
+One slate can combine both modes. Everyone can work with the same request database while each person uses their own inbox. See [Owners and viewers](/core-concepts/owners-and-viewers) for access rules and resource ownership.
 
 ## Where to go
 
@@ -29,14 +50,22 @@ An **Owner** is the personal or organization identity that owns a slate, an acco
   <Card title="Core concepts" icon="book-open" href="/core-concepts/slate">
     Slates, Owners and viewers, accounts, and resources.
   </Card>
-  <Card title="How-to guides" icon="list-check" href="/how-to/build-an-agent">
-    Build an agent, connect an account, add a database, deploy, expose MCP tools.
+  <Card title="Build an agent" icon="list-check" href="/how-to/build-an-agent">
+    Write standing instructions, declare resources, and run a hosted job.
   </Card>
-  <Card title="API reference" icon="code" href="/api-reference">
-    Every platform endpoint, generated from the OpenAPI document.
+  <Card title="API reference" icon="code" href="/api-reference/slates/update-who-can-view-a-slate">
+    Inspect platform requests and responses, starting with slate visibility.
   </Card>
 </CardGroup>
 
 ## Working with a coding agent
 
-The docs are written for people and for the agents that work with them. Every page is available as Markdown by adding `.md` to its URL, `/llms.txt` lists them all, and `npx skills add https://docs.usecontextlayer.com` installs ContextLayer's skill into your agent.
+The same documentation is available to you and your coding agent:
+
+- **Read a page as Markdown.** Add `.md` to its URL, as in [the quickstart's Markdown view](/quickstart.md).
+- **Find relevant pages.** The [documentation index](https://docs.usecontextlayer.com/llms.txt) lists pages and descriptions.
+- **Install the ContextLayer skill.** Give your agent the product's capabilities and workflows with the skills CLI:
+
+```sh
+npx skills add https://docs.usecontextlayer.com
+```

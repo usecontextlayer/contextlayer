@@ -3,13 +3,15 @@ title: "Installation"
 description: "Check the prerequisites and sign in to ContextLayer from the command line."
 ---
 
-You run the ContextLayer CLI with `npx`, so there is nothing to install beyond the prerequisites. Signing in needs a person at a browser. Everything else runs in a terminal.
+Set up the required tools, check that the CLI runs, and sign in to the ContextLayer account you will use to create and manage slates. Run the CLI with `npx`; you do not need a global installation.
 
 ## Prerequisites
 
-- Node.js 22.22.0 or newer.
-- [pnpm](https://pnpm.io/installation).
-- Git, with an author name and email configured. They are the person's own identity and appear on every commit, so a coding agent asks for them rather than inventing them.
+- Node.js 22.22.0 or newer, to run the CLI.
+- [pnpm](https://pnpm.io/installation), to install a slate's dependencies.
+- Git, configured with your author name and email, to version and push the slate's code.
+
+Your Git author identity appears on commits and is separate from your ContextLayer login. If a coding agent is setting up Git for you, give it the name and email you want to use; it should not invent an identity.
 
 ## Run the CLI
 
@@ -17,18 +19,30 @@ You run the ContextLayer CLI with `npx`, so there is nothing to install beyond t
 npx @usecontextlayer/cli --help
 ```
 
-This lists every command. Run a command with `--help` to see its arguments and options.
+The help output lists the available commands. Add `--help` to a command to see its arguments and options.
 
 ## Sign in
 
-```sh
-npx @usecontextlayer/cli login
-```
+Signing in requires a person to approve the CLI in a browser. The account that approves the request becomes the CLI's identity.
 
-The command prints a URL and a code, then waits for approval.
+<Steps>
+  <Step title="Start sign-in in the terminal">
+    ```sh
+    npx @usecontextlayer/cli login
+    ```
 
-Approval needs the person who will own your slates, in their browser. They open the URL, sign in to ContextLayer or sign up, check that the page shows the same code as the terminal, and approve. The CLI acts as whoever approves. A coding agent running `login` gives the URL and code to that person and waits.
+    The command prints a URL and a code, then waits for approval. Leave it running while you complete the browser step.
+  </Step>
+  <Step title="Approve with the account you want the CLI to use">
+    Open the printed URL in your browser. Sign in to ContextLayer, or create an account, then check that the browser shows the same code as the terminal. Approve the request.
 
-After approval, the command prints `Signed in to ContextLayer.` It then configures Git credentials for ContextLayer repositories and prints `Git credentials configured for ContextLayer.` Git uses those credentials when you push a slate.
+    If a coding agent started the command, it should give you the URL and code and wait for you to approve. This step determines whose account the agent will act through.
+  </Step>
+  <Step title="Wait for the terminal to confirm sign-in">
+    The CLI prints `Signed in to ContextLayer.`, then configures Git authentication and prints `Git credentials configured for ContextLayer.`
 
-Next, create your first slate in the [Quickstart](/quickstart).
+    The first message confirms the CLI's login. The second confirms that Git can use those credentials when you push a slate to ContextLayer.
+  </Step>
+</Steps>
+
+You are ready to create your first slate. Continue with the [Quickstart](/quickstart).

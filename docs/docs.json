@@ -20,7 +20,7 @@
 			"vscode"
 		]
 	},
-	"description": "The agent-first platform for bespoke software. Build your tools. Get things done. Open source. Self-hostable.",
+	"description": "Build bespoke software as slates: apps, agents, and MCP tools in one Git repository. Declare resources and deploy with a Git push.",
 	"favicon": "/favicon.png",
 	"fonts": {
 		"family": "Outfit"

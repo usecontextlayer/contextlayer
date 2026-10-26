@@ -3,11 +3,19 @@ title: "Resources"
 description: "The connections, databases and secrets that a slate's app and agents declare in slate.json, and how owner and viewer mode select who supplies each one."
 ---
 
-A slate's resources are connections, databases and secrets. A connection calls a provider's tools through a connected account, a database stores the slate's data, and a secret holds a named value such as an API key. Slate code never holds credentials or database locations. It names a declared resource, and ContextLayer supplies it.
+A slate declares the resources its app and agents need. ContextLayer resolves those declarations into resources when the code runs.
+
+| Resource | What it provides | How you refer to it |
+| --- | --- | --- |
+| **Connection** | Access to a provider's tools through a connected account. | A slug such as `work-email`. |
+| **Database** | Persistent SQLite storage for the slate's data. | A slug such as `notes`. |
+| **Secret** | A named value, such as a model provider's API key, for trusted execution. | A name such as `ANTHROPIC_API_KEY`. |
+
+The declaration says what is required. Account assignments, secret values, and stored database contents are separate from the declaration and stay out of Git.
 
 ## Declarations
 
-The app, agents and MCPs are a slate's consumers of resources. Each consumer names the resources it requires in its declaration, a file called `slate.json`:
+The app and each agent declare their own resource requirements in a file called `slate.json`. MCP tools use the same declaration format, with their resource collections currently required to remain empty:
 
 | Consumer | Declaration |
 | --- | --- |
@@ -15,7 +23,7 @@ The app, agents and MCPs are a slate's consumers of resources. Each consumer nam
 | An agent | `agents/<name>/slate.json` |
 | An MCP | `mcp/<name>/slate.json` |
 
-Every declaration uses the same schema. This agent's declaration declares one resource of each kind:
+Every declaration uses the same schema. For example, this `digest` agent needs a viewer's Gmail account, a shared notes database, and an API key supplied by the slate's Owner:
 
 ```json agents/digest/slate.json
 {
@@ -46,11 +54,13 @@ Every declaration uses the same schema. This agent's declaration declares one re
 
 ## Each consumer declares what it uses
 
-A consumer can use only the resources in its own declaration. If the app and an agent both use the same database, both declare it. A tool call or query for a slug that the consumer has not declared fails with `not-declared`.
+A **consumer** is the app or named agent using a resource. It can use only the resources in its own declaration. An agent does not inherit the app's requirements, and declaring a resource for one agent does not expose it to another. If the app and an agent both need `notes`, both must declare `notes`. A tool call or query for an undeclared slug fails with `not-declared`.
 
 ## One namespace per kind
 
-All of a slate's declarations share one namespace per resource kind. The same key in two declarations names the same resource: two declarations of a `notes` database select the same database, and a connection slug declared by the app and an agent has one assignment.
+All declarations in one slate share a namespace per resource kind. Reusing a key names the same logical resource. For example, the app and `digest` agent can both declare the owner-mode `notes` database and work with the same rows.
+
+Resource ownership still matters. Two consumers selecting the same slug and Owner use the same database or connection assignment. Two people using a viewer-mode resource select their own databases or account assignments. A matching slug does not merge their resources.
 
 Repeated declarations must agree. Connections must agree on toolkit and mode; databases and secrets must agree on mode. A disagreement is a validation error, and no declaration takes precedence over another.
 
@@ -58,7 +68,7 @@ Repeated declarations must agree. Connections must agree on toolkit and mode; da
 
 Each entry's `mode` is `"owner"` or `"viewer"`. In a hosted slate, the mode selects the Owner who supplies the resource.
 
-- **Owner mode.** The slate's Owner, the user or organization that owns the slate, supplies the resource, and everyone who uses the slate shares it. A viewer can use an owner-mode resource through the slate without being able to manage the Owner's accounts or secrets.
+- **Owner mode.** The slate's Owner, the user or organization that owns the slate, supplies the resource, and viewers share it. Viewing alone grants no permission to manage the Owner's accounts or secrets.
 - **Viewer mode.** Each viewer supplies their own, as their personal Owner.
 
 | Resource | Owner mode | Viewer mode |
@@ -67,19 +77,30 @@ Each entry's `mode` is `"owner"` or `"viewer"`. In a hosted slate, the mode sele
 | Database | One database, shared by everyone | One database per slate member |
 | Secret | The slate Owner's value | Each viewer's own value |
 
-Assigning an owner-mode connection or saving an owner-mode secret requires authority over the slate's Owner: being the owning user or a member of the owning organization. Each viewer configures their own viewer-mode connections and secrets. Databases need no configuration in either mode.
+Assigning an owner-mode connection or saving an owner-mode secret requires authority over the slate's Owner: being the owning user or a member of the owning organization. Each viewer configures their own viewer-mode connections and secrets. Databases need no account assignment or database picker: declare the database and author its migrations, and ContextLayer selects and provisions its storage.
 
-Viewer-mode resources work only for slate members. A signed-in person becomes a member of a private slate once their setup for the whole slate is complete: every connection that the app and agents declare has an assignment, and every viewer-mode secret is supplied. A public slate has no members, so its viewer-mode resources are refused. They are also refused in agent runs that act for the app rather than for a person.
+### Viewer setup and scheduled work
 
-An agent's modes also decide who its scheduled runs act for. An agent that requires any viewer-mode resource runs for each slate member. An agent that requires none runs once, for the app.
+Viewer-mode resources require a signed-in person on a private slate. Once setup for the whole slate is complete—every app and agent connection is assigned, and every viewer-mode secret is supplied—ContextLayer establishes that person's [slate membership](/core-concepts/owners-and-viewers#slate-members) through a setup change or first viewer-mode use. It then provisions their databases and schedules. No separate join step is needed. A public slate has no members and cannot use viewer-mode resources. A job acting for the app also has no person from whom to select a viewer-mode resource.
+
+An agent's own modes also determine who its scheduled runs act for. If the agent requires any viewer-mode resource, its schedules run for slate members. If it requires none, they run once for the app. In the `digest` example above, the viewer-mode Gmail connection makes scheduled jobs member-scoped, even though the notes database and API key use owner mode.
 
 In local development, modes select no Owner. A checkout uses the developer's personal accounts for every connection, environment variables for secrets, and local databases. The declared modes apply when the slate runs hosted.
 
 ## Hosted and local configuration
 
-A hosted slate reads the declarations on the latest commit of its `main` branch and keeps its configuration in ContextLayer. You configure it in the chrome, the ContextLayer header at the top of a hosted slate, with the CLI, or through the API reference's slate resources operations, such as [List declared resources and their configuration](https://docs.usecontextlayer.com/api-reference/slate-resources/list-declared-resources-and-their-configuration). Until something is pushed to `main`, there is nothing to configure.
+ContextLayer prepares hosted resource configuration from declarations in the latest commit on the slate's `main` branch. The deployed app is not the source of those declarations. Configure account assignments and supply secrets through the [chrome](/core-concepts/slate#the-chrome), the CLI, or the slate resource API, such as [List declared resources and their configuration](https://docs.usecontextlayer.com/api-reference/slate-resources/list-declared-resources-and-their-configuration). Before the first push to `main`, there are no hosted declarations to configure.
 
-A checkout reads its own declarations from disk. Its configuration lives in the ignored `.contextlayer/` directory and in environment variables, and it never changes hosted configuration. Restart `pnpm dev` after changing declarations or local configuration.
+A checkout reads its declarations from disk. Its account assignments and database state live under the ignored `.contextlayer/` directory, and its secret values come from environment variables. Local configuration does not change hosted configuration. Restart `pnpm dev` after changing declarations or local configuration so startup can prepare the new values.
+
+| Input | Local development | Hosted execution |
+| --- | --- | --- |
+| Declarations | Files in the current checkout. | Committed declarations from `main`. |
+| Connection assignments | The checkout's `.contextlayer/connections.json`. | Assignments saved in ContextLayer for the selected Owner. |
+| Database data | The checkout's `.contextlayer/databases/` storage. | Platform-selected storage for the slate, Owner, and database slug. |
+| Secret values | Environment variables on the developer's machine. | Stored values for the selected Owner and secret name. |
+
+Pushing code and declarations does not upload local database contents, account assignments, or environment values.
 
 ## Resource kinds
 
@@ -92,5 +113,5 @@ A checkout reads its own declarations from disk. Its configuration lives in the 
 </Card>
 
 <Card title="Secrets" href="/core-concepts/resources/secrets">
-  Named values that belong to an Owner and never appear in code.
+  Named values that belong to an Owner and are supplied separately from source code.
 </Card>

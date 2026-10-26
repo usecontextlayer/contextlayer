@@ -1,18 +1,27 @@
 ---
 title: "Owners and viewers"
-description: "Every slate, account and shared secret belongs to an Owner; viewers are the people who open a slate. This page covers who can see and do what."
+description: "Understand who owns a slate, who can use it, whose resources it uses, and how slate membership enables scheduled work."
 ---
 
-Every slate, account and shared secret belongs to an `Owner`. The people who open a hosted slate are its viewers.
+Ownership, viewing access, and membership answer different questions:
+
+| Concept | Question it answers |
+| --- | --- |
+| **Owner** | Which person or organization owns and manages this slate or resource? |
+| **Viewer** | Who is using the hosted slate? |
+| **Resource mode** | Does this use the slate Owner's resource or the acting person's resource? |
+| **Slate member** | Who has completed setup and participates in member-scoped scheduled work? |
+
+Every slate, connected account, and shared secret has an Owner. These roles can overlap: the same person can own, view, and be a member of a slate. Opening a slate makes you a viewer; it does not itself make you a slate member or grant management access.
 
 ## Owner
 
-An `Owner` is the identity that owns slates and resources. It has one of two types:
+An **Owner** is a personal or organization identity. It has one of two types:
 
 - `personal`: a single user.
 - `organization`: an organization in ContextLayer. Every member of the organization can act for it.
 
-A slate has exactly one Owner, chosen when the slate is created: you, or an organization you belong to. The CLI's `init` command selects the organization; see `npx @usecontextlayer/cli init --help`. The dashboard lists slates under Personal and under each of your organizations.
+A slate has exactly one Owner, chosen when the slate is created. By default, `init` selects you as its personal Owner. You can instead select an organization you belong to; see `npx @usecontextlayer/cli init --help`. The dashboard groups manageable slates under Personal and your organizations.
 
 Accounts and shared secrets belong to an Owner independently of any slate. A slate refers to them and never copies them, so one Owner's accounts and secrets can serve several slates. See [Accounts](/core-concepts/accounts) and [Secrets](/core-concepts/resources/secrets).
 
@@ -20,10 +29,14 @@ A personal Owner is managed by that user, and an organization Owner by the organ
 
 ## Owner mode and viewer mode
 
-Each declared resource has a mode that selects whose resource the hosted slate uses:
+Each declared resource has a mode that selects whose resource the hosted slate uses. This choice controls resource ownership, independently of the slate's visibility:
 
-- `owner` selects the slate's Owner. Viewers use these resources through the slate without being able to manage the Owner's accounts or secrets.
-- `viewer` selects the personal Owner of the person a request or job acts for. Each person uses their own account, their own secret value and their own database.
+| Mode | Selected Owner | Effect |
+| --- | --- | --- |
+| `owner` | The slate's Owner | Viewers use the shared resource through the slate. Viewing alone gives no permission to manage that Owner's accounts or secrets. |
+| `viewer` | The personal Owner of the person a request or job acts for | Each person uses their own account, secret value, or database. |
+
+A browser request acts for its viewer. A hosted job has a run actor selected when it starts; [Agents](/core-concepts/slate/agents#jobs) explains that selection.
 
 ```json public/slate.json
 {
@@ -41,21 +54,21 @@ Each declared resource has a mode that selects whose resource the hosted slate u
 }
 ```
 
-`notes` is in owner mode, so the slate's Owner supplies one database that every viewer shares. `work-email` is in viewer mode, so each viewer assigns one of their own Gmail accounts to it.
+In this example, `notes` is in owner mode, so viewers share the slate Owner's database. `work-email` is in viewer mode, so each viewer assigns one of their own Gmail accounts to it. Two people can work with the same notes while fetching email from different inboxes.
 
-Viewer-mode resources work only on private slates. Locally, connections always use the developer's personal accounts, whatever the mode. [Resources](/core-concepts/resources) covers declarations.
+Viewer-mode resources work only on private slates. These mode rules describe hosted execution. During local development, connections use the signed-in developer's personal accounts regardless of mode, secrets come from local environment variables, and databases use local storage. [Resources](/core-concepts/resources) explains that development boundary.
 
 ## Viewers
 
-A viewer is anyone who opens a hosted slate, in a browser or through an MCP client. Who can view depends on the slate's visibility:
+A **viewer** is someone using the hosted app or accessing the slate through an MCP client. The slate's visibility determines who is allowed to view it:
 
 | Slate | Who can view |
 | --- | --- |
-| Public | Anybody |
+| Public | Anyone |
 | Private, personal Owner | The owning user |
 | Private, organization Owner | Members of the owning organization |
 
-The organization rule always uses the slate's owning organization, regardless of which organization you have selected elsewhere. Viewing never grants management.
+The organization rule always uses the slate's owning organization, regardless of which organization you have selected elsewhere. Public browser access does not require sign-in; MCP access still requires OAuth, even for public slates. Viewing access does not grant management.
 
 ## Who can do what
 
@@ -65,14 +78,22 @@ The organization rule always uses the slate's owning organization, regardless of
 | Start agent jobs and read their results | Viewers of a private slate |
 | Assign an account to a viewer-mode connection, or save a viewer-mode secret | Viewers, each for themselves |
 | Assign an account to an owner-mode connection | The owning user, or members of the owning organization |
-| Clone, pull and push the source; see the slate in the dashboard; read agent instructions, transcripts and schedules; abort or delete jobs | The owning user, or members of the owning organization, whatever the visibility |
+| Clone, pull, or push the source; see the slate in the dashboard | The owning user, or members of the owning organization, whatever the visibility |
+| Read agent instructions, transcripts, and schedules; abort or delete jobs | The owning user, or members of the owning organization, whatever the visibility |
 | Manage an Owner's accounts and secrets | That user, or members of that organization |
 
 ## Slate members
 
-A slate member is a person participating in the slate. A viewer of a private slate becomes a member automatically once the slate's whole setup is complete for them: every connection declared by the app and its agents has an assigned account, their own for viewer-mode connections, and every viewer-mode secret has their value. Membership is checked when they save an assignment or a secret, in the chrome or through the API, and when they first use a viewer-mode resource.
+A **slate member** is a person with a recorded relationship to that slate. Membership lets ContextLayer install scheduled work that acts for that person. It is separate from permission to open or manage the slate.
 
-Once someone is a member, ContextLayer migrates their viewer-mode databases and then installs their schedules for member-scoped [agents](/core-concepts/slate/agents#schedules), in the background. Membership stands while that work runs, and if it fails.
+A viewer of a private slate becomes a member automatically once the **whole slate's resource setup** is complete for them:
+
+- Every connection declared by the app and its agents has an assigned account. A viewer-mode connection uses that person's account; an owner-mode connection uses the slate Owner's account.
+- Every viewer-mode secret declared by the app and its agents has a value supplied by that person.
+
+ContextLayer checks for complete setup when a person saves a connection assignment, supplies a secret through the slate's setup flow, or first uses a viewer-mode resource. Setting an Owner's shared secret independently of a slate does not enroll someone in a slate.
+
+Once someone becomes a member, ContextLayer provisions and migrates their viewer-mode databases, then installs schedules for member-scoped [agents](/core-concepts/slate/agents#schedules). This happens in the background. The membership is already established while provisioning runs and remains established if provisioning fails.
 
 - Completed setup is the only way in; there is no explicit join.
 - Creating a slate does not make its creator a member.
@@ -83,6 +104,8 @@ Slate membership is separate from organization membership. A member of an organi
 
 ## Viewer sign-in
 
-Hosted slates run on `contextlayer.xyz`, a domain separate from `usecontextlayer.com`, where you sign in to ContextLayer itself. When a private slate needs you to sign in, it sends you to ContextLayer's viewer sign-in, which signs you in with your ContextLayer account and returns you to the slate. Viewer sign-in identifies you as the same user, but it only lets you view the slate and use the capabilities ContextLayer delegates to the slate for you; it cannot manage anything.
+Hosted slates run on `contextlayer.xyz`, a domain separate from `usecontextlayer.com`, where you sign in to ContextLayer itself. When a private slate needs you to sign in, it sends you to ContextLayer's viewer sign-in. That flow identifies you with your ContextLayer account and returns you to the slate.
+
+The resulting viewer credential permits viewing and the runtime operations ContextLayer delegates for that slate. It grants no slate or Owner management authority, even if the same person can manage the slate through the dashboard or CLI with a separate management login.
 
 The slate's own code never receives your credentials or your profile. ContextLayer verifies who you are and gives the app only capabilities bound to that slate and to you. The [chrome](/core-concepts/slate#the-chrome), served from a ContextLayer origin, shows who you are signed in as.

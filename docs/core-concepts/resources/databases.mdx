@@ -3,7 +3,9 @@ title: "Databases"
 description: "Declared SQLite databases, shared under the slate's Owner or kept per slate member, changed through authored Kysely migrations."
 ---
 
-A database is a SQLite database that a slate's consumers declare by slug. ContextLayer runs each one as an isolated instance; your code names the slug and sends SQL. Declaring a database is all the configuration it needs: there is nothing to assign.
+A **database** gives a slate persistent SQLite storage. The app or an agent declares a database slug, and ContextLayer selects the corresponding storage when it runs. Your code uses that slug through Kysely or SQL; it does not need a database URL or storage credentials.
+
+You declare the database and author migrations for its schema. ContextLayer provisions its storage, so there is no account to connect or database instance to choose.
 
 ## Declare a database
 
@@ -20,7 +22,7 @@ Databases are declared under `databases`, keyed by slug, with a mode:
 }
 ```
 
-The slug also names the database's directory, so it must be a single path segment: no slashes or backslashes, and not `.` or `..`.
+This declares a database named `notes` for the app. An agent that needs it must declare `notes` in its own `slate.json` too. The slug also names the database's directory, so it must be a single path segment: no slashes or backslashes, and not `.` or `..`.
 
 ## Who owns the data
 
@@ -29,17 +31,23 @@ A hosted database is identified by its slate, its Owner and its slug. The mode s
 - An owner-mode database belongs to the slate's Owner. There is one, and everyone who uses the slate shares it.
 - A viewer-mode database belongs to a slate member. Each member has their own.
 
-The app and agents that declare the same slug use the same database. Two slates never share a database, even when they have the same Owner and slug.
+The app and agents use the same stored database when they declare the same slug and select the same Owner. For example, both can read and write the same owner-mode `notes` database. With viewer mode, different people get different databases. Repeated declarations of a slug must agree on its mode.
+
+Two slates never share a database, even when they have the same Owner and slug. A new slate therefore gets its own storage; matching names do not give it access to another slate's rows.
 
 A database outlives individual agent jobs, while the files on an agent's computer do not. Keep persistent data in a database.
 
 ## Migrations and types
 
-Each database keeps its files under `databases/<slug>`:
+Schema changes and query types have different sources of truth. Keep both under `databases/<slug>`:
 
-- `kysely.config.ts`, a native Kysely CLI configuration that selects the database by its slug;
-- `migrations/`, the explicitly authored Kysely migrations;
-- `types.ts`, the query types generated from the migrated database.
+| Path | Who writes it | Purpose |
+| --- | --- | --- |
+| `kysely.config.ts` | You or your coding agent. | Native Kysely CLI configuration selecting the database slug and migration folder. |
+| `migrations/` | You or your coding agent. | Ordered schema changes that create and alter tables. |
+| `types.ts` | The type-generation command. | Query types derived from the schema after migrations run. |
+
+For example, this configuration selects the declared `notes` database:
 
 ```ts databases/notes/kysely.config.ts
 import { databaseDialect } from "@usecontextlayer/sdk/database"
@@ -50,6 +58,8 @@ export default defineConfig({
 	migrations: { migrationFolder: "./migrations" },
 })
 ```
+
+This migration creates a table, also named `notes`, inside it:
 
 ```ts databases/notes/migrations/001_create_notes.ts
 import type { Kysely } from "kysely"
@@ -63,19 +73,25 @@ export async function up(db: Kysely<unknown>) {
 }
 ```
 
-Authored migrations are the only source of schema changes. Kysely owns their order and keeps the record of applied migrations inside each database. The CLI's `db.codegen` command generates the query types from the migrated local database, as a separate step; it never applies migrations, and ContextLayer never derives a schema from the types. Commit migrations and generated types together.
+The database slug and table name are separate: `databaseDialect("notes")` selects storage, while `.createTable("notes")` creates a table within that storage. They happen to match in this example.
+
+Authored migrations are the source of schema changes. Kysely runs them in order and records applied migrations inside each database. The `db.codegen` command then generates query types from the migrated local database as a separate step. Generating types does not run migrations, and editing types does not change the database schema. Commit migrations and generated types together.
 
 ## Local and hosted state
 
-In a checkout, database state lives in `.contextlayer/databases`, which Git ignores. Starting `pnpm dev` applies the checkout's pending migrations before the app can query. Local tooling reaches only local databases, never hosted ones.
+In a checkout, database state lives in the Git-ignored `.contextlayer/databases` directory. Starting `pnpm dev` applies pending local migrations before the app can query. Local tooling reaches only local databases; it does not migrate or query hosted data.
 
-When you push to `main`, ContextLayer builds the commit, runs its migrations and then deploys it. A push migrates the owner-mode databases and every existing member's viewer-mode databases. When someone becomes a member, ContextLayer migrates their viewer-mode databases in the background and then installs their schedules.
+When you push to `main`, ContextLayer builds that commit, applies its migrations, and deploys it. The migration phase updates owner-mode databases and existing members' viewer-mode databases. When someone becomes a member, ContextLayer provisions and migrates their viewer-mode databases in the background before installing their schedules. Local rows are not copied into these hosted databases.
 
-If a migration fails, the deployment stops. Statements that ran before the failure stay applied, and there is no automatic rollback. Until the new deployment completes, the app already deployed runs against the migrated database, so keep migrations compatible with it.
+<Warning>
+  If a deployment's migration fails, that deployment stops. Statements that ran before the failure remain applied; there is no automatic rollback.
+</Warning>
+
+The previously deployed app continues using the database while migration and deployment proceed, so write migrations that remain compatible with it until the new version is deployed. For example, adding a new table can leave existing queries working, while renaming a column that the current app still reads can break that app before the new code is deployed.
 
 ## Query a database
 
-Loaders and actions get a typed Kysely instance for a declared slug from the SDK:
+In an app loader or action, obtain a typed Kysely instance for the declared slug from the SDK. This loader excerpt reads the `notes` table from the `notes` database:
 
 ```tsx app/routes/home.tsx
 import { database, databasesContext } from "@usecontextlayer/sdk"
@@ -88,6 +104,16 @@ export async function loader({ context }: Route.LoaderArgs) {
 }
 ```
 
-Direct SQL uses `context.get(databasesContext).query(slug, sql, params)`, and agents use their `database_query` tool. All three reach the same storage. Mutations return Kysely's affected-row counts and SQLite insert IDs; use `.returning()` to read the written rows. Direct SQL and `database_query` return `rows` as objects keyed by column name. SQL transactions are not supported.
+You can query through three interfaces, all using the same resource-selection rules:
+
+| Interface | Use it from | Result |
+| --- | --- | --- |
+| `database<DB>(databases, slug)` | App loaders and actions. | Native typed Kysely query results. |
+| `databases.query(slug, sql, params)` | App loaders and actions. | A `rows` array of objects keyed by column name. |
+| `database_query` | Agent jobs. | A `rows` array of objects keyed by column name. |
+
+For direct SQL, obtain `databases` with `context.get(databasesContext)` and pass values as parameters. All three interfaces reach the same stored database when the slate, Owner, and slug match.
+
+Kysely mutations return affected-row counts and SQLite insert IDs. Use `.returning()` when you need the rows written by an insert or update. SQL transactions are not supported.
 
 [Add a database](/how-to/add-a-database) walks through declaring a database, writing a migration and generating its types.

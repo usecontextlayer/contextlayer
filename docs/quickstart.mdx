@@ -3,21 +3,25 @@ title: "Quickstart"
 description: "Create a slate, run it locally, push it, and open the deployed slate."
 ---
 
-This page assumes you have finished [Installation](/installation): the prerequisites are in place and `login` was approved.
+Create a private slate, run its starter app locally, and deploy it to a hosted URL. Before you start, finish [Installation](/installation) so the required tools are available and the CLI is signed in.
 
-Three steps here need a person rather than a coding agent: supplying their Git name and email, choosing who owns the slate, and signing in to open the deployed slate. Each is called out where it comes up.
+A person supplies the Git identity, chooses the slate's Owner, and signs in to view the private deployment. If a coding agent is following this guide, it should leave those choices and approvals to you.
 
-<Steps>
+<Steps titleSize="h2">
   <Step title="Create the slate">
+    This walkthrough creates a slate owned by your personal account. To create it for an organization you belong to, check `npx @usecontextlayer/cli init --help` and select the organization before running `init`. The Owner is the person or organization that will manage the slate.
+
     ```sh
     npx @usecontextlayer/cli init my-slate
     ```
 
-    `init` creates a private slate and writes a starter app (React Router, Tailwind, and shadcn) into the directory you name. It installs the dependencies, commits the starter on `main`, and sets the checkout's Git remote to the slate's repository. It prints the slate's dashboard link and its hosted URL. The hosted URL works only after the first deployment.
+    `init` creates a private slate and writes a starter app using React Router, Tailwind, and shadcn into `my-slate`. It installs the dependencies, commits the starter on `main`, and sets the checkout's Git remote to the slate's repository.
 
-    The directory name is only local. ContextLayer names the slate itself, and that name is the first label of the hosted URL.
+    Keep the two links it prints: the **dashboard link** opens the slate's management page, and the **hosted URL** opens the app after its first deployment.
 
-    By default the slate's Owner is you, a personal Owner. It can instead belong to an organization you are a member of; `npx @usecontextlayer/cli init --help` shows how. Who owns the slate is the person's decision.
+    <Note>
+      `my-slate` is the local directory name. ContextLayer assigns the slate's hosted name separately; that name becomes the first label of its hosted URL.
+    </Note>
 
     If Git has no author identity, `init` stops and prints Git's configuration commands. The name and email are the person's own. Set them, then run `init` again.
   </Step>
@@ -27,21 +31,33 @@ Three steps here need a person rather than a coding agent: supplying their Git n
     pnpm dev
     ```
 
-    `pnpm dev` prints a local URL. Open it to see the first screen, which reads and writes the starter's `notes` database. That screen is `app/routes/home.tsx`; edit it to build your own.
+    `pnpm dev` prints a local URL. Open it and create a note in the starter app. This exercises both the page and its `notes` database. The screen lives in `app/routes/home.tsx`; edit that file to start building your own app.
 
-    The checkout's `AGENTS.md` and `README.md` are the authoring instructions. `AGENTS.md` is written for coding agents, and the checkout's `CLAUDE.md` imports it. `README.md` covers local development, connected services, databases, and deployment.
+    Local database contents stay local. Deployment applies your code and migrations to hosted storage; it does not upload the notes you create during development.
+
+    Give your coding agent the checkout's `AGENTS.md` for authoring instructions; `CLAUDE.md` imports it for Claude Code. Use the checkout's `README.md` for local development, connected services, databases, and deployment.
   </Step>
   <Step title="Deploy">
+    To deploy the unchanged starter, push the commit that `init` already created:
+
+    ```sh
+    git push -u origin main
+    ```
+
+    If you edited the app, commit those changes before pushing:
+
     ```sh
     git add .
     git commit
     git push -u origin main
     ```
 
-    Pushing `main` starts the build and deployment. ContextLayer builds the pushed commit, applies its database migrations, and deploys it. `init` already committed the starter, so if you have changed nothing, `git push -u origin main` on its own deploys it.
+    Pushing `main` starts a build. ContextLayer builds that commit, applies its database migrations, and deploys the result. A successful push starts this work; the hosted app is ready after deployment finishes.
   </Step>
   <Step title="Open the deployed slate">
-    Open the hosted URL that `init` printed. The slate is private, so you sign in to ContextLayer to open it. This happens in the person's browser; a coding agent hands them the URL.
+    After deployment finishes, open the hosted URL that `init` printed. The slate is private, so sign in to ContextLayer with an account allowed to view it. CLI sign-in and browser sign-in are separate steps.
+
+    If a coding agent is following this guide, it should give you the hosted URL so you can open it in your browser. You now have the slate running locally and deployed privately, with separate local and hosted databases.
   </Step>
 </Steps>
 
@@ -55,9 +71,9 @@ Three steps here need a person rather than a coding agent: supplying their Git n
     Use Gmail, Slack and other services from your slate.
   </Card>
   <Card title="Build an agent" href="/how-to/build-an-agent">
-    Standing instructions that run as hosted jobs, on demand or on a schedule.
+    Write instructions, give an agent resources, and run your first job.
   </Card>
   <Card title="Add a database" href="/how-to/add-a-database">
-    Declare a database, write a migration, query it from the app.
+    Add another database, write its migration, and query it from the app.
   </Card>
 </CardGroup>

@@ -1,19 +1,29 @@
 ---
 title: "Slate"
-description: "A slate is one Git repository holding an app, agents and MCPs, plus the resources they declare. ContextLayer builds, hosts and runs it."
+description: "Understand a slate's repository, app, agents, MCP tools, resource declarations, and deployment lifecycle."
 ---
 
-A slate is one Git repository that ContextLayer builds, hosts and runs. It holds an app, agents and MCPs, and declares the resources they use. You deploy it by pushing to its own Git remote, and ContextLayer serves it at its own URL.
+A **slate** is software that ContextLayer builds, hosts, and runs from one Git repository. Its app, agents, MCP tools, and resource declarations travel together in Git. Connected accounts, secret values, and database contents are managed separately from that source code.
+
+Each slate has an Owner, a Git remote, and a hosted URL. Work in a local checkout, then push `main` to build and deploy a revision of the slate.
 
 ## What a slate contains
 
-The app, agents and MCPs are the consumers of resources:
+The repository can contain three ways to interact with the slate:
 
-- [App](/core-concepts/slate/app): the interactive part, a React Router app.
-- [Agents](/core-concepts/slate/agents): named agents with standing instructions, run as hosted jobs.
-- [MCP](/core-concepts/slate/mcp): tools and Views the slate exposes to MCP clients.
+- [**App**](/core-concepts/slate/app): a React Router app that people open in a browser.
+- [**Agents**](/core-concepts/slate/agents): named sets of standing instructions that run as jobs, on demand or on a schedule.
+- [**MCP tools and Views**](/core-concepts/slate/mcp): tools and interfaces that clients supporting the Model Context Protocol (MCP) discover and use through the slate's `/mcp` endpoint.
 
-[Resources](/core-concepts/resources) are connections, databases and secrets. Each consumer names the resources it requires in its own declaration, a `slate.json` file. All declarations in a slate share one namespace per resource kind: when the app and an agent declare the same database slug, they use the same database.
+[Resources](/core-concepts/resources) are connections, databases, and secrets. The app and each agent name their requirements in a **declaration**: a `slate.json` file. A declaration says what code needs; it does not contain credentials or database contents.
+
+Declarations share one namespace per resource kind within the slate. If the app and an agent both declare `notes`, those declarations refer to the same logical database and must agree on its mode. The mode selects its Owner: two consumers using the same slug and Owner reach the same stored data, while different viewers' viewer-mode databases remain separate.
+
+<Note>
+  MCP tools have their own `slate.json` files, but connections, databases, and secrets are currently supported for apps and agents only. An MCP tool's resource declarations must be empty.
+</Note>
+
+## Find your way around the repository
 
 | Path | Contents |
 | --- | --- |
@@ -25,9 +35,9 @@ The app, agents and MCPs are the consumers of resources:
 | `databases/<slug>/` | A database's Kysely configuration, migrations and generated query types |
 | `.contextlayer/` | Local development state, ignored by Git |
 
-The starter contains the app and one database, `notes`. Agents and MCP tools are directories you add.
+The starter contains the app and one database, `notes`. Add directories for the agents, MCP tools, and Views you want to build.
 
-The starter's main files, with an agent, `digest`, and an MCP tool, `echo`, added:
+For example, a checkout with an added `digest` agent and `echo` MCP tool has this structure. Configuration and dependency files are omitted here so you can see where the authored behavior lives:
 
 ```text
 .
@@ -60,7 +70,7 @@ The starter's main files, with an agent, `digest`, and an MCP tool, `echo`, adde
     └── app.ts
 ```
 
-The starter's `public/slate.json` declares the `notes` database:
+The starter's `public/slate.json` declares an owner-mode `notes` database:
 
 ```json public/slate.json
 {
@@ -74,15 +84,24 @@ The starter's `public/slate.json` declares the `notes` database:
 }
 ```
 
+Here, `notes` is the database slug used in code and in `databases/notes/`. In the hosted slate, `"mode": "owner"` selects a database belonging to the slate's Owner. See [Databases](/core-concepts/resources/databases) for migrations, queries, and the distinction between local and hosted data.
+
 ## Create a slate
 
-The CLI's `init` command creates the slate in ContextLayer and scaffolds a checkout from the starter bundled with the CLI. The checkout has the slate's Git remote set and the starter committed on `main`. `init` requires that you have signed in with the CLI's `login` command. Run `npx @usecontextlayer/cli init --help` for its options; the [Quickstart](/quickstart) walks through it.
+The CLI's `init` command creates a slate in ContextLayer and writes a checkout from the starter bundled with the CLI. It sets the Git remote and commits the starter on `main`. Sign in with `login` before creating a slate; the [Quickstart](/quickstart) walks through the sequence. Run `npx @usecontextlayer/cli init --help` for creation options.
 
 A slate belongs to one [Owner](/core-concepts/owners-and-viewers): you, or an organization you belong to. Its name is its hostname label, generated at creation from an adjective, a color and an animal.
 
 ## Deploy with a Git push
 
-Each slate has its own Git remote on ContextLayer. Pushing `main` deploys it. ContextLayer builds the pushed commit, applies its database migrations, deploys it, and then installs its agent schedules. If a migration fails, that commit is not deployed.
+Pushing `main` to the slate's ContextLayer remote starts its deployment lifecycle:
+
+1. Build the pushed commit.
+2. Apply that commit's database migrations.
+3. Deploy the built app and MCP tools.
+4. Install the agent schedules from that commit.
+
+If a migration fails, that commit is not deployed. A push publishes source to the repository; the hosted app changes when deployment succeeds. See [Deploy a slate](/how-to/deploy) for the workflow.
 
 Only the owning user, or a member of the owning organization, can clone, pull or push a slate, whether it is private or public.
 
@@ -101,6 +120,6 @@ Visibility is changed through the API: [Update who can view a slate](https://doc
 
 ## The chrome
 
-ContextLayer puts a frame around a hosted slate: the chrome, a header and tray above the app. The header shows who you are signed in as and whether the slate's setup is complete. The tray lists the slate's declared connections and its viewer-mode secrets. There you connect an account, assign it to a connection, and save your secret values. These are the slate's hosted assignments; see [Connections and assignments](/core-concepts/resources/connections-and-assignments).
+The **chrome** is ContextLayer's header and configuration tray around a hosted app. It shows who you are signed in as and whether the slate's setup is complete. The tray lists declared connections and viewer-mode secrets, so you can connect an account, assign it to a connection, and supply required secret values. These changes configure the hosted slate; see [Connections and assignments](/core-concepts/resources/connections-and-assignments).
 
 The chrome is served from a ContextLayer origin in an iframe, separate from your app. The app cannot read it, and the chrome passes no credentials or profile data to the app. The starter's `app/root.tsx` mounts it through the SDK's `Layout`. Local development does not show the chrome.

@@ -3,34 +3,50 @@ title: "Deploy"
 description: "Push main to build, migrate and deploy a slate, then open it at its hosted URL."
 ---
 
-A slate deploys from Git. `init` set the checkout's `origin` remote to the slate's repository, and pushing `main` to it starts the build and deployment. There is no separate deploy command.
+Deploy a slate by pushing its `main` branch to the ContextLayer Git remote. ContextLayer builds that commit, applies its database migrations, publishes the app and MCP tools, and installs its agent schedules.
 
-<Steps>
+Work from the slate checkout created by `init`, which has `origin` set to the slate's repository. You need the saved CLI login configured during [Installation](/installation) and permission to manage the slate. There is no separate deploy command.
+
+<Steps titleSize="h2">
+  <Step title="Check the local changes">
+    If you changed the app, run the checkout's type check and production build:
+
+    ```sh
+    pnpm typecheck
+    pnpm build
+    ```
+
+    Include any declarations, migrations, and generated database types that the code needs. Local success does not configure hosted accounts or copy local data; those are separate from the deployment.
+  </Step>
   <Step title="Commit your changes">
+    `init` already committed the starter on `main`. If you have not changed it, continue directly to the push. Otherwise, commit the files you want to deploy:
+
     ```sh
     git add .
     git commit
     ```
-
-    `init` already committed the starter on `main`. If you have changed nothing, skip this step.
   </Step>
   <Step title="Push main">
     ```sh
     git push -u origin main
     ```
 
-    Git authenticates the push with your saved `login`. Only the slate's owning user, or a member of its owning organization, can push. Only pushes to `main` start a build.
+    Git authenticates the push with your saved CLI login. Only the slate's owning user or a member of its owning organization can push. Only a push to `main` starts a build; other branches do not deploy the slate.
+
+    A successful push means the repository received the commit. The hosted app changes after the build, migrations, and publication succeed.
   </Step>
   <Step title="Open the hosted URL">
-    `init` printed the slate's dashboard link and its hosted URL. The hosted URL works once the deployment succeeds.
+    After deployment succeeds, open the hosted URL printed by `init`. Its dashboard link is the management page; the hosted URL is the running app.
 
-    New slates are private. Sign in with your ContextLayer account to open one. A private slate opens for its owning user, or for members of its owning organization.
+    New slates are private. Sign in with an account allowed to view the slate: its owning user or a member of its owning organization. If a coding agent is deploying for you, it should give you the hosted URL so you can open it in your browser.
+
+    Check the behavior you changed in the hosted app. Configure any newly declared hosted connections or viewer secrets through the chrome when prompted.
   </Step>
 </Steps>
 
 ## What the pipeline does
 
-Every phase uses the pushed commit, in this order:
+The pipeline takes its source code, declarations, migrations, and schedules from the pushed commit, in this order:
 
 1. **Prepare.** ContextLayer reads the commit's declarations and selects the databases to migrate.
 2. **Build.** An isolated sandbox installs the committed dependencies and runs `pnpm build`.
@@ -38,11 +54,23 @@ Every phase uses the pushed commit, in this order:
 4. **Deploy.** The built app is published to the slate's hosted URL.
 5. **Schedules.** The schedules of the slate's agents are installed from the same commit.
 
-A failed migration stops the pipeline: the commit is not deployed and its schedules are not installed. The migration is not retried, and SQL statements that ran before the failure can remain applied. Migrations run while the previous deployment is still serving, so pushed migrations must stay compatible with it until the new deployment completes. See [Add a database](/how-to/add-a-database).
+<Warning>
+  A failed migration stops the pipeline: the commit is not deployed and its schedules are not installed. The migration is not retried automatically, and SQL statements that ran before the failure can remain applied.
+</Warning>
 
-## What a push does not deploy
+Migrations run while the previous deployment is still serving, so keep them compatible with that version until the new deployment completes. See [Add a database](/how-to/add-a-database).
 
-The push deploys only what is committed. Local development state stays on your machine: local assignments in `.contextlayer/connections.json`, local database contents in `.contextlayer/databases`, and secret values from your environment. Configure the hosted slate's accounts in its chrome; see [Connect an account](/how-to/connect-an-account).
+## Configure hosted resources separately
+
+Git carries committed source, declarations, migrations, and generated query types. It does not carry the local resources those files used during development:
+
+| Local state | What to do for the hosted slate |
+| --- | --- |
+| Assignments in `.contextlayer/connections.json` | Assign connected accounts through the hosted chrome, CLI, or API. |
+| Rows in `.contextlayer/databases` | Use the hosted app to create hosted data; deployment applies the schema, not local rows. |
+| Secret values in the local environment | Supply hosted values for the Owner selected by each secret's mode. |
+
+See [Connect an account](/how-to/connect-an-account) and [Secrets](/core-concepts/resources/secrets) for hosted configuration.
 
 ## The hosted URL
 

@@ -3,20 +3,22 @@ title: "Expose MCP tools"
 description: "Author MCP tools and Views in a slate and connect an MCP client to the hosted slate's /mcp endpoint."
 ---
 
-A slate can expose tools to MCP clients, with Views that render inside the client. Each tool is a directory under `mcp/`. The SDK builds the tools and Views with the app, and the hosted slate serves them at its `/mcp` endpoint.
+Add an `echo` tool to a slate, deploy it, and call it from a Model Context Protocol (MCP) client. The tool accepts a string and returns it as text. You can optionally attach a View that renders inside an MCP Apps-compatible client.
 
-<Warning>
+Start from an existing slate checkout. Each tool lives in a directory under `mcp/`, and the hosted slate serves its tools at `/mcp`. The local development server does not serve that endpoint, so you will test the tool after deployment.
+
+<Note>
   MCP tools cannot use resources yet. An MCP declaration's `connections`, `databases` and `secrets` must be empty, and the build fails otherwise. Resource execution is implemented only for the app and agents.
-</Warning>
+</Note>
 
 ## Add a tool
 
-<Steps>
-  <Step title="Declare it">
-    Each tool has a declaration next to its code. It uses the same schema as the app's `public/slate.json`, and `connections` is required:
+<Steps titleSize="h3">
+  <Step title="Create the tool's declaration">
+    Create `mcp/echo/` and add a declaration next to the tool's code. It uses the same schema as the app's `public/slate.json`. This tool requires no resources:
 
     ```json mcp/echo/slate.json
-    { "connections": {} }
+    { "connections": {}, "databases": {}, "secrets": {} }
     ```
   </Step>
   <Step title="Write the tool">
@@ -26,60 +28,83 @@ A slate can expose tools to MCP clients, with Views that render inside the clien
     import { z } from "zod"
 
     export const tool = {
-    	name: "echo",
-    	description: "Return the message it receives.",
-    	inputSchema: z.object({ message: z.string() }),
-    	_meta: { ui: { resourceUri: "ui://echo/index.html" } },
+      name: "echo",
+      description: "Return the value it receives.",
+      inputSchema: z.object({ value: z.string() }),
     }
 
     export function handler(args: unknown) {
-    	const { message } = args as z.infer<typeof tool.inputSchema>
-    	return { content: [{ type: "text" as const, text: message }] }
+      const { value } = args as z.infer<typeof tool.inputSchema>
+      return { content: [{ type: "text" as const, text: value }] }
     }
     ```
 
     The slate's Worker validates the arguments against `inputSchema` before it calls `handler`. The starter's `workers/app.ts` already passes every `mcp/*/index.ts` module to `createSlateWorker`; keep that wiring.
-  </Step>
-  <Step title="Add its View">
-    A View is an HTML page in `mcp-ui/<name>/index.html`. The tool above names it in `_meta.ui.resourceUri` as `ui://echo/index.html`, so it lives in `mcp-ui/echo/index.html`. Several tools can name the same View, and a tool without `_meta.ui` has none.
-
-    ```html mcp-ui/echo/index.html
-    <!doctype html>
-    <html lang="en">
-    	<head>
-    		<title>Echo</title>
-    	</head>
-    	<body>Echo</body>
-    </html>
-    ```
-
-    A View receives the tool's inputs and results, and requests tool calls, through the MCP client's MCP Apps bridge. It receives no ContextLayer credentials and does not fetch the slate's pages, which require sign-in.
   </Step>
   <Step title="Build and deploy">
     `pnpm build` runs the MCP build along with the app's, so it reports a declaration or definition error before you push. Commit and push `main` to deploy; see [Deploy](/how-to/deploy).
   </Step>
 </Steps>
 
-## What the SDK builds
-
-During the build, the SDK's Vite integration evaluates each `mcp/<name>/index.ts`, validates its `slate.json`, and converts its Zod schemas to JSON Schema. It writes the tools and Views into a generated `/mcp.json` manifest among the slate's assets. It compiles each View into one HTML file with its scripts and styles inlined.
-
-The hosted slate reads that manifest to list its tools and serve its Views. It never imports your modules to discover tools. Each tool call runs your `handler` in the slate's Worker.
-
 ## Connect an MCP client
 
-The slate's MCP endpoint is `https://<name>.contextlayer.xyz/mcp`, on the slate's hosted URL. ContextLayer registers it as an OAuth protected resource when it creates the slate, so there is nothing to configure.
+The slate's MCP endpoint is `https://<name>.contextlayer.xyz/mcp`. Replace `<name>` with the hosted slate name printed by `init`. ContextLayer registers this endpoint as an OAuth-protected resource when it creates the slate; you do not need to create a separate OAuth application for it.
 
-<Steps>
+<Steps titleSize="h3">
   <Step title="Add the endpoint to your client">
     Add `https://<name>.contextlayer.xyz/mcp` to your MCP client as a remote server.
   </Step>
   <Step title="Sign in and approve the client">
-    The client finds ContextLayer's authorization server through `https://<name>.contextlayer.xyz/.well-known/oauth-protected-resource/mcp`, the slate's [OAuth resource metadata](/api-reference/slate-routing/get-oauth-metadata-for-a-slate-mcp-endpoint). Sign in with your ContextLayer account and approve the client. ContextLayer identifies MCP clients by their Client ID Metadata Document.
+    Follow the client's OAuth sign-in flow, sign in with your ContextLayer account, and approve access. If a coding agent is setting up the client, a person completes this browser approval.
+
+    The client discovers the authorization server through the slate's [OAuth resource metadata](/api-reference/slate-routing/get-oauth-metadata-for-a-slate-mcp-endpoint). ContextLayer identifies clients through their Client ID Metadata Document; this discovery is handled by the client.
   </Step>
   <Step title="Use the tools">
-    The client lists the slate's tools and calls them. Its token is issued for this slate's `/mcp` endpoint with the `mcp:access` scope, and works for no other slate and not for the platform API.
+    Confirm that the client lists `echo`, then call it with:
+
+    ```json
+    { "value": "Hello from my slate" }
+    ```
+
+    The result should contain the text `Hello from my slate`. If you attached a View and the client supports MCP Apps, it can also display that View.
+
+    The client's token is issued for this slate's `/mcp` endpoint with the `mcp:access` scope. It does not authorize another slate or the platform management API.
   </Step>
 </Steps>
 
 Every MCP connection signs in; a browser session does not authenticate `/mcp`. The slate's viewing rule still applies: a private slate admits its owning user and members of its owning organization.
+
+## Attach a View, if the tool needs one
+
+The text-only tool above is complete without a View. To display an interface inside a compatible MCP client, add an HTML entry point at `mcp-ui/echo/index.html`:
+
+```html mcp-ui/echo/index.html
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Echo</title>
+  </head>
+  <body>
+    <h1>Echo</h1>
+    <p>This View is served by the slate. The tool returns its text in the client conversation.</p>
+  </body>
+</html>
+```
+
+Then add this property to the exported `tool` definition:
+
+```ts
+_meta: { ui: { resourceUri: "ui://echo/index.html" } }
+```
+
+The resource URI identifies the matching HTML entry point. Several tools can reference the same View. Build and deploy again after adding or changing it.
+
+This minimal View displays static HTML. To display inputs or results, or request another tool call, use the client's MCP Apps bridge from the View. The client supplies the tool data through that bridge; it does not give the View ContextLayer credentials or the app's browser session. See [MCP Views](/core-concepts/slate/mcp#views) for the relationship between a tool, its resource URI, and its View.
+
+## What the SDK builds
+
+During the build, the SDK's Vite integration evaluates each `mcp/<name>/index.ts`, validates its `slate.json`, and converts its Zod schemas to JSON Schema. It writes the tools and Views into a generated `/mcp.json` manifest among the slate's assets. It compiles each View into one HTML file with its scripts and styles inlined.
+
+ContextLayer reads the deployed manifest to list the slate's tools and serve its Views. Tool discovery does not import your authored modules. Each actual tool call runs your `handler` in the slate's Worker.

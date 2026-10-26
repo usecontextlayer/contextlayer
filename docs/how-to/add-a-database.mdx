@@ -3,13 +3,15 @@ title: "Add a database"
 description: "Declare a SQLite database, author its migrations with the Kysely CLI, generate its query types, and query it from a loader or action."
 ---
 
-A slate keeps persistent data in declared SQLite databases. Each database has a slug, and its Kysely configuration, migrations and generated query types live under `databases/<slug>`. The starter's `notes` database is a complete example. This guide adds a second database, `tasks`. See [Databases](/core-concepts/resources/databases) for how databases fit into a slate.
+Add a second SQLite database, `tasks`, to a slate created from the starter. You will declare it, create a table with a Kysely migration, generate TypeScript query types, and query it from the app. The starter's existing `notes` database remains in place.
 
-Keep `pnpm dev` running from the checkout root while you work. The migration and type-generation commands use its local storage, which persists in the checkout's ignored `.contextlayer/databases`.
+Each database has a slug and a matching `databases/<slug>` directory. See [Databases](/core-concepts/resources/databases) for how storage, resource ownership, and migrations fit together.
 
-<Steps>
+Start `pnpm dev` from the checkout root before editing the declarations and keep it running while you work. The migration and type-generation commands use the running local storage, which persists in the checkout's ignored `.contextlayer/databases` directory. Those commands read your current declarations; you will restart the app after generating types so its requests can use the new database too.
+
+<Steps titleSize="h2">
   <Step title="Declare the database">
-    Add the slug under `databases` in `public/slate.json`:
+    Add `tasks` under `databases` in `public/slate.json`. Preserve existing connections, databases, and secrets; this example shows the starter's `notes` database alongside the new entry:
 
     ```json public/slate.json
     {
@@ -24,10 +26,10 @@ Keep `pnpm dev` running from the checkout root while you work. The migration and
 
     The mode selects whose database the hosted slate uses. In owner mode the slate's Owner has one database that every user shares. In viewer mode each user has their own database for this slate.
 
-    An agent that uses the same data declares the same slug in its `agents/<name>/slate.json`. Matching slugs select the same database and must declare the same mode.
+    An agent that needs this data must also declare `tasks` in its own `agents/<name>/slate.json`. Matching slugs must declare the same mode and select the same stored database when they resolve to the same Owner. This example uses owner mode, so the app and agent share the slate Owner's `tasks` database.
   </Step>
   <Step title="Add its Kysely configuration">
-    Each database has its own native Kysely CLI configuration:
+    Create `databases/tasks/` and add its native Kysely CLI configuration:
 
     ```ts databases/tasks/kysely.config.ts
     import { databaseDialect } from "@usecontextlayer/sdk/database"
@@ -46,7 +48,7 @@ Keep `pnpm dev` running from the checkout root while you work. The migration and
     pnpm exec kysely --config databases/tasks/kysely.config.ts migrate make create_tasks
     ```
 
-    Edit the generated migration's `up(db)` and, optionally, `down(db)`, using native Kysely schema operations or `sql`:
+    Edit the generated migration to create a `tasks` table with an integer ID and required text title. `up()` applies the change; an optional `down()` defines its reverse operation. ContextLayer does not run that reverse operation automatically on a failed deployment.
 
     ```ts
     import type { Kysely } from "kysely"
@@ -72,9 +74,11 @@ Keep `pnpm dev` running from the checkout root while you work. The migration and
     pnpm db.codegen tasks
     ```
 
-    `db.codegen` writes `databases/tasks/types.ts` from the migrated local database. Applying migrations and generating types are separate commands. Do not edit the generated types by hand.
+    `db.codegen` writes `databases/tasks/types.ts` from the migrated local database. Applying migrations and generating types are separate operations: the migration creates the table, then generation describes that table for TypeScript. Do not edit the generated types by hand.
 
-    ```ts databases/tasks/types.ts
+    The generated file includes a `Tasks` row type and a `DB` mapping for the table. This excerpt omits its generated helper definitions:
+
+    ```ts
     export interface Tasks {
       id: Generated<number>;
       title: string;
@@ -91,7 +95,7 @@ Keep `pnpm dev` running from the checkout root while you work. The migration and
     Restart `pnpm dev`. The app picks up declarations when the server starts, and startup applies each declared database's pending migrations before the app can query.
   </Step>
   <Step title="Query it from a loader or action">
-    The SDK's `database<DB>(...)` returns a Kysely instance for a declared slug, typed by the generated `DB`:
+    Import the generated `DB` type and ask the SDK for a Kysely instance of `tasks`. This loader excerpt demonstrates the query. Merge it into your route's data flow; do not replace the starter route's component or existing `notes` data with the excerpt alone:
 
     ```tsx app/routes/home.tsx
     import { database, databasesContext } from "@usecontextlayer/sdk"
@@ -104,10 +108,14 @@ Keep `pnpm dev` running from the checkout root while you work. The migration and
     }
     ```
 
-    Mutations return Kysely's affected-row counts and SQLite insert IDs; use `.returning()` to read the written rows. SQL transactions are not supported. The starter's `app/routes/home.tsx` shows a loader and an action on `notes`.
+    The `"tasks"` argument to `database()` selects the database; the `"tasks"` argument to `selectFrom()` selects the table inside it. A new table returns an empty array until rows are inserted.
+
+    Mutations return Kysely's affected-row counts and SQLite insert IDs; use `.returning()` to read the written rows. SQL transactions are not supported. The starter's `app/routes/home.tsx` shows how a loader and a form action read and write the existing `notes` table.
   </Step>
   <Step title="Commit and push">
-    Commit the migration and `databases/tasks/types.ts` together, then push to `main`. See [Deploy](/how-to/deploy).
+    Commit the declaration, Kysely configuration, migration, generated query types, and any app changes together, then push `main`. See [Deploy](/how-to/deploy).
+
+    After deployment, the hosted slate has its own `tasks` database with the migrated schema. It does not contain rows from your local database.
   </Step>
 </Steps>
 
@@ -115,4 +123,8 @@ Keep `pnpm dev` running from the checkout root while you work. The migration and
 
 Pushing `main` builds the commit, runs its migrations with the native Kysely CLI in an isolated sandbox, then deploys it. The migrations run against the slate's owner-mode databases and every existing member's viewer-mode databases. When someone becomes a member, the same migrations run for their viewer-mode databases in the background.
 
-A failed migration blocks the deployment. It is not retried, and nothing is rolled back: SQL statements that ran before the failure can remain applied. Migrations run while the previous deployment is still serving, so pushed migrations must stay compatible with it until the new deployment completes.
+<Warning>
+  A failed migration blocks the deployment. It is not retried automatically, and nothing is rolled back: SQL statements that ran before the failure can remain applied.
+</Warning>
+
+Migrations run while the previous deployment is still serving, so pushed migrations must stay compatible with it until the new deployment completes.
