@@ -23,11 +23,8 @@
 	"footer": {
 		"links": [
 			{
+				"header": "Legal",
 				"items": [
-					{
-						"href": "https://platform.usecontextlayer.com",
-						"label": "Start building"
-					},
 					{
 						"href": "https://www.usecontextlayer.com/privacy",
 						"label": "Privacy"
