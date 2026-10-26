@@ -70,9 +70,9 @@ The organization rule always uses the slate's owning organization, regardless of
 
 ## Slate members
 
-A slate member is a person whose personal resources a slate has provisioned. A viewer of a private slate becomes a member automatically once the slate's whole setup is complete for them: every connection declared by the app and its agents has an assigned account, their own for viewer-mode connections, and every viewer-mode secret has their value. Membership is checked when they save an assignment or a secret, in the chrome or through the API, and when they first use a viewer-mode resource.
+A slate member is a person participating in the slate. A viewer of a private slate becomes a member automatically once the slate's whole setup is complete for them: every connection declared by the app and its agents has an assigned account, their own for viewer-mode connections, and every viewer-mode secret has their value. Membership is checked when they save an assignment or a secret, in the chrome or through the API, and when they first use a viewer-mode resource.
 
-Becoming a member creates the person's viewer-mode databases and installs their schedules for member-scoped [agents](/core-concepts/slate/agents#schedules).
+Once someone is a member, ContextLayer migrates their viewer-mode databases and then installs their schedules for member-scoped [agents](/core-concepts/slate/agents#schedules), in the background. Membership stands while that work runs, and if it fails.
 
 - Completed setup is the only way in; there is no explicit join.
 - Creating a slate does not make its creator a member.

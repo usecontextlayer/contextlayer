@@ -97,7 +97,7 @@ This guide builds an agent called `digest` that reads the starter app's `notes` 
     Each firing starts a fresh hosted job with the file's body as its prompt, using the agent's instructions and resources from the latest commit on `main`. Who the job acts for follows the agent's declaration:
 
     - An agent with no viewer-mode resources, like `digest`, runs one job for the app at each firing.
-    - An agent with any viewer-mode connection, database or secret runs one job for each slate member at each firing, using that member's viewer-mode resources. A person becomes a slate member when they complete the slate's setup, and the agent's schedules start for them then.
+    - An agent with any viewer-mode connection, database or secret runs one job for each slate member at each firing, using that member's viewer-mode resources. A person becomes a slate member when they complete the slate's setup; ContextLayer then migrates their viewer-mode databases and installs the agent's schedules for them in the background.
 
     Scheduled jobs appear in the agent's job list under the schedule's name.
   </Step>

@@ -69,7 +69,7 @@ Authored migrations are the only source of schema changes. Kysely owns their ord
 
 In a checkout, database state lives in `.contextlayer/databases`, which Git ignores. Starting `pnpm dev` applies the checkout's pending migrations before the app can query. Local tooling reaches only local databases, never hosted ones.
 
-When you push to `main`, ContextLayer builds the commit, runs its migrations and then deploys it. A push migrates the owner-mode databases and every existing member's viewer-mode databases. A new member's viewer-mode databases are migrated when they become a member.
+When you push to `main`, ContextLayer builds the commit, runs its migrations and then deploys it. A push migrates the owner-mode databases and every existing member's viewer-mode databases. When someone becomes a member, ContextLayer migrates their viewer-mode databases in the background and then installs their schedules.
 
 If a migration fails, the deployment stops. Statements that ran before the failure stay applied, and there is no automatic rollback. Until the new deployment completes, the app already deployed runs against the migrated database, so keep migrations compatible with it.
 
@@ -88,6 +88,6 @@ export async function loader({ context }: LoaderFunctionArgs) {
 }
 ```
 
-Direct SQL uses `context.get(databasesContext).query(slug, sql, params)`, and agents use their `database_query` tool. All three reach the same storage. Use Kysely's `.returning()` to read changed rows: queries return no affected-row counts or insert IDs. SQL transactions are not supported.
+Direct SQL uses `context.get(databasesContext).query(slug, sql, params)`, and agents use their `database_query` tool. All three reach the same storage. Mutations return Kysely's affected-row counts and SQLite insert IDs; use `.returning()` to read the written rows. Direct SQL and `database_query` return `rows` as objects keyed by column name. SQL transactions are not supported.
 
 [Add a database](/how-to/add-a-database) walks through declaring a database, writing a migration and generating its types.

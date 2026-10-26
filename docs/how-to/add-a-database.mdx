@@ -104,7 +104,7 @@ Keep `pnpm dev` running from the checkout root while you work. The migration and
     }
     ```
 
-    Use `.returning()` to read inserted or updated rows. The database supplies no mutation counts or insert IDs: Kysely reports affected-row counts as `0n`, so they cannot tell you whether a write changed anything. SQL transactions are not supported. The starter's `app/routes/home.tsx` shows a loader and an action on `notes`.
+    Mutations return Kysely's affected-row counts and SQLite insert IDs; use `.returning()` to read the written rows. SQL transactions are not supported. The starter's `app/routes/home.tsx` shows a loader and an action on `notes`.
   </Step>
   <Step title="Commit and push">
     Commit the migration and `databases/tasks/types.ts` together, then push to `main`. See [Deploy](/how-to/deploy).
@@ -113,6 +113,6 @@ Keep `pnpm dev` running from the checkout root while you work. The migration and
 
 ## What the push does
 
-Pushing `main` builds the commit, runs its migrations with the native Kysely CLI in an isolated sandbox, then deploys it. The migrations run against the slate's owner-mode databases and every existing member's viewer-mode databases. A new member's databases are initialized with the same migrations before first use.
+Pushing `main` builds the commit, runs its migrations with the native Kysely CLI in an isolated sandbox, then deploys it. The migrations run against the slate's owner-mode databases and every existing member's viewer-mode databases. When someone becomes a member, the same migrations run for their viewer-mode databases in the background.
 
 A failed migration blocks the deployment. It is not retried, and nothing is rolled back: SQL statements that ran before the failure can remain applied. Migrations run while the previous deployment is still serving, so pushed migrations must stay compatible with it until the new deployment completes.
