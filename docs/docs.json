@@ -1,5 +1,10 @@
 {
 	"$schema": "https://mintlify.com/docs.json",
+	"api": {
+		"playground": {
+			"display": "none"
+		}
+	},
 	"colors": {
 		"primary": "#615FFF"
 	},
@@ -63,6 +68,10 @@
 			{
 				"group": "Getting Started",
 				"pages": ["index", "quickstart"]
+			},
+			{
+				"group": "API reference",
+				"openapi": "https://platform.usecontextlayer.com/api/openapi.json"
 			}
 		]
 	},
@@ -71,5 +80,5 @@
 			"canonical": "https://docs.usecontextlayer.com"
 		}
 	},
-	"theme": "mint"
+	"theme": "almond"
 }
