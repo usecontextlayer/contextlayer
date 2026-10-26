@@ -123,10 +123,10 @@ importers:
         version: 0.29.5
       kysely-codegen:
         specifier: 0.20.0
-        version: 0.20.0(kysely@0.29.5)(pg@8.23.1)(tarn@3.1.2)(typescript@7.0.2)
+        version: 0.20.0(kysely@0.29.5)(pg@8.23.1)(tarn@3.1.2)(typescript@5.9.3)
       typescript:
-        specifier: latest
-        version: 7.0.2
+        specifier: 5.9.3
+        version: 5.9.3
       vite:
         specifier: ^8.3.2
         version: 8.3.2(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0)
@@ -157,7 +157,7 @@ importers:
         version: 6.8.8
       tsdown:
         specifier: latest
-        version: 0.23.1(tsx@4.23.15)(typescript@7.0.2)
+        version: 0.23.1(tsx@4.23.15)(typescript@5.9.3)
       zod:
         specifier: ^4.4.3
         version: 4.6.5
@@ -10266,6 +10266,15 @@ snapshots:
       object-assign: 4.1.1
       vary: 1.1.2
 
+  cosmiconfig@9.0.2(typescript@5.9.3):
+    dependencies:
+      env-paths: 2.2.1
+      import-fresh: 3.3.1
+      js-yaml: 4.3.2
+      parse-json: 5.2.0
+    optionalDependencies:
+      typescript: 5.9.3
+
   cosmiconfig@9.0.2(typescript@7.0.2):
     dependencies:
       env-paths: 2.2.1
@@ -11370,10 +11379,10 @@ snapshots:
       - supports-color
     optional: true
 
-  kysely-codegen@0.20.0(kysely@0.29.5)(pg@8.23.1)(tarn@3.1.2)(typescript@7.0.2):
+  kysely-codegen@0.20.0(kysely@0.29.5)(pg@8.23.1)(tarn@3.1.2)(typescript@5.9.3):
     dependencies:
       chalk: 4.1.2
-      cosmiconfig: 9.0.2(typescript@7.0.2)
+      cosmiconfig: 9.0.2(typescript@5.9.3)
       diff: 8.0.4
       dotenv: 17.4.2
       dotenv-expand: 12.0.3
@@ -12592,6 +12601,20 @@ snapshots:
       glob: 13.0.6
       package-json-from-dist: 1.0.1
 
+  rolldown-plugin-dts@0.28.8(rolldown@1.2.13)(typescript@5.9.3):
+    dependencies:
+      dts-resolver: 3.0.0
+      get-tsconfig: 5.0.0-beta.6
+      obug: 3.0.0
+      rolldown: 1.2.13
+      yuku-ast: 0.19.0
+      yuku-codegen: 0.19.0
+      yuku-parser: 0.19.0
+    optionalDependencies:
+      typescript: 5.9.3
+    transitivePeerDependencies:
+      - oxc-resolver
+
   rolldown-plugin-dts@0.28.8(rolldown@1.2.13)(typescript@7.0.2):
     dependencies:
       dts-resolver: 3.0.0
@@ -13192,6 +13215,32 @@ snapshots:
       - oxc-resolver
       - vue-tsc
 
+  tsdown@0.23.1(tsx@4.23.15)(typescript@5.9.3):
+    dependencies:
+      cac: 7.1.0
+      defu: 6.1.7
+      empathic: 2.1.0
+      hookable: 6.1.2
+      import-without-cache: 0.4.1
+      obug: 3.0.0
+      picomatch: 4.0.7
+      rolldown: 1.2.13
+      rolldown-plugin-dts: 0.28.8(rolldown@1.2.13)(typescript@5.9.3)
+      tinyexec: 1.3.1
+      tinyglobby: 0.2.17
+      tree-kill: 1.2.2
+      unconfig-core: 7.5.0
+      verkit: 0.5.0
+    optionalDependencies:
+      tsx: 4.23.15
+      typescript: 5.9.3
+    transitivePeerDependencies:
+      - '@typescript/native-preview'
+      - '@volar/typescript'
+      - '@vue/language-core'
+      - oxc-resolver
+      - vue-tsc
+
   tsdown@0.23.1(tsx@4.23.15)(typescript@7.0.2):
     dependencies:
       cac: 7.1.0
@@ -13280,8 +13329,7 @@ snapshots:
 
   typebox@1.3.27: {}
 
-  typescript@5.9.3:
-    optional: true
+  typescript@5.9.3: {}
 
   typescript@7.0.2:
     optionalDependencies:
