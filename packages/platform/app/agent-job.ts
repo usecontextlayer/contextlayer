@@ -13,6 +13,7 @@ import {
 import { Agent } from "agents"
 import { PiHarness, type PiHarnessContext, type PiReceipt } from "agents/harness/pi"
 import { z } from "zod"
+import { createAccountSession } from "@/accounts.server"
 import {
 	COMPUTER_INACTIVITY_TIMEOUT_MS,
 	createContainerConnection,
@@ -20,7 +21,6 @@ import {
 import { createAgentProvider } from "@/agent-provider"
 import { createAgentTools } from "@/agent-tools"
 import { type AgentRun, agentRunSchema } from "@/agents.schema"
-import { createConnectionSession } from "@/connections.server"
 import type { PlatformEnv } from "@/context"
 import { loadSharedSecret } from "@/secrets.server"
 
@@ -161,10 +161,10 @@ export class SlateAgentJob extends Agent<
 		const run = agentRunSchema.parse(input)
 		const connections: Parameters<typeof createAgentTools>[1] = []
 		for (const [name, connection] of Object.entries(run.connections)) {
-			const session = await createConnectionSession(
+			const session = await createAccountSession(
 				this.env.COMPOSIO_API_KEY,
 				connection.owner,
-				connection.connection_id,
+				connection.account_id,
 				connection.toolkit,
 			)
 			connections.push({ name, session, toolkit: connection.toolkit })

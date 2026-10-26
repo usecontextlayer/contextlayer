@@ -5,8 +5,8 @@ export default defineConfig({
 	deps: { neverBundle: ["cloudflare:workers"] },
 	dts: true,
 	entry: {
+		accounts: "lib/accounts.ts",
 		chrome: "lib/chrome.ts",
-		connections: "lib/connections.ts",
 		"database-dialect": "lib/database-dialect.ts",
 		"database-worker": "lib/database-worker.ts",
 		databases: "lib/databases.ts",

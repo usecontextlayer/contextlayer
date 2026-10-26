@@ -73,7 +73,7 @@ test("Owner subscriptions gate execution while declaration access stays availabl
 		expect(
 			(
 				await request(
-					`/api/connections/ca_example/tools/call`,
+					`/api/accounts/ca_example/tools/call`,
 					post({ arguments: {}, slate_id: slate.id, tool: "EXAMPLE", toolkit: "gmail" }),
 				)
 			).status,

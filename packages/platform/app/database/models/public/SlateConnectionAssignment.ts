@@ -41,7 +41,7 @@ export default interface SlateConnectionAssignmentTable {
 		SlateConnectionAssignmentOwnerType
 	>
 
-	connection_id: ColumnType<string, string, string>
+	account_id: ColumnType<string, string, string>
 }
 
 export type SlateConnectionAssignment = Selectable<SlateConnectionAssignmentTable>

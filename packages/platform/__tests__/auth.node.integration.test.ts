@@ -45,10 +45,10 @@ test("viewer cookies authenticate runtime requests but not management APIs", asy
 		["POST", "/slates"],
 		["PATCH", `/slates/${slate.id}`],
 		["GET", `/slates/${slate.id}/agents/example`],
-		["GET", `/connections/${owner}`],
-		["POST", `/connections/${owner}`],
-		["GET", "/connections?toolkit=gmail"],
-		["POST", "/connections/ca_example/tools/call"],
+		["GET", `/accounts/${owner}`],
+		["POST", `/accounts/${owner}`],
+		["GET", "/accounts?toolkit=gmail"],
+		["POST", "/accounts/ca_example/tools/call"],
 		["POST", `/slates/${slate.id}/resources/list`],
 		["POST", `/slates/${slate.id}/connections/list`],
 		["POST", `/slates/${slate.id}/connections/assign`],
@@ -129,7 +129,7 @@ test("native forms enforce CSRF while sessions and CLI tokens can update JSON di
 	const nativeHeaders = new Headers(webSession.headers)
 	nativeHeaders.delete("origin")
 	const form = new URLSearchParams({
-		connection_id: "ca_example",
+		account_id: "ca_example",
 		intent: "assign",
 		slug: "mail",
 	})
@@ -191,9 +191,9 @@ test("native sessions and CLI tokens can manage slates and accept only scoped re
 		})
 		expect(response.status).toBe(200)
 		expect(await response.json()).toMatchObject({ id: slate.id, visibility: "private" })
-		expect((await fetch(`${origin}/api/connections`, { headers })).status).toBe(400)
+		expect((await fetch(`${origin}/api/accounts`, { headers })).status).toBe(400)
 		expect(
-			(await fetch(`${origin}/api/connections?toolkit=gmail&owner_id=other`, { headers }))
+			(await fetch(`${origin}/api/accounts?toolkit=gmail&owner_id=other`, { headers }))
 				.status,
 		).toBe(400)
 		const concreteCall = {
@@ -202,23 +202,23 @@ test("native sessions and CLI tokens can manage slates and accept only scoped re
 			tool: "READ",
 			toolkit: "gmail",
 		}
-		const callConnection = (body: unknown) =>
-			fetch(`${origin}/api/connections/ca_example/tools/call`, {
+		const callAccount = (body: unknown) =>
+			fetch(`${origin}/api/accounts/ca_example/tools/call`, {
 				body: JSON.stringify(body),
 				headers,
 				method: "POST",
 			})
-		expect((await callConnection(concreteCall)).status).toBe(403)
+		expect((await callAccount(concreteCall)).status).toBe(403)
 		expect(
-			(await callConnection({ ...concreteCall, resources: { connections: {} } })).status,
+			(await callAccount({ ...concreteCall, resources: { connections: {} } })).status,
 		).toBe(400)
 		expect(
-			(await callConnection({ ...concreteCall, slate_id: crypto.randomUUID() })).status,
+			(await callAccount({ ...concreteCall, slate_id: crypto.randomUUID() })).status,
 		).toBe(404)
 		for (const [path, body] of [
 			["resources/list", {}],
 			["connections/list", {}],
-			["connections/assign", { connection_id: "ca_example", slug: "mail" }],
+			["connections/assign", { account_id: "ca_example", slug: "mail" }],
 		] as const) {
 			expect(
 				(
@@ -248,7 +248,7 @@ test("personal connected account execution requires permission to manage its sla
 	headers.set("content-type", "application/json")
 	expect(
 		(
-			await fetch(`${origin}/api/connections/ca_example/tools/call`, {
+			await fetch(`${origin}/api/accounts/ca_example/tools/call`, {
 				body: JSON.stringify({
 					arguments: {},
 					slate_id: slate.id,

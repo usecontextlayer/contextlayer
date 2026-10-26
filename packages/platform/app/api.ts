@@ -8,6 +8,13 @@ import {
 import { secretRequiredSchema } from "@usecontextlayer/shared/tools"
 import { isAPIError } from "better-auth/api"
 import {
+	accountLinkSchema,
+	accountsSchema,
+	connectAccountSchema,
+	personalAccountsQuerySchema,
+} from "@/accounts.schema"
+import { connectAccount, listAccounts, listPersonalAccounts } from "@/accounts.server"
+import {
 	agentJobCreationSchema,
 	agentJobEntrySchema,
 	agentJobInspectionSchema,
@@ -56,17 +63,6 @@ import {
 	enrollFreeCustomer,
 	saveCustomerState,
 } from "@/billing.server"
-import {
-	connectAccountSchema,
-	connectionLinkSchema,
-	connectionsSchema,
-	personalConnectionsQuerySchema,
-} from "@/connections.schema"
-import {
-	connectAccount,
-	listConnections,
-	listPersonalConnections,
-} from "@/connections.server"
 import { getMcpMetadata } from "@/mcp.server"
 import { getSlateOwner } from "@/owner"
 import { ownerParamsSchema } from "@/owner.schema"
@@ -117,12 +113,12 @@ import {
 	updateSlateVisibility,
 } from "@/slates.server"
 import {
+	accountToolCallSchema,
+	accountToolParamsSchema,
 	connectionRequiredSchema,
-	connectionToolCallSchema,
-	connectionToolParamsSchema,
 	toolResultSchema,
 } from "@/tools.schema"
-import { callConnectionTool } from "@/tools.server"
+import { callAccountTool } from "@/tools.server"
 
 const security: NonNullable<RouteConfig["security"]> = [
 	{ bearerAuth: [] },
@@ -181,12 +177,12 @@ export function createApi() {
 		name: "better-auth.session_token",
 		type: "apiKey",
 	})
-	const viewing = new OpenAPIHono<IdentityEnv>()
-	viewing.openapi(
+	const slateRouting = new OpenAPIHono<IdentityEnv>()
+	slateRouting.openapi(
 		createRoute({
 			method: "get",
 			operationId: "resolveSlate",
-			path: "/",
+			path: "/resolve",
 			request: { query: resolveSlateQuerySchema },
 			responses: {
 				200: {
@@ -202,6 +198,8 @@ export function createApi() {
 				404: { description: "No slate has this public hostname" },
 			},
 			security: [...security, { viewerCookie: [] }, {}],
+			summary: "Resolve a slate hostname for authorized viewing",
+			tags: ["Slate routing"],
 		}),
 		async (c) => {
 			const input = c.req.valid("query")
@@ -228,12 +226,11 @@ export function createApi() {
 			return c.json({ id: result.slate.id, owner: getSlateOwner(result.slate) }, 200)
 		},
 	)
-	api.route("/slates/resolve", viewing)
-	api.openapi(
+	slateRouting.openapi(
 		createRoute({
 			method: "get",
 			operationId: "getSlateMcpMetadata",
-			path: "/slates/mcp/metadata",
+			path: "/mcp/metadata",
 			request: { query: resolveSlateQuerySchema.pick({ hostname: true }) },
 			responses: {
 				200: {
@@ -253,6 +250,8 @@ export function createApi() {
 				404: { description: "No slate has this public hostname" },
 			},
 			security: [{}],
+			summary: "Get OAuth metadata for a slate MCP endpoint",
+			tags: ["Slate routing"],
 		}),
 		async (c) => {
 			const slate = await resolveSlate(c.var.db, {
@@ -265,10 +264,12 @@ export function createApi() {
 			)
 		},
 	)
+	api.route("/slates", slateRouting)
 	api.use("*", identifyUser, requireCsrf)
-	const catalog = new OpenAPIHono<OwnerAuthenticatedEnv>()
-	catalog.use("*", requireAuth)
-	catalog.openapi(
+
+	const slates = new OpenAPIHono<OwnerAuthenticatedEnv>()
+	slates.use("*", requireAuth)
+	slates.openapi(
 		createRoute({
 			description:
 				"List manageable slates. Supply either owner_user_id or owner_organization_id, or omit both to list all manageable slates.",
@@ -289,6 +290,8 @@ export function createApi() {
 				401: { description: "A valid ContextLayer login is required" },
 			},
 			security,
+			summary: "List slates the caller can manage",
+			tags: ["Slates"],
 		}),
 		async (c) => {
 			const query = c.req.valid("query")
@@ -312,7 +315,7 @@ export function createApi() {
 			)
 		},
 	)
-	catalog.openapi(
+	slates.openapi(
 		createRoute({
 			method: "post",
 			operationId: "createSlate",
@@ -336,6 +339,8 @@ export function createApi() {
 				404: { description: "The organization slug is not in this user's memberships" },
 			},
 			security,
+			summary: "Create a slate for a personal or organization Owner",
+			tags: ["Slates"],
 		}),
 		async (c) => {
 			const slate = await createSlate(
@@ -349,7 +354,7 @@ export function createApi() {
 			return c.json(slate, 201)
 		},
 	)
-	catalog.openapi(
+	slates.openapi(
 		createRoute({
 			method: "get",
 			operationId: "getSlate",
@@ -366,6 +371,8 @@ export function createApi() {
 				404: { description: "Slate not found" },
 			},
 			security,
+			summary: "Get a slate the caller can manage",
+			tags: ["Slates"],
 		}),
 		async (c) => {
 			const result = await getSlate(
@@ -385,246 +392,238 @@ export function createApi() {
 			return c.json(result.slate, 200)
 		},
 	)
-	api.route("/slates", catalog)
-	const secrets = new OpenAPIHono<OwnerAuthenticatedEnv>()
-	secrets.use("*", requireAuth)
-	secrets.openapi(
+	const slate = new OpenAPIHono<OwnerViewingEnv>()
+	slate.use("*", requireSlateViewing)
+	slate.openapi(
+		createRoute({
+			method: "patch",
+			operationId: "updateSlateVisibility",
+			path: "/",
+			request: {
+				body: {
+					content: { "application/json": { schema: updateSlateVisibilityRequestSchema } },
+					required: true,
+				},
+				params: z.object({ target: slateTargetSchema }),
+			},
+			responses: {
+				200: {
+					content: { "application/json": { schema: slateSchema } },
+					description: "Slate with its saved visibility",
+				},
+				400: { description: "Invalid slate target or visibility" },
+				401: { description: "A valid ContextLayer login is required" },
+				403: {
+					description:
+						"Only the Owner or owning organization members may update this slate",
+				},
+				404: { description: "Slate not found" },
+			},
+			security,
+			summary: "Update who can view a slate",
+			tags: ["Slates"],
+		}),
+		async (c) => {
+			const result = await updateSlateVisibility(
+				c.var.db,
+				c.var.slateAccess,
+				c.var.config.CTX_AUTH_ISSUER,
+				c.req.valid("json"),
+			)
+			if (!result.allowed) return c.body(null, 403)
+			return c.json(result.slate, 200)
+		},
+	)
+
+	const slateResources = new OpenAPIHono<
+		OwnerViewingEnv & { Variables: { snapshot: SlateDeclarationSnapshot } }
+	>({
+		defaultHook: async (result, c) => {
+			if (!result.success || result.target !== "json") return
+			const snapshot = await getSlateResources(c.var.slateAccess, c.env.ARTIFACTS)
+			if (!snapshot.allowed) return c.json({ reason: snapshot.reason }, 409)
+			c.set("snapshot", snapshot)
+		},
+	})
+	slateResources.openapi(
+		createRoute({
+			method: "post",
+			operationId: "listSlateResources",
+			path: "/resources/list",
+			request: {
+				body: {
+					content: { "application/json": { schema: slateResourcesRequestSchema } },
+					required: true,
+				},
+				params: z.object({ target: slateTargetSchema }),
+			},
+			responses: {
+				200: {
+					content: { "application/json": { schema: slateResourcesSchema } },
+					description:
+						"Resource requirements, consumers, selected Owners, saved connection assignments, and secret presence",
+				},
+				400: { description: "Invalid listing request" },
+				401: { description: "A valid ContextLayer login is required" },
+				403: {
+					description: "Slate viewing is forbidden",
+				},
+				404: { description: "Slate not found" },
+				409: noCommitResponse,
+			},
+			security,
+			summary: "List declared resources and their configuration",
+			tags: ["Slate resources"],
+		}),
+		async (c) => {
+			return c.json(
+				await listSlateResources(
+					c.var.db,
+					c.var.config,
+					c.var.slateAccess,
+					c.var.snapshot.resources,
+				),
+				200,
+			)
+		},
+	)
+	slateResources.openapi(
+		createRoute({
+			method: "post",
+			operationId: "listSlateConnections",
+			path: "/connections/list",
+			request: {
+				body: {
+					content: { "application/json": { schema: slateResourcesRequestSchema } },
+					required: true,
+				},
+				params: z.object({ target: slateTargetSchema }),
+			},
+			responses: {
+				200: {
+					content: { "application/json": { schema: slateConnectionsSchema } },
+					description: "Slate requirements and connection assignments",
+				},
+				400: { description: "Invalid listing request" },
+				401: {
+					description: "A valid ContextLayer login is required",
+				},
+				403: {
+					description: "Slate viewing is forbidden",
+				},
+				404: { description: "Slate not found" },
+				409: noCommitResponse,
+			},
+			security,
+			summary: "List declared connections and their account assignments",
+			tags: ["Slate resources"],
+		}),
+		async (c) => {
+			const result = await listSlateConnections(
+				c.var.db,
+				c.var.config,
+				c.var.slateAccess,
+				c.var.snapshot.resources,
+			)
+			return c.json(result, 200)
+		},
+	)
+	slateResources.openapi(
+		createRoute({
+			method: "post",
+			operationId: "assignSlateConnection",
+			path: "/connections/assign",
+			request: {
+				body: {
+					content: { "application/json": { schema: assignSlateConnectionRequestSchema } },
+					required: true,
+				},
+				params: z.object({ target: slateTargetSchema }),
+			},
+			responses: {
+				200: {
+					content: { "application/json": { schema: assignmentSchema } },
+					description: "Saved viewer or owner connection assignment",
+				},
+				400: { description: "Invalid assignment" },
+				401: {
+					description: "A valid ContextLayer login is required",
+				},
+				403: { description: "Slate viewing or Owner account management is forbidden" },
+				404: { description: "Slate or connection requirement not found" },
+				409: noCommitResponse,
+			},
+			security,
+			summary: "Assign an account to a declared connection",
+			tags: ["Slate resources"],
+		}),
+		async (c) => {
+			const result = await assignSlateConnection(
+				c.var.db,
+				c.env.ARTIFACTS,
+				c.env.SANDBOX,
+				c.env.AGENTS,
+				c.var.config,
+				c.var.slateAccess,
+				c.req.valid("json"),
+				c.var.snapshot,
+			)
+			if (!result.allowed) return c.body(null, result.reason === "forbidden" ? 403 : 404)
+			return c.json(result.assignment, 200)
+		},
+	)
+	slateResources.openapi(
 		createRoute({
 			method: "put",
-			operationId: "setSharedSecret",
-			path: "/{type}/{owner_id}/{name}",
+			operationId: "setSlateSecret",
+			path: "/secrets/{name}",
 			request: {
 				body: {
 					content: { "application/json": { schema: setSecretRequestSchema } },
 					required: true,
 				},
-				params: secretParamsSchema,
+				params: z.object({ name: secretSchema.shape.name, target: slateTargetSchema }),
 			},
 			responses: {
 				200: {
 					content: { "application/json": { schema: secretSchema } },
-					description: "Saved secret's Owner and name; never its value",
+					description: "Saved secret's Owner and name; completes slate setup when ready",
 				},
-				400: { description: "Invalid Owner, secret name, or value" },
+				400: { description: "Invalid secret name or value" },
 				401: { description: "A valid ContextLayer login is required" },
-				403: { description: "This user cannot manage this Owner's secrets" },
+				403: { description: "Slate viewing or secret Owner management is forbidden" },
+				404: { description: "Slate or secret requirement not found" },
+				409: noCommitResponse,
 			},
 			security,
+			summary: "Set a declared secret for its selected Owner",
+			tags: ["Slate resources"],
 		}),
 		async (c) => {
-			const { name, owner_id, type } = c.req.valid("param")
-			const result = await setSharedSecret(
-				c.env.MERIDIAN,
-				c.var.config,
-				c.var.identity,
-				{ id: owner_id, type },
-				name,
-				c.req.valid("json"),
-			)
-			if (!result.allowed) return c.body(null, 403)
-			return c.json(result.secret, 200)
-		},
-	)
-	secrets.openapi(
-		createRoute({
-			method: "delete",
-			operationId: "dropSharedSecret",
-			path: "/{type}/{owner_id}/{name}",
-			request: { params: secretParamsSchema },
-			responses: {
-				200: {
-					content: { "application/json": { schema: secretSchema } },
-					description: "Dropped secret's Owner and name; never its value",
-				},
-				400: { description: "Invalid Owner or secret name" },
-				401: { description: "A valid ContextLayer login is required" },
-				403: { description: "This user cannot manage this Owner's secrets" },
-			},
-			security,
-		}),
-		async (c) => {
-			const { name, owner_id, type } = c.req.valid("param")
-			const result = await dropSharedSecret(
-				c.env.MERIDIAN,
-				c.var.config,
-				c.var.identity,
-				{ id: owner_id, type },
-				name,
-			)
-			if (!result.allowed) return c.body(null, 403)
-			return c.json(result.secret, 200)
-		},
-	)
-	api.route("/secrets", secrets)
-	const personalConnections = new OpenAPIHono<OwnerAuthenticatedEnv>()
-	personalConnections.use("*", requireAuth)
-	personalConnections.openapi(
-		createRoute({
-			method: "get",
-			operationId: "listPersonalConnections",
-			path: "/",
-			request: { query: personalConnectionsQuerySchema },
-			responses: {
-				200: {
-					content: { "application/json": { schema: connectionsSchema } },
-					description:
-						"The signed-in user's connected accounts for the requested toolkit",
-				},
-				400: { description: "A toolkit is required; Owner selectors are not accepted" },
-				401: {
-					description: "A native web session or ContextLayer access token is required",
-				},
-			},
-			security,
-		}),
-		async (c) => {
-			const result = await listPersonalConnections(
-				c.var.config,
-				c.var.identity,
-				c.req.valid("query").toolkit,
-			)
-			return c.json(result, 200)
-		},
-	)
-	personalConnections.openapi(
-		createRoute({
-			method: "post",
-			operationId: "callConnectionTool",
-			path: "/{connection_id}/tools/call",
-			request: {
-				body: {
-					content: { "application/json": { schema: connectionToolCallSchema } },
-					required: true,
-				},
-				params: connectionToolParamsSchema,
-			},
-			responses: {
-				200: {
-					content: { "application/json": { schema: toolResultSchema } },
-					description: "Tool result from the signed-in user's pinned connected account",
-				},
-				400: { description: "Invalid connected-account tool call" },
-				401: {
-					description: "A native web session or ContextLayer access token is required",
-				},
-				402: {
-					content: { "text/plain": { schema: z.string() } },
-					description: "The Owner needs a plan or has exhausted their Free clips",
-				},
-				403: { description: "Slate viewing is forbidden" },
-				404: { description: "Slate not found" },
-			},
-			security,
-		}),
-		async (c) => {
-			const result = await callConnectionTool(
+			const result = await setSlateSecret(
 				c.var.db,
+				c.env.ARTIFACTS,
+				c.env.SANDBOX,
+				c.env.AGENTS,
+				c.env.MERIDIAN,
 				c.var.config,
-				c.var.identity,
-				c.req.valid("param").connection_id,
+				c.var.slateAccess,
+				c.req.valid("param").name,
 				c.req.valid("json"),
+				c.var.snapshot,
 			)
-			if (!result.allowed) {
-				if (
-					result.reason === "subscription-required" ||
-					result.reason === "credits-exhausted"
-				)
-					return c.text(result.message, 402)
-				const status = {
-					forbidden: 403,
-					"not-found": 404,
-					"sign-in-required": 401,
-				} as const
-				return c.body(null, status[result.reason])
-			}
-			const polar = createPolarCore({
-				accessToken: c.var.config.POLAR_ACCESS_TOKEN,
-				environment: c.var.config.POLAR_ENVIRONMENT,
-			})
-			c.executionCtx.waitUntil(
-				recordSlateUsage(
-					polar,
-					{ id: result.slate.id, owner: getSlateOwner(result.slate) },
-					"tool_call",
-				),
-			)
-			return c.json(result.result, 200)
+			if (!result.allowed) return c.body(null, result.reason === "forbidden" ? 403 : 404)
+			return c.json(result.secret, 200)
 		},
 	)
-	api.route("/connections", personalConnections)
-	api.openapi(
-		createRoute({
-			method: "get",
-			middleware: [requireAuth] as const,
-			operationId: "listConnections",
-			path: "/connections/{type}/{owner_id}",
-			request: { params: ownerParamsSchema },
-			responses: {
-				200: {
-					content: { "application/json": { schema: connectionsSchema } },
-					description: "Connected accounts belonging to the selected Owner",
-				},
-				401: {
-					description: "A valid ContextLayer login is required",
-				},
-				403: { description: "This user cannot manage this Owner's connected accounts" },
-			},
-			security,
-		}),
-		async (c) => {
-			const { owner_id, type } = c.req.valid("param")
-			const result = await listConnections(c.var.config, c.var.identity, {
-				id: owner_id,
-				type,
-			})
-			if (!result.allowed) return c.body(null, 403)
-			return c.json({ connections: result.connections }, 200)
-		},
-	)
-	api.openapi(
-		createRoute({
-			method: "post",
-			middleware: [requireAuth] as const,
-			operationId: "connectAccount",
-			path: "/connections/{type}/{owner_id}",
-			request: {
-				body: {
-					content: { "application/json": { schema: connectAccountSchema } },
-					required: true,
-				},
-				params: ownerParamsSchema,
-			},
-			responses: {
-				200: {
-					content: { "application/json": { schema: connectionLinkSchema } },
-					description: "Composio link to connect an account for the selected Owner",
-				},
-				401: {
-					description: "A valid ContextLayer login is required",
-				},
-				403: { description: "This user cannot manage this Owner's connected accounts" },
-			},
-			security,
-		}),
-		async (c) => {
-			const { owner_id, type } = c.req.valid("param")
-			const result = await connectAccount(
-				c.var.config,
-				c.var.identity,
-				{ id: owner_id, type },
-				c.req.valid("json").toolkit,
-			)
-			if (!result.allowed) return c.body(null, 403)
-			return c.json(result.link, 200)
-		},
-	)
-	const slateOperations = new OpenAPIHono<OwnerViewingEnv>()
-	slateOperations.use("*", requireAuth, requireSlateViewing)
-	slateOperations.openapi(
+	slate.route("/", slateResources)
+
+	const agents = new OpenAPIHono<OwnerViewingEnv>()
+	agents.openapi(
 		createRoute({
 			method: "get",
 			operationId: "getAgent",
-			path: "/agents/{name}",
+			path: "/",
 			request: {
 				params: agentParamsSchema,
 			},
@@ -642,6 +641,8 @@ export function createApi() {
 				404: { description: "Slate or agent instructions not found" },
 			},
 			security,
+			summary: "Read an agent's instructions from the latest commit",
+			tags: ["Agents"],
 		}),
 		async (c) => {
 			const result = await getAgent(
@@ -661,6 +662,88 @@ export function createApi() {
 			return c.json(result.agent, 200)
 		},
 	)
+	agents.openapi(
+		createRoute({
+			method: "get",
+			operationId: "listAgentSchedules",
+			path: "/schedules",
+			request: { params: agentParamsSchema },
+			responses: {
+				200: {
+					content: {
+						"application/json": { schema: z.array(agentRuntimeScheduleSchema) },
+					},
+					description: "Native provisioned authored cron schedule records",
+				},
+				400: { description: "Invalid slate target or agent name" },
+				401: { description: "A valid ContextLayer login is required" },
+				403: {
+					description:
+						"Only the Owner or owning organization members may inspect schedules",
+				},
+				404: { description: "Slate not found" },
+			},
+			security,
+			summary: "List an agent's provisioned schedules",
+			tags: ["Agents"],
+		}),
+		async (c) => {
+			const params = c.req.valid("param")
+			const result = await listAgentSchedules(
+				c.env.AGENTS,
+				c.var.slateAccess,
+				c.var.config.CTX_AUTH_ISSUER,
+				params.name,
+			)
+			if (!result.allowed) {
+				const status = { forbidden: 403, "sign-in-required": 401 } as const
+				return c.body(null, status[result.reason])
+			}
+
+			return c.json(result.schedules, 200)
+		},
+	)
+	agents.openapi(
+		createRoute({
+			method: "get",
+			operationId: "getAgentSchedule",
+			path: "/schedules/{scheduleId}",
+			request: { params: agentScheduleParamsSchema },
+			responses: {
+				200: {
+					content: { "application/json": { schema: agentRuntimeScheduleSchema } },
+					description: "Native provisioned authored cron schedule records",
+				},
+				400: { description: "Invalid slate target, agent name, or schedule ID" },
+				401: { description: "A valid ContextLayer login is required" },
+				403: {
+					description:
+						"Only the Owner or owning organization members may inspect schedules",
+				},
+				404: { description: "Slate or schedule not found" },
+			},
+			security,
+			summary: "Get a provisioned agent schedule",
+			tags: ["Agents"],
+		}),
+		async (c) => {
+			const params = c.req.valid("param")
+			const result = await getAgentSchedule(
+				c.env.AGENTS,
+				c.var.slateAccess,
+				c.var.config.CTX_AUTH_ISSUER,
+				params.name,
+				params.scheduleId,
+			)
+			if (!result.allowed) {
+				const status = { forbidden: 403, "sign-in-required": 401 } as const
+				return c.body(null, status[result.reason])
+			}
+			if (!result.schedule) return c.body(null, 404)
+			return c.json(result.schedule, 200)
+		},
+	)
+
 	const jobs = new OpenAPIHono<OwnerViewingEnv>()
 	jobs.use("*", async (c, next) => {
 		// Public slates are temporarily excluded from jobs.
@@ -706,6 +789,8 @@ export function createApi() {
 				},
 			},
 			security,
+			summary: "Start an agent job with a prompt",
+			tags: ["Agent jobs"],
 		}),
 		async (c) => {
 			const result = await startAgentJob(
@@ -748,6 +833,8 @@ export function createApi() {
 				404: { description: "Slate or agent job not found" },
 			},
 			security,
+			summary: "Get an agent job's catalog entry",
+			tags: ["Agent jobs"],
 		}),
 		async (c) => {
 			const { id, name } = c.req.valid("param")
@@ -774,6 +861,8 @@ export function createApi() {
 				404: { description: "Slate or agent job not found" },
 			},
 			security,
+			summary: "Get an agent job's current operation",
+			tags: ["Agent jobs"],
 		}),
 		async (c) => {
 			const { id, name } = c.req.valid("param")
@@ -787,7 +876,6 @@ export function createApi() {
 			return c.json(operation, 200)
 		},
 	)
-
 	jobs.openapi(
 		createRoute({
 			method: "get",
@@ -805,6 +893,8 @@ export function createApi() {
 				404: { description: "Slate or agent job not found" },
 			},
 			security,
+			summary: "Wait for an agent job's operation result",
+			tags: ["Agent jobs"],
 		}),
 		async (c) => {
 			const { id, name } = c.req.valid("param")
@@ -813,7 +903,6 @@ export function createApi() {
 			return c.json(operation, 200)
 		},
 	)
-
 	jobs.openapi(
 		createRoute({
 			method: "get",
@@ -834,6 +923,8 @@ export function createApi() {
 				404: { description: "Slate or agent job not found" },
 			},
 			security,
+			summary: "List the execution sessions within an agent job",
+			tags: ["Agent jobs"],
 		}),
 		async (c) => {
 			const { id, name } = c.req.valid("param")
@@ -855,7 +946,6 @@ export function createApi() {
 			return c.json(result.sessions, 200)
 		},
 	)
-
 	jobs.openapi(
 		createRoute({
 			method: "get",
@@ -876,6 +966,8 @@ export function createApi() {
 				404: { description: "Slate, agent job, or Pi session not found" },
 			},
 			security,
+			summary: "Read the active transcript of an agent job session",
+			tags: ["Agent jobs"],
 		}),
 		async (c) => {
 			const { id, name, session } = c.req.valid("param")
@@ -898,7 +990,6 @@ export function createApi() {
 			return c.json(result.messages, 200)
 		},
 	)
-
 	jobs.openapi(
 		createRoute({
 			method: "get",
@@ -919,6 +1010,8 @@ export function createApi() {
 				404: { description: "Slate or agent job not found" },
 			},
 			security,
+			summary: "Get model and tool usage for an agent job",
+			tags: ["Agent jobs"],
 		}),
 		async (c) => {
 			const { id, name } = c.req.valid("param")
@@ -940,7 +1033,6 @@ export function createApi() {
 			return c.json(result.usage, 200)
 		},
 	)
-
 	jobs.openapi(
 		createRoute({
 			method: "get",
@@ -961,6 +1053,8 @@ export function createApi() {
 				404: { description: "Slate or agent job not found" },
 			},
 			security,
+			summary: "Inspect an agent job's live execution state",
+			tags: ["Agent jobs"],
 		}),
 		async (c) => {
 			const { id, name } = c.req.valid("param")
@@ -982,7 +1076,6 @@ export function createApi() {
 			return c.json(result.inspection, 200)
 		},
 	)
-
 	jobs.openapi(
 		createRoute({
 			method: "delete",
@@ -1003,6 +1096,8 @@ export function createApi() {
 				404: { description: "Slate or agent job not found" },
 			},
 			security,
+			summary: "Abort an agent job's pending operation",
+			tags: ["Agent jobs"],
 		}),
 		async (c) => {
 			const { id, name } = c.req.valid("param")
@@ -1024,7 +1119,6 @@ export function createApi() {
 			return c.json(result.result, 200)
 		},
 	)
-
 	jobs.openapi(
 		createRoute({
 			method: "delete",
@@ -1043,6 +1137,8 @@ export function createApi() {
 				404: { description: "Slate or agent job not found" },
 			},
 			security,
+			summary: "Delete an agent job and its execution state",
+			tags: ["Agent jobs"],
 		}),
 		async (c) => {
 			const { id, name } = c.req.valid("param")
@@ -1064,7 +1160,6 @@ export function createApi() {
 			return c.body(null, 204)
 		},
 	)
-
 	jobs.openapi(
 		createRoute({
 			method: "get",
@@ -1087,6 +1182,8 @@ export function createApi() {
 				404: { description: "Slate not found" },
 			},
 			security,
+			summary: "List an agent's jobs available to the caller",
+			tags: ["Agent jobs"],
 		}),
 		async (c) =>
 			c.json(
@@ -1101,303 +1198,268 @@ export function createApi() {
 				200,
 			),
 	)
-	slateOperations.route("/agents/:name/jobs", jobs)
-	slateOperations.openapi(
+	agents.route("/jobs", jobs)
+	slate.route("/agents/:name", agents)
+	slates.route("/:target", slate)
+	api.route("/slates", slates)
+
+	const accounts = new OpenAPIHono<OwnerAuthenticatedEnv>()
+	accounts.use("*", requireAuth)
+	accounts.openapi(
 		createRoute({
 			method: "get",
-			operationId: "listAgentSchedules",
-			path: "/agents/{name}/schedules",
-			request: { params: agentParamsSchema },
-			responses: {
-				200: {
-					content: {
-						"application/json": { schema: z.array(agentRuntimeScheduleSchema) },
-					},
-					description: "Native provisioned authored cron schedule records",
-				},
-				400: { description: "Invalid slate target or agent name" },
-				401: { description: "A valid ContextLayer login is required" },
-				403: {
-					description:
-						"Only the Owner or owning organization members may inspect schedules",
-				},
-				404: { description: "Slate not found" },
-			},
-			security,
-		}),
-		async (c) => {
-			const params = c.req.valid("param")
-			const result = await listAgentSchedules(
-				c.env.AGENTS,
-				c.var.slateAccess,
-				c.var.config.CTX_AUTH_ISSUER,
-				params.name,
-			)
-			if (!result.allowed) {
-				const status = { forbidden: 403, "sign-in-required": 401 } as const
-				return c.body(null, status[result.reason])
-			}
-
-			return c.json(result.schedules, 200)
-		},
-	)
-
-	slateOperations.openapi(
-		createRoute({
-			method: "get",
-			operationId: "getAgentSchedule",
-			path: "/agents/{name}/schedules/{scheduleId}",
-			request: { params: agentScheduleParamsSchema },
-			responses: {
-				200: {
-					content: { "application/json": { schema: agentRuntimeScheduleSchema } },
-					description: "Native provisioned authored cron schedule records",
-				},
-				400: { description: "Invalid slate target, agent name, or schedule ID" },
-				401: { description: "A valid ContextLayer login is required" },
-				403: {
-					description:
-						"Only the Owner or owning organization members may inspect schedules",
-				},
-				404: { description: "Slate or schedule not found" },
-			},
-			security,
-		}),
-		async (c) => {
-			const params = c.req.valid("param")
-			const result = await getAgentSchedule(
-				c.env.AGENTS,
-				c.var.slateAccess,
-				c.var.config.CTX_AUTH_ISSUER,
-				params.name,
-				params.scheduleId,
-			)
-			if (!result.allowed) {
-				const status = { forbidden: 403, "sign-in-required": 401 } as const
-				return c.body(null, status[result.reason])
-			}
-			if (!result.schedule) return c.body(null, 404)
-			return c.json(result.schedule, 200)
-		},
-	)
-
-	slateOperations.openapi(
-		createRoute({
-			method: "patch",
-			operationId: "updateSlateVisibility",
+			operationId: "listPersonalAccounts",
 			path: "/",
-			request: {
-				body: {
-					content: { "application/json": { schema: updateSlateVisibilityRequestSchema } },
-					required: true,
-				},
-				params: z.object({ target: slateTargetSchema }),
-			},
+			request: { query: personalAccountsQuerySchema },
 			responses: {
 				200: {
-					content: { "application/json": { schema: slateSchema } },
-					description: "Slate with its saved visibility",
-				},
-				400: { description: "Invalid slate target or visibility" },
-				401: { description: "A valid ContextLayer login is required" },
-				403: {
+					content: { "application/json": { schema: accountsSchema } },
 					description:
-						"Only the Owner or owning organization members may update this slate",
+						"The signed-in user's connected accounts for the requested toolkit",
 				},
-				404: { description: "Slate not found" },
-			},
-			security,
-		}),
-		async (c) => {
-			const result = await updateSlateVisibility(
-				c.var.db,
-				c.var.slateAccess,
-				c.var.config.CTX_AUTH_ISSUER,
-				c.req.valid("json"),
-			)
-			if (!result.allowed) return c.body(null, 403)
-			return c.json(result.slate, 200)
-		},
-	)
-	const resourceOperations = new OpenAPIHono<
-		OwnerViewingEnv & { Variables: { snapshot: SlateDeclarationSnapshot } }
-	>({
-		defaultHook: async (result, c) => {
-			if (!result.success || result.target !== "json") return
-			const snapshot = await getSlateResources(c.var.slateAccess, c.env.ARTIFACTS)
-			if (!snapshot.allowed) return c.json({ reason: snapshot.reason }, 409)
-			c.set("snapshot", snapshot)
-		},
-	})
-	resourceOperations.openapi(
-		createRoute({
-			method: "post",
-			operationId: "listSlateResources",
-			path: "/resources/list",
-			request: {
-				body: {
-					content: { "application/json": { schema: slateResourcesRequestSchema } },
-					required: true,
-				},
-				params: z.object({ target: slateTargetSchema }),
-			},
-			responses: {
-				200: {
-					content: { "application/json": { schema: slateResourcesSchema } },
-					description:
-						"Resource requirements, consumers, selected Owners, saved connection assignments, and secret presence",
-				},
-				400: { description: "Invalid listing request" },
-				401: { description: "A valid ContextLayer login is required" },
-				403: {
-					description: "Slate viewing is forbidden",
-				},
-				404: { description: "Slate not found" },
-				409: noCommitResponse,
-			},
-			security,
-		}),
-		async (c) => {
-			return c.json(
-				await listSlateResources(
-					c.var.db,
-					c.var.config,
-					c.var.slateAccess,
-					c.var.snapshot.resources,
-				),
-				200,
-			)
-		},
-	)
-	resourceOperations.openapi(
-		createRoute({
-			method: "post",
-			operationId: "listSlateConnections",
-			path: "/connections/list",
-			request: {
-				body: {
-					content: { "application/json": { schema: slateResourcesRequestSchema } },
-					required: true,
-				},
-				params: z.object({ target: slateTargetSchema }),
-			},
-			responses: {
-				200: {
-					content: { "application/json": { schema: slateConnectionsSchema } },
-					description: "Slate requirements and connection assignments",
-				},
-				400: { description: "Invalid listing request" },
+				400: { description: "A toolkit is required; Owner selectors are not accepted" },
 				401: {
-					description: "A valid ContextLayer login is required",
+					description: "A native web session or ContextLayer access token is required",
 				},
-				403: {
-					description: "Slate viewing is forbidden",
-				},
-				404: { description: "Slate not found" },
-				409: noCommitResponse,
 			},
 			security,
+			summary: "List the caller's active accounts for a toolkit",
+			tags: ["Accounts"],
 		}),
 		async (c) => {
-			const result = await listSlateConnections(
-				c.var.db,
+			const result = await listPersonalAccounts(
 				c.var.config,
-				c.var.slateAccess,
-				c.var.snapshot.resources,
+				c.var.identity,
+				c.req.valid("query").toolkit,
 			)
 			return c.json(result, 200)
 		},
 	)
-	resourceOperations.openapi(
+	accounts.openapi(
 		createRoute({
 			method: "post",
-			operationId: "assignSlateConnection",
-			path: "/connections/assign",
+			operationId: "callAccountTool",
+			path: "/{account_id}/tools/call",
 			request: {
 				body: {
-					content: { "application/json": { schema: assignSlateConnectionRequestSchema } },
+					content: { "application/json": { schema: accountToolCallSchema } },
 					required: true,
 				},
-				params: z.object({ target: slateTargetSchema }),
+				params: accountToolParamsSchema,
 			},
 			responses: {
 				200: {
-					content: { "application/json": { schema: assignmentSchema } },
-					description: "Saved viewer or owner connection assignment",
+					content: { "application/json": { schema: toolResultSchema } },
+					description: "Tool result from the signed-in user's pinned connected account",
 				},
-				400: { description: "Invalid assignment" },
+				400: { description: "Invalid connected-account tool call" },
+				401: {
+					description: "A native web session or ContextLayer access token is required",
+				},
+				402: {
+					content: { "text/plain": { schema: z.string() } },
+					description: "The Owner needs a plan or has exhausted their Free clips",
+				},
+				403: { description: "Slate viewing is forbidden" },
+				404: { description: "Slate not found" },
+			},
+			security,
+			summary: "Call a tool with the caller's selected account",
+			tags: ["Accounts"],
+		}),
+		async (c) => {
+			const result = await callAccountTool(
+				c.var.db,
+				c.var.config,
+				c.var.identity,
+				c.req.valid("param").account_id,
+				c.req.valid("json"),
+			)
+			if (!result.allowed) {
+				if (
+					result.reason === "subscription-required" ||
+					result.reason === "credits-exhausted"
+				)
+					return c.text(result.message, 402)
+				const status = {
+					forbidden: 403,
+					"not-found": 404,
+					"sign-in-required": 401,
+				} as const
+				return c.body(null, status[result.reason])
+			}
+			const polar = createPolarCore({
+				accessToken: c.var.config.POLAR_ACCESS_TOKEN,
+				environment: c.var.config.POLAR_ENVIRONMENT,
+			})
+			c.executionCtx.waitUntil(
+				recordSlateUsage(
+					polar,
+					{ id: result.slate.id, owner: getSlateOwner(result.slate) },
+					"tool_call",
+				),
+			)
+			return c.json(result.result, 200)
+		},
+	)
+	accounts.openapi(
+		createRoute({
+			method: "get",
+			operationId: "listAccounts",
+			path: "/{type}/{owner_id}",
+			request: { params: ownerParamsSchema },
+			responses: {
+				200: {
+					content: { "application/json": { schema: accountsSchema } },
+					description: "Connected accounts belonging to the selected Owner",
+				},
 				401: {
 					description: "A valid ContextLayer login is required",
 				},
-				403: { description: "Slate viewing or Owner connection management is forbidden" },
-				404: { description: "Slate or connection requirement not found" },
-				409: noCommitResponse,
+				403: { description: "This user cannot manage this Owner's connected accounts" },
 			},
 			security,
+			summary: "List active accounts belonging to an Owner",
+			tags: ["Accounts"],
 		}),
 		async (c) => {
-			const result = await assignSlateConnection(
-				c.var.db,
-				c.env.ARTIFACTS,
-				c.env.SANDBOX,
-				c.env.AGENTS,
-				c.var.config,
-				c.var.slateAccess,
-				c.req.valid("json"),
-				c.var.snapshot,
-			)
-			if (!result.allowed) return c.body(null, result.reason === "forbidden" ? 403 : 404)
-			return c.json(result.assignment, 200)
+			const { owner_id, type } = c.req.valid("param")
+			const result = await listAccounts(c.var.config, c.var.identity, {
+				id: owner_id,
+				type,
+			})
+			if (!result.allowed) return c.body(null, 403)
+			return c.json({ accounts: result.accounts }, 200)
 		},
 	)
-	resourceOperations.openapi(
+	accounts.openapi(
+		createRoute({
+			method: "post",
+			operationId: "connectAccount",
+			path: "/{type}/{owner_id}",
+			request: {
+				body: {
+					content: { "application/json": { schema: connectAccountSchema } },
+					required: true,
+				},
+				params: ownerParamsSchema,
+			},
+			responses: {
+				200: {
+					content: { "application/json": { schema: accountLinkSchema } },
+					description: "Composio link to connect an account for the selected Owner",
+				},
+				401: {
+					description: "A valid ContextLayer login is required",
+				},
+				403: { description: "This user cannot manage this Owner's connected accounts" },
+			},
+			security,
+			summary: "Create an authorization link to connect an Owner's account",
+			tags: ["Accounts"],
+		}),
+		async (c) => {
+			const { owner_id, type } = c.req.valid("param")
+			const result = await connectAccount(
+				c.var.config,
+				c.var.identity,
+				{ id: owner_id, type },
+				c.req.valid("json").toolkit,
+			)
+			if (!result.allowed) return c.body(null, 403)
+			return c.json(result.link, 200)
+		},
+	)
+	api.route("/accounts", accounts)
+
+	const secrets = new OpenAPIHono<OwnerAuthenticatedEnv>()
+	secrets.use("*", requireAuth)
+	secrets.openapi(
 		createRoute({
 			method: "put",
-			operationId: "setSlateSecret",
-			path: "/secrets/{name}",
+			operationId: "setSharedSecret",
+			path: "/{type}/{owner_id}/{name}",
 			request: {
 				body: {
 					content: { "application/json": { schema: setSecretRequestSchema } },
 					required: true,
 				},
-				params: z.object({ name: secretSchema.shape.name, target: slateTargetSchema }),
+				params: secretParamsSchema,
 			},
 			responses: {
 				200: {
 					content: { "application/json": { schema: secretSchema } },
-					description: "Saved secret's Owner and name; completes slate setup when ready",
+					description: "Saved secret's Owner and name; never its value",
 				},
-				400: { description: "Invalid secret name or value" },
+				400: { description: "Invalid Owner, secret name, or value" },
 				401: { description: "A valid ContextLayer login is required" },
-				403: { description: "Slate viewing or secret Owner management is forbidden" },
-				404: { description: "Slate or secret requirement not found" },
-				409: noCommitResponse,
+				403: { description: "This user cannot manage this Owner's secrets" },
 			},
 			security,
+			summary: "Set a named secret belonging to an Owner",
+			tags: ["Shared secrets"],
 		}),
 		async (c) => {
-			const result = await setSlateSecret(
-				c.var.db,
-				c.env.ARTIFACTS,
-				c.env.SANDBOX,
-				c.env.AGENTS,
+			const { name, owner_id, type } = c.req.valid("param")
+			const result = await setSharedSecret(
 				c.env.MERIDIAN,
 				c.var.config,
-				c.var.slateAccess,
-				c.req.valid("param").name,
+				c.var.identity,
+				{ id: owner_id, type },
+				name,
 				c.req.valid("json"),
-				c.var.snapshot,
 			)
-			if (!result.allowed) return c.body(null, result.reason === "forbidden" ? 403 : 404)
+			if (!result.allowed) return c.body(null, 403)
 			return c.json(result.secret, 200)
 		},
 	)
-	slateOperations.route("/", resourceOperations)
-	api.route("/slates/:target", slateOperations)
+	secrets.openapi(
+		createRoute({
+			method: "delete",
+			operationId: "dropSharedSecret",
+			path: "/{type}/{owner_id}/{name}",
+			request: { params: secretParamsSchema },
+			responses: {
+				200: {
+					content: { "application/json": { schema: secretSchema } },
+					description: "Dropped secret's Owner and name; never its value",
+				},
+				400: { description: "Invalid Owner or secret name" },
+				401: { description: "A valid ContextLayer login is required" },
+				403: { description: "This user cannot manage this Owner's secrets" },
+			},
+			security,
+			summary: "Delete a named secret belonging to an Owner",
+			tags: ["Shared secrets"],
+		}),
+		async (c) => {
+			const { name, owner_id, type } = c.req.valid("param")
+			const result = await dropSharedSecret(
+				c.env.MERIDIAN,
+				c.var.config,
+				c.var.identity,
+				{ id: owner_id, type },
+				name,
+			)
+			if (!result.allowed) return c.body(null, 403)
+			return c.json(result.secret, 200)
+		},
+	)
+	api.route("/secrets", secrets)
+
 	api.doc31("/openapi.json", {
 		info: { title: "ContextLayer Platform", version: "0.1.0" },
 		openapi: "3.1.0",
 		servers: [{ url: "/api" }],
+		tags: [
+			{ name: "Slates" },
+			{ name: "Slate routing" },
+			{ name: "Slate resources" },
+			{ name: "Accounts" },
+			{ name: "Shared secrets" },
+			{ name: "Agents" },
+			{ name: "Agent jobs" },
+		],
 	})
 	return api
 }

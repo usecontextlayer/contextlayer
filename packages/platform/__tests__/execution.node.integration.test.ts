@@ -8,7 +8,7 @@ import { writeDatabase } from "@tests/database-project"
 import { executionTest as test } from "@tests/integration"
 import { createSlateProject } from "@usecontextlayer/dev-env/slate"
 import { signInViewer } from "@usecontextlayer/dev-env/viewer"
-import { connectionsSchema } from "@usecontextlayer/shared/connections"
+import { accountsSchema } from "@usecontextlayer/shared/accounts"
 import type { Databases } from "@usecontextlayer/shared/databases-worker"
 import { slateResourcesSchema } from "@usecontextlayer/shared/slate-resources"
 import type {
@@ -39,12 +39,12 @@ test("native resource capabilities enforce access and report exact slate-Owner t
 }) => {
 	const { origin, worker } = platform
 	const { headers, user } = identity
-	const connected = await fetch(`${origin}/api/connections?toolkit=gmail`, { headers })
+	const connected = await fetch(`${origin}/api/accounts?toolkit=gmail`, { headers })
 	expect(connected.status).toBe(200)
-	const { connections } = connectionsSchema.parse(await connected.json())
-	const connection = connections.find(({ status }) => status === "ACTIVE")
+	const { accounts } = accountsSchema.parse(await connected.json())
+	const account = accounts[0]
 	assert(
-		connection,
+		account,
 		"Connect a Gmail account for the local development user with pnpm dev:ctx accounts add gmail, then approve the link in your browser.",
 	)
 	const { ARTIFACTS, DATABASES } = await worker.getEnv()
@@ -210,7 +210,7 @@ test("native resource capabilities enforce access and report exact slate-Owner t
 		})
 		const assigned = await fetch(
 			`${origin}/api/slates/${slate.id}/connections/assign`,
-			post({ connection_id: connection.id, slug: "mail" }),
+			post({ account_id: account.id, slug: "mail" }),
 		)
 		expect(assigned.status).toBe(200)
 		const member = { slate_id: slate.id, user_id: user.id }
@@ -234,7 +234,7 @@ test("native resource capabilities enforce access and report exact slate-Owner t
 			(
 				await fetch(
 					`${origin}/api/slates/${slate.id}/connections/assign`,
-					post({ connection_id: connection.id, slug: "mail" }),
+					post({ account_id: account.id, slug: "mail" }),
 				)
 			).status,
 		).toBe(200)

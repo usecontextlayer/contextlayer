@@ -1,11 +1,11 @@
 import { renderToolSignature } from "@earendil-works/pi-codemode"
 import { test } from "@tests/integration"
-import { connectionsSchema } from "@usecontextlayer/shared/connections"
+import { accountsSchema } from "@usecontextlayer/shared/accounts"
 import { toolResultSchema } from "@usecontextlayer/shared/tools"
 import { expect } from "vitest"
 import { z } from "zod"
+import { createAccountSession } from "@/accounts.server"
 import { createAgentTools } from "@/agent-tools"
-import { createConnectionSession } from "@/connections.server"
 
 test("agent tools bind two Gmail namespaces to their connected accounts", async ({
 	platform,
@@ -14,15 +14,13 @@ test("agent tools bind two Gmail namespaces to their connected accounts", async 
 	const { origin, worker } = platform
 	const headers = new Headers(webSession.headers)
 	headers.set("origin", origin)
-	const accountsResponse = await fetch(`${origin}/api/connections?toolkit=gmail`, {
+	const accountsResponse = await fetch(`${origin}/api/accounts?toolkit=gmail`, {
 		headers,
 	})
 	expect(accountsResponse.status).toBe(200)
-	const { connections } = connectionsSchema.parse(await accountsResponse.json())
-	const first = connections[0]
-	const second = connections.find(
-		(account) => account.display_name !== first?.display_name,
-	)
+	const { accounts } = accountsSchema.parse(await accountsResponse.json())
+	const first = accounts[0]
+	const second = accounts.find((account) => account.display_name !== first?.display_name)
 	if (!first || !second)
 		throw new Error("Connect two distinct Gmail accounts to the local development user")
 	const assignments = { personal_email: second, work_email: first }
@@ -33,7 +31,7 @@ test("agent tools bind two Gmail namespaces to their connected accounts", async 
 		await Promise.all(
 			Object.entries(assignments).map(async ([name, account]) => ({
 				name,
-				session: await createConnectionSession(
+				session: await createAccountSession(
 					COMPOSIO_API_KEY,
 					{ id: webSession.user.id, type: "personal" },
 					account.id,

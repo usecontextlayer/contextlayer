@@ -4,10 +4,10 @@ import { join, resolve } from "node:path"
 import { promisify } from "node:util"
 import { AssistantEntry, UserEntry } from "@earendil-works/pi-durable"
 import { writeDatabase } from "@tests/database-project"
-import { provisioningTest as test } from "@tests/integration"
+import { test } from "@tests/integration"
 import { DEVELOPMENT_ORGANIZATION_SLUG } from "@usecontextlayer/dev-env/env"
 import { createSlateProject } from "@usecontextlayer/dev-env/slate"
-import { connectionsSchema } from "@usecontextlayer/shared/connections"
+import { accountsSchema } from "@usecontextlayer/shared/accounts"
 import { slateResourcesSchema } from "@usecontextlayer/shared/slate-resources"
 import { getAgentByName } from "agents/routing"
 import { expect } from "vitest"
@@ -236,9 +236,9 @@ test("members' deployed cron jobs use viewer resources and retain results after 
 		post({ prompt: "Read-only proof." }),
 	)
 	expect(missing.status).toBe(404)
-	const accounts = await fetch(`${origin}/api/connections?toolkit=gmail`, { headers })
+	const accounts = await fetch(`${origin}/api/accounts?toolkit=gmail`, { headers })
 	expect(accounts.status).toBe(200)
-	const account = connectionsSchema.parse(await accounts.json()).connections[0]
+	const account = accountsSchema.parse(await accounts.json()).accounts[0]
 	if (!account)
 		throw new Error("Expected the existing active personal Gmail connected account")
 	const { AGENTS, ARTIFACTS } = await worker.getEnv()
@@ -304,7 +304,7 @@ test("members' deployed cron jobs use viewer resources and retain results after 
 				(
 					await fetch(
 						`${origin}/api/slates/${slate.id}/connections/assign`,
-						post({ connection_id: account.id, slug: "mail" }),
+						post({ account_id: account.id, slug: "mail" }),
 					)
 				).status,
 			).toBe(200)
@@ -344,10 +344,10 @@ test("members' deployed cron jobs use viewer resources and retain results after 
 	}
 	const completedSetup = await fetch(
 		`${origin}/api/slates/${joinedAfterProvisioning.id}/connections/assign`,
-		post({ connection_id: account.id, slug: "mail" }),
+		post({ account_id: account.id, slug: "mail" }),
 	)
 	expect(completedSetup.status).toBe(200)
-	expect(await completedSetup.json()).toEqual({ connection_id: account.id, slug: "mail" })
+	expect(await completedSetup.json()).toEqual({ account_id: account.id, slug: "mail" })
 	expect(await checkouts[1]?.memberInstance.listSchedules()).toHaveLength(1)
 	for (const { slate, git, memberInstance, scheduleFile } of checkouts) {
 		const firing = new Date(Math.ceil(Date.now() / 60_000) * 60_000 + 60_000)

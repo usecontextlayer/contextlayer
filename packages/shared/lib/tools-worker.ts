@@ -83,11 +83,11 @@ export class LocalTools extends WorkerEntrypoint<
 		const { slateId, connections, credential } = this.ctx.props
 		const connection = new Map(Object.entries(connections)).get(slug)
 		if (!connection) throw new Error("not-declared")
-		if (connection.connection_id === null) return connectionRequiredResponse(slug)
+		if (connection.account_id === null) return connectionRequiredResponse(slug)
 		return executeToolRequest(
 			new Request(
 				new URL(
-					`/api/connections/${encodeURIComponent(connection.connection_id)}/tools/call`,
+					`/api/accounts/${encodeURIComponent(connection.account_id)}/tools/call`,
 					this.env.CTX_PLATFORM_URL,
 				),
 				{

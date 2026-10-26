@@ -3,7 +3,7 @@ import { mkdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { promisify } from "node:util"
 import { test } from "@tests/integration"
-import { connectionsSchema } from "@usecontextlayer/shared/connections"
+import { accountsSchema } from "@usecontextlayer/shared/accounts"
 import {
 	collectSlateResources,
 	slateDeclarationsSchema,
@@ -37,7 +37,7 @@ test("hosted resources report no commit through the API, CLI and chrome", async 
 	for (const [operation, body] of [
 		["resources/list", {}],
 		["connections/list", {}],
-		["connections/assign", { connection_id: "test-account", slug: "mail" }],
+		["connections/assign", { account_id: "test-account", slug: "mail" }],
 	] as const) {
 		const response = await fetch(
 			`${origin}/api/slates/${slate.id}/${operation}`,
@@ -94,12 +94,11 @@ test("hosted configuration uses pushed declarations independently of developer-l
 	}
 	const [personal, organization] = slates
 	if (!personal || !organization) throw new Error("Expected test slates")
-	const accountsResponse = await fetch(`${origin}/api/connections?toolkit=gmail`, {
+	const accountsResponse = await fetch(`${origin}/api/accounts?toolkit=gmail`, {
 		headers,
 	})
 	expect(accountsResponse.status).toBe(200)
-	const mailAccount = connectionsSchema.parse(await accountsResponse.json())
-		.connections[0]
+	const mailAccount = accountsSchema.parse(await accountsResponse.json()).accounts[0]
 	if (!mailAccount) throw new Error("Expected an active Gmail connected account")
 	const publicViewer = await db
 		.insertInto("slate")
@@ -193,7 +192,7 @@ test("hosted configuration uses pushed declarations independently of developer-l
 		expect(unassigned.status).toBe(200)
 		expect(
 			slateResourcesSchema.parse(await unassigned.json()).resources.connections.repository
-				?.connection_id,
+				?.account_id,
 		).toBeNull()
 		expect(
 			await db
@@ -204,18 +203,18 @@ test("hosted configuration uses pushed declarations independently of developer-l
 		).toEqual([])
 		const assigned = await fetch(
 			`${origin}/api/slates/${slate.id}/connections/assign`,
-			post({ connection_id: "test-repository", slug: "repository" }),
+			post({ account_id: "test-repository", slug: "repository" }),
 		)
 		expect(assigned.status).toBe(200)
 		expect(
 			await db
 				.selectFrom("slate_connection_assignment")
-				.select(["slug", "connection_id", "owner_type", "owner_id"])
+				.select(["slug", "account_id", "owner_type", "owner_id"])
 				.where("slate_id", "=", slate.id)
 				.execute(),
 		).toEqual([
 			{
-				connection_id: "test-repository",
+				account_id: "test-repository",
 				owner_id: slate === personal ? user.id : owningOrganization.id,
 				owner_type: slate === personal ? "personal" : "organization",
 				slug: "repository",
@@ -233,14 +232,14 @@ test("hosted configuration uses pushed declarations independently of developer-l
 		expect(configuration).toEqual({
 			connections: {
 				mail: {
-					connection_id: null,
+					account_id: null,
 					consumers: [{ type: "app" }, { name: "daily-summary", type: "agent" }],
 					mode: "viewer",
 					owner: viewer,
 					toolkit: "gmail",
 				},
 				repository: {
-					connection_id: "test-repository",
+					account_id: "test-repository",
 					consumers: [{ name: "daily-summary", type: "agent" }],
 					mode: "owner",
 					owner,
@@ -294,7 +293,7 @@ test("hosted configuration uses pushed declarations independently of developer-l
 			expect(html).not.toContain(name)
 		const chromeAssigned = await fetch(chromeUrl, {
 			body: new URLSearchParams({
-				connection_id: mailAccount.id,
+				account_id: mailAccount.id,
 				intent: "assign",
 				slug: "mail",
 			}),
@@ -307,7 +306,7 @@ test("hosted configuration uses pushed declarations independently of developer-l
 		expect(saved.status).toBe(200)
 		expect(
 			slateResourcesSchema.parse(await saved.json()).resources.connections.mail
-				?.connection_id,
+				?.account_id,
 		).toBe(mailAccount.id)
 		if (slate === personal) {
 			await db
@@ -320,7 +319,7 @@ test("hosted configuration uses pushed declarations independently of developer-l
 			expect(await viewerChrome.text()).toContain("Managed by slate Owner")
 			const denied = await fetch(chromeUrl, {
 				body: new URLSearchParams({
-					connection_id: mailAccount.id,
+					account_id: mailAccount.id,
 					intent: "assign",
 					slug: "repository",
 				}),
@@ -351,7 +350,7 @@ test("hosted configuration uses pushed declarations independently of developer-l
 		)
 		expect(pushed.status).toBe(200)
 		const { resources } = slateResourcesSchema.parse(await pushed.json())
-		expect(resources.connections.repository?.connection_id).toBe("test-repository")
+		expect(resources.connections.repository?.account_id).toBe("test-repository")
 		expect(resources.connections.calendar).toBeUndefined()
 		expect(
 			(

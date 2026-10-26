@@ -44,7 +44,7 @@ export async function prepareLocalResourceConfiguration(
 		connections: Object.fromEntries(
 			Object.entries(resources.connections).map(([slug, requirement]) => [
 				slug,
-				{ ...requirement, connection_id: assignments.get(slug) ?? null },
+				{ ...requirement, account_id: assignments.get(slug) ?? null },
 			]),
 		),
 		databases: Object.fromEntries(
@@ -64,10 +64,10 @@ export async function prepareLocalResourceConfiguration(
 
 export async function saveLocalConnection(
 	slug: string,
-	connectionId: string,
+	accountId: string,
 	directory = process.cwd(),
 ) {
-	const assignment = localConnectionsSchema.parse({ [slug]: connectionId })
+	const assignment = localConnectionsSchema.parse({ [slug]: accountId })
 	const connections = { ...(await readLocalConnections(directory)), ...assignment }
 	await mkdir(resolve(directory, ".contextlayer"), { recursive: true })
 	await writeFile(

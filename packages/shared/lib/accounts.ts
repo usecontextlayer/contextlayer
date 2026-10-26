@@ -1,6 +1,6 @@
 import { z } from "zod"
 
-export const connectionSchema = z.object({
+export const accountSchema = z.object({
 	alias: z.string().nullable(),
 	display_name: z.string().nullable(),
 	id: z.string(),
@@ -8,4 +8,4 @@ export const connectionSchema = z.object({
 	toolkit: z.string(),
 })
 
-export const connectionsSchema = z.object({ connections: z.array(connectionSchema) })
+export const accountsSchema = z.object({ accounts: z.array(accountSchema) })

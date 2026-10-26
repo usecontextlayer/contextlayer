@@ -3,7 +3,7 @@ import { test as base } from "@tests/integration"
 import { execa } from "execa"
 import { expect } from "vitest"
 import { z } from "zod"
-import { connectionsSchema } from "@/connections.schema"
+import { accountsSchema } from "@/accounts.schema"
 import { parseSharedSecretsEnv } from "@/env"
 import type { Owner } from "@/owner"
 import { secretKey } from "@/secrets.server"
@@ -104,7 +104,7 @@ test("non-writing: Owner accounts enforce access and list through the real API a
 	} = identity
 	const { origin } = platform
 	const { slug } = organization
-	const personalUrl = `${origin}/api/connections/personal/${encodeURIComponent(userId)}`
+	const personalUrl = `${origin}/api/accounts/personal/${encodeURIComponent(userId)}`
 	for (const method of ["GET", "POST"]) {
 		const request =
 			method === "POST"
@@ -118,7 +118,7 @@ test("non-writing: Owner accounts enforce access and list through the real API a
 		for (const type of ["personal", "org"]) {
 			expect(
 				(
-					await fetch(`${origin}/api/connections/${type}/not-this-owner`, {
+					await fetch(`${origin}/api/accounts/${type}/not-this-owner`, {
 						...request,
 						headers: { ...request.headers, ...headers },
 					})
@@ -129,17 +129,17 @@ test("non-writing: Owner accounts enforce access and list through the real API a
 	for (const [url, args] of [
 		[personalUrl, ["accounts", "list"]],
 		[
-			`${origin}/api/connections/org/${encodeURIComponent(organization.id)}`,
+			`${origin}/api/accounts/org/${encodeURIComponent(organization.id)}`,
 			["accounts", "--org", slug, "list"],
 		],
 	] as const) {
 		const response = await fetch(url, { headers })
 		expect(response.status).toBe(200)
-		const { connections } = connectionsSchema.parse(await response.json())
+		const { accounts } = accountsSchema.parse(await response.json())
 		const cli = await runCli([...args])
 		expect(cli.exitCode).toBe(0)
-		if (connections.length === 0) expect(cli.all).toContain("No connected accounts.")
-		for (const account of connections) expect(cli.all).toContain(account.id)
+		if (accounts.length === 0) expect(cli.all).toContain("No connected accounts.")
+		for (const account of accounts) expect(cli.all).toContain(account.id)
 	}
 	const unknownOrg = await runCli(["accounts", "--org", "not-a-member", "list"])
 	expect(unknownOrg.exitCode).toBe(1)
@@ -152,15 +152,15 @@ test("non-writing: Owner accounts enforce access and list through the real API a
 			),
 		})
 		.parse(await (await fetch(`${origin}/api/openapi.json`)).json())
-	expect(paths["/connections/{type}/{owner_id}"]).toEqual(
+	expect(paths["/accounts/{type}/{owner_id}"]).toEqual(
 		expect.objectContaining({
-			get: expect.objectContaining({ operationId: "listConnections" }),
+			get: expect.objectContaining({ operationId: "listAccounts" }),
 			post: expect.objectContaining({ operationId: "connectAccount" }),
 		}),
 	)
-	expect(paths["/connections"]).toEqual(
+	expect(paths["/accounts"]).toEqual(
 		expect.objectContaining({
-			get: expect.objectContaining({ operationId: "listPersonalConnections" }),
+			get: expect.objectContaining({ operationId: "listPersonalAccounts" }),
 		}),
 	)
 })

@@ -2,7 +2,7 @@
 
 Each document has a distinct purpose. Keep information with the document that owns it.
 
-- **ARCHITECTURE.md:** system ownership, dataflow, domain terminology, domain concepts, trust boundaries, stable relationships, security guidance, principles, and architectural invariants. Explain the concepts and why the boundaries matter. Describes in should/must what the system must uphold. This is the key document that upholds and propagates conceptual integrity. The [domain-model paragraph](ARCHITECTURE.md#domain-model) owns the slate vocabulary; other documents link to it instead of redefining it:
+- **ARCHITECTURE.md:** system ownership, dataflow, domain terminology, domain concepts, trust boundaries, stable relationships, security guidance, principles, and architectural invariants. Explain the concepts and why the boundaries matter. Describes in should/must what the system must uphold. This is the key document that upholds and propagates conceptual integrity. The [domain model](ARCHITECTURE.md#domain-model) owns the slate vocabulary; other documents link to it instead of redefining it:
     - https://wiki.c2.com/?ConceptualIntegrity
     - https://wiki.c2.com/?ArchitectAsKeeperOfTheFlame
 - **AGENTS.md:** construction principles and rules for future changes. Root guidance applies across the repository; preserves consistent patterns, and the intended layering.

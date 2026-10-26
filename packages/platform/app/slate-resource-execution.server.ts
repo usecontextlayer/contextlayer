@@ -94,6 +94,6 @@ export async function resolveSlateConnection(
 	const connection = resolved.configuration.connections[
 		slug
 	] as ResolvedSlateResourceConfiguration["connections"][string]
-	const { connection_id, owner, ...requirement } = connection
-	return { allowed: true, connection_id, owner, requirement } as const
+	const { account_id, owner, ...requirement } = connection
+	return { account_id, allowed: true, owner, requirement } as const
 }

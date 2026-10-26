@@ -1,20 +1,20 @@
 import { Composio } from "@composio/core"
 import type { z } from "zod"
+import { accountLinkSchema, accountSchema } from "@/accounts.schema"
 import type { OwnerIdentity } from "@/auth.server"
-import { connectionLinkSchema, connectionSchema } from "@/connections.schema"
 import type { PlatformConfig } from "@/env"
 import type { Owner } from "@/owner"
 import { authorizeOwner } from "@/owner.server"
 
-export async function createConnectionSession(
+export async function createAccountSession(
 	apiKey: string,
 	owner: Owner,
-	connectionId: string,
+	accountId: string,
 	toolkit: string,
 ) {
 	const composio = new Composio({ apiKey })
 	return composio.create(owner.id, {
-		connectedAccounts: { [toolkit]: [connectionId] },
+		connectedAccounts: { [toolkit]: [accountId] },
 		manageConnections: { enable: false },
 		sandbox: { enable: true },
 		sessionPreset: "direct_tools",
@@ -35,13 +35,13 @@ export async function connectAccount(
 	const request = await session.authorize(toolkit)
 	return {
 		allowed: true,
-		link: connectionLinkSchema.parse({ redirect_url: request.redirectUrl }),
+		link: accountLinkSchema.parse({ redirect_url: request.redirectUrl }),
 	} as const
 }
 
 async function listConnectedAccounts(apiKey: string, ownerId: string, toolkit?: string) {
 	const composio = new Composio({ apiKey })
-	const connections: z.infer<typeof connectionSchema>[] = []
+	const accounts: z.infer<typeof accountSchema>[] = []
 	let cursor: string | undefined
 	do {
 		const page = await composio.connectedAccounts.list({
@@ -51,8 +51,8 @@ async function listConnectedAccounts(apiKey: string, ownerId: string, toolkit?: 
 			userIds: [ownerId],
 		})
 		for (const account of page.items) {
-			connections.push(
-				connectionSchema.parse({
+			accounts.push(
+				accountSchema.parse({
 					alias: account.alias ?? null,
 					display_name: account.state?.val.displayName ?? null,
 					id: account.id,
@@ -63,10 +63,10 @@ async function listConnectedAccounts(apiKey: string, ownerId: string, toolkit?: 
 		}
 		cursor = page.nextCursor ?? undefined
 	} while (cursor)
-	return connections
+	return accounts
 }
 
-export async function listConnections(
+export async function listAccounts(
 	config: PlatformConfig,
 	identity: OwnerIdentity,
 	owner: Owner,
@@ -74,18 +74,18 @@ export async function listConnections(
 	if (!(await authorizeOwner(identity, config.CTX_AUTH_ISSUER, owner)))
 		return { allowed: false } as const
 	return {
+		accounts: await listConnectedAccounts(config.COMPOSIO_API_KEY, owner.id),
 		allowed: true,
-		connections: await listConnectedAccounts(config.COMPOSIO_API_KEY, owner.id),
 	} as const
 }
 
-export async function listPersonalConnections(
+export async function listPersonalAccounts(
 	config: PlatformConfig,
 	identity: OwnerIdentity,
 	toolkit: string,
 ) {
 	return {
-		connections: await listConnectedAccounts(
+		accounts: await listConnectedAccounts(
 			config.COMPOSIO_API_KEY,
 			identity.user.id,
 			toolkit,

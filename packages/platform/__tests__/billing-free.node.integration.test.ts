@@ -106,19 +106,16 @@ test("signed Free enrollment grants credits and exhaustion denies runtime access
 			type === "team" ? "/settings/organizations" : "/settings/billing",
 		)
 		expect((await fetch(resolve("/slate.json"))).status).toBe(200)
-		const response = await fetch(
-			new URL("/api/connections/unassigned/tools/call", origin),
-			{
-				body: JSON.stringify({
-					arguments: {},
-					slate_id: slate.id,
-					tool: "EXAMPLE",
-					toolkit: "gmail",
-				}),
-				headers: { ...identity.headers, "content-type": "application/json" },
-				method: "POST",
-			},
-		)
+		const response = await fetch(new URL("/api/accounts/unassigned/tools/call", origin), {
+			body: JSON.stringify({
+				arguments: {},
+				slate_id: slate.id,
+				tool: "EXAMPLE",
+				toolkit: "gmail",
+			}),
+			headers: { ...identity.headers, "content-type": "application/json" },
+			method: "POST",
+		})
 		expect(response.status).toBe(402)
 		expect(await response.text()).toBe(message)
 	}

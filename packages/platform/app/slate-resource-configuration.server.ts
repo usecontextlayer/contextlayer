@@ -13,12 +13,12 @@ export function resolveSlateResourceConfiguration(
 ) {
 	const connections: Record<
 		string,
-		SlateResourceConfiguration["connections"][string] & { connection_id: string }
+		SlateResourceConfiguration["connections"][string] & { account_id: string }
 	> = {}
 	for (const [slug, connection] of Object.entries(configuration.connections)) {
-		if (connection.connection_id === null)
+		if (connection.account_id === null)
 			return { allowed: false, reason: "connection-required", slug } as const
-		connections[slug] = { ...connection, connection_id: connection.connection_id }
+		connections[slug] = { ...connection, account_id: connection.account_id }
 	}
 	for (const [name, secret] of Object.entries(configuration.secrets)) {
 		if (secret.mode === "viewer" && !secret.supplied)
@@ -78,7 +78,7 @@ function prepareSlateConnection(
 		(row) =>
 			row.slug === slug && row.owner_type === owner.type && row.owner_id === owner.id,
 	)
-	return { ...requirement, connection_id: assignment?.connection_id ?? null, owner }
+	return { ...requirement, account_id: assignment?.account_id ?? null, owner }
 }
 
 export function prepareSlateDatabaseConfiguration(
@@ -137,7 +137,7 @@ function getSlateConnectionAssignments(
 ) {
 	return db
 		.selectFrom("slate_connection_assignment")
-		.select(["slug", "connection_id", "owner_type", "owner_id"])
+		.select(["slug", "account_id", "owner_type", "owner_id"])
 		.where("slate_id", "=", slateId)
 		.where((eb) => eb.or(owners.map((owner) => eb.and(assignmentOwner(owner)))))
 		.execute()

@@ -16,7 +16,7 @@ export function assignmentOwner(owner: Owner) {
 }
 
 export const assignmentSchema = z.object({
-	connection_id: z.string().min(1),
+	account_id: z.string().min(1),
 	slug: z
 		.string()
 		.min(1)

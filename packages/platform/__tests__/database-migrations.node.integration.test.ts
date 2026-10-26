@@ -28,7 +28,6 @@ const test = base.extend(
 		{
 			configPath: new URL("../../build/wrangler.jsonc", import.meta.url),
 			env: "test",
-			prebuiltWorkerDir: new URL("../../build/dist", import.meta.url),
 		},
 	],
 )

@@ -87,6 +87,10 @@ export const test = base
 			prebuiltWorkerDir: new URL("../build/server", import.meta.url),
 			secrets: platformEnv,
 		},
+		{
+			configPath: new URL("../../build/wrangler.jsonc", import.meta.url),
+			env: "test",
+		},
 	])
 	.extend("platform", async ({ platformEnv: env, workers, harness }) => {
 		const origin = (await harness.listen()).url.origin
@@ -113,6 +117,12 @@ export const test = base
 		...commandEnv,
 		CTX_PLATFORM_URL: platform.origin,
 	}))
+	.extend("provisioning", ({ platform }) => ({
+		harness: platform.harness,
+		worker: platform.harness.getWorker<{ PROVISIONING: Service<Provisioning> }>(
+			"contextlayer-build-test",
+		),
+	}))
 
 export const dispatcherTest = test
 	.extend("workers", ({ workers, serviceEnv }): WorkerConfig[] => [
@@ -136,23 +146,7 @@ export const dispatcherTest = test
 		),
 	}))
 
-export const provisioningTest = test
-	.extend("workers", ({ workers }): WorkerConfig[] => [
-		...workers,
-		{
-			configPath: new URL("../../build/wrangler.jsonc", import.meta.url),
-			env: "test",
-			prebuiltWorkerDir: new URL("../../build/dist", import.meta.url),
-		},
-	])
-	.extend("provisioning", ({ platform }) => ({
-		harness: platform.harness,
-		worker: platform.harness.getWorker<{ PROVISIONING: Service<Provisioning> }>(
-			"contextlayer-build-test",
-		),
-	}))
-
-export const executionTest = provisioningTest
+export const executionTest = test
 	.extend("workers", ({ workers }): WorkerConfig[] => [
 		...workers,
 		{

@@ -21,7 +21,7 @@ import {
 	resolveSlateResourceConfiguration,
 } from "@/slate-resource-configuration.server"
 import { slateSchema } from "@/slates.schema"
-import { callConnectionTool } from "@/tools.server"
+import { callAccountTool } from "@/tools.server"
 
 const config = parsePlatformEnv({
 	COMPOSIO_API_KEY: "unused-in-sql-only-test",
@@ -52,7 +52,7 @@ test("personal-account execution cannot charge another person's public slate", a
 		user: { id: "bob" },
 	} as const satisfies OwnerIdentity
 	expect(
-		await callConnectionTool(db, config, bob, "bob-mail", {
+		await callAccountTool(db, config, bob, "bob-mail", {
 			arguments: {},
 			slate_id: slate.id,
 			tool: "GMAIL_GET_PROFILE",
@@ -117,14 +117,14 @@ test("configuration includes agent-only connections and projects app requirement
 			),
 		),
 	).toEqual({ allowed: false, reason: "connection-required", slug: "mail" })
-	await sql`INSERT INTO slate_connection_assignment (slate_id, owner_type, owner_id, slug, connection_id)
+	await sql`INSERT INTO slate_connection_assignment (slate_id, owner_type, owner_id, slug, account_id)
  VALUES (${slate.id}, 'personal', 'alice', 'mail', 'alice-mail'), (${slate.id}, 'personal', 'alice', 'repository', 'alice-repository')`.execute(
 		db,
 	)
 	const listed = await listSlateConnections(db, config, access, resources)
 	expect(listed.connections).toEqual([
 		{
-			connection_id: "alice-mail",
+			account_id: "alice-mail",
 			consumers: [{ type: "app" }, { name: "daily-summary", type: "agent" }],
 			mode: "viewer",
 			owner: { id: "alice", type: "personal" },
@@ -132,7 +132,7 @@ test("configuration includes agent-only connections and projects app requirement
 			toolkit: "gmail",
 		},
 		{
-			connection_id: "alice-repository",
+			account_id: "alice-repository",
 			consumers: [
 				{ name: "daily-summary", type: "agent" },
 				{ name: "nightly", type: "agent" },
@@ -156,7 +156,7 @@ test("configuration includes agent-only connections and projects app requirement
 	if (!appResources.allowed) throw new Error("Expected assigned app resources")
 	expect(appResources.configuration.connections).toEqual({
 		mail: {
-			connection_id: "alice-mail",
+			account_id: "alice-mail",
 			consumers: [{ type: "app" }, { name: "daily-summary", type: "agent" }],
 			mode: "viewer",
 			owner: { id: "alice", type: "personal" },
@@ -214,7 +214,7 @@ test("configuration includes agent-only connections and projects app requirement
 		},
 		connections: {
 			repository: {
-				connection_id: "alice-repository",
+				account_id: "alice-repository",
 				owner: { id: "alice", type: "personal" },
 				toolkit: "github",
 			},
@@ -267,7 +267,7 @@ test("resource modes select viewer and slate Owner assignments in hosted configu
 		.insertInto("slate_member")
 		.values(slateMemberSchema.parse({ slate_id: slate.id, user_id: "alice" }))
 		.execute()
-	await sql`INSERT INTO slate_connection_assignment (slate_id, owner_type, owner_id, slug, connection_id)
+	await sql`INSERT INTO slate_connection_assignment (slate_id, owner_type, owner_id, slug, account_id)
  VALUES (${slate.id}, 'personal', 'alice', 'company', 'alice-company'), (${slate.id}, 'personal', 'alice', 'personal', 'alice-personal')`.execute(
 		db,
 	)
@@ -275,14 +275,14 @@ test("resource modes select viewer and slate Owner assignments in hosted configu
 		.insertInto("slate_member")
 		.values(slateMemberSchema.parse({ slate_id: slate.id, user_id: "bob" }))
 		.execute()
-	await sql`INSERT INTO slate_connection_assignment (slate_id, owner_type, owner_id, slug, connection_id)
+	await sql`INSERT INTO slate_connection_assignment (slate_id, owner_type, owner_id, slug, account_id)
 		VALUES (${slate.id}, 'personal', 'bob', 'personal', 'bob-personal')`.execute(db)
 	expect(
 		(await listSlateConnections(db, config, { identity: bob, slate }, resources))
 			.connections,
 	).toEqual([
 		{
-			connection_id: "alice-company",
+			account_id: "alice-company",
 			consumers: [{ type: "app" }],
 			mode: "owner",
 			owner: { id: "alice", type: "personal" },
@@ -290,7 +290,7 @@ test("resource modes select viewer and slate Owner assignments in hosted configu
 			toolkit: "gmail",
 		},
 		{
-			connection_id: "bob-personal",
+			account_id: "bob-personal",
 			consumers: [{ type: "app" }],
 			mode: "viewer",
 			owner: { id: "bob", type: "personal" },
@@ -310,7 +310,7 @@ test("resource modes select viewer and slate Owner assignments in hosted configu
 			.returningAll()
 			.executeTakeFirstOrThrow(),
 	)
-	await sql`INSERT INTO slate_connection_assignment (slate_id, owner_type, owner_id, slug, connection_id)
+	await sql`INSERT INTO slate_connection_assignment (slate_id, owner_type, owner_id, slug, account_id)
 		VALUES (${organizationSlate.id}, 'organization', 'acme', 'company', 'acme-company')`.execute(
 		db,
 	)
@@ -325,7 +325,7 @@ test("resource modes select viewer and slate Owner assignments in hosted configu
 		).connections,
 	).toEqual([
 		{
-			connection_id: "acme-company",
+			account_id: "acme-company",
 			consumers: [{ type: "app" }],
 			mode: "owner",
 			owner: { id: "acme", type: "organization" },
@@ -333,7 +333,7 @@ test("resource modes select viewer and slate Owner assignments in hosted configu
 			toolkit: "gmail",
 		},
 		{
-			connection_id: null,
+			account_id: null,
 			consumers: [{ type: "app" }],
 			mode: "viewer",
 			owner: { id: "bob", type: "personal" },

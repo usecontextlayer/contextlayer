@@ -11,13 +11,13 @@
 		"vitest": "^4.1.11"
 	},
 	"exports": {
+		"./accounts": {
+			"import": "./dist/accounts.mjs",
+			"types": "./dist/accounts.d.mts"
+		},
 		"./chrome": {
 			"import": "./dist/chrome.mjs",
 			"types": "./dist/chrome.d.mts"
-		},
-		"./connections": {
-			"import": "./dist/connections.mjs",
-			"types": "./dist/connections.d.mts"
 		},
 		"./database-dialect": {
 			"import": "./dist/database-dialect.mjs",

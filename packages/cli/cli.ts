@@ -199,7 +199,7 @@ accounts
 accounts
 	.command("add <toolkit>")
 	.description(
-		"Connect the selected Owner's account in your browser (for example, gmail), then assign it with ctx connections <target> assign <slug> [connection_id]",
+		"Connect the selected Owner's account in your browser (for example, gmail), then assign it with ctx connections <target> assign <slug> [account_id]",
 	)
 	.action(async (toolkit, _options, command: Command) => {
 		const options = ownerOptionsSchema.parse(command.optsWithGlobals())
@@ -218,12 +218,12 @@ program
 		"Required for assign: connection slug declared in slate.json (for example, work-email)",
 	)
 	.argument(
-		"[connection_id]",
+		"[account_id]",
 		"For assign: connected account ID; omit locally to choose interactively; required for hosted targets",
 	)
-	.action(async (target, operation, slug, connectionId, _options, command: Command) => {
+	.action(async (target, operation, slug, accountId, _options, command: Command) => {
 		const parsed = connectionsCommandSchema.safeParse({
-			connection_id: connectionId,
+			account_id: accountId,
 			operation,
 			slug,
 			target,
@@ -238,7 +238,7 @@ program
 				await listSlateConnections(input.target)
 				break
 			case "assign":
-				await assignSlateConnection(input.target, input.slug, input.connection_id)
+				await assignSlateConnection(input.target, input.slug, input.account_id)
 				break
 			default:
 				throw new Error(

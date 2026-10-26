@@ -2,9 +2,9 @@ import assert from "node:assert/strict"
 import { mkdir, writeFile } from "node:fs/promises"
 import { join, resolve } from "node:path"
 import { writeDatabase } from "@tests/database-project"
-import { provisioningTest as test } from "@tests/integration"
+import { test } from "@tests/integration"
 import { createSlateProject } from "@usecontextlayer/dev-env/slate"
-import { connectionsSchema } from "@usecontextlayer/shared/connections"
+import { accountsSchema } from "@usecontextlayer/shared/accounts"
 import { slateResourcesSchema } from "@usecontextlayer/shared/slate-resources"
 import { getAgentByName } from "agents/routing"
 import { execa } from "execa"
@@ -23,11 +23,11 @@ test("chrome and API final assignments enable agent-only personal resources with
 		headers,
 		method: "POST",
 	})
-	const catalog = await fetch(`${platform.origin}/api/connections?toolkit=gmail`, {
+	const catalog = await fetch(`${platform.origin}/api/accounts?toolkit=gmail`, {
 		headers,
 	})
 	expect(catalog.status).toBe(200)
-	const account = connectionsSchema.parse(await catalog.json()).connections[0]
+	const account = accountsSchema.parse(await catalog.json()).accounts[0]
 	assert(
 		account,
 		"The native chrome proof requires an existing ACTIVE personal Gmail connected account for the local development user.",
@@ -94,10 +94,10 @@ test("chrome and API final assignments enable agent-only personal resources with
 		await git("push", "origin", "main")
 		const partial = await fetch(
 			`${platform.origin}/api/slates/${slate.id}/connections/assign`,
-			post({ connection_id: account.id, slug: "primary" }),
+			post({ account_id: account.id, slug: "primary" }),
 		)
 		expect(partial.status, await partial.clone().text()).toBe(200)
-		expect(await partial.json()).toEqual({ connection_id: account.id, slug: "primary" })
+		expect(await partial.json()).toEqual({ account_id: account.id, slug: "primary" })
 		expect(await members()).toEqual([])
 		const listing = await fetch(
 			`${platform.origin}/api/slates/${slate.id}/resources/list`,
@@ -105,8 +105,8 @@ test("chrome and API final assignments enable agent-only personal resources with
 		)
 		expect(listing.status).toBe(200)
 		const { resources } = slateResourcesSchema.parse(await listing.json())
-		expect(resources.connections.primary?.connection_id).toBe(account.id)
-		expect(resources.connections.secondary?.connection_id).toBeNull()
+		expect(resources.connections.primary?.account_id).toBe(account.id)
+		expect(resources.connections.secondary?.account_id).toBeNull()
 		const inbox = resources.databases.inbox
 		assert(inbox)
 		await expect(
@@ -125,7 +125,7 @@ test("chrome and API final assignments enable agent-only personal resources with
 			chromeHeaders.set("accept", "text/html")
 			const assigned = await fetch(chromeUrl, {
 				body: new URLSearchParams({
-					connection_id: account.id,
+					account_id: account.id,
 					intent: "assign",
 					slug: "secondary",
 				}),
@@ -137,11 +137,11 @@ test("chrome and API final assignments enable agent-only personal resources with
 		} else {
 			const assigned = await fetch(
 				`${platform.origin}/api/slates/${slate.id}/connections/assign`,
-				post({ connection_id: account.id, slug: "secondary" }),
+				post({ account_id: account.id, slug: "secondary" }),
 			)
 			expect(assigned.status, await assigned.clone().text()).toBe(200)
 			expect(await assigned.json()).toEqual({
-				connection_id: account.id,
+				account_id: account.id,
 				slug: "secondary",
 			})
 		}
@@ -154,7 +154,7 @@ test("chrome and API final assignments enable agent-only personal resources with
 		).toEqual([])
 		const again = await fetch(
 			`${platform.origin}/api/slates/${slate.id}/connections/assign`,
-			post({ connection_id: account.id, slug: "primary" }),
+			post({ account_id: account.id, slug: "primary" }),
 		)
 		expect(again.status).toBe(200)
 		expect(await instance.listSchedules()).toEqual(schedules)

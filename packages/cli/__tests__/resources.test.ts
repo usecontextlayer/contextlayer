@@ -52,8 +52,8 @@ test("assembles local configuration before consumer selection without Git, crede
 	expectTypeOf(app).toEqualTypeOf<LocalResourceConfiguration>()
 	expect(Object.keys(app.connections)).toEqual(["mail"])
 	expect(Object.keys(agent.connections)).toEqual(["mail", "repository"])
-	expect(app.connections.mail?.connection_id).toBeNull()
-	expect(agent.connections.repository?.connection_id).toBeNull()
+	expect(app.connections.mail?.account_id).toBeNull()
+	expect(agent.connections.repository?.account_id).toBeNull()
 	expect(app.secrets.CTX_LOCAL_TEST_SECRET?.value).toBe("local-only-value")
 	expect(agent.databases.reports?.instance_name).toBe("reports")
 	expect(app.databases.reports).toEqual(agent.databases.reports)
@@ -76,11 +76,11 @@ test("preserves saved assignments and reads only the given checkout's current de
 		repository: "ca_git",
 	})
 	const configuration = await prepareLocalResourceConfiguration(directory)
-	expect(configuration.connections.mail?.connection_id).toBe("ca_replacement")
-	expect(configuration.connections.repository?.connection_id).toBe("ca_git")
+	expect(configuration.connections.mail?.account_id).toBe("ca_replacement")
+	expect(configuration.connections.repository?.account_id).toBe("ca_git")
 	expect(configuration.secrets.CTX_LOCAL_TEST_SECRET?.value).toBeNull()
 	expect(
-		(await prepareLocalResourceConfiguration(other)).connections.mail?.connection_id,
+		(await prepareLocalResourceConfiguration(other)).connections.mail?.account_id,
 	).toBeNull()
 	await writeFile(
 		join(directory, "public/slate.json"),
@@ -99,7 +99,7 @@ test("rejects malformed assignments and database slugs that escape the local dat
 	await mkdir(join(directory, ".contextlayer"))
 	await writeFile(
 		join(directory, ".contextlayer/connections.json"),
-		JSON.stringify({ mail: { connection_id: "ca_mail" } }),
+		JSON.stringify({ mail: { account_id: "ca_mail" } }),
 	)
 	await expect(prepareLocalResourceConfiguration(directory)).rejects.toThrow()
 	await writeFile(join(directory, ".contextlayer/connections.json"), "{}")

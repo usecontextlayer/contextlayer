@@ -84,7 +84,7 @@ export function prepareAgentRun(
 	const connections: AgentRun["connections"] = {}
 	for (const [slug, connection] of Object.entries(configuration.connections)) {
 		connections[slug] = {
-			connection_id: connection.connection_id,
+			account_id: connection.account_id,
 			owner: connection.owner,
 			toolkit: connection.toolkit,
 		}

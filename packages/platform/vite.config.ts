@@ -23,6 +23,6 @@ export default defineConfig({
 		reactRouter(),
 	],
 	preview: { port: 3010 },
-	resolve: { alias: { "@": fileURLToPath(new URL("./app", import.meta.url)) } },
+	resolve: { tsconfigPaths: true },
 	server: { port: 3010 },
 })

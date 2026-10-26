@@ -1,5 +1,5 @@
 import { isCancel, select } from "@clack/prompts"
-import { connectionsSchema } from "@usecontextlayer/shared/connections"
+import { accountsSchema } from "@usecontextlayer/shared/accounts"
 import { slateConnectionsSchema } from "@usecontextlayer/shared/slate-connections"
 import { noCommitSchema } from "@usecontextlayer/shared/slate-resources"
 import { z } from "zod"
@@ -9,24 +9,24 @@ import { prepareLocalResourceConfiguration, saveLocalConnection } from "@/resour
 
 export const connectionsCommandSchema = z.discriminatedUnion("operation", [
 	z.object({
-		connection_id: z.undefined(),
+		account_id: z.undefined(),
 		operation: z.literal("list"),
 		slug: z.undefined(),
 		target: z.string().min(1),
 	}),
 	z
 		.object({
-			connection_id: z.string().min(1).optional(),
+			account_id: z.string().min(1).optional(),
 			operation: z.literal("assign"),
 			slug: z.string().min(1),
 			target: z.string().min(1),
 		})
 		.superRefine((input, ctx) => {
-			if (input.target !== "local" && input.connection_id === undefined) {
+			if (input.target !== "local" && input.account_id === undefined) {
 				ctx.addIssue({
 					code: "custom",
-					message: "Hosted assignment requires a connection ID",
-					path: ["connection_id"],
+					message: "Hosted assignment requires an account ID",
+					path: ["account_id"],
 				})
 			}
 		}),
@@ -35,49 +35,49 @@ export const connectionsCommandSchema = z.discriminatedUnion("operation", [
 export async function assignSlateConnection(
 	target: string,
 	slug: string,
-	connectionId: string | undefined,
+	accountId: string | undefined,
 ) {
 	if (target === "local") {
 		const configuration = await prepareLocalResourceConfiguration()
 		const requirement = new Map(Object.entries(configuration.connections)).get(slug)
 		if (!requirement) throw new Error(`No local connection requirement for "${slug}"`)
-		if (connectionId === undefined && !process.stdin.isTTY) {
-			throw new Error("Supply a connection ID when assigning without a terminal")
+		if (accountId === undefined && !process.stdin.isTTY) {
+			throw new Error("Supply an account ID when assigning without a terminal")
 		}
-		const url = new URL("/api/connections", env.CTX_PLATFORM_URL)
+		const url = new URL("/api/accounts", env.CTX_PLATFORM_URL)
 		url.searchParams.set("toolkit", requirement.toolkit)
 		const response = await fetch(url, {
 			headers: { authorization: `Bearer ${await getAccessToken(env)}` },
 		})
 		if (!response.ok)
 			throw new Error(`Personal connected account list failed: HTTP ${response.status}`)
-		const { connections } = connectionsSchema.parse(await response.json())
-		if (connections.length === 0)
+		const { accounts } = accountsSchema.parse(await response.json())
+		if (accounts.length === 0)
 			throw new Error(
 				`No personal connected accounts for ${requirement.toolkit}. Run npx @usecontextlayer/cli accounts add ${requirement.toolkit} to connect an account in your browser, then rerun this assignment.`,
 			)
-		if (connectionId === undefined) {
-			const accountId = await select({
+		if (accountId === undefined) {
+			const selectedAccountId = await select({
 				message: `Assign a connected ${requirement.toolkit} account to ${slug}`,
-				options: connections.map((connection) => ({
-					label: `${connection.display_name ?? connection.alias ?? connection.id} (${connection.id}; ${connection.status})`,
-					value: connection.id,
+				options: accounts.map((account) => ({
+					label: `${account.display_name ?? account.alias ?? account.id} (${account.id}; ${account.status})`,
+					value: account.id,
 				})),
 				output: process.stderr,
 			})
-			if (isCancel(accountId)) {
+			if (isCancel(selectedAccountId)) {
 				process.exitCode = 130
 				return
 			}
-			connectionId = accountId
+			accountId = selectedAccountId
 		}
-		if (!connections.some(({ id }) => id === connectionId)) {
+		if (!accounts.some(({ id }) => id === accountId)) {
 			throw new Error(
-				`Connected account ${connectionId} is not one of your connected ${requirement.toolkit} accounts`,
+				`Connected account ${accountId} is not one of your connected ${requirement.toolkit} accounts`,
 			)
 		}
-		await saveLocalConnection(slug, connectionId)
-		console.log(`${slug} → ${connectionId}`)
+		await saveLocalConnection(slug, accountId)
+		console.log(`${slug} → ${accountId}`)
 		console.log("Start or restart pnpm dev to use this assignment.")
 		return
 	}
@@ -87,7 +87,7 @@ export async function assignSlateConnection(
 			env.CTX_PLATFORM_URL,
 		),
 		{
-			body: JSON.stringify({ connection_id: connectionId, slug }),
+			body: JSON.stringify({ account_id: accountId, slug }),
 			headers: {
 				authorization: `Bearer ${await getAccessToken(env)}`,
 				"content-type": "application/json",
@@ -102,9 +102,9 @@ export async function assignSlateConnection(
 	if (!response.ok)
 		throw new Error(`Connection assignment failed: HTTP ${response.status}`)
 	const assignment = z
-		.object({ connection_id: z.string(), slug: z.string() })
+		.object({ account_id: z.string(), slug: z.string() })
 		.parse(await response.json())
-	console.log(`${assignment.slug} → ${assignment.connection_id}`)
+	console.log(`${assignment.slug} → ${assignment.account_id}`)
 }
 
 async function prepareSlateConnections(target: string) {
@@ -145,9 +145,9 @@ export async function listSlateConnections(target: string) {
 		return
 	}
 	console.table(
-		connections.map(({ connection_id, consumers, ...requirement }) => ({
+		connections.map(({ account_id, consumers, ...requirement }) => ({
 			...requirement,
-			connected_account: connection_id ?? "unassigned",
+			connected_account: account_id ?? "unassigned",
 			consumers: consumers
 				.map((consumer) => (consumer.type === "app" ? "app" : `agent:${consumer.name}`))
 				.join(", "),

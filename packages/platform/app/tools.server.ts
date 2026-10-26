@@ -1,14 +1,14 @@
 import type { z } from "zod"
+import { createAccountSession } from "@/accounts.server"
 import type { OwnerIdentity } from "@/auth.server"
 import { checkSlateBilling } from "@/billing.server"
-import { createConnectionSession } from "@/connections.server"
 import type { PlatformEnv } from "@/context"
 import type { PlatformDb } from "@/database"
 import type { PlatformConfig } from "@/env"
 import { readLatestSlateDeclarations } from "@/slate-declarations.server"
 import { resolveSlateConnection } from "@/slate-resource-execution.server"
 import { getSlate, type SlateAccess } from "@/slates.server"
-import type { connectionToolCallSchema, toolCallSchema } from "@/tools.schema"
+import type { accountToolCallSchema, toolCallSchema } from "@/tools.schema"
 
 export async function callTool(
 	db: PlatformDb,
@@ -32,10 +32,10 @@ export async function callTool(
 		snapshot,
 	)
 	if (!resolved.allowed) return resolved
-	const session = await createConnectionSession(
+	const session = await createAccountSession(
 		config.COMPOSIO_API_KEY,
 		resolved.owner,
-		resolved.connection_id,
+		resolved.account_id,
 		resolved.requirement.toolkit,
 	)
 	return {
@@ -44,12 +44,12 @@ export async function callTool(
 	} as const
 }
 
-export async function callConnectionTool(
+export async function callAccountTool(
 	db: PlatformDb,
 	config: PlatformConfig,
 	identity: OwnerIdentity,
-	connectionId: string,
-	call: z.infer<typeof connectionToolCallSchema>,
+	accountId: string,
+	call: z.infer<typeof accountToolCallSchema>,
 ) {
 	const access = await getSlate(
 		db,
@@ -60,10 +60,10 @@ export async function callConnectionTool(
 	if (!access.allowed) return access
 	const billing = await checkSlateBilling(db, config, access.slate)
 	if (!billing.allowed) return billing
-	const session = await createConnectionSession(
+	const session = await createAccountSession(
 		config.COMPOSIO_API_KEY,
 		{ id: identity.user.id, type: "personal" },
-		connectionId,
+		accountId,
 		call.toolkit,
 	)
 	return {

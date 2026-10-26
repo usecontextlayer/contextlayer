@@ -213,7 +213,7 @@ export const agentRunSchema = z.strictObject({
 	connections: z.record(
 		z.string(),
 		z.object({
-			connection_id: z.string(),
+			account_id: z.string(),
 			owner: ownerSchema,
 			toolkit: z.string().min(1),
 		}),

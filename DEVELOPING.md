@@ -106,7 +106,7 @@ Commands that act on the slate checkout, such as a local connection assignment o
 
 ```sh
 cd ../my-slate
-pnpm -C <path-to-this-checkout> dev:ctx connections local assign <slug> <connection_id>
+pnpm -C <path-to-this-checkout> dev:ctx connections local assign <slug> <account_id>
 ```
 
 From inside the slate checkout, start its own dev server inside a `dev:env` subshell so its Vite startup finds the stack's issuer, client and login:

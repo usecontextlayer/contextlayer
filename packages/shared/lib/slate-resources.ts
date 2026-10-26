@@ -8,7 +8,7 @@ export const slateResourceConfigurationSchema = resourcesSchema.extend({
 	connections: z.record(
 		resourcesSchema.shape.connections.keyType,
 		resourcesSchema.shape.connections.valueType.extend({
-			connection_id: z.string().nullable(),
+			account_id: z.string().nullable(),
 			owner: ownerSchema,
 		}),
 	),
@@ -44,7 +44,7 @@ export const localResourceConfigurationSchema = resourcesSchema.extend({
 	connections: z.record(
 		resourcesSchema.shape.connections.keyType,
 		resourcesSchema.shape.connections.valueType.extend({
-			connection_id: z.string().min(1).nullable(),
+			account_id: z.string().min(1).nullable(),
 		}),
 	),
 	databases: z.record(

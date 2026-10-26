@@ -10,6 +10,7 @@ import { cn } from "cn"
 import { Fragment, useCallback, useEffect, useRef, useState } from "react"
 import { data, Form, redirectDocument, useFetcher } from "react-router"
 import { z } from "zod"
+import { connectAccount, listAccounts, listToolkits } from "@/accounts.server"
 import { getCurrentUser, type OwnerIdentity } from "@/auth.server"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -38,7 +39,6 @@ import {
 } from "@/components/ui/item"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { CONNECTION_MODE_LABELS } from "@/connection-labels"
-import { connectAccount, listConnections, listToolkits } from "@/connections.server"
 import {
 	agentsContext,
 	artifactsContext,
@@ -144,7 +144,7 @@ export async function action({ request, params, context }: Route.ActionArgs) {
 		context.get(agentsContext),
 		context.get(configContext),
 		access,
-		{ connection_id: input.data.connection_id, slug: input.data.slug },
+		{ account_id: input.data.account_id, slug: input.data.slug },
 		snapshot,
 	)
 	if (!result.allowed)
@@ -186,14 +186,14 @@ export async function loader({ params, context }: Route.LoaderArgs) {
 			? listToolkits(config, [...new Set(connections.map(([, { toolkit }]) => toolkit))])
 			: [],
 	])
-	const accountReads = new Map<string, ReturnType<typeof listConnections>>()
+	const accountReads = new Map<string, ReturnType<typeof listAccounts>>()
 	const requirements = await Promise.all(
-		connections.map(async ([slug, { connection_id, ...requirement }]) => {
+		connections.map(async ([slug, { account_id, ...requirement }]) => {
 			const owner = requirement.owner
 			const key = `${owner.type}:${owner.id}`
 			let accountRead = accountReads.get(key)
 			if (!accountRead) {
-				accountRead = listConnections(config, identity, owner)
+				accountRead = listAccounts(config, identity, owner)
 				accountReads.set(key, accountRead)
 			}
 			const row = {
@@ -203,24 +203,22 @@ export async function loader({ params, context }: Route.LoaderArgs) {
 			}
 			const accountAccess = await accountRead
 			if (!accountAccess.allowed) return { ...row, accountAccess }
-			const assignedAccount = accountAccess.connections.find(
-				({ id }) => id === connection_id,
-			)
+			const assignedAccount = accountAccess.accounts.find(({ id }) => id === account_id)
 			return {
 				...row,
 				accountAccess: {
-					accounts: accountAccess.connections.filter(
+					accounts: accountAccess.accounts.filter(
 						({ toolkit }) => toolkit === requirement.toolkit,
 					),
 					allowed: true as const,
 					assignment:
-						connection_id === null
+						account_id === null
 							? { type: "unassigned" as const }
 							: {
 									account: {
 										alias: assignedAccount?.alias ?? null,
 										display_name: assignedAccount?.display_name ?? null,
-										id: connection_id,
+										id: account_id,
 									},
 									type: "assigned" as const,
 								},
@@ -235,7 +233,7 @@ export async function loader({ params, context }: Route.LoaderArgs) {
 				connections: requirements,
 				secrets,
 				unconfiguredCount:
-					connections.filter(([, { connection_id }]) => connection_id === null).length +
+					connections.filter(([, { account_id }]) => account_id === null).length +
 					secrets.filter(({ supplied }) => !supplied).length,
 			},
 			parentOrigin,
@@ -466,16 +464,16 @@ function ConnectionRow({
 										: ""
 								}
 								disabled={pending}
-								onValueChange={(connection_id) => {
+								onValueChange={(account_id) => {
 									setOpen(false)
 									setAccountView("assignment")
 									if (
 										accountAccess.assignment.type === "assigned" &&
-										connection_id === accountAccess.assignment.account.id
+										account_id === accountAccess.assignment.account.id
 									)
 										return
 									fetcher.submit(
-										{ connection_id, intent: "assign", slug: requirement.slug },
+										{ account_id, intent: "assign", slug: requirement.slug },
 										{ method: "post" },
 									)
 								}}

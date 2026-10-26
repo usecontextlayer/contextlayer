@@ -33,9 +33,9 @@ export async function assignSlateConnection(
 		.onConflict((conflict) =>
 			conflict
 				.columns(["slate_id", "owner_type", "owner_id", "slug"])
-				.doUpdateSet({ connection_id: assignment.connection_id }),
+				.doUpdateSet({ account_id: assignment.account_id }),
 		)
-		.returning(["slug", "connection_id"])
+		.returning(["slug", "account_id"])
 		.executeTakeFirstOrThrow()
 	await addSlateMember(
 		db,

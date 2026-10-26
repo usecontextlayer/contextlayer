@@ -1,4 +1,4 @@
-import { connectionsSchema } from "@usecontextlayer/shared/connections"
+import { accountsSchema } from "@usecontextlayer/shared/accounts"
 import { z } from "zod"
 import { getAccessToken } from "@/auth"
 import { env } from "@/env"
@@ -8,7 +8,7 @@ export async function connectAccount(toolkit: string, org: string | undefined) {
 	const headers = { authorization: `Bearer ${await getAccessToken(env)}` }
 	const owner = await resolveOwner(org, headers)
 	const response = await fetch(
-		new URL(`/api/connections/${ownerPath(owner)}`, env.CTX_PLATFORM_URL),
+		new URL(`/api/accounts/${ownerPath(owner)}`, env.CTX_PLATFORM_URL),
 		{
 			body: JSON.stringify({ toolkit }),
 			headers: {
@@ -32,7 +32,7 @@ export async function connectAccount(toolkit: string, org: string | undefined) {
 		)
 	}
 	console.log(
-		`For a hosted slate, get the connected account ID and assign it:\n  npx @usecontextlayer/cli accounts${org ? ` --org '${org.replaceAll("'", "'\\''")}'` : ""} list\n  npx @usecontextlayer/cli connections <SlateID-or-hostname> assign <slug> <connection_id>`,
+		`For a hosted slate, get the connected account ID and assign it:\n  npx @usecontextlayer/cli accounts${org ? ` --org '${org.replaceAll("'", "'\\''")}'` : ""} list\n  npx @usecontextlayer/cli connections <SlateID-or-hostname> assign <slug> <account_id>`,
 	)
 }
 
@@ -40,17 +40,17 @@ export async function listAccounts(org: string | undefined) {
 	const headers = { authorization: `Bearer ${await getAccessToken(env)}` }
 	const owner = await resolveOwner(org, headers)
 	const response = await fetch(
-		new URL(`/api/connections/${ownerPath(owner)}`, env.CTX_PLATFORM_URL),
+		new URL(`/api/accounts/${ownerPath(owner)}`, env.CTX_PLATFORM_URL),
 		{
 			headers,
 		},
 	)
 	if (!response.ok)
 		throw new Error(`Connected account list failed: HTTP ${response.status}`)
-	const { connections } = connectionsSchema.parse(await response.json())
-	if (connections.length === 0) {
+	const { accounts } = accountsSchema.parse(await response.json())
+	if (accounts.length === 0) {
 		console.log("No connected accounts.")
 		return
 	}
-	console.table(connections)
+	console.table(accounts)
 }
