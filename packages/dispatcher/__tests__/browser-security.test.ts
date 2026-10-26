@@ -72,6 +72,8 @@ test.each(["/", "/assets/app.js"])(
 				"ctx-viewer-auth=attacker; Domain=contextlayer.xyz; Path=/",
 				"ctx-viewer-auth=shadow; Domain=contextlayer.xyz; Path=/api",
 				"ctx-viewer-auth=; Max-Age=0; Path=/",
+				"=ctx-viewer-auth=attacker; Domain=contextlayer.xyz; Path=/",
+				"=nameless; Path=/",
 				"theme=dark; Path=/",
 				"ctx-viewer-auth-preference=compact; Path=/",
 			]) {

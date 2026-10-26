@@ -20,7 +20,8 @@ export const browserSecurity = createMiddleware(async (c, next) => {
 	const cookies = c.res.headers.getSetCookie()
 	c.header("Set-Cookie", undefined)
 	for (const cookie of cookies) {
-		if (cookie.split("=", 1)[0]?.trim() !== "ctx-viewer-auth") {
+		const name = cookie.split("=", 1)[0]?.trim()
+		if (name && name !== "ctx-viewer-auth") {
 			c.header("Set-Cookie", cookie, { append: true })
 		}
 	}
