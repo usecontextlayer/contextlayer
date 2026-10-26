@@ -1,0 +1,49 @@
+---
+title: "Deploy"
+description: "Push main to build, migrate and deploy a slate, then open it at its hosted URL."
+---
+
+A slate deploys from Git. `init` set the checkout's `origin` remote to the slate's repository, and pushing `main` to it starts the build and deployment. There is no separate deploy command.
+
+<Steps>
+  <Step title="Commit your changes">
+    ```sh
+    git add .
+    git commit
+    ```
+
+    `init` already committed the starter on `main`. If you have changed nothing, skip this step.
+  </Step>
+  <Step title="Push main">
+    ```sh
+    git push -u origin main
+    ```
+
+    Git authenticates the push with your saved `login`. Only the slate's owning user, or a member of its owning organization, can push. Only pushes to `main` start a build.
+  </Step>
+  <Step title="Open the hosted URL">
+    `init` printed the slate's dashboard link and its hosted URL. The hosted URL works once the deployment succeeds.
+
+    New slates are private. Sign in with your ContextLayer account to open one. A private slate opens for its owning user, or for members of its owning organization.
+  </Step>
+</Steps>
+
+## What the pipeline does
+
+Every phase uses the pushed commit, in this order:
+
+1. **Prepare.** ContextLayer reads the commit's declarations and selects the databases to migrate.
+2. **Build.** An isolated sandbox installs the committed dependencies and runs `pnpm build`.
+3. **Migrate.** The commit's Kysely migrations run against the slate's owner-mode databases and every existing member's viewer-mode databases.
+4. **Deploy.** The built app is published to the slate's hosted URL.
+5. **Schedules.** The schedules of the slate's agents are installed from the same commit.
+
+A failed migration stops the pipeline: the commit is not deployed and its schedules are not installed. The migration is not retried, and SQL statements that ran before the failure can remain applied. Migrations run while the previous deployment is still serving, so pushed migrations must stay compatible with it until the new deployment completes. See [Add a database](/how-to/add-a-database).
+
+## What a push does not deploy
+
+The push deploys only what is committed. Local development state stays on your machine: local assignments in `.contextlayer/connections.json`, local database contents in `.contextlayer/databases`, and secret values from your environment. Configure the hosted slate's accounts in its chrome; see [Connect an account](/how-to/connect-an-account).
+
+## The hosted URL
+
+The hosted URL is `https://<name>.contextlayer.xyz/`. `<name>` is the slate's name, which ContextLayer chose when it created the slate. On the hosted slate, the chrome appears above the app: the ContextLayer header that shows who is signed in and what the slate still needs to be set up. See [Use a slate](/how-to/use-a-slate).

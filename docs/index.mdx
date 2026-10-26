@@ -1,22 +1,42 @@
 ---
-title: "Introduction"
-description: "Welcome to your project"
+title: "Overview"
+description: "ContextLayer is the agent-first platform for bespoke software: slates that hold an app, its agents and their resources in one Git repository."
 ---
 
-Synced from repo
+ContextLayer is a platform for building slates: software shaped around the way people work. A slate is one Git repository that holds an app, its agents and the resources they use, and a Git push deploys it. You build it with ordinary code, React Router, TypeScript and SQL, in your editor and with your coding agent.
 
-Write a short description of your product here. What it does, who it's for, and what they can accomplish with it.
+## What is in a slate
 
-<Tip>
-  Ready to make this your own? Start by editing this page. Update your `docs.json` file to customize your site. Then fill out the [Quickstart](/quickstart) page.
-</Tip>
+A slate has an app, agents and MCPs, and the resources they declare.
 
-<Card title="Quickstart" icon="rocket" href="/quickstart">
-  This card links to the quickstart page in your project.
-</Card>
-<Card title="Components" icon="puzzle-piece" href="https://mintlify.com/docs/components">
-  Add cards, callouts, steps, tabs, and more to design and structure your pages.
-</Card>
-<Card title="Settings" icon="gear" href="https://mintlify.com/docs/organize/settings">
-  Set your site name, branding, and navigation in the `docs.json` file.
-</Card>
+- The **app** is the interactive part: a React Router app that people open in the browser.
+- **Agents** are named sets of standing instructions that run as hosted jobs, on demand or on a schedule.
+- **MCPs** expose a slate's tools and views to MCP clients.
+- **Resources** are what those three consume: **connections** to services such as Gmail or Slack, **databases**, and **secrets**. Each consumer declares the resources it needs in its `slate.json`.
+
+An **account** is a connected account, for example your Gmail, held by its Owner independently of any slate. An **assignment** maps a connection a slate declares to an account that satisfies it.
+
+## Owners and viewers
+
+An **Owner** is the personal or organization identity that owns a slate, an account or a shared secret. **Viewers** are the people who open a slate. Every declared resource has a mode: in **owner mode** the slate's Owner supplies it and everyone shares it; in **viewer mode** each viewer supplies their own. That is how one slate can use the Owner's shared database and each viewer's own inbox at the same time.
+
+## Where to go
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Create a slate, run it locally, push it, open the deployed result.
+  </Card>
+  <Card title="Core concepts" icon="book-open" href="/core-concepts/slate">
+    Slates, Owners and viewers, accounts, and resources.
+  </Card>
+  <Card title="How-to guides" icon="list-check" href="/how-to/build-an-agent">
+    Build an agent, connect an account, add a database, deploy, expose MCP tools.
+  </Card>
+  <Card title="API reference" icon="code" href="/api-reference">
+    Every platform endpoint, generated from the OpenAPI document.
+  </Card>
+</CardGroup>
+
+## Working with a coding agent
+
+The docs are written for people and for the agents that work with them. Every page is available as Markdown by adding `.md` to its URL, `/llms.txt` lists them all, and `npx skills add https://docs.usecontextlayer.com` installs ContextLayer's skill into your agent.

@@ -1,0 +1,67 @@
+---
+title: "Connections and assignments"
+description: "A connection declares a need for a provider's tools by slug; an assignment maps that slug to a connected account."
+---
+
+A connection is a consumer's declared need for one provider's tools. An assignment maps the connection's slug to an [account](/core-concepts/accounts) that serves it. Your code calls tools by connection slug and never handles the account or its credentials.
+
+## Declare a connection
+
+A connection is declared by slug, toolkit and mode under `connections` in a `slate.json`:
+
+```json public/slate.json
+{
+  "connections": {
+    "work-email": {
+      "toolkit": "gmail",
+      "mode": "viewer"
+    }
+  }
+}
+```
+
+- The slug, here `work-email`, is the name your code uses. It shares the slate-wide namespace described in [Resources](/core-concepts/resources#one-namespace-per-kind).
+- The toolkit is the Composio toolkit whose tools the connection calls. Its assigned account must be one connected for that toolkit.
+- The mode selects whose account a hosted slate uses: the slate Owner's for `owner`, each viewer's own for `viewer`. See [Owner mode and viewer mode](/core-concepts/resources#owner-mode-and-viewer-mode).
+
+## Call tools by slug
+
+In a loader or action, get Tools from the React Router context and call a tool through a declared connection slug:
+
+```ts
+import { toolsContext } from "@usecontextlayer/sdk"
+import type { LoaderFunctionArgs } from "react-router"
+
+export async function loader({ context }: LoaderFunctionArgs) {
+  const tools = context.get(toolsContext)
+  return tools.call("work-email", "GMAIL_FETCH_EMAILS", { max_results: 5 })
+}
+```
+
+ContextLayer looks up the slug in the app's declaration, finds its assignment and runs the tool with the assigned account through Composio. Composio defines each tool's arguments and results. A call resolves to `{ data, logId }`; validate the tool-specific `data` before using it.
+
+If the connection has no assignment yet, the call throws a `connection-required` response that names the slug. The starter's root error boundary turns it into setup guidance.
+
+## Assignments
+
+An assignment maps a connection slug to an account ID. It stores only the ID; Composio keeps the credentials. Connecting an account and assigning it are separate steps: you connect an account once, then assign it to each connection that should use it.
+
+### Hosted assignments
+
+A hosted slate keeps its assignments in ContextLayer, one per slate, Owner and slug. An owner-mode connection has one assignment, to an account of the slate's Owner. A viewer-mode connection has one assignment per viewer, to that viewer's own account.
+
+Configure hosted assignments in the chrome, the ContextLayer header at the top of a hosted slate. It lists the slate's declared connections and lets you connect an account and assign it. Assigning an owner-mode connection requires management of the slate, as its owning user or a member of its owning organization; assigning a viewer-mode connection requires only permission to view the slate.
+
+The CLI's `connections` command also lists and assigns hosted connections for a slate named by SlateID or hostname. The API reference has [List declared connections and their account assignments](https://docs.usecontextlayer.com/api-reference/slate-resources/list-declared-connections-and-their-account-assignments) and [Assign an account to a declared connection](https://docs.usecontextlayer.com/api-reference/slate-resources/assign-an-account-to-a-declared-connection). Hosted assignments use the declarations on the latest commit of `main`, so push before configuring them.
+
+### Local assignments
+
+In a checkout, the CLI's `connections` command lists the checkout's declared connections and saves local assignments in `.contextlayer/connections.json`, which Git ignores. Local assignments always use your personal accounts, even for an owner-mode connection or an organization's slate, and they never change hosted assignments. Restart `pnpm dev` after assigning.
+
+```json .contextlayer/connections.json
+{
+  "work-email": "ca_example"
+}
+```
+
+Run `npx @usecontextlayer/cli connections --help` for its targets and arguments, and see [Connect an account](/how-to/connect-an-account) for the full steps.

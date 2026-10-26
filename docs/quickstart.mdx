@@ -1,47 +1,63 @@
 ---
 title: "Quickstart"
-description: "Begin with a guide on the fastest path to a successful outcome"
+description: "Create a slate, run it locally, push it, and open the deployed slate."
 ---
 
-Describe how someone begins using your product. What is the first thing they need to do? Are there any prerequisites?
+This page assumes you have finished [Installation](/installation): the prerequisites are in place and `login` was approved.
 
-A quickstart should take someone from zero to using your product. They'll get a quick win and a sense of what they can accomplish.
-
-## Prerequisites
-
-Before you begin, you must have:
-
-- Requirement one (for example, Node.js 18+, a free account, an API key)
-- Requirement two (for example, a compatible device, a compatible browser, a compatible operating system)
-
-## Get started
+Three steps here need a person rather than a coding agent: supplying their Git name and email, choosing who owns the slate, and signing in to open the deployed slate. Each is called out where it comes up.
 
 <Steps>
-  <Step title="Install">
-    Describe how to install your product or sign up.
-
-    ```bash
-    npm install your-package
+  <Step title="Create the slate">
+    ```sh
+    npx @usecontextlayer/cli init my-slate
     ```
+
+    `init` creates a private slate and writes a starter app (React Router, Tailwind, and shadcn) into the directory you name. It installs the dependencies, commits the starter on `main`, and sets the checkout's Git remote to the slate's repository. It prints the slate's dashboard link and its hosted URL. The hosted URL works only after the first deployment.
+
+    The directory name is only local. ContextLayer names the slate itself, and that name is the first label of the hosted URL.
+
+    By default the slate's Owner is you, a personal Owner. It can instead belong to an organization you are a member of; `npx @usecontextlayer/cli init --help` shows how. Who owns the slate is the person's decision.
+
+    If Git has no author identity, `init` stops and prints Git's configuration commands. The name and email are the person's own. Set them, then run `init` again.
   </Step>
-  <Step title="Configure">
-    Describe any setup or configuration needed before first use.
-
-    ```bash
-    your-cli init
+  <Step title="Run it locally">
+    ```sh
+    cd my-slate
+    pnpm dev
     ```
+
+    `pnpm dev` prints a local URL. Open it to see the first screen, which reads and writes the starter's `notes` database. That screen is `app/routes/home.tsx`; edit it to build your own.
+
+    The checkout's `AGENTS.md` and `README.md` are the authoring instructions. `AGENTS.md` is written for coding agents, and the checkout's `CLAUDE.md` imports it. `README.md` covers local development, connected services, databases, and deployment.
   </Step>
-  <Step title="Run it">
-    Show the first thing a user does to see it working.
-
-    ```bash
-    your-cli start
+  <Step title="Deploy">
+    ```sh
+    git add .
+    git commit
+    git push -u origin main
     ```
+
+    Pushing `main` starts the build and deployment. ContextLayer builds the pushed commit, applies its database migrations, and deploys it. `init` already committed the starter, so if you have changed nothing, `git push -u origin main` on its own deploys it.
+  </Step>
+  <Step title="Open the deployed slate">
+    Open the hosted URL that `init` printed. The slate is private, so you sign in to ContextLayer to open it. This happens in the person's browser; a coding agent hands them the URL.
   </Step>
 </Steps>
 
-<Tip>
-  Give people a way to get help. This could be a link to a support page, a chat with a customer support agent, or a forum for your product.
+## Next steps
 
-  Example: Need help? Reach out to us at [support@yourcompany.com](mailto:support@yourcompany.com).
-</Tip>
+<CardGroup cols={2}>
+  <Card title="What a slate is" href="/core-concepts/slate">
+    The app, agents and MCPs in a slate, and the resources they declare.
+  </Card>
+  <Card title="Connect an account" href="/how-to/connect-an-account">
+    Use Gmail, Slack and other services from your slate.
+  </Card>
+  <Card title="Build an agent" href="/how-to/build-an-agent">
+    Standing instructions that run as hosted jobs, on demand or on a schedule.
+  </Card>
+  <Card title="Add a database" href="/how-to/add-a-database">
+    Declare a database, write a migration, query it from the app.
+  </Card>
+</CardGroup>

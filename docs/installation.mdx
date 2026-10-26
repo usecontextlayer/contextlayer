@@ -1,0 +1,34 @@
+---
+title: "Installation"
+description: "Check the prerequisites and sign in to ContextLayer from the command line."
+---
+
+You run the ContextLayer CLI with `npx`, so there is nothing to install beyond the prerequisites. Signing in needs a person at a browser. Everything else runs in a terminal.
+
+## Prerequisites
+
+- Node.js 22.22.0 or newer.
+- [pnpm](https://pnpm.io/installation).
+- Git, with an author name and email configured. They are the person's own identity and appear on every commit, so a coding agent asks for them rather than inventing them.
+
+## Run the CLI
+
+```sh
+npx @usecontextlayer/cli --help
+```
+
+This lists every command. Run a command with `--help` to see its arguments and options.
+
+## Sign in
+
+```sh
+npx @usecontextlayer/cli login
+```
+
+The command prints a URL and a code, then waits for approval.
+
+Approval needs the person who will own your slates, in their browser. They open the URL, sign in to ContextLayer or sign up, check that the page shows the same code as the terminal, and approve. The CLI acts as whoever approves. A coding agent running `login` gives the URL and code to that person and waits.
+
+After approval, the command prints `Signed in to ContextLayer.` It then configures Git credentials for ContextLayer repositories and prints `Git credentials configured for ContextLayer.` Git uses those credentials when you push a slate.
+
+Next, create your first slate in the [Quickstart](/quickstart).

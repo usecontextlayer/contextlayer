@@ -1,0 +1,55 @@
+---
+title: "MCP"
+description: "A slate's MCPs are the tools and Views it exposes to MCP clients at its hosted /mcp endpoint."
+---
+
+A [slate](/core-concepts/slate) can expose tools and Views to MCP clients. The hosted slate serves them at `https://<name>.contextlayer.xyz/mcp`.
+
+<Note>MCP tools cannot use resources yet. An MCP declaration's `connections`, `databases` and `secrets` must be empty, because MCP resource execution is not implemented; a tool whose declaration lists any resource fails the build. The app and agents can use resources.</Note>
+
+## Tools
+
+An MCP tool lives in `mcp/<name>/index.ts`, with its own declaration in `mcp/<name>/slate.json`. The module exports two things:
+
+- `tool`: the MCP tool definition, with a Zod `inputSchema` and an optional Zod `outputSchema`.
+- `handler`: a function that receives the validated arguments and returns an MCP tool result.
+
+```ts mcp/echo/index.ts
+import { z } from "zod"
+
+export const tool = {
+  name: "echo",
+  description: "Echo a value back.",
+  inputSchema: z.object({ value: z.string() }),
+  _meta: { ui: { resourceUri: "ui://echo/index.html" } },
+}
+
+export function handler(args: unknown) {
+  const { value } = args as z.infer<typeof tool.inputSchema>
+  return { content: [{ type: "text" as const, text: value }] }
+}
+```
+
+```json mcp/echo/slate.json
+{
+  "connections": {}
+}
+```
+
+MCP tools and the app's routes are separate surfaces; both can import shared modules from the slate.
+
+## Views
+
+A View is an HTML page that an MCP client renders for a tool, following MCP Apps. It lives at `mcp-ui/<name>/index.html`; React entries use the MCP Apps host bridge. A tool names its View with `_meta.ui.resourceUri` set to `ui://<name>/index.html`, and several tools can share one View.
+
+The View receives the tool's inputs and results, and requests tool calls, through the MCP client's bridge. It receives no ContextLayer credentials and cannot fetch the slate's own pages.
+
+## Build and serving
+
+When the slate is built, the SDK evaluates each tool definition, writes the tool list into the deployment, and compiles each View into one HTML file with its scripts and styles inlined. On the hosted slate, each tool call runs the tool's `handler` in the slate's Worker.
+
+The development server does not serve `/mcp`. MCP tools and Views are available once the slate is deployed.
+
+## Connect a client
+
+An MCP client connects to `https://<name>.contextlayer.xyz/mcp` and signs in with OAuth. The person approves the client with their ContextLayer account, and the client receives a token for that slate's MCP endpoint only. Every MCP request needs this token, on public slates too. The slate's viewing rule then applies: on a private slate, only the people who can open the slate can use its tools. See [Owners and viewers](/core-concepts/owners-and-viewers).

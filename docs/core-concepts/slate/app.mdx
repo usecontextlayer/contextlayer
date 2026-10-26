@@ -1,0 +1,88 @@
+---
+title: "App"
+description: "The app is a slate's interactive part: a React Router app that declares its resources in public/slate.json and reaches them through the SDK."
+---
+
+The app is the interactive part of a [slate](/core-concepts/slate): the pages people open at its hosted URL. It is a [React Router](https://reactrouter.com) app that runs as a Cloudflare Worker.
+
+## The starter
+
+The CLI's `init` command creates the app from the starter bundled with the CLI, with Tailwind and shadcn/ui set up:
+
+- `app/routes/home.tsx` is the first screen. The starter's version is a small notes page that reads and writes the `notes` database.
+- `app/root.tsx` re-exports the SDK's document `Layout`, which mounts the [chrome](/core-concepts/slate#the-chrome) on the hosted slate. Keep this re-export when you edit the root. The root's error boundary shows setup guidance when a connection has no assigned account or a viewer-mode secret has no value.
+- `public/slate.json` is the app's declaration.
+- `databases/notes/` holds the `notes` database's Kysely configuration, migrations and generated query types.
+
+## Declare resources
+
+The app names the resources it requires in `public/slate.json`. The starter's declaration:
+
+```json public/slate.json
+{
+  "connections": {},
+  "databases": {
+    "notes": { "mode": "owner" }
+  },
+  "secrets": {}
+}
+```
+
+`connections` is required, even when empty. Each resource has a mode, `owner` or `viewer`, that selects whose resource the hosted slate uses. [Resources](/core-concepts/resources) explains declarations and modes.
+
+## Run locally
+
+From the checkout root, `pnpm dev` starts the development server; open the local URL it prints. Locally, the app uses your own resources:
+
+- Connections use your personal accounts, whatever their declared mode. Assign them with the CLI's `connections` command (`npx @usecontextlayer/cli connections --help`). Local assignments are saved in `.contextlayer/connections.json`.
+- Secrets come from environment variables with the declared names.
+- Databases are stored in `.contextlayer/databases`.
+
+Restart `pnpm dev` after changing declarations, assignments or secret values. When the app declares connections, the development server also needs your CLI login. `pnpm typecheck` and `pnpm build` run the checkout's TypeScript check and production build.
+
+## Use connected services and databases
+
+Route loaders and actions reach resources through `@usecontextlayer/sdk`, from React Router context:
+
+- `context.get(toolsContext)` returns Tools. `tools.call(slug, tool, arguments)` runs a tool through one of the app's declared connections and resolves to `{ data, logId }`. Validate `data` before using it.
+- `database<DB>(context.get(databasesContext), slug)` returns a typed Kysely instance for a declared database. `context.get(databasesContext).query(slug, sql, params)` runs SQL directly.
+
+The starter's loader and action:
+
+```tsx app/routes/home.tsx
+import { database, databasesContext } from "@usecontextlayer/sdk"
+import { z } from "zod"
+import type { DB } from "@/databases/notes/types"
+import type { Route } from "./+types/home"
+
+export async function loader({ context }: Route.LoaderArgs) {
+  const db = database<DB>(context.get(databasesContext), "notes")
+  return {
+    notes: await db.selectFrom("notes").selectAll().orderBy("id", "desc").execute(),
+  }
+}
+
+export async function action({ context, request }: Route.ActionArgs) {
+  const body = z
+    .string()
+    .trim()
+    .min(1)
+    .parse((await request.formData()).get("body"))
+  const db = database<DB>(context.get(databasesContext), "notes")
+  return db.insertInto("notes").values({ body }).returningAll().executeTakeFirstOrThrow()
+}
+```
+
+A tool call names a connection slug the app declares:
+
+```ts
+await context.get(toolsContext).call("work-email", "GMAIL_FETCH_EMAILS", { max_results: 5 })
+```
+
+These capabilities exist only in loaders and actions. Browser code receives no ContextLayer credentials. On the hosted slate, each call is bound to the slate and the signed-in viewer, and reaches only the resources the app declares. Calls pass through your loaders and actions, so the app's code decides what a viewer can do with them.
+
+When a declared connection has no assigned account, or a viewer-mode secret has no value, the call throws an HTTP 409 response. The starter's root error boundary turns it into setup guidance; the SDK's `connectionRequiredSchema` and `secretRequiredSchema` recognize it in a custom error boundary. The [SDK reference](/reference/sdk) documents the full API.
+
+## Deploy
+
+Commit your changes and push `main` to the slate's remote. See [Deploy with a Git push](/core-concepts/slate#deploy-with-a-git-push).

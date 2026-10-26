@@ -1,0 +1,106 @@
+---
+title: "Slate"
+description: "A slate is one Git repository holding an app, agents and MCPs, plus the resources they declare. ContextLayer builds, hosts and runs it."
+---
+
+A slate is one Git repository that ContextLayer builds, hosts and runs. It holds an app, agents and MCPs, and declares the resources they use. You deploy it by pushing to its own Git remote, and ContextLayer serves it at its own URL.
+
+## What a slate contains
+
+The app, agents and MCPs are the consumers of resources:
+
+- [App](/core-concepts/slate/app): the interactive part, a React Router app.
+- [Agents](/core-concepts/slate/agents): named agents with standing instructions, run as hosted jobs.
+- [MCP](/core-concepts/slate/mcp): tools and Views the slate exposes to MCP clients.
+
+[Resources](/core-concepts/resources) are connections, databases and secrets. Each consumer names the resources it requires in its own declaration, a `slate.json` file. All declarations in a slate share one namespace per resource kind: when the app and an agent declare the same database slug, they use the same database.
+
+| Path | Contents |
+| --- | --- |
+| `app/` | The app's root and routes |
+| `public/slate.json` | The app's declaration |
+| `agents/<name>/` | An agent: `instructions.md`, its `slate.json` and optional `schedules/` |
+| `mcp/<name>/` | An MCP tool: `index.ts` and its `slate.json` |
+| `mcp-ui/<name>/index.html` | An MCP View |
+| `databases/<slug>/` | A database's Kysely configuration, migrations and generated query types |
+| `.contextlayer/` | Local development state, ignored by Git |
+
+The starter contains the app and one database, `notes`. Agents and MCP tools are directories you add.
+
+The starter's main files, with an agent, `digest`, and an MCP tool, `echo`, added:
+
+```text
+.
+├── AGENTS.md
+├── README.md
+├── agents/
+│   └── digest/
+│       ├── instructions.md
+│       ├── schedules/
+│       │   └── weekly.md
+│       └── slate.json
+├── app/
+│   ├── root.tsx
+│   ├── routes/
+│   │   └── home.tsx
+│   └── routes.ts
+├── databases/
+│   └── notes/
+│       ├── kysely.config.ts
+│       ├── migrations/
+│       │   └── 001_create_notes.ts
+│       └── types.ts
+├── mcp/
+│   └── echo/
+│       ├── index.ts
+│       └── slate.json
+├── public/
+│   └── slate.json
+└── workers/
+    └── app.ts
+```
+
+The starter's `public/slate.json` declares the `notes` database:
+
+```json public/slate.json
+{
+  "connections": {},
+  "databases": {
+    "notes": {
+      "mode": "owner"
+    }
+  },
+  "secrets": {}
+}
+```
+
+## Create a slate
+
+The CLI's `init` command creates the slate in ContextLayer and scaffolds a checkout from the starter bundled with the CLI. The checkout has the slate's Git remote set and the starter committed on `main`. `init` requires that you have signed in with the CLI's `login` command. Run `npx @usecontextlayer/cli init --help` for its options; the [Quickstart](/quickstart) walks through it.
+
+A slate belongs to one [Owner](/core-concepts/owners-and-viewers): you, or an organization you belong to. Its name is its hostname label, generated at creation from an adjective, a color and an animal.
+
+## Deploy with a Git push
+
+Each slate has its own Git remote on ContextLayer. Pushing `main` deploys it. ContextLayer builds the pushed commit, applies its database migrations, deploys it, and then installs its agent schedules. If a migration fails, that commit is not deployed.
+
+Only the owning user, or a member of the owning organization, can clone, pull or push a slate, whether it is private or public.
+
+## The hosted URL and the dashboard
+
+`init` prints two links:
+
+- The hosted URL, `https://<name>.contextlayer.xyz/`, where people open the slate. It works once the first deployment succeeds.
+- The slate's page in the dashboard at `platform.usecontextlayer.com`. The dashboard lists the slates you can manage, under Personal and under each of your organizations, with each slate's latest commit.
+
+## Private by default
+
+A new slate is private. A private slate with a personal Owner opens only for that user; a private organization slate opens only for members of that organization. A public slate opens for anybody. Visibility governs viewing only: Git access and management stay with the owning user or the members of the owning organization either way.
+
+Visibility is changed through the API: [Update who can view a slate](https://docs.usecontextlayer.com/api-reference/slates/update-who-can-view-a-slate). [Owners and viewers](/core-concepts/owners-and-viewers) covers who can see and do what.
+
+## The chrome
+
+ContextLayer puts a frame around a hosted slate: the chrome, a header and tray above the app. The header shows who you are signed in as and whether the slate's setup is complete. The tray lists the slate's declared connections and its viewer-mode secrets. There you connect an account, assign it to a connection, and save your secret values. These are the slate's hosted assignments; see [Connections and assignments](/core-concepts/resources/connections-and-assignments).
+
+The chrome is served from a ContextLayer origin in an iframe, separate from your app. The app cannot read it, and the chrome passes no credentials or profile data to the app. The starter's `app/root.tsx` mounts it through the SDK's `Layout`. Local development does not show the chrome.

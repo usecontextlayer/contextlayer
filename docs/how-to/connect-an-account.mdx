@@ -1,0 +1,103 @@
+---
+title: "Connect an account"
+description: "Connect an account to ContextLayer, then assign it to a connection your slate declares, in local development and on the hosted slate."
+---
+
+A slate declares the connections it needs. An account is a connected account, such as a Gmail inbox, that belongs to an Owner. You connect an account once, then assign it to a declared connection. An account you connected earlier can go straight to assignment.
+
+This guide assumes the slate declares a connection. For example, in `public/slate.json`:
+
+```json public/slate.json
+{
+  "connections": {
+    "work-email": { "toolkit": "gmail", "mode": "viewer" }
+  }
+}
+```
+
+The key, `work-email`, is the connection's slug: the app passes it to `tools.call`. `toolkit` is the Composio toolkit the connection uses. `mode` decides whose account the hosted slate uses; see [Owner mode and viewer mode](#owner-mode-and-viewer-mode). See [Accounts](/core-concepts/accounts) for how accounts and assignments fit together.
+
+```tsx app/routes/home.tsx
+import { toolsContext } from "@usecontextlayer/sdk"
+import type { Route } from "./+types/home"
+
+export async function loader({ context }: Route.LoaderArgs) {
+	const tools = context.get(toolsContext)
+	const { data } = await tools.call("work-email", "GMAIL_FETCH_EMAILS", { max_results: 5 })
+	return { emails: data }
+}
+```
+
+## Connect the account
+
+<Steps>
+  <Step title="Run the accounts command">
+    The CLI's `accounts` command connects an account for a toolkit and lists the accounts an Owner has connected. It needs a saved `login`.
+
+    ```sh
+    npx @usecontextlayer/cli accounts --help
+    ```
+
+    Connecting prints an authorization link.
+  </Step>
+  <Step title="Authorize in the browser">
+    Open the link and sign in to the service. The connected account then belongs to the Owner you selected: you, unless you chose an organization.
+  </Step>
+</Steps>
+
+## Assign it in local development
+
+<Steps>
+  <Step title="Assign the account to the connection">
+    From the checkout root, the CLI's `connections` command lists the checkout's declared connections and assigns an account to one of them. After you connect an account, `accounts` prints the assignment command to run.
+
+    ```sh
+    npx @usecontextlayer/cli connections --help
+    ```
+
+    It offers your personal accounts for the connection's toolkit. The assignment is saved in the checkout's ignored `.contextlayer/connections.json`.
+  </Step>
+  <Step title="Restart the development server">
+    Restart `pnpm dev`. The development server reads declarations and local assignments when it starts, so restart it after changing either.
+  </Step>
+</Steps>
+
+Local development always uses your personal accounts, even for an owner-mode connection or a slate that belongs to an organization.
+
+## Assign it on the hosted slate
+
+You set hosted assignments in the slate's chrome, the ContextLayer header above the hosted app. They are separate from local assignments: assigning in one place never changes the other. The slate must be pushed first; see [Deploy](/how-to/deploy).
+
+<Steps>
+  <Step title="Open the hosted slate">
+    Open the slate's hosted URL and sign in with your ContextLayer account.
+  </Step>
+  <Step title="Open the setup menu">
+    In the chrome, select the setup status. It reads **Setup complete** or the number of inputs to configure. The menu lists each declared connection with its mode and the app or agents that use it.
+  </Step>
+  <Step title="Choose the account">
+    Open the connection's settings and choose one of the listed accounts.
+
+    If the account is not listed, select **Connect account**. The authorization opens in a new tab. When you have connected the account, refresh the slate and choose it.
+
+    The chrome connects the account for the connection's Owner: you for a viewer-mode connection, the slate's Owner for an owner-mode connection.
+  </Step>
+  <Step title="Refresh the page">
+    Refresh the slate so the app uses the new assignment.
+  </Step>
+</Steps>
+
+The platform API exposes the same operations: [Create an authorization link to connect an Owner's account](/api-reference/accounts/create-an-authorization-link-to-connect-an-owners-account) and [Assign an account to a declared connection](/api-reference/slate-resources/assign-an-account-to-a-declared-connection).
+
+## Personal and organization Owners
+
+An Owner is either personal (one user) or an organization. Every account belongs to one Owner, independently of any slate. Slates use an account through assignments; an assignment stores the account's ID, never its credentials.
+
+The `accounts` command acts for your personal Owner by default and can act for an organization you are a member of; its `--help` shows how. Any member of an organization can connect and manage the organization's accounts. An account a member connects for the organization belongs to the organization.
+
+## Owner mode and viewer mode
+
+Each declared connection has a mode. It selects whose account the hosted slate uses.
+
+- **Owner mode**: the slate's Owner's account. Every user of the slate uses this one account. Assigning it requires managing the slate: being its owning user or a member of its owning organization.
+- **Viewer mode**: each user's own personal account. Each viewer connects and assigns their own in the chrome; see [Use a slate](/how-to/use-a-slate).

@@ -1,0 +1,64 @@
+---
+title: "Agents"
+description: "Agents are named AI agents in a slate, with standing instructions and their own declaration, that ContextLayer runs as hosted jobs on demand or on a schedule."
+---
+
+An agent is a named AI agent inside a [slate](/core-concepts/slate). Its directory, `agents/<name>/`, holds its standing instructions and its declaration. ContextLayer runs it as hosted jobs, each started with a prompt, through the API or on a schedule. [Build an agent](/how-to/build-an-agent) walks through creating one.
+
+## An agent's files
+
+| File | Purpose |
+| --- | --- |
+| `agents/<name>/instructions.md` | Standing instructions, given to every job |
+| `agents/<name>/slate.json` | The resources the agent requires, in the same schema as the app's declaration |
+| `agents/<name>/schedules/<schedule>.md` | Optional: a prompt to run on a schedule |
+
+The agent's name is its directory name. Pushing `main` publishes it, and jobs read its instructions from the latest commit on `main`.
+
+An agent uses only the resources in its own declaration. Agents and the app share one namespace per resource kind, so an agent that declares the same database slug as the app uses the same database. [Resources](/core-concepts/resources) explains declarations and modes.
+
+## The model
+
+A hosted agent runs on an Anthropic model. Its declaration must name a provider secret: `ANTHROPIC_API_KEY` for Anthropic API access, or `CLAUDE_CODE_OAUTH_TOKEN` for a Claude subscription. When both are declared, the API key is used.
+
+The default model is `claude-haiku-4-5`. To choose another, declare an `ANTHROPIC_MODEL` secret and save a full Anthropic model ID as its value. A changed model applies to new jobs. See [Secrets](/core-concepts/resources/secrets).
+
+## Jobs
+
+A job is one run of an agent, with its own prompt, a fresh conversation and a fresh Linux computer. When a job starts, ContextLayer resolves the agent's declared resources for whoever the job acts for, and those resources stay fixed for the job. Jobs share no conversation or files; they share only the declared databases and the accounts behind the connections.
+
+Start a job with a prompt through the API: [Start an agent job with a prompt](https://docs.usecontextlayer.com/api-reference/agent-jobs/start-an-agent-job-with-a-prompt). A job you start acts for you. If the agent declares viewer-mode resources, your setup for them must be complete first.
+
+Anyone who can view a private slate can start jobs and read their results. They see the jobs that act for the app and their own jobs. Transcripts, usage, live inspection, schedules, aborting and deleting require managing the slate, because they can reveal the agent's instructions and private data. Deleting a job releases its computer; its database writes and external effects remain.
+
+<Note>Public slates cannot run agent jobs yet.</Note>
+
+## Schedules
+
+A schedule is a Markdown file in `agents/<name>/schedules/`. Its YAML front matter sets `cron`, a five-field cron expression in UTC; its body is the prompt. The file name without `.md` is the schedule's name.
+
+```markdown agents/digest/schedules/weekly.md
+---
+cron: "0 9 * * 1"
+---
+Summarize last week's notes.
+```
+
+Schedules are installed after each successful deployment. Each firing starts a fresh job from the latest commit on `main`, the same way an API job starts.
+
+Who a scheduled job acts for depends on the agent's own declaration:
+
+- An agent that declares no viewer-mode resources is app-scoped: each schedule fires once, acting for the app.
+- An agent that declares any viewer-mode resource is member-scoped: each schedule fires for each [slate member](/core-concepts/owners-and-viewers#slate-members), acting for that member.
+
+## Tools a hosted agent gets
+
+- **The computer.** `read`, `write`, `edit` and `bash` work on the job's Linux computer, which has no internet access. Files there are scratch space: they last only while the computer runs, and it stops after ten minutes without activity.
+- **`database_query`.** Parameterized SQL against the agent's declared databases. Writes persist immediately and are shared with the app and with other jobs that use the same database.
+- **Connection tools.** For each declared connection, the actions of its toolkit, named `<connection-slug>__<ACTION>`. They run with the account assigned to that connection; the agent never sees its credentials.
+
+The agent finds tools by searching and describing them. It can call a tool directly, or write a short script (Code Mode) that calls tools from a sandbox with access to nothing else.
+
+## Run an agent locally
+
+The CLI's `agent` command runs an agent from the checkout with the Claude Agent SDK and your own Claude authentication; see `npx @usecontextlayer/cli agent --help`. A local run works in the checkout, uses `database_query` for the checkout's local databases, and reads no hosted state. It starts the development server, so it needs your CLI login when the app declares connections.

@@ -68,8 +68,48 @@
 			{
 				"groups": [
 					{
-						"group": "Getting Started",
-						"pages": ["index", "quickstart"]
+						"group": "Getting started",
+						"pages": ["index", "installation", "quickstart"]
+					},
+					{
+						"group": "Core concepts",
+						"pages": [
+							{
+								"group": "Slate",
+								"pages": [
+									"core-concepts/slate/app",
+									"core-concepts/slate/agents",
+									"core-concepts/slate/mcp"
+								],
+								"root": "core-concepts/slate"
+							},
+							"core-concepts/owners-and-viewers",
+							"core-concepts/accounts",
+							{
+								"group": "Resources",
+								"pages": [
+									"core-concepts/resources/connections-and-assignments",
+									"core-concepts/resources/databases",
+									"core-concepts/resources/secrets"
+								],
+								"root": "core-concepts/resources"
+							}
+						]
+					},
+					{
+						"group": "How-to",
+						"pages": [
+							"how-to/build-an-agent",
+							"how-to/connect-an-account",
+							"how-to/add-a-database",
+							"how-to/deploy",
+							"how-to/expose-mcp-tools",
+							"how-to/use-a-slate"
+						]
+					},
+					{
+						"group": "Reference",
+						"pages": ["reference/sdk"]
 					}
 				],
 				"tab": "Guides"

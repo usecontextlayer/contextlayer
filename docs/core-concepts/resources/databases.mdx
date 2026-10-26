@@ -1,0 +1,93 @@
+---
+title: "Databases"
+description: "Declared SQLite databases, shared under the slate's Owner or kept per slate member, changed through authored Kysely migrations."
+---
+
+A database is a SQLite database that a slate's consumers declare by slug. ContextLayer runs each one as an isolated instance; your code names the slug and sends SQL. Declaring a database is all the configuration it needs: there is nothing to assign.
+
+## Declare a database
+
+Databases are declared under `databases`, keyed by slug, with a mode:
+
+```json public/slate.json
+{
+  "connections": {},
+  "databases": {
+    "notes": {
+      "mode": "owner"
+    }
+  }
+}
+```
+
+The slug also names the database's directory, so it must be a single path segment: no slashes or backslashes, and not `.` or `..`.
+
+## Who owns the data
+
+A hosted database is identified by its slate, its Owner and its slug. The mode selects the Owner:
+
+- An owner-mode database belongs to the slate's Owner. There is one, and everyone who uses the slate shares it.
+- A viewer-mode database belongs to a slate member. Each member has their own.
+
+The app and agents that declare the same slug use the same database. Two slates never share a database, even when they have the same Owner and slug.
+
+A database outlives individual agent jobs, while the files on an agent's computer do not. Keep persistent data in a database.
+
+## Migrations and types
+
+Each database keeps its files under `databases/<slug>`:
+
+- `kysely.config.ts`, a native Kysely CLI configuration that selects the database by its slug;
+- `migrations/`, the explicitly authored Kysely migrations;
+- `types.ts`, the query types generated from the migrated database.
+
+```ts databases/notes/kysely.config.ts
+import { databaseDialect } from "@usecontextlayer/sdk/database"
+import { defineConfig } from "kysely-ctl"
+
+export default defineConfig({
+	dialect: databaseDialect("notes"),
+	migrations: { migrationFolder: "./migrations" },
+})
+```
+
+```ts databases/notes/migrations/001_create_notes.ts
+import type { Kysely } from "kysely"
+
+export async function up(db: Kysely<unknown>) {
+	await db.schema
+		.createTable("notes")
+		.addColumn("id", "integer", (column) => column.primaryKey().autoIncrement().notNull())
+		.addColumn("body", "text", (column) => column.notNull())
+		.execute()
+}
+```
+
+Authored migrations are the only source of schema changes. Kysely owns their order and keeps the record of applied migrations inside each database. The CLI's `db.codegen` command generates the query types from the migrated local database, as a separate step; it never applies migrations, and ContextLayer never derives a schema from the types. Commit migrations and generated types together.
+
+## Local and hosted state
+
+In a checkout, database state lives in `.contextlayer/databases`, which Git ignores. Starting `pnpm dev` applies the checkout's pending migrations before the app can query. Local tooling reaches only local databases, never hosted ones.
+
+When you push to `main`, ContextLayer builds the commit, runs its migrations and then deploys it. A push migrates the owner-mode databases and every existing member's viewer-mode databases. A new member's viewer-mode databases are migrated when they become a member.
+
+If a migration fails, the deployment stops. Statements that ran before the failure stay applied, and there is no automatic rollback. Until the new deployment completes, the app already deployed runs against the migrated database, so keep migrations compatible with it.
+
+## Query a database
+
+Loaders and actions get a typed Kysely instance for a declared slug from the SDK:
+
+```ts
+import { database, databasesContext } from "@usecontextlayer/sdk"
+import type { LoaderFunctionArgs } from "react-router"
+import type { DB } from "@/databases/notes/types"
+
+export async function loader({ context }: LoaderFunctionArgs) {
+  const db = database<DB>(context.get(databasesContext), "notes")
+  return db.selectFrom("notes").selectAll().orderBy("id", "desc").execute()
+}
+```
+
+Direct SQL uses `context.get(databasesContext).query(slug, sql, params)`, and agents use their `database_query` tool. All three reach the same storage. Use Kysely's `.returning()` to read changed rows: queries return no affected-row counts or insert IDs. SQL transactions are not supported.
+
+[Add a database](/how-to/add-a-database) walks through declaring a database, writing a migration and generating its types.

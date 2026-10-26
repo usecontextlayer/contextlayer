@@ -1,0 +1,71 @@
+---
+title: "Accounts"
+description: "A connected account holds a provider's credentials for a personal or organization Owner, independently of any slate."
+---
+
+An account is a Composio connected account that holds a provider's credentials, such as a Gmail or Slack login. ContextLayer uses it to call that provider's tools for a slate.
+
+## An account belongs to an Owner
+
+Every account belongs to an Owner: a person (a personal Owner) or an organization. It belongs to that Owner independently of any slate, so one account can be assigned to connections in several slates.
+
+Members of an organization can connect and list the organization's accounts. An account that a member connects for the organization belongs to the organization, not to the member.
+
+## Composio holds the credentials
+
+Composio stores the provider credentials and refreshes them. ContextLayer does not store them: an assignment records only the account's ID. Tool calls run in a Composio session for the Owner that the connection selects, so a connection can use only that Owner's accounts.
+
+## Connect once, then assign
+
+You connect an account once, in your browser. ContextLayer creates an authorization link for the provider's toolkit. You complete the provider's authorization at that link, and the account then belongs to the Owner you chose. You can start from:
+
+- the CLI's `accounts` command, which prints the link;
+- the chrome, the ContextLayer header at the top of a hosted slate, next to a declared connection;
+- the API operation [Create an authorization link to connect an Owner's account](https://docs.usecontextlayer.com/api-reference/accounts/create-an-authorization-link-to-connect-an-owners-account).
+
+A connected account does nothing on its own. To use it, assign it to a connection that a slate declares. [Connections and assignments](/core-concepts/resources/connections-and-assignments) explains assignments, and [Connect an account](/how-to/connect-an-account) walks through the steps. During local development, connections use your personal accounts, so connect the account for yourself.
+
+For example, an app declares a Gmail connection with the slug `work-email`:
+
+```json public/slate.json
+{
+  "connections": {
+    "work-email": {
+      "toolkit": "gmail",
+      "mode": "viewer"
+    }
+  }
+}
+```
+
+Assigning one of your Gmail accounts to it in the checkout saves only the account's ID, under the slug:
+
+```json .contextlayer/connections.json
+{
+  "work-email": "ca_example"
+}
+```
+
+The app's code calls tools by the slug, and each call runs with the assigned account:
+
+```tsx app/routes/home.tsx
+import { toolsContext } from "@usecontextlayer/sdk"
+import type { Route } from "./+types/home"
+
+export async function loader({ context }: Route.LoaderArgs) {
+  const tools = context.get(toolsContext)
+  return tools.call("work-email", "GMAIL_FETCH_EMAILS", { max_results: 5 })
+}
+```
+
+## List accounts
+
+The CLI's `accounts` command also lists an Owner's accounts with their toolkit, identity and status. Only active accounts are listed. Run `npx @usecontextlayer/cli accounts --help` for its operations and for choosing between your personal accounts and an organization's.
+
+## API
+
+The platform's account operations are in the Accounts group of the API reference:
+
+- [List active accounts belonging to an Owner](https://docs.usecontextlayer.com/api-reference/accounts/list-active-accounts-belonging-to-an-owner)
+- [Create an authorization link to connect an Owner's account](https://docs.usecontextlayer.com/api-reference/accounts/create-an-authorization-link-to-connect-an-owners-account)
+- [List the caller's active accounts for a toolkit](https://docs.usecontextlayer.com/api-reference/accounts/list-the-callers-active-accounts-for-a-toolkit) and [Call a tool with the caller's selected account](https://docs.usecontextlayer.com/api-reference/accounts/call-a-tool-with-the-callers-selected-account), the personal-account operations that local development uses
