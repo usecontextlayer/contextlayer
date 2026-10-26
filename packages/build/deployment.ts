@@ -10,6 +10,7 @@ export function slateDeploymentConfig(slateId: string) {
 		no_bundle: true,
 		observability: { enabled: true },
 		rules: [{ globs: ["**/*.js", "**/*.mjs"], type: "ESModule" }],
+		tsconfig: "./tsconfig.json",
 		upload_source_maps: false,
 	}
 }

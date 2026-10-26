@@ -24,6 +24,7 @@ export async function publishSlate(
 		if (!download.success) {
 			throw new Error(`Deployment artifact download failed: ${download.stderr}`)
 		}
+		await sandbox.writeFile("/tmp/slate-deploy/tsconfig.json", "{}")
 		await sandbox.writeFile(
 			"/tmp/slate-deploy/wrangler.json",
 			JSON.stringify(slateDeploymentConfig(slateId)),

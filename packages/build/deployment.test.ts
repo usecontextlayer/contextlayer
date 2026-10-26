@@ -41,15 +41,20 @@ test("publishes compiled modules and assets with platform-owned configuration", 
 			vars: { DANGEROUS: "author binding" },
 		}),
 	)
-	await writeFile(join(source, ".env"), "NODE_OPTIONS=--import ./author.js")
-	await writeFile(join(source, "author.js"), 'throw new Error("AUTHOR_ENV_EXECUTED")')
+	await writeFile(join(source, ".env"), "CLOUDFLARE_ENV=author-selected-environment")
+	await writeFile(join(directory, "outside.json"), "OUTSIDE_PAYLOAD_SENTINEL")
+	await writeFile(
+		join(source, "server/tsconfig.json"),
+		JSON.stringify({ extends: join(directory, "outside.json") }),
+	)
 	await writeFile(join(source, "server/package.json"), '{"type":"commonjs"}')
+	await writeFile(join(output, "tsconfig.json"), "{}")
 	await writeFile(
 		join(output, "wrangler.json"),
 		JSON.stringify(slateDeploymentConfig("trusted-slate")),
 	)
 
-	await execFile(
+	const { stderr } = await execFile(
 		wrangler,
 		[
 			"deploy",
@@ -72,6 +77,7 @@ test("publishes compiled modules and assets with platform-owned configuration", 
 			},
 		},
 	)
+	expect(stderr).not.toContain("author-selected-environment")
 	const bundle = await readFile(join(directory, "worker.bundle"))
 	const boundary = bundle.toString().split("\r\n", 1)[0].slice(2)
 	const upload = await new Response(new Uint8Array(bundle), {
