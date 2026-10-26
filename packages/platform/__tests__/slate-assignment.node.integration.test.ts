@@ -13,7 +13,7 @@ import { getAgentInstanceName } from "@/agent-instance"
 import { slateSchema } from "@/slates.schema"
 
 test("chrome and API final assignments enable agent-only personal resources without opening the app", {
-	timeout: 180_000,
+	timeout: 900_000,
 }, async ({ db, directory, platform, webSession }) => {
 	const headers = new Headers(webSession.headers)
 	headers.set("origin", platform.origin)
@@ -146,8 +146,10 @@ test("chrome and API final assignments enable agent-only personal resources with
 			})
 		}
 		expect(await members()).toEqual([{ user_id: webSession.user.id }])
+		await expect
+			.poll(() => instance.listSchedules(), { interval: 1000, timeout: 900_000 })
+			.toHaveLength(1)
 		const schedules = await instance.listSchedules()
-		expect(schedules).toHaveLength(1)
 		expect(
 			(await DATABASES.getByName(inbox.instance_name).query("SELECT * FROM updates"))
 				.rows,

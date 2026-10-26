@@ -123,9 +123,7 @@ export const test = base
 		worker: platform.harness.getWorker<{
 			PROVISIONING: Service<Provisioning>
 			MEMBER_PROVISIONING: Workflow<SlateProvisioning>
-		}>(
-			"contextlayer-build-test",
-		),
+		}>("contextlayer-build-test"),
 	}))
 
 export const dispatcherTest = test
