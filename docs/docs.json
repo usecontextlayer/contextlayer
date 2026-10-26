@@ -1,0 +1,69 @@
+{
+	"$schema": "https://mintlify.com/docs.json",
+	"colors": {
+		"dark": "#15803D",
+		"light": "#07C983",
+		"primary": "#16A34A"
+	},
+	"contextual": {
+		"options": [
+			"copy",
+			"view",
+			"chatgpt",
+			"claude",
+			"perplexity",
+			"mcp",
+			"cursor",
+			"vscode"
+		]
+	},
+	"favicon": "/favicon.svg",
+	"footer": {
+		"socials": {
+			"github": "https://github.com/mintlify",
+			"linkedin": "https://linkedin.com/company/mintlify",
+			"x": "https://x.com/mintlify"
+		}
+	},
+	"logo": {
+		"dark": "/logo/dark.svg",
+		"light": "/logo/light.svg"
+	},
+	"name": "Mintlify Starter Kit",
+	"navbar": {
+		"links": [
+			{
+				"href": "mailto:support@mintlify.com",
+				"label": "Support"
+			}
+		],
+		"primary": {
+			"href": "https://app.mintlify.com",
+			"label": "Dashboard",
+			"type": "button"
+		}
+	},
+	"navigation": {
+		"global": {
+			"anchors": [
+				{
+					"anchor": "Documentation",
+					"href": "https://mintlify.com/docs",
+					"icon": "book-open-cover"
+				},
+				{
+					"anchor": "Blog",
+					"href": "https://mintlify.com/blog",
+					"icon": "newspaper"
+				}
+			]
+		},
+		"pages": [
+			{
+				"group": "Getting Started",
+				"pages": ["index", "quickstart"]
+			}
+		]
+	},
+	"theme": "mint"
+}
