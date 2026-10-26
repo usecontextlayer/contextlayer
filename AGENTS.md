@@ -210,7 +210,7 @@ For TypeScript packages in `./packages`, ALWAYS use `@` aliases for internal imp
 - Do NOT use relative path imports like `../` or `../../` for internal modules.
 - Use the configured alias path instead (for example, `@/auth/session`).
 - If an alias does not exist for a needed path, add/update alias configuration first instead of using a relative import.
-- The CLI’s React Router app template keeps the framework-generated `./+types/...` imports; ordinary template imports use the checkout’s `~` alias. Biome permits only those generated-type relative imports in the template.
+- The CLI’s React Router app template maps `@/` to the slate root. Keep the framework-generated `./+types/...` imports; Biome permits those relative imports in the template’s `app/**/*.tsx` files.
 - This rule does NOT apply to one-off scripts outside `./packages`.
 
 ### CLI Input Parsing

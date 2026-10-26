@@ -1,7 +1,7 @@
 import { connectionRequiredSchema, secretRequiredSchema } from "@usecontextlayer/sdk"
 import { isRouteErrorResponse, Outlet } from "react-router"
 import type { Route } from "./+types/root"
-import "~/app.css"
+import "@/app/app.css"
 
 export { Layout } from "@usecontextlayer/sdk/react"
 

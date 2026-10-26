@@ -126,7 +126,7 @@
 								"patterns": [
 									{
 										"group": ["./**", "../**", ".", "..", "!./+types", "!./+types/**"],
-										"message": "Use the app's ~/ alias; relative imports are reserved for React Router's generated +types."
+										"message": "Use the @/ alias; relative imports are reserved for React Router's generated +types."
 									}
 								]
 							}
