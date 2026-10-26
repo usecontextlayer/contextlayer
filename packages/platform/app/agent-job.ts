@@ -166,11 +166,6 @@ export class SlateAgentJob extends Agent<
 				connection.owner,
 				connection.connection_id,
 				connection.toolkit,
-				{
-					manageConnections: { enable: false },
-					sandbox: { enable: false },
-					sessionPreset: "direct_tools",
-				},
 			)
 			connections.push({ name, session, toolkit: connection.toolkit })
 		}

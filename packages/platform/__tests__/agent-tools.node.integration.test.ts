@@ -38,11 +38,6 @@ test("agent tools bind two Gmail namespaces to their connected accounts", async 
 					{ id: webSession.user.id, type: "personal" },
 					account.id,
 					"gmail",
-					{
-						manageConnections: { enable: false },
-						sandbox: { enable: false },
-						sessionPreset: "direct_tools",
-					},
 				),
 				toolkit: "gmail",
 			})),

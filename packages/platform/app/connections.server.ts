@@ -1,4 +1,4 @@
-import { Composio, type ToolRouterCreateSessionConfig } from "@composio/core"
+import { Composio } from "@composio/core"
 import type { z } from "zod"
 import type { OwnerIdentity } from "@/auth.server"
 import { connectionLinkSchema, connectionSchema } from "@/connections.schema"
@@ -11,15 +11,13 @@ export async function createConnectionSession(
 	owner: Owner,
 	connectionId: string,
 	toolkit: string,
-	options: Pick<
-		ToolRouterCreateSessionConfig,
-		"sessionPreset" | "manageConnections" | "sandbox"
-	> = {},
 ) {
 	const composio = new Composio({ apiKey })
 	return composio.create(owner.id, {
-		...options,
 		connectedAccounts: { [toolkit]: [connectionId] },
+		manageConnections: { enable: false },
+		sandbox: { enable: true },
+		sessionPreset: "direct_tools",
 		toolkits: [toolkit],
 	})
 }
