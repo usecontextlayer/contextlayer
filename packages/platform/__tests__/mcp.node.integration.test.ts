@@ -1,13 +1,14 @@
-import { cp, symlink, writeFile } from "node:fs/promises"
-import { join } from "node:path"
+import { cp } from "node:fs/promises"
+import { join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client"
 import { dispatcherTest as base } from "@tests/integration"
 import { authorizeMcp } from "@usecontextlayer/dev-env/mcp"
+import { createSlateProject } from "@usecontextlayer/dev-env/slate"
 import { signInViewer } from "@usecontextlayer/dev-env/viewer"
 import { execa } from "execa"
 import { expect } from "vitest"
-import { unstable_readConfig } from "wrangler"
+import { experimental_patchConfig, unstable_readConfig } from "wrangler"
 import { z } from "zod"
 import { slateSchema } from "@/slates.schema"
 
@@ -146,39 +147,30 @@ test("private organization member passes billing through slate-bound MCP authori
 test("discovers a View and invokes an authored Worker once through native MCP", {
 	timeout: 300_000,
 }, async ({ slate, directory, dispatcher, mcpHeaders }) => {
-	await cp(new URL("./fixtures/mcp", import.meta.url), directory, { recursive: true })
-	await cp(
-		new URL("../../cli/template/workers/local-resources", import.meta.url),
-		join(directory, "workers/local-resources"),
-		{ recursive: true },
-	)
-	await symlink(
-		fileURLToPath(new URL("../node_modules", import.meta.url)),
-		join(directory, "node_modules"),
-		"dir",
-	)
+	await createSlateProject(resolve(import.meta.dirname, "../../.."), directory)
+	for (const source of ["mcp", "mcp-ui", "workers/mcp.ts"]) {
+		await cp(
+			new URL(`./fixtures/mcp/${source}`, import.meta.url),
+			join(directory, source),
+			{ recursive: true },
+		)
+	}
 	const config = unstable_readConfig({
 		config: fileURLToPath(new URL("../../dispatcher/wrangler.jsonc", import.meta.url)),
 		env: "test",
 	})
 	const accountId = z.string().parse(config.account_id)
 	const namespace = z.string().parse(config.dispatch_namespaces[0]?.namespace)
-	await writeFile(
-		join(directory, "wrangler.jsonc"),
-		JSON.stringify({
-			account_id: accountId,
-			compatibility_date: config.compatibility_date,
-			main: "./workers/app.ts",
-			name: slate.id,
-		}),
-	)
-	const execute = execa({
-		cwd: directory,
-		localDir: new URL("../", import.meta.url),
-		preferLocal: true,
+	experimental_patchConfig(join(directory, "wrangler.jsonc"), {
+		account_id: accountId,
+		main: "./workers/mcp.ts",
+		name: slate.id,
 	})
-	await execute("vite", ["build"], { env: { NODE_ENV: "production" } })
-	await execute("wrangler", [
+	const execute = execa({ cwd: directory })
+	await execute("pnpm", ["build"], { env: { NODE_ENV: undefined } })
+	await execute("pnpm", [
+		"exec",
+		"wrangler",
 		"deploy",
 		"--config",
 		join(directory, "build/server/wrangler.json"),

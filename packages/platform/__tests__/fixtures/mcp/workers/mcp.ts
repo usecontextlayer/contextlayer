@@ -1,17 +1,7 @@
-import {
-	createSlateWorker,
-	type McpToolModule,
-	type SlateWorker,
-} from "@usecontextlayer/sdk/worker"
+import type { SlateWorker } from "@usecontextlayer/sdk/worker"
+import slate from "@/workers/app"
 
-const slate = createSlateWorker({
-	build: () => import("virtual:react-router/server-build"),
-	development: import.meta.env.DEV,
-	mcp: import.meta.glob<McpToolModule>("/mcp/*/index.ts", { eager: true }),
-	mode: import.meta.env.MODE,
-})
-
-export default {
+const worker: SlateWorker = {
 	async fetch(request, env, ctx) {
 		const response = await slate.fetch(request, env, ctx)
 		if (!ctx.props.mcpTool) return response
@@ -24,4 +14,6 @@ export default {
 			},
 		})
 	},
-} satisfies SlateWorker
+}
+
+export default worker
