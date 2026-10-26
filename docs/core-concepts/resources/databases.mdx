@@ -77,12 +77,12 @@ If a migration fails, the deployment stops. Statements that ran before the failu
 
 Loaders and actions get a typed Kysely instance for a declared slug from the SDK:
 
-```ts
+```tsx app/routes/home.tsx
 import { database, databasesContext } from "@usecontextlayer/sdk"
-import type { LoaderFunctionArgs } from "react-router"
 import type { DB } from "@/databases/notes/types"
+import type { Route } from "./+types/home"
 
-export async function loader({ context }: LoaderFunctionArgs) {
+export async function loader({ context }: Route.LoaderArgs) {
   const db = database<DB>(context.get(databasesContext), "notes")
   return db.selectFrom("notes").selectAll().orderBy("id", "desc").execute()
 }

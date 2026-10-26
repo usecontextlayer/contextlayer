@@ -28,11 +28,11 @@ A connection is declared by slug, toolkit and mode under `connections` in a `sla
 
 In a loader or action, get Tools from the React Router context and call a tool through a declared connection slug:
 
-```ts
+```tsx app/routes/home.tsx
 import { toolsContext } from "@usecontextlayer/sdk"
-import type { LoaderFunctionArgs } from "react-router"
+import type { Route } from "./+types/home"
 
-export async function loader({ context }: LoaderFunctionArgs) {
+export async function loader({ context }: Route.LoaderArgs) {
   const tools = context.get(toolsContext)
   return tools.call("work-email", "GMAIL_FETCH_EMAILS", { max_results: 5 })
 }

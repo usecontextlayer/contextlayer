@@ -83,12 +83,12 @@ Keep the generated `workers/app.ts` wiring to `createSlateWorker` from `@usecont
 
 Declare a database slug in `public/slate.json` and the same slug in `agents/<name>/slate.json` when both should share data, following the [resource invariants](https://github.com/usecontextlayer/contextlayer/blob/main/ARCHITECTURE.md#resource-configuration-and-execution--principles). Each database has a native config, migrations, and generated query types under `databases/<slug>`. The starter wires a shared `notes` database into its route.
 
-```ts
+```tsx
 import { database, databasesContext } from "@usecontextlayer/sdk"
-import type { LoaderFunctionArgs } from "react-router"
 import type { DB } from "@/databases/notes/types"
+import type { Route } from "./+types/home"
 
-export async function loader({ context }: LoaderFunctionArgs) {
+export async function loader({ context }: Route.LoaderArgs) {
   const db = database<DB>(context.get(databasesContext), "notes")
   return db.selectFrom("notes").selectAll().orderBy("id", "desc").execute()
 }

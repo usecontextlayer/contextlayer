@@ -93,12 +93,12 @@ Keep `pnpm dev` running from the checkout root while you work. The migration and
   <Step title="Query it from a loader or action">
     The SDK's `database<DB>(...)` returns a Kysely instance for a declared slug, typed by the generated `DB`:
 
-    ```ts
+    ```tsx app/routes/home.tsx
     import { database, databasesContext } from "@usecontextlayer/sdk"
-    import type { LoaderFunctionArgs } from "react-router"
     import type { DB } from "@/databases/tasks/types"
+    import type { Route } from "./+types/home"
 
-    export async function loader({ context }: LoaderFunctionArgs) {
+    export async function loader({ context }: Route.LoaderArgs) {
     	const db = database<DB>(context.get(databasesContext), "tasks")
     	return db.selectFrom("tasks").selectAll().orderBy("id", "desc").execute()
     }
