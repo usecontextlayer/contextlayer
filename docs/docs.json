@@ -1,9 +1,7 @@
 {
 	"$schema": "https://mintlify.com/docs.json",
 	"colors": {
-		"dark": "#15803D",
-		"light": "#07C983",
-		"primary": "#16A34A"
+		"primary": "#615FFF"
 	},
 	"contextual": {
 		"options": [
@@ -17,53 +15,76 @@
 			"vscode"
 		]
 	},
-	"favicon": "/favicon.svg",
+	"description": "The agent-first platform for bespoke software. Build your tools. Get things done. Open source. Self-hostable.",
+	"favicon": "/favicon.png",
+	"fonts": {
+		"family": "Outfit"
+	},
 	"footer": {
+		"links": [
+			{
+				"items": [
+					{
+						"href": "https://www.usecontextlayer.com/consulting",
+						"label": "AI Consulting"
+					},
+					{
+						"href": "https://www.usecontextlayer.com/blog",
+						"label": "Blog"
+					},
+					{
+						"href": "https://platform.usecontextlayer.com",
+						"label": "Start building"
+					},
+					{
+						"href": "https://www.usecontextlayer.com/privacy",
+						"label": "Privacy"
+					},
+					{
+						"href": "https://www.usecontextlayer.com/terms",
+						"label": "Terms"
+					}
+				]
+			}
+		],
 		"socials": {
-			"github": "https://github.com/mintlify",
-			"linkedin": "https://linkedin.com/company/mintlify",
-			"x": "https://x.com/mintlify"
+			"github": "https://github.com/usecontextlayer/contextlayer"
 		}
 	},
-	"logo": {
-		"dark": "/logo/dark.svg",
-		"light": "/logo/light.svg"
-	},
-	"name": "Mintlify Starter Kit",
+	"name": "ContextLayer",
 	"navbar": {
 		"links": [
 			{
-				"href": "mailto:support@mintlify.com",
-				"label": "Support"
+				"href": "https://www.usecontextlayer.com/consulting",
+				"label": "AI Consulting"
+			},
+			{
+				"href": "https://www.usecontextlayer.com/blog",
+				"label": "Blog"
+			},
+			{
+				"href": "https://github.com/usecontextlayer/contextlayer",
+				"type": "github"
 			}
 		],
 		"primary": {
-			"href": "https://app.mintlify.com",
-			"label": "Dashboard",
+			"href": "https://platform.usecontextlayer.com",
+			"label": "Start building",
 			"type": "button"
 		}
 	},
 	"navigation": {
-		"global": {
-			"anchors": [
-				{
-					"anchor": "Documentation",
-					"href": "https://mintlify.com/docs",
-					"icon": "book-open-cover"
-				},
-				{
-					"anchor": "Blog",
-					"href": "https://mintlify.com/blog",
-					"icon": "newspaper"
-				}
-			]
-		},
 		"pages": [
 			{
 				"group": "Getting Started",
 				"pages": ["index", "quickstart"]
 			}
 		]
+	},
+	"seo": {
+		"metatags": {
+			"canonical": "https://docs.usecontextlayer.com"
+		}
 	},
 	"theme": "mint"
 }
