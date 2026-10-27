@@ -47,7 +47,7 @@ export function parseDevEnvPorts(input: unknown) {
 	return portsSchema.parse(input)
 }
 
-export const devEnvOrganizationSlug = "local-development"
+export const DEV_ENV_ORGANIZATION_SLUG = "local-development"
 
 const devEnvIdentitySchema = z.object({
 	CTX_DEV_USER_EMAIL: z.email(),

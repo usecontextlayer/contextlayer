@@ -9,7 +9,7 @@ import {
 	readDevEnvServiceEnv,
 	readDevEnvWebEnv,
 } from "@usecontextlayer/dev-env/dev-env"
-import { devEnvOrganizationSlug } from "@usecontextlayer/dev-env/env"
+import { DEV_ENV_ORGANIZATION_SLUG } from "@usecontextlayer/dev-env/env"
 import { readDevEnvPorts } from "@usecontextlayer/dev-env/ports"
 import { signInWeb } from "@usecontextlayer/dev-env/web"
 import type { SlateProvisioning } from "@usecontextlayer/shared/slate-provisioning"
@@ -56,7 +56,7 @@ export const test = base
 	)
 	.extend("organization", { scope: "file" }, ({ identity }) => {
 		const organization = identity.organizations.find(
-			(item) => item.slug === devEnvOrganizationSlug,
+			(item) => item.slug === DEV_ENV_ORGANIZATION_SLUG,
 		)
 		assert(
 			organization,

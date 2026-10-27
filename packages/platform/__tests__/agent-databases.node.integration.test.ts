@@ -6,7 +6,7 @@ import { promisify } from "node:util"
 import { ToolResultEntry } from "@earendil-works/pi-durable"
 import { writeDatabase } from "@tests/database-project"
 import { executionTest as test } from "@tests/integration"
-import { devEnvOrganizationSlug } from "@usecontextlayer/dev-env/env"
+import { DEV_ENV_ORGANIZATION_SLUG } from "@usecontextlayer/dev-env/env"
 import { createSlateProject } from "@usecontextlayer/dev-env/slate"
 import { signInViewer } from "@usecontextlayer/dev-env/viewer"
 import { type Databases, databaseResultSchema } from "@usecontextlayer/shared/databases"
@@ -53,7 +53,7 @@ for (const [mode, tool] of [
 		const organization = z
 			.object({ organizations: z.array(organizationSchema) })
 			.parse(await organizationsResponse.json())
-			.organizations.find((item) => item.slug === devEnvOrganizationSlug)
+			.organizations.find((item) => item.slug === DEV_ENV_ORGANIZATION_SLUG)
 		assert(organization, "Initialize the DevEnv organization")
 		const created = await fetch(
 			`${origin}/api/slates`,
