@@ -19,6 +19,13 @@ Start with a private slate created with `init`, as in the [Quickstart](/quicksta
 
     `slate.json` is the agent's declaration: the resources it needs. It uses the same schema as the app's `public/slate.json`. `connections` is required; `databases` and `secrets` are optional.
 
+    Before declaring the model credential, choose an Anthropic API key or a Claude subscription token. If a coding agent is following this guide, it must ask you which you use and wait for your answer before writing the secret declaration. Hosted agents support these credential declarations:
+
+    - `ANTHROPIC_API_KEY`: an Anthropic API key. If both are declared, this one is used.
+    - `CLAUDE_CODE_OAUTH_TOKEN`: a Claude subscription token.
+
+    The example below uses `ANTHROPIC_API_KEY`. For a Claude subscription, use `CLAUDE_CODE_OAUTH_TOKEN` in its place.
+
     ```json agents/digest/slate.json
     {
       "connections": {},
@@ -27,19 +34,20 @@ Start with a private slate created with `init`, as in the [Quickstart](/quicksta
     }
     ```
 
-    The starter app also declares `notes` in owner mode, so the app and this agent use the same hosted database. The API key belongs to the slate's Owner and supplies hosted model authentication.
+    The starter app also declares `notes` in owner mode, so the app and this agent use the same hosted database. The provider secret belongs to the slate's Owner and supplies hosted model authentication.
 
     Repeated resource names must agree across declarations: all use the same mode, and repeated connections use the same toolkit. An agent gets only its own declared resources; it does not inherit the app's declaration.
 
     Every directory under `agents/` needs a `slate.json`, even one that declares nothing: `{ "connections": {} }`.
   </Step>
   <Step title="Supply model credentials">
-    The example declares an owner-mode `ANTHROPIC_API_KEY`. Save an Anthropic API key for the slate's Owner with the CLI's `secrets set` command. It targets your personal Owner by default; choose the organization explicitly if the slate belongs to one. Run `npx @usecontextlayer/cli secrets set --help` for the input and Owner-selection syntax.
+    If you chose a Claude subscription, first run `claude setup-token` in your own terminal and complete its sign-in to create the token. See `claude setup-token --help` for the command's usage.
 
-    Hosted agents support these credential declarations:
+    Save your chosen credential under its declared name for the slate's Owner with the CLI's `secrets set` command. It targets your personal Owner by default; choose the organization explicitly if the slate belongs to one. Run `npx @usecontextlayer/cli secrets set --help` for the input and Owner-selection syntax.
 
-    - `ANTHROPIC_API_KEY`: an Anthropic API key. If both are declared, this one is used.
-    - `CLAUDE_CODE_OAUTH_TOKEN`: a Claude subscription token, which `claude setup-token` creates.
+    <Note>
+      A sandboxed or non-interactive environment may refuse `claude setup-token` or `secrets set`. If either command is refused or needs interaction, a coding agent must ask you to run that step in your own terminal and wait for you to confirm it succeeded before continuing. Supply the credential directly to `secrets set` in that terminal.
+    </Note>
 
     The secret's mode decides whose value a job uses. In owner mode the slate's Owner saves one value and every job uses it. In viewer mode each person saves their own, and a job uses the value of the person it acts for. See [Secrets](/core-concepts/resources/secrets).
 

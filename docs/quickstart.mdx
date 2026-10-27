@@ -9,7 +9,7 @@ A person supplies the Git identity, chooses the slate's Owner, and signs in to v
 
 <Steps titleSize="h2">
   <Step title="Create the slate">
-    This walkthrough creates a slate owned by your personal account. To create it for an organization you belong to, check `npx @usecontextlayer/cli init --help` and select the organization before running `init`. The Owner is the person or organization that will manage the slate.
+    Choose the slate's [Owner](/core-concepts/owners-and-viewers#owner) before running `init`: your personal Owner or an organization you belong to. If a coding agent is following this guide, it must ask you which Owner to use and wait for your answer before running the command. `init` uses your personal Owner by default; run `npx @usecontextlayer/cli init --help` for Owner-selection syntax.
 
     ```sh
     npx @usecontextlayer/cli init my-slate

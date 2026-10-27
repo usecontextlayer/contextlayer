@@ -111,6 +111,10 @@ Start `pnpm dev` from the checkout root before editing the declarations and keep
     The `"tasks"` argument to `database()` selects the database; the `"tasks"` argument to `selectFrom()` selects the table inside it. A new table returns an empty array until rows are inserted.
 
     Mutations return Kysely's affected-row counts and SQLite insert IDs; use `.returning()` to read the written rows. SQL transactions are not supported. The starter's `app/routes/home.tsx` shows how a loader and a form action read and write the existing `notes` table.
+
+    <Note>
+      When checking the starter's form action with `curl` or another HTTP client, send the POST to `/?index`. `app/routes/home.tsx` is an index route; React Router uses `?index` to select its action rather than the parent route's. A plain POST to `/` reaches the starter's root route, which has no action, and returns `405 Method Not Allowed`. React Router's `<Form>` adds the query parameter automatically. See [Index Query Param](https://reactrouter.com/explanation/index-query-param).
+    </Note>
   </Step>
   <Step title="Commit and push">
     Commit the declaration, Kysely configuration, migration, generated query types, and any app changes together, then push `main`. See [Deploy](/how-to/deploy).
