@@ -1,14 +1,8 @@
 import { resolve } from "node:path"
 import { initializeDatabase } from "@usecontextlayer/dev-env/database"
-import {
-	readDevelopmentServiceEnv,
-	readWebDevelopmentEnv,
-} from "@usecontextlayer/dev-env/development"
+import { readDevEnvServiceEnv, readDevEnvWebEnv } from "@usecontextlayer/dev-env/dev-env"
 import { startPolarListener } from "@usecontextlayer/dev-env/polar"
-import {
-	assignDevelopmentPorts,
-	saveDevelopmentPorts,
-} from "@usecontextlayer/dev-env/ports"
+import { assignDevEnvPorts, saveDevEnvPorts } from "@usecontextlayer/dev-env/ports"
 import { startNext, startVite, startWrangler } from "@usecontextlayer/dev-env/services"
 import { execa, execaNode } from "execa"
 import { z } from "zod"
@@ -17,10 +11,10 @@ process.once("SIGINT", () => process.exit(0))
 
 const root = resolve(import.meta.dirname, "..")
 const webRoot = resolve(root, "../web")
-const addresses = await assignDevelopmentPorts(root)
-const { issuer, platformEnv, polarEnv, webEnv } = await readDevelopmentServiceEnv(
+const addresses = await assignDevEnvPorts(root)
+const { issuer, platformEnv, polarEnv, webEnv } = await readDevEnvServiceEnv(
 	root,
-	await readWebDevelopmentEnv(webRoot, addresses),
+	await readDevEnvWebEnv(webRoot, addresses),
 	addresses,
 )
 
@@ -80,7 +74,7 @@ const dispatcher = startWrangler({
 const services = [web, platform, auth, dispatcher]
 const servicesExited = Promise.race(services.map((service) => service.process)).then(
 	() => {
-		throw new Error("A development service exited.")
+		throw new Error("A DevEnv service exited.")
 	},
 )
 await Promise.race([
@@ -95,7 +89,7 @@ const exited = Promise.race([servicesExited, polarListener]).then(() => {
 	throw new Error("The Polar listener exited.")
 })
 const { ipcOutput } = await Promise.race([
-	execaNode(resolve(webRoot, "scripts/development.mts"), {
+	execaNode(resolve(webRoot, "scripts/dev-env.mts"), {
 		cwd: webRoot,
 		env: {
 			...webEnv,
@@ -108,7 +102,7 @@ const { ipcOutput } = await Promise.race([
 	exited,
 ])
 const clientId = z.string().min(1).parse(ipcOutput[0])
-await saveDevelopmentPorts(root, { ...addresses, CTX_AUTH_CLIENT_ID: clientId })
+await saveDevEnvPorts(root, { ...addresses, CTX_AUTH_CLIENT_ID: clientId })
 console.log(`Web: ${web.url}`)
 console.log(`Platform: ${new URL("/dashboard/personal/slates", platform.url)}`)
 console.log(`Viewer auth: ${auth.url}`)

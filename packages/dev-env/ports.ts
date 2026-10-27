@@ -4,11 +4,11 @@ import { type AddressInfo, createServer } from "node:net"
 import { basename, resolve } from "node:path"
 import waitOn from "wait-on"
 import {
-	type DevelopmentPorts,
-	developmentServiceKeys,
-	parseDevelopmentPorts,
-	parseDevelopmentServiceUrls,
-	readDevelopmentEnv,
+	type DevEnvPorts,
+	devEnvServiceKeys,
+	parseDevEnvPorts,
+	parseDevEnvServiceUrls,
+	readDevEnv,
 } from "@/env"
 
 const MINIMUM_PORT = 3000
@@ -23,40 +23,38 @@ async function readSavedPorts(root: string): Promise<unknown> {
 	return contents === undefined ? undefined : JSON.parse(contents)
 }
 
-export async function readDevelopmentPorts(root: string) {
+export async function readDevEnvPorts(root: string) {
 	const ports = await readSavedPorts(root)
 	if (ports === undefined)
-		throw new Error(
-			"Start this checkout with pnpm dev before running connected commands.",
-		)
-	return { ...readDevelopmentEnv(), ...parseDevelopmentPorts(ports) }
+		throw new Error("Start this checkout's DevEnv with pnpm dev before running commands.")
+	return { ...readDevEnv(), ...parseDevEnvPorts(ports) }
 }
 
-export async function saveDevelopmentPorts(root: string, ports: DevelopmentPorts) {
+export async function saveDevEnvPorts(root: string, ports: DevEnvPorts) {
 	const values = {
-		...Object.fromEntries(developmentServiceKeys.map((key) => [key, ports[key]])),
+		...Object.fromEntries(devEnvServiceKeys.map((key) => [key, ports[key]])),
 		CTX_AUTH_CLIENT_ID: ports.CTX_AUTH_CLIENT_ID,
 		CTX_PLATFORM_DATABASE_URL: ports.CTX_PLATFORM_DATABASE_URL,
 	}
 	await writeFile(resolve(root, ".env.json"), `${JSON.stringify(values, null, 2)}\n`)
 }
 
-export async function assignDevelopmentPorts(root: string) {
+export async function assignDevEnvPorts(root: string) {
 	const previous = await readSavedPorts(root)
-	const saved = previous === undefined ? undefined : parseDevelopmentServiceUrls(previous)
-	const env = readDevelopmentEnv()
+	const saved = previous === undefined ? undefined : parseDevEnvServiceUrls(previous)
+	const env = readDevEnv()
 	// Each checkout gets its own platform database on the environment's server,
-	// named after its folder, so concurrent faux-worktree stacks never run their
+	// named after its folder, so concurrent DevEnvs never run their
 	// branch migrations against one database. Web's database stays shared
 	// because the web checkout is.
 	const database = new URL(env.CTX_PLATFORM_DATABASE_URL)
 	database.pathname = `/${basename(root)}_platform`
 	const addresses = { ...env, ...saved, CTX_PLATFORM_DATABASE_URL: database.href }
-	const previousPorts = developmentServiceKeys.map((key) => Number(addresses[key].port))
+	const previousPorts = devEnvServiceKeys.map((key) => Number(addresses[key].port))
 	if (saved && previousPorts.every((port) => port >= MINIMUM_PORT)) {
 		try {
 			await waitOn({
-				resources: developmentServiceKeys.map(
+				resources: devEnvServiceKeys.map(
 					(key) => `tcp:${saved[key].hostname}:${saved[key].port}`,
 				),
 				reverse: true,
@@ -73,7 +71,7 @@ export async function assignDevelopmentPorts(root: string) {
 		}
 	}
 	const selected = await Promise.all(
-		developmentServiceKeys.map(async (key) => {
+		devEnvServiceKeys.map(async (key) => {
 			let port: number
 			do {
 				await using server = createServer()
@@ -87,5 +85,5 @@ export async function assignDevelopmentPorts(root: string) {
 		}),
 	)
 	const values = Object.fromEntries(selected)
-	return { ...addresses, ...parseDevelopmentServiceUrls(values) }
+	return { ...addresses, ...parseDevEnvServiceUrls(values) }
 }

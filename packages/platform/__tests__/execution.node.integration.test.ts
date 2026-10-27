@@ -45,7 +45,7 @@ test("native resource capabilities enforce access and report exact slate-Owner t
 	const account = accounts[0]
 	assert(
 		account,
-		"Connect a Gmail account for the local development user with pnpm dev:ctx accounts add gmail, then approve the link in your browser.",
+		"Connect a Gmail account for the DevEnv user with pnpm dev:ctx accounts add gmail, then approve the link in your browser.",
 	)
 	const { ARTIFACTS, DATABASES } = await worker.getEnv()
 	const { PROVISIONING, MEMBER_PROVISIONING } = await provisioning.worker.getEnv()

@@ -25,9 +25,9 @@
 			"import": "./dist/database.mjs",
 			"types": "./dist/database.d.mts"
 		},
-		"./development": {
-			"import": "./dist/development.mjs",
-			"types": "./dist/development.d.mts"
+		"./dev-env": {
+			"import": "./dist/dev-env.mjs",
+			"types": "./dist/dev-env.d.mts"
 		},
 		"./doppler": {
 			"import": "./dist/doppler.mjs",

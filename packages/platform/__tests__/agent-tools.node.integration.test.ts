@@ -22,7 +22,7 @@ test("agent tools bind two Gmail namespaces to their connected accounts", async 
 	const first = accounts[0]
 	const second = accounts.find((account) => account.display_name !== first?.display_name)
 	if (!first || !second)
-		throw new Error("Connect two distinct Gmail accounts to the local development user")
+		throw new Error("Connect two distinct Gmail accounts to the DevEnv user")
 	const assignments = { personal_email: second, work_email: first }
 	for (const account of Object.values(assignments)) z.email().parse(account.display_name)
 	const { COMPOSIO_API_KEY } = await worker.getEnv()

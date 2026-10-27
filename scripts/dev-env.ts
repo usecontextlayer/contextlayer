@@ -1,10 +1,10 @@
 import { resolve } from "node:path"
-import { readDevelopmentCommandEnv } from "@usecontextlayer/dev-env/development"
-import { readDevelopmentPorts } from "@usecontextlayer/dev-env/ports"
+import { readDevEnvCommandEnv } from "@usecontextlayer/dev-env/dev-env"
+import { readDevEnvPorts } from "@usecontextlayer/dev-env/ports"
 
 const root = resolve(import.meta.dirname, "..")
-const addresses = await readDevelopmentPorts(root)
-const env = readDevelopmentCommandEnv(root, addresses)
+const addresses = await readDevEnvPorts(root)
+const env = readDevEnvCommandEnv(root, addresses)
 for (const [key, value] of Object.entries(env)) {
 	process.stdout.write(`export ${key}='${value.replaceAll("'", "'\\''")}'\n`)
 }

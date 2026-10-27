@@ -5,7 +5,7 @@ import { promisify } from "node:util"
 import { AssistantEntry, UserEntry } from "@earendil-works/pi-durable"
 import { writeDatabase } from "@tests/database-project"
 import { test } from "@tests/integration"
-import { DEVELOPMENT_ORGANIZATION_SLUG } from "@usecontextlayer/dev-env/env"
+import { devEnvOrganizationSlug } from "@usecontextlayer/dev-env/env"
 import { createSlateProject } from "@usecontextlayer/dev-env/slate"
 import { accountsSchema } from "@usecontextlayer/shared/accounts"
 import { slateResourcesSchema } from "@usecontextlayer/shared/slate-resources"
@@ -51,8 +51,8 @@ for (const mode of ["default", "owner", "viewer"] as const) {
 		const organization = z
 			.object({ organizations: z.array(organizationSchema) })
 			.parse(await organizationsResponse.json())
-			.organizations.find((item) => item.slug === DEVELOPMENT_ORGANIZATION_SLUG)
-		if (!organization) throw new Error("Initialize the local development organization")
+			.organizations.find((item) => item.slug === devEnvOrganizationSlug)
+		if (!organization) throw new Error("Initialize the DevEnv organization")
 		const owner = { id: organization.id, type: "organization" } as const
 		const viewer = { id: webSession.user.id, type: "personal" } as const
 		let expectedModel = "claude-haiku-4-5"
@@ -201,8 +201,8 @@ test("members' deployed cron jobs use viewer resources and retain results after 
 	const organization = z
 		.object({ organizations: z.array(organizationSchema) })
 		.parse(await organizationsResponse.json())
-		.organizations.find((item) => item.slug === DEVELOPMENT_ORGANIZATION_SLUG)
-	if (!organization) throw new Error("Initialize the local development organization")
+		.organizations.find((item) => item.slug === devEnvOrganizationSlug)
+	if (!organization) throw new Error("Initialize the DevEnv organization")
 	const organizationSlug = organization.slug
 	const organizationId = organization.id
 	await using resources = new AsyncDisposableStack()

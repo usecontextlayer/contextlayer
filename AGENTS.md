@@ -20,14 +20,14 @@ Customer data means anything that is theirs: records in their Planner, Dataverse
 
 ## Production Is Never a Development Target
 
-The production platform, the production web issuer, and the saved login in `~/.contextlayer` are the user's own production account. The built CLI defaults to all three, so running it outside the connected environment acts as the user in production. Development work runs against the connected stack in DEVELOPING.md. Before any command that reaches a platform, know which platform URL and which login it will use; a production answer is a stop that needs the user's explicit direction for that specific action.
+The production platform, the production web issuer, and the saved login in `~/.contextlayer` are the user's own production account. The built CLI defaults to all three, so running it outside the DevEnv acts as the user in production. Development work runs against the DevEnv in DEVELOPING.md. Before any command that reaches a platform, know which platform URL and which login it will use; a production answer is a stop that needs the user's explicit direction for that specific action.
 
 **Read the companion documents when their domain comes up:**
 
 - **[`DOCS.md`](DOCS.md)** — each document’s purpose and where information belongs.
 - **[`ARCHITECTURE.md`](ARCHITECTURE.md)** — concepts, package ownership, dataflow, trust boundaries, and invariants.
 - **[`.font-awesome.md`](.font-awesome.md)** — the shared Font Awesome kit, default family/style, and import conventions for all packages.
-- **`DEVELOPING.md`** — setup, workspace commands, test prerequisites, and operational conventions. Read it before running or debugging the local environment.
+- **`DEVELOPING.md`** — setup, workspace commands, test prerequisites, and operational conventions. Read it before running or debugging the DevEnv.
 - **`node --import tsx scripts/release.ts --help`** — the version helpers and automatic commit/push/check/tag/release ladder. Workflows start on main and version-tag pushes; manual dispatch is also available.
 
 ## How to Work
@@ -124,9 +124,9 @@ For package-scoped tasks in this repo, ALWAYS use Turbo with `--filter=` selecto
 - Preferred: `npx turbo run <task> --filter=@usecontextlayer/<pkg>...`
 - Do NOT use npm `--workspace` targeting for these runs.
 
-### Local Development
+### DevEnv
 
-Use [DEVELOPING.md](DEVELOPING.md) for local setup, pnpm workspace commands, service prerequisites, and test workflows. Preserve the shared-machine ownership rules above when starting or stopping local services.
+Use [DEVELOPING.md](DEVELOPING.md) for DevEnv setup, pnpm workspace commands, service prerequisites, and test workflows. Preserve the shared-machine ownership rules above when starting or stopping local services.
 
 ### Doppler
 
@@ -190,7 +190,7 @@ If the package does not already have an `env.ts`, create one first and route env
 - Keep all normalization and defaults centralized in `env.ts`.
 - Keep hard-fail/required-variable checks centralized in `env.ts`.
 - Do not implement env defaults/fallbacks in non-`env.ts` modules (including shared/runtime libraries).
-- Compose connected command and test settings from startup’s completed `.env.json` record through the shared dev-env reader; pass server and credential-directory settings explicitly to in-process auth and subprocess consumers. Preserve the [connection-facts invariants](ARCHITECTURE.md#oauth-resources-and-scopes) and use [Connected development](DEVELOPING.md#connected-development) for the startup/port-reuse workflow. Do not add a global environment registry, hostname pool, or platform-resource setting; the platform OAuth resource is a protocol constant, never configuration.
+- Compose DevEnv command and test settings from startup’s completed `.env.json` record through the shared DevEnv reader; pass server and credential-directory settings explicitly to in-process auth and subprocess consumers. Preserve the [connection-facts invariants](ARCHITECTURE.md#oauth-resources-and-scopes) and use [DevEnv](DEVELOPING.md#devenv) for the startup/port-reuse workflow. Do not add a global environment registry, hostname pool, or platform-resource setting; the platform OAuth resource is a protocol constant, never configuration.
 
 #### Environment Variable Naming
 
@@ -271,7 +271,7 @@ A package carries a tier's config and script only when it uses that tier. Unit c
 
 **A test double neither satisfies nor violates this rule.** It is in-contract when it stands at a boundary and the assertion reads the far side; out-of-contract when the assertion reads the double's own call log, which is our code's inside seen through a stand-in. When the far side cannot be observed through the real path, assert less — never teach the double the real system's rules so it has something to reject. Whether a double belongs there at all is `Exercise the Real Dependency`.
 
-**Keep the operation under test in the test body.** Fixtures and global setup supply prerequisites; they never perform the action being verified, because a test whose subject runs in setup has nothing left to assert. The dev-env provisioning suite therefore creates and drops its databases in the body rather than in a fixture.
+**Keep the operation under test in the test body.** Fixtures and global setup supply prerequisites; they never perform the action being verified, because a test whose subject runs in setup has nothing left to assert. The DevEnv provisioning suite therefore creates and drops its databases in the body rather than in a fixture.
 
 #### Exercise the Real Dependency
 

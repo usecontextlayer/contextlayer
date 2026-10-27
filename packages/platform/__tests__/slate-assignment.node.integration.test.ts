@@ -30,7 +30,7 @@ test("chrome and API final assignments enable agent-only personal resources with
 	const account = accountsSchema.parse(await catalog.json()).accounts[0]
 	assert(
 		account,
-		"The native chrome proof requires an existing ACTIVE personal Gmail connected account for the local development user.",
+		"The native chrome proof requires an existing ACTIVE personal Gmail connected account for the DevEnv user.",
 	)
 	const { ARTIFACTS, DATABASES, AGENTS } = await platform.worker.getEnv()
 	await using cleanup = new AsyncDisposableStack()

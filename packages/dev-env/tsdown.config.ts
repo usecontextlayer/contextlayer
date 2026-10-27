@@ -5,7 +5,7 @@ export default defineConfig({
 	dts: true,
 	entry: [
 		"database.ts",
-		"development.ts",
+		"dev-env.ts",
 		"doppler.ts",
 		"env.ts",
 		"mcp.ts",

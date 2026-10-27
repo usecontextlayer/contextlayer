@@ -7,18 +7,18 @@ import {
 } from "@usecontextlayer/cli/auth"
 import { readDopplerEnv } from "@/doppler"
 import {
-	type DevelopmentEnv,
-	type DevelopmentPorts,
-	readDevelopmentIdentityEnv,
+	type DevEnv,
+	type DevEnvPorts,
+	readDevEnvIdentityEnv,
 	readPolarEnv,
 	readSlateOAuthEnv,
 } from "@/env"
 
-export async function readWebDevelopmentEnv(webRoot: string, addresses: DevelopmentEnv) {
+export async function readDevEnvWebEnv(webRoot: string, addresses: DevEnv) {
 	const webEnv = await readDopplerEnv(webRoot, "web", "dev_personal")
 	return {
 		...webEnv,
-		...readDevelopmentIdentityEnv(webEnv),
+		...readDevEnvIdentityEnv(webEnv),
 		BETTER_AUTH_URL: addresses.BETTER_AUTH_URL.href,
 		CTX_PLATFORM_URL: addresses.CTX_PLATFORM_URL.href,
 		CTX_VIEWER_AUTH_URL: addresses.CTX_VIEWER_AUTH_URL.href,
@@ -26,12 +26,12 @@ export async function readWebDevelopmentEnv(webRoot: string, addresses: Developm
 	}
 }
 
-type WebDevelopmentEnv = Awaited<ReturnType<typeof readWebDevelopmentEnv>>
+type DevEnvWebEnv = Awaited<ReturnType<typeof readDevEnvWebEnv>>
 
-export async function readDevelopmentServiceEnv(
+export async function readDevEnvServiceEnv(
 	root: string,
-	webEnv: WebDevelopmentEnv,
-	addresses: DevelopmentEnv,
+	webEnv: DevEnvWebEnv,
+	addresses: DevEnv,
 ) {
 	const slateOAuthEnv = readSlateOAuthEnv(webEnv)
 	const platformSecrets = await readDopplerEnv(root, "platform", "dev")
@@ -58,10 +58,7 @@ export async function readDevelopmentServiceEnv(
 	}
 }
 
-export function readDevelopmentCommandEnv(
-	root: string,
-	addresses: DevelopmentEnv & DevelopmentPorts,
-) {
+export function readDevEnvCommandEnv(root: string, addresses: DevEnv & DevEnvPorts) {
 	return {
 		...Object.fromEntries(
 			Object.entries(addresses).map(([key, value]) => [key, value.toString()]),
@@ -73,7 +70,7 @@ export function readDevelopmentCommandEnv(
 	}
 }
 
-export async function readDevelopmentIdentity(env: AuthEnv) {
+export async function readDevEnvIdentity(env: AuthEnv) {
 	const headers = { authorization: `Bearer ${await getAccessToken(env)}` }
 	const user = await getCurrentUser(env, headers)
 	const organizations = await listOrganizations(env, headers)

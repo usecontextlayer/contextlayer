@@ -1,4 +1,4 @@
-// Development database lifecycle. Callers supply their application-owned migrations.
+// DevEnv database lifecycle. Callers supply their application-owned migrations.
 
 import { randomBytes } from "node:crypto"
 import { initKysely } from "@usecontextlayer/db-infra"

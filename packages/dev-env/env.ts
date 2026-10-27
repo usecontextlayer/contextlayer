@@ -9,14 +9,14 @@ const serviceSchema = z.object({
 	CTX_VIEWER_AUTH_URL: url,
 })
 
-export const developmentServiceKeys = serviceSchema.keyof().options
+export const devEnvServiceKeys = serviceSchema.keyof().options
 
 const portsSchema = serviceSchema.extend({
 	CTX_AUTH_CLIENT_ID: z.string().min(1),
 	CTX_PLATFORM_DATABASE_URL: z.url(),
 })
 
-export type DevelopmentPorts = z.infer<typeof portsSchema>
+export type DevEnvPorts = z.infer<typeof portsSchema>
 
 const schema = serviceSchema.extend({
 	CTX_PLATFORM_DATABASE_URL: z
@@ -27,9 +27,9 @@ const schema = serviceSchema.extend({
 		.default("postgresql://postgres:postgres@127.0.0.1:5489/contextlayer_web"),
 })
 
-export type DevelopmentEnv = z.infer<typeof schema>
+export type DevEnv = z.infer<typeof schema>
 
-export function readDevelopmentEnv() {
+export function readDevEnv() {
 	return schema.parse({
 		BETTER_AUTH_URL: "http://localhost:0",
 		CTX_DISPATCHER_URL: "http://localhost:0",
@@ -39,25 +39,25 @@ export function readDevelopmentEnv() {
 	})
 }
 
-export function parseDevelopmentServiceUrls(input: unknown) {
+export function parseDevEnvServiceUrls(input: unknown) {
 	return serviceSchema.parse(input)
 }
 
-export function parseDevelopmentPorts(input: unknown) {
+export function parseDevEnvPorts(input: unknown) {
 	return portsSchema.parse(input)
 }
 
-export const DEVELOPMENT_ORGANIZATION_SLUG = "local-development"
+export const devEnvOrganizationSlug = "local-development"
 
-const developmentIdentitySchema = z.object({
+const devEnvIdentitySchema = z.object({
 	CTX_DEV_USER_EMAIL: z.email(),
 	CTX_DEV_USER_PASSWORD: z.string().min(1),
 })
 
-export function readDevelopmentIdentityEnv(
+export function readDevEnvIdentityEnv(
 	env: Record<string, string | undefined> = process.env,
 ) {
-	return developmentIdentitySchema.parse(env)
+	return devEnvIdentitySchema.parse(env)
 }
 
 export function readSlateOAuthEnv(env: Record<string, string>) {

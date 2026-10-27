@@ -4,13 +4,13 @@ import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { test as base } from "@tests/database"
 import {
-	readDevelopmentCommandEnv,
-	readDevelopmentIdentity,
-	readDevelopmentServiceEnv,
-	readWebDevelopmentEnv,
-} from "@usecontextlayer/dev-env/development"
-import { DEVELOPMENT_ORGANIZATION_SLUG } from "@usecontextlayer/dev-env/env"
-import { readDevelopmentPorts } from "@usecontextlayer/dev-env/ports"
+	readDevEnvCommandEnv,
+	readDevEnvIdentity,
+	readDevEnvServiceEnv,
+	readDevEnvWebEnv,
+} from "@usecontextlayer/dev-env/dev-env"
+import { devEnvOrganizationSlug } from "@usecontextlayer/dev-env/env"
+import { readDevEnvPorts } from "@usecontextlayer/dev-env/ports"
 import { signInWeb } from "@usecontextlayer/dev-env/web"
 import type { SlateProvisioning } from "@usecontextlayer/shared/slate-provisioning"
 import type { HostedExecution } from "@usecontextlayer/shared/tools-worker"
@@ -30,12 +30,12 @@ type WorkerConfig = Pick<
 >
 
 export const test = base
-	.extend("addresses", { scope: "file" }, () => readDevelopmentPorts(root))
+	.extend("addresses", { scope: "file" }, () => readDevEnvPorts(root))
 	.extend("webEnv", { scope: "file" }, ({ addresses }) =>
-		readWebDevelopmentEnv(webRoot, addresses),
+		readDevEnvWebEnv(webRoot, addresses),
 	)
 	.extend("serviceEnv", { scope: "file" }, ({ addresses, webEnv }) =>
-		readDevelopmentServiceEnv(root, webEnv, addresses),
+		readDevEnvServiceEnv(root, webEnv, addresses),
 	)
 	.extend("webSession", async ({ webEnv }, { onCleanup }) => {
 		const session = await signInWeb({
@@ -49,18 +49,18 @@ export const test = base
 		return session
 	})
 	.extend("commandEnv", { scope: "file" }, ({ addresses }) =>
-		readDevelopmentCommandEnv(root, addresses),
+		readDevEnvCommandEnv(root, addresses),
 	)
 	.extend("identity", { scope: "file" }, ({ commandEnv }) =>
-		readDevelopmentIdentity(commandEnv),
+		readDevEnvIdentity(commandEnv),
 	)
 	.extend("organization", { scope: "file" }, ({ identity }) => {
 		const organization = identity.organizations.find(
-			(item) => item.slug === DEVELOPMENT_ORGANIZATION_SLUG,
+			(item) => item.slug === devEnvOrganizationSlug,
 		)
 		assert(
 			organization,
-			"Sign into the initialized local development account with pnpm dev:ctx login.",
+			"Sign into the initialized DevEnv account with pnpm dev:ctx login.",
 		)
 		return organization
 	})
@@ -70,7 +70,7 @@ export const test = base
 		onCleanup(() => rm(directory, { force: true, recursive: true }))
 		return directory
 	})
-	.extend("developmentDb", async ({ serviceEnv }, { onCleanup }) => {
+	.extend("devEnvDb", async ({ serviceEnv }, { onCleanup }) => {
 		const db = createPlatformDb(serviceEnv.platformEnv.CTX_PLATFORM_DATABASE_URL)
 		onCleanup(() => db.destroy())
 		return db

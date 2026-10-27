@@ -14,7 +14,7 @@ import { expect } from "vitest"
 import { slateSchema } from "@/slates.schema"
 
 test("signed Free enrollment grants credits and exhaustion denies runtime access after state refresh", async ({
-	developmentDb: db,
+	devEnvDb: db,
 	identity,
 	serviceEnv,
 }) => {

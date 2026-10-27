@@ -100,6 +100,6 @@ Slates can also expose MCP tools and interactive views to MCP clients. Shared co
 
 Private slates belong to a person or organization; private organization slates are available to that organization's members. Public slates support viewing by anyone, but cannot use viewer-mode resources. See [access and ownership](ARCHITECTURE.md#platform-storage-and-request-flow).
 
-For more, start with the [CLI guide](packages/cli/README.md) or [SDK guide](packages/sdk/README.md). To work on ContextLayer itself, see [development setup](DEVELOPING.md) and [architecture](ARCHITECTURE.md).
+For more, start with the [CLI guide](packages/cli/README.md) or [SDK guide](packages/sdk/README.md). To work on ContextLayer itself, see [DevEnv setup](DEVELOPING.md) and [architecture](ARCHITECTURE.md).
 
 [Business Source License 1.1](LICENSE). The [CLI](packages/cli/LICENSE) and [SDK](packages/sdk/LICENSE) are MIT licensed.

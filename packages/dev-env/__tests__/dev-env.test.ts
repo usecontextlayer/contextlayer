@@ -2,9 +2,9 @@ import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, expect, test, vi } from "vitest"
-import { readDevelopmentCommandEnv } from "@/development"
-import { readDevelopmentEnv } from "@/env"
-import { readDevelopmentPorts, saveDevelopmentPorts } from "@/ports"
+import { readDevEnvCommandEnv } from "@/dev-env"
+import { readDevEnv } from "@/env"
+import { readDevEnvPorts, saveDevEnvPorts } from "@/ports"
 
 const directories: string[] = []
 
@@ -17,22 +17,19 @@ afterEach(async () => {
 	)
 })
 
-test("reads initialized local command settings without web or provider discovery", async () => {
-	const directory = await mkdtemp(join(tmpdir(), "development-command-"))
+test("reads initialized DevEnv command settings without web or provider discovery", async () => {
+	const directory = await mkdtemp(join(tmpdir(), "dev-env-command-"))
 	directories.push(directory)
 	vi.stubEnv("CTX_CONFIG_DIR", join(directory, "other-account"))
 	const addresses = {
-		...readDevelopmentEnv(),
+		...readDevEnv(),
 		BETTER_AUTH_URL: new URL("http://localhost:43001/"),
 		CTX_DISPATCHER_URL: new URL("http://localhost:43004/"),
 		CTX_PLATFORM_URL: new URL("http://localhost:43002/"),
 		CTX_VIEWER_AUTH_URL: new URL("http://localhost:43003/"),
 	}
-	await saveDevelopmentPorts(directory, { ...addresses, CTX_AUTH_CLIENT_ID: "local-cli" })
-	const settings = readDevelopmentCommandEnv(
-		directory,
-		await readDevelopmentPorts(directory),
-	)
+	await saveDevEnvPorts(directory, { ...addresses, CTX_AUTH_CLIENT_ID: "local-cli" })
+	const settings = readDevEnvCommandEnv(directory, await readDevEnvPorts(directory))
 	expect(settings).toEqual({
 		BETTER_AUTH_URL: "http://localhost:43001/",
 		CTX_AUTH_CLIENT_ID: "local-cli",
