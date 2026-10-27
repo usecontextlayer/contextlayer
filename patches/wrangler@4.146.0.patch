@@ -1,8 +1,158 @@
 diff --git a/wrangler-dist/cli.js b/wrangler-dist/cli.js
-index b682402e4763ef57d5a0898221d39227711e3e6f..66e3d9782a1a3d3ad096c99ba92a605284a7cfc3 100644
+index b682402e4763ef57d5a0898221d39227711e3e6f..65bd14ebba7dfa4fd4995d32b34e3383354e8866 100644
 --- a/wrangler-dist/cli.js
 +++ b/wrangler-dist/cli.js
-@@ -370152,8 +370152,16 @@ function createTestHarness(options) {
+@@ -140206,17 +140206,6 @@ ${hint}`;
+   }
+   return message;
+ }
+-function getContainerIdsByImageTags(dockerPath, imageTags) {
+-  const ids = /* @__PURE__ */ new Set();
+-  for (const imageTag of imageTags) {
+-    const containerIdsFromImage = getContainerIdsFromImage(
+-      dockerPath,
+-      imageTag
+-    );
+-    containerIdsFromImage.forEach((id) => ids.add(id));
+-  }
+-  return Array.from(ids);
+-}
+ function generateContainerBuildId() {
+   return crypto2.randomUUID().slice(0, 8);
+ }
+@@ -142543,7 +142532,7 @@ async function getCreds(permissions, complianceConfig) {
+ function isValidImageTag(value) {
+   return IMAGE_TAG_REGEXP.test(value);
+ }
+-var require$13, __create2, __defProp5, __getOwnPropDesc2, __getOwnPropNames3, __getProtoOf2, __hasOwnProp2, __name5, __require2, __commonJS3, __copyProps2, __toESM2, require_constants7, require_buffer_util, require_limiter, require_permessage_deflate2, require_validation, require_receiver2, require_sender2, require_event_target, require_extension, require_websocket2, require_stream, require_subprotocol, require_websocket_server, ApiError, CancelError2, CancelablePromise, OpenAPI, isDefined, isString2, isStringWithValue, isBlob3, isErrorResponse, base643, getQueryString, getUrl, getFormData, resolve10, getHeaders2, getRequestBody, isResponseSchemaV4, parseResponseSchemaV4, sendRequest, getResponseHeader, getResponseBody, catchErrorCodes, executeRequest, buildApiResult, request, requestPaginated, debugLogRequest, debugLogResponse, ApplicationRollout, AssignIPv4, AssignIPv6, BadRequestWithCodeError, ContainerImagePreparationStatus, CreateApplicationRolloutRequest, DeploymentMutationError, DeploymentNotFoundError, ExternalRegistryKind, ImageRegistryAlreadyExistsError, ImageRegistryIsPublic, ImageRegistryNotAllowedError, ImageRegistryNotFoundError, ImageRegistryProtocolAlreadyExists, ImageRegistryProtocolIsReferencedError, ImageRegistryProtocolNotFound, InstanceType, ProvisionerConfiguration, RolloutStep, SchedulingPolicy, SecretNameAlreadyExists, SecretNotFound, SSHPublicKeyNotFoundError, UpdateApplicationRolloutRequest, AccountService, ApplicationsService, ContainerImagePreparationsService, DeploymentsService, ImageRegistriesService, PlacementsService, RolloutsService, SshPublicKeysService, noop, logger3, fetchResult3, fetchPagedListResult3, getCloudflareRegistryWithAccountNamespace, MF_DEV_CONTAINER_PREFIX, getDevContainerImageName, runDockerCmd, runDockerCmdWithOutput, isDockerRunning, verifyDockerInstalled, cleanupContainers, getContainerIdsFromImage, DEFAULT_CONTAINER_EGRESS_INTERCEPTOR_IMAGE, getAndValidateRegistryType, MB, MiB, instanceTypes, LEGACY_TO_CANONICAL, MAX_DOCKER_REPOSITORY_NAME_LENGTH, DIGEST_SUFFIX_REGEXP, DIGEST_VALUE_REGEXP, TAG_SUFFIX_REGEXP, BUILD_OUTPUT_IMAGE_NAMESPACE, DOCKER_REPOSITORY_NAME_LENGTH, Diff, doAction, configRolloutStepsToAPI, MAX_DOCKER_REPOSITORY_NAME_LENGTH2, MAX_NAMED_IMAGE_SLUG_LENGTH, IMAGE_ID_HASH_LENGTH, import_websocket, containersSshOptions, MAX_REPOSITORY_LENGTH, REPOSITORY_COMPONENT_REGEXP, TAG_REGEXP, IMAGE_TAG_REGEXP;
++var require$13, __create2, __defProp5, __getOwnPropDesc2, __getOwnPropNames3, __getProtoOf2, __hasOwnProp2, __name5, __require2, __commonJS3, __copyProps2, __toESM2, require_constants7, require_buffer_util, require_limiter, require_permessage_deflate2, require_validation, require_receiver2, require_sender2, require_event_target, require_extension, require_websocket2, require_stream, require_subprotocol, require_websocket_server, ApiError, CancelError2, CancelablePromise, OpenAPI, isDefined, isString2, isStringWithValue, isBlob3, isErrorResponse, base643, getQueryString, getUrl, getFormData, resolve10, getHeaders2, getRequestBody, isResponseSchemaV4, parseResponseSchemaV4, sendRequest, getResponseHeader, getResponseBody, catchErrorCodes, executeRequest, buildApiResult, request, requestPaginated, debugLogRequest, debugLogResponse, ApplicationRollout, AssignIPv4, AssignIPv6, BadRequestWithCodeError, ContainerImagePreparationStatus, CreateApplicationRolloutRequest, DeploymentMutationError, DeploymentNotFoundError, ExternalRegistryKind, ImageRegistryAlreadyExistsError, ImageRegistryIsPublic, ImageRegistryNotAllowedError, ImageRegistryNotFoundError, ImageRegistryProtocolAlreadyExists, ImageRegistryProtocolIsReferencedError, ImageRegistryProtocolNotFound, InstanceType, ProvisionerConfiguration, RolloutStep, SchedulingPolicy, SecretNameAlreadyExists, SecretNotFound, SSHPublicKeyNotFoundError, UpdateApplicationRolloutRequest, AccountService, ApplicationsService, ContainerImagePreparationsService, DeploymentsService, ImageRegistriesService, PlacementsService, RolloutsService, SshPublicKeysService, noop, logger3, fetchResult3, fetchPagedListResult3, getCloudflareRegistryWithAccountNamespace, MF_DEV_CONTAINER_PREFIX, getDevContainerImageName, runDockerCmd, runDockerCmdWithOutput, isDockerRunning, verifyDockerInstalled, removeContainerImages, DEFAULT_CONTAINER_EGRESS_INTERCEPTOR_IMAGE, getAndValidateRegistryType, MB, MiB, instanceTypes, LEGACY_TO_CANONICAL, MAX_DOCKER_REPOSITORY_NAME_LENGTH, DIGEST_SUFFIX_REGEXP, DIGEST_VALUE_REGEXP, TAG_SUFFIX_REGEXP, BUILD_OUTPUT_IMAGE_NAMESPACE, DOCKER_REPOSITORY_NAME_LENGTH, Diff, doAction, configRolloutStepsToAPI, MAX_DOCKER_REPOSITORY_NAME_LENGTH2, MAX_NAMED_IMAGE_SLUG_LENGTH, IMAGE_ID_HASH_LENGTH, import_websocket, containersSshOptions, MAX_REPOSITORY_LENGTH, REPOSITORY_COMPONENT_REGEXP, TAG_REGEXP, IMAGE_TAG_REGEXP;
+ var init_dist9 = __esm({
+   "../containers-shared/dist/index.mjs"() {
+     init_import_meta_url();
+@@ -148675,31 +148664,14 @@ var init_dist9 = __esm({
+     }, "verifyDockerInstalled");
+     __name(getFailedToRunDockerErrorMessage, "getFailedToRunDockerErrorMessage");
+     __name5(getFailedToRunDockerErrorMessage, "getFailedToRunDockerErrorMessage");
+-    cleanupContainers = /* @__PURE__ */ __name5((dockerPath, imageTags) => {
++    removeContainerImages = /* @__PURE__ */ __name5((dockerPath, imageTags) => {
+       try {
+-        const containerIds = getContainerIdsByImageTags(dockerPath, imageTags);
+-        if (containerIds.length === 0) {
+-          return true;
+-        }
+-        runDockerCmdWithOutput(dockerPath, ["rm", "--force", ...containerIds]);
++        runDockerCmdWithOutput(dockerPath, ["image", "rm", "--no-prune", ...imageTags]);
+         return true;
+       } catch {
+         return false;
+       }
+-    }, "cleanupContainers");
+-    __name(getContainerIdsByImageTags, "getContainerIdsByImageTags");
+-    __name5(getContainerIdsByImageTags, "getContainerIdsByImageTags");
+-    getContainerIdsFromImage = /* @__PURE__ */ __name5((dockerPath, ancestorImage) => {
+-      const output = runDockerCmdWithOutput(dockerPath, [
+-        "ps",
+-        "-a",
+-        "--filter",
+-        `ancestor=${ancestorImage}`,
+-        "--format",
+-        "{{.ID}}"
+-      ]);
+-      return output.split("\n").filter((line) => line.trim());
+-    }, "getContainerIdsFromImage");
++    }, "removeContainerImages");
+     __name(generateContainerBuildId, "generateContainerBuildId");
+     __name5(generateContainerBuildId, "generateContainerBuildId");
+     __name(getDockerSocketFromContext, "getDockerSocketFromContext");
+@@ -364638,15 +364610,15 @@ var init_LocalRuntimeController = __esm({
+       // Set of container images that have been seen in the current dev session.
+-      // This is used to clean up containers at the end of the dev session.
++      // This is used to remove image tags at the end of the dev session.
+       containerImageTagsSeen = /* @__PURE__ */ new Set();
+-      // Stored here, so it can be used in `cleanupContainers()`
++      // Stored here, so it can be used in `removeContainerImages()`
+       dockerPath;
+       #containerImagePreparationState;
+       // Used to store the information and abort handle for the
+       // current container that is being built
+       containerBeingBuilt;
+       onBundleStart(_5) {
+-        process.off("exit", this.cleanupContainers);
+-        process.on("exit", this.cleanupContainers);
++        process.off("exit", this.removeContainerImages);
++        process.on("exit", this.removeContainerImages);
+       }
+       /**
+        * Surfaces uncaught Worker exceptions as typed `runtimeError` events
+@@ -364827,25 +364799,20 @@ var init_LocalRuntimeController = __esm({
+       }
+       onPreviewTokenExpired(_5) {
+       }
+-      cleanupContainers = /* @__PURE__ */ __name(() => {
+-        if (!this.containerImageTagsSeen.size) {
+-          return;
+-        }
+-        assert38__default.default(
+-          this.dockerPath,
+-          "Docker path should have been set if containers are enabled"
+-        );
+-        cleanupContainers(this.dockerPath, this.containerImageTagsSeen);
+-      }, "cleanupContainers");
++      removeContainerImages = /* @__PURE__ */ __name(() => {
++        if (!this.containerImageTagsSeen.size) return;
++        assert38__default.default(this.dockerPath, "Docker path should have been set if containers are enabled");
++        if (removeContainerImages(this.dockerPath, this.containerImageTagsSeen)) this.containerImageTagsSeen.clear();
++      }, "removeContainerImages");
+       #teardown = /* @__PURE__ */ __name(async () => {
+         logger2.debug("LocalRuntimeController teardown beginning...");
+-        process.off("exit", this.cleanupContainers);
+-        this.cleanupContainers();
+-        if (this.#mf) {
++        process.off("exit", this.removeContainerImages);
++        if (this.mf) {
+           logger2.log(source_default.dim("\u2394 Shutting down local server..."));
+         }
+-        await this.#mf?.dispose();
++        await this.mf?.dispose();
+         this.#mf = void 0;
++        this.removeContainerImages();
+         if (this.#remoteProxySessionData) {
+           logger2.log(source_default.dim("\u2394 Shutting down remote connection..."));
+         }
+@@ -365107,10 +365074,6 @@ var init_MultiworkerRuntimeController = __esm({
+       }
+       #teardown = /* @__PURE__ */ __name(async () => {
+         logger2.debug("MultiworkerRuntimeController teardown beginning...");
+-        if (this.#mf) {
+-          logger2.log(source_default.dim("\u2394 Shutting down local server..."));
+-        }
+-        await this.#mf?.dispose();
+         this.#mf = void 0;
+         if (this.#remoteProxySessionsData.size > 0) {
+           logger2.log(source_default.dim("\u2394 Shutting down remote connections..."));
+@@ -365124,8 +365087,10 @@ var init_MultiworkerRuntimeController = __esm({
+         logger2.debug("MultiworkerRuntimeController teardown complete");
+       }, "#teardown");
+       async teardown() {
+-        await super.teardown();
+-        return this.#mutex.runWith(this.#teardown);
++        return this.#mutex.runWith(async () => {
++          await super.teardown();
++          await this.#teardown();
++        });
+       }
+     };
+   }
+@@ -365293,7 +365258,7 @@ function registerDevHotKeys(devEnvs, args, options = {}) {
+             });
+             devEnv.runtimes.map((runtime) => {
+               if (runtime instanceof LocalRuntimeController) {
+-                runtime.cleanupContainers();
++                runtime.removeContainerImages();
+               }
+             });
+             const newContainerBuildId = generateContainerBuildId();
+@@ -370152,8 +370117,16 @@ function createTestHarness(options) {
            inspector: false,
            registry: void 0,
            structuredLogsHandler: /* @__PURE__ */ __name((log2) => captureStructuredLog(log2), "structuredLogsHandler"),

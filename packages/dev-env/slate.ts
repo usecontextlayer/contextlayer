@@ -2,7 +2,11 @@ import { appendFile, mkdir } from "node:fs/promises"
 import { join } from "node:path"
 import { execa } from "execa"
 
-export async function createSlateProject(workspaceRoot: string, checkout: string) {
+export async function createSlateProject(
+	workspaceRoot: string,
+	checkout: string,
+	{ installDependencies = false }: { installDependencies?: boolean } = {},
+) {
 	const packagesRoot = join(workspaceRoot, "packages")
 	const cli = join(packagesRoot, "cli")
 	await execa(
@@ -34,5 +38,7 @@ export async function createSlateProject(workspaceRoot: string, checkout: string
 		join(checkout, "pnpm-workspace.yaml"),
 		"\noverrides:\n  '@usecontextlayer/cli': 'file:packages/cli.tgz'\n  '@usecontextlayer/sdk': 'file:packages/sdk.tgz'\n",
 	)
-	await execa("pnpm", ["install"], { cwd: checkout })
+	await execa("pnpm", ["install", ...(installDependencies ? [] : ["--lockfile-only"])], {
+		cwd: checkout,
+	})
 }

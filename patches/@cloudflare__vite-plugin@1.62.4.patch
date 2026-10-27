@@ -1,0 +1,112 @@
+diff --git a/dist/index.mjs b/dist/index.mjs
+index 1393c5b31006e8be62f6120bfc8c8c7c8150f355..7a12fe58624a091c9f6d02700a51019d4093c849 100644
+--- a/dist/index.mjs
++++ b/dist/index.mjs
+@@ -78125,36 +78125,14 @@ ${hint}`;
+ 	return message;
+ }
+ __name$2(getFailedToRunDockerErrorMessage, "getFailedToRunDockerErrorMessage");
+-var cleanupContainers = /* @__PURE__ */ __name$2((dockerPath, imageTags) => {
++var removeContainerImages = /* @__PURE__ */ __name$2((dockerPath, imageTags) => {
+ 	try {
+-		const containerIds = getContainerIdsByImageTags(dockerPath, imageTags);
+-		if (containerIds.length === 0) return true;
+-		runDockerCmdWithOutput(dockerPath, [
+-			"rm",
+-			"--force",
+-			...containerIds
+-		]);
++		runDockerCmdWithOutput(dockerPath, ["image", "rm", "--no-prune", ...imageTags]);
+ 		return true;
+ 	} catch {
+ 		return false;
+ 	}
+-}, "cleanupContainers");
+-function getContainerIdsByImageTags(dockerPath, imageTags) {
+-	const ids = /* @__PURE__ */ new Set();
+-	for (const imageTag of imageTags) getContainerIdsFromImage(dockerPath, imageTag).forEach((id) => ids.add(id));
+-	return Array.from(ids);
+-}
+-__name$2(getContainerIdsByImageTags, "getContainerIdsByImageTags");
+-var getContainerIdsFromImage = /* @__PURE__ */ __name$2((dockerPath, ancestorImage) => {
+-	return runDockerCmdWithOutput(dockerPath, [
+-		"ps",
+-		"-a",
+-		"--filter",
+-		`ancestor=${ancestorImage}`,
+-		"--format",
+-		"{{.ID}}"
+-	]).split("\n").filter((line) => line.trim());
+-}, "getContainerIdsFromImage");
++}, "removeContainerImages");
+ function generateContainerBuildId() {
+ 	return randomUUID().slice(0, 8);
+ }
+@@ -80616,7 +80594,7 @@ function createContainerCleanup() {
+ 	const pendingImages = /* @__PURE__ */ new Map();
+ 	let restarting = false;
+ 	function cleanupContainerImages() {
+-		for (const [dockerPath, imageTags] of pendingImages) if (cleanupContainers(dockerPath, imageTags)) pendingImages.delete(dockerPath);
++		for (const [dockerPath, imageTags] of pendingImages) if (removeContainerImages(dockerPath, imageTags)) pendingImages.delete(dockerPath);
+ 		if (pendingImages.size === 0) process.off("exit", cleanupContainerImages);
+ 	}
+ 	return {
+@@ -80647,7 +80625,7 @@ const containerCleanupKey = Symbol("vite-plugin-cloudflare:container-cleanup");
+ /**
+ * Retains Container cleanup across config reloads for one server session.
+ */
+-function getDevContainerCleanup(server) {
++function getDevContainerCleanup(server, ctx) {
+ 	let cleanup = server.config.inlineConfig[containerCleanupKey];
+ 	if (!cleanup) {
+ 		cleanup = createContainerCleanup();
+@@ -80660,16 +80638,19 @@ function getDevContainerCleanup(server) {
+ 			inlineConfig
+ 		};
+ 	}
+-	attachContainerCleanup(server, cleanup);
++	attachContainerCleanup(server, cleanup, ctx);
+ 	return cleanup;
+ }
+-function attachContainerCleanup(server, cleanup) {
++function attachContainerCleanup(server, cleanup, ctx) {
+ 	if (server.close[containerCleanupKey] === cleanup) return;
+ 	const restartServer = server.restart.bind(server);
+-	server.restart = (...args) => cleanup.restart(async () => {
+-		await restartServer(...args);
+-		if (!server.config.plugins.some((plugin) => plugin.name === "vite-plugin-cloudflare:dev")) attachContainerCleanup(server, cleanup);
+-	});
++	server.restart = async (...args) => {
++		await ctx.disposeMiniflare();
++		return cleanup.restart(async () => {
++			await restartServer(...args);
++			if (!server.config.plugins.some((plugin) => plugin.name === "vite-plugin-cloudflare:dev")) attachContainerCleanup(server, cleanup, ctx);
++		});
++	};
+ 	const closeServer = server.close.bind(server);
+ 	const closeWithCleanup = async () => {
+ 		try {
+@@ -89969,7 +89950,6 @@ var import_picocolors$2 = /* @__PURE__ */ __toESM$2(require_picocolors(), 1);
+ const devPlugin = createPlugin("dev", (ctx) => {
+ 	return { async configureServer(viteDevServer) {
+ 		assertIsNotPreview(ctx);
+-		const containerCleanup = getDevContainerCleanup(viteDevServer);
+ 		const initialOptions = await getDevMiniflareOptions(ctx, viteDevServer);
+ 		let containerOptionsByWorker = initialOptions.containerOptionsByWorker;
+ 		await ctx.startOrUpdateMiniflare(initialOptions.miniflareOptions);
+@@ -89978,13 +89958,10 @@ const devPlugin = createPlugin("dev", (ctx) => {
+ 			try {
+ 				await closeServer();
+ 			} finally {
+-				if (!ctx.isRestartingDevServer) try {
+-					await ctx.disposeMiniflare();
+-				} catch (error$2) {
+-					debuglog("Failed to dispose Miniflare instance:", error$2);
+-				}
++				await ctx.disposeMiniflare();
+ 			}
+ 		};
++		const containerCleanup = getDevContainerCleanup(viteDevServer, ctx);
+ 		if (viteDevServer.httpServer) viteDevServer.httpServer.on("listening", () => {
+ 			const addr = viteDevServer.httpServer?.address();
+ 			if (typeof addr === "object" && addr !== null) {

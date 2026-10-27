@@ -18,42 +18,51 @@ export async function migrateSlateDatabases(
 			using repo = await env.ARTIFACTS.get(prepared.slate.id)
 			const info = await repo.info()
 			const token = await repo.createToken("read", 3600)
+			const targets = prepared.databases.map((database, index) => ({
+				...database,
+				hostname: `database-${index}.${DATABASE_HOST}`,
+				index,
+			}))
 			const runner = new SandboxRunner(env)
-			for (const database of prepared.databases) {
-				const result = await runner.run({
-					command: `${restore ? "" : "pnpm install --frozen-lockfile && "}pnpm exec kysely --config "$CTX_DATABASE_CONFIG" migrate latest`,
-					createSnapshot: false,
-					extraEnv: {
-						CTX_DATABASE_CONFIG: `databases/${database.slug}/kysely.config.ts`,
-						CTX_DATABASE_URL: `http://${DATABASE_HOST}`,
-					},
-					label: `migrate-${database.slug}`,
-					outboundByHost: {
-						[DATABASE_HOST]: {
-							method: "database",
-							params: { instanceName: database.instance_name },
-						},
-					},
-					restore,
-					source: {
-						kind: "git",
-						remote: info.remote,
-						sha: prepared.snapshot.commit,
-						token: token.plaintext,
-					},
-				})
-				await Promise.all(
-					Object.entries(result.logs).map(async ([channel, output]) => {
-						const text =
-							typeof output === "string" ? output : await new Response(output).text()
-						if (text) console.log(`Migration ${database.slug} ${channel}:\n${text}`)
-					}),
+			const result = await runner.run({
+				command: [
+					...(restore ? [] : ["pnpm install --frozen-lockfile --ignore-scripts"]),
+					...targets.flatMap(({ hostname, index, slug }) => [
+						`printf '%s\\n' ${shellQuote(`Migration ${index}: ${slug}`)}`,
+						`CTX_DATABASE_URL=${shellQuote(`http://${hostname}`)} pnpm exec kysely --config ${shellQuote(`databases/${slug}/kysely.config.ts`)} migrate latest`,
+					]),
+				].join(" && "),
+				createSnapshot: false,
+				label: "migrate-databases",
+				outboundByHost: Object.fromEntries(
+					targets.map(({ hostname, instance_name }) => [
+						hostname,
+						{ method: "database", params: { instanceName: instance_name } },
+					]),
+				),
+				restore,
+				source: {
+					kind: "git",
+					remote: info.remote,
+					sha: prepared.snapshot.commit,
+					token: token.plaintext,
+				},
+			})
+			await Promise.all(
+				Object.entries(result.logs).map(async ([channel, output]) => {
+					const text =
+						typeof output === "string" ? output : await new Response(output).text()
+					if (text) console.log(`Migration ${channel}:\n${text}`)
+				}),
+			)
+			if (result.exitCode !== 0)
+				throw new Error(
+					`Database migration failed (exit ${result.exitCode})\n${result.preview.stderr || result.preview.stdout}`,
 				)
-				if (result.exitCode !== 0)
-					throw new Error(
-						`Migration failed for "${database.slug}" (exit ${result.exitCode})\n${result.preview.stderr || result.preview.stdout}`,
-					)
-			}
 		},
 	)
+}
+
+function shellQuote(value: string) {
+	return `'${value.replaceAll("'", "'\\''")}'`
 }

@@ -33,7 +33,7 @@ const test = base.extend(
 	],
 )
 
-test("native sandbox CLI migrates its selected database and preserves native failure semantics", async ({
+test("native sandbox CLI migrates its selected instances and preserves native failure semantics", async ({
 	db,
 	harness,
 }) => {
@@ -59,7 +59,11 @@ test("native sandbox CLI migrates its selected database and preserves native fai
 	await db.insertInto("slate").values(slate).execute()
 	await db
 		.insertInto("slate_member")
-		.values(slateMemberSchema.parse({ slate_id: slate.id, user_id: "first" }))
+		.values(
+			["first", "second"].map((user_id) =>
+				slateMemberSchema.parse({ slate_id: slate.id, user_id }),
+			),
+		)
 		.execute()
 	const repo = await ARTIFACTS.create(slate.id)
 	resources.defer(async () => {
@@ -93,22 +97,24 @@ test("native sandbox CLI migrates its selected database and preserves native fai
 	const prepared = await PROVISIONING.prepare(slate.id, await git("rev-parse", "HEAD"))
 	const other = prepareSlateProvisioning(
 		slate,
-		[{ id: "second", type: "user" }],
+		[{ id: "unselected", type: "user" }],
 		prepared.snapshot,
 	)
-	const selected = prepared.databases[0]
 	const unselected = other.databases[0]
-	assert(selected && unselected)
+	assert(unselected)
+	expect(prepared.databases).toHaveLength(2)
 	await using workflow = await buildWorker.introspectWorkflowInstance(
 		"MEMBER_PROVISIONING",
 		(await MEMBER_PROVISIONING.create({ params: prepared })).id,
 	)
 	await workflow.waitForStatus("complete")
-	const database = DATABASES.getByName(selected.instance_name)
-	expect((await database.query("SELECT * FROM notes")).rows).toEqual([])
-	expect((await database.query("SELECT name FROM kysely_migration")).rows).toEqual([
-		{ name: "001_create_notes" },
-	])
+	for (const selected of prepared.databases) {
+		const database = DATABASES.getByName(selected.instance_name)
+		expect((await database.query("SELECT * FROM notes")).rows).toEqual([])
+		expect((await database.query("SELECT name FROM kysely_migration")).rows).toEqual([
+			{ name: "001_create_notes" },
+		])
+	}
 	await expect(
 		DATABASES.getByName(unselected.instance_name).query("SELECT * FROM notes"),
 	).rejects.toThrow()
@@ -134,8 +140,23 @@ export async function up(db: Kysely<unknown>) {
 	expect(await failedWorkflow.getError()).toMatchObject({
 		message: expect.stringContaining("nonexistent_migration_table"),
 	})
-	expect((await database.query("SELECT * FROM partial_migration")).rows).toEqual([])
-	expect((await database.query("SELECT name FROM kysely_migration")).rows).toEqual([
-		{ name: "001_create_notes" },
-	])
+	const [first, later] = failed.databases
+	assert(first && later)
+	expect(
+		(
+			await DATABASES.getByName(first.instance_name).query(
+				"SELECT * FROM partial_migration",
+			)
+		).rows,
+	).toEqual([])
+	await expect(
+		DATABASES.getByName(later.instance_name).query("SELECT * FROM partial_migration"),
+	).rejects.toThrow()
+	for (const selected of failed.databases) {
+		const database = DATABASES.getByName(selected.instance_name)
+		expect((await database.query("SELECT * FROM notes")).rows).toEqual([])
+		expect((await database.query("SELECT name FROM kysely_migration")).rows).toEqual([
+			{ name: "001_create_notes" },
+		])
+	}
 }, 900_000)

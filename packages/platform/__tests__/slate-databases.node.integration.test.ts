@@ -128,7 +128,9 @@ test("native CLI provisioning initializes owner and member databases and applies
 	}
 	for (const slate of slates) {
 		const checkout = join(dir, slate.id)
-		await createSlateProject(resolve(import.meta.dirname, "../../.."), checkout)
+		await createSlateProject(resolve(import.meta.dirname, "../../.."), checkout, {
+			installDependencies: true,
+		})
 		await mkdir(join(checkout, "agents/daily-summary/schedules"), { recursive: true })
 		const git = async (...args: string[]) =>
 			(await execFile("git", args, { cwd: checkout, env: gitEnv })).stdout.trim()

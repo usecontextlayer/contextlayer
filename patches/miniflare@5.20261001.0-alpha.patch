@@ -1,0 +1,303 @@
+diff --git a/dist/src/index.d.ts b/dist/src/index.d.ts
+index 23e2be7f54280f1f429cfd0d277be1cdb7b11b6e..3ffb93e7d86a9294e9bd5204839c1819936e20b6 100644
+--- a/dist/src/index.d.ts
++++ b/dist/src/index.d.ts
+@@ -11189,6 +11189,8 @@ export declare type WorkerDefinition = {
+      * this to route messages for these queues to this process's queue broker.
+      */
+     queueConsumers?: string[];
++    /** Effective namespace keys used by this Worker's exported Durable Objects. */
++    durableObjectNamespaces?: Record<string, string>;
+     /** Canonical persistence root when this instance can own shared storage. */
+     storageScope?: string;
+ };
+diff --git a/dist/src/index.js b/dist/src/index.js
+index 9c796678eba8b70a4890f5e8ddb9f43cc6784c67..9c338fc90897164c89e1dcb051f011d5b7ab0bc7 100644
+--- a/dist/src/index.js
++++ b/dist/src/index.js
+@@ -107344,8 +107344,10 @@ ${stderr2}`
+ var Runtime = class {
+   #process;
+   #processExitPromise;
++  #containerNamespaces = [];
+   async updateConfig(configBuffer, options, workerNames, abortSignal) {
+     await this.dispose();
++    this.#containerNamespaces = options.containerNamespaces;
+     const command = getRuntimeCommand();
+     const args = getRuntimeArgs(options);
+     const FORCE_COLOR2 = $.enabled ? "1" : "0";
+@@ -107428,21 +107430,26 @@ var Runtime = class {
+     }
+     return ports;
+   }
+-  dispose() {
++  async dispose() {
+     const runtimeProcess = this.#process;
+-    if (runtimeProcess === void 0) {
+-      return;
+-    }
++    const namespaces = this.#containerNamespaces;
++    this.#containerNamespaces = [];
+     this.#process = void 0;
+-    runtimeProcess.stdin?.destroy();
+-    runtimeProcess.stdout?.destroy();
+-    runtimeProcess.stderr?.destroy();
+-    const controlPipe = runtimeProcess.stdio[3];
+-    if (controlPipe instanceof import_node_stream.Readable) {
+-      controlPipe.destroy();
++    if (runtimeProcess !== void 0) {
++      runtimeProcess.stdin?.destroy();
++      runtimeProcess.stdout?.destroy();
++      runtimeProcess.stderr?.destroy();
++      const controlPipe = runtimeProcess.stdio[3];
++      if (controlPipe instanceof import_node_stream.Readable) controlPipe.destroy();
++      runtimeProcess.kill("SIGKILL");
++      await this.#processExitPromise;
++    }
++    for (const { uniqueKey, dockerHost } of namespaces) {
++      const ids = runDockerCmdWithOutput(getDockerPath(), [
++        "--host", dockerHost, "ps", "-a", "--filter", `name=^/workerd-${RegExp.escape(uniqueKey)}-`, "--format", "{{.ID}}"
++      ]).split("\n").filter(Boolean);
++      if (ids.length) runDockerCmdWithOutput(getDockerPath(), ["--host", dockerHost, "rm", "--force", ...ids]);
+     }
+-    runtimeProcess.kill("SIGKILL");
+-    return this.#processExitPromise;
+   }
+ };
+ 
+@@ -109181,7 +109188,7 @@ function constructExplorerBindingMap(allWorkerOpts, proxyBindings, durableObject
+     }
+     const scriptName = serviceName.replace(/^core:user:/, "");
+     for (const [className, classInfo] of classMap) {
+-      const uniqueKey = `${scriptName}-${className}`;
++      const uniqueKey = getDurableObjectUniqueKey(className, scriptName, classInfo.unsafeUniqueKey);
+       IDToBindingName.do[uniqueKey] = {
+         className,
+         scriptName,
+@@ -109273,8 +109280,9 @@ function constructExplorerWorkerOpts(allWorkerOpts, durableObjectClassNames) {
+       const className = binding.exportName;
+       const scriptName = binding.worker;
+       const serviceName = getUserServiceName(scriptName);
+-      const uniqueKey = `${scriptName}-${className}`;
+-      const useSqlite = durableObjectClassNames.get(serviceName)?.get(className)?.enableSql ?? false;
++      const classInfo = durableObjectClassNames.get(serviceName)?.get(className);
++      const uniqueKey = getDurableObjectUniqueKey(className, scriptName, classInfo?.unsafeUniqueKey);
++      const useSqlite = classInfo?.enableSql ?? false;
+       bindings.do.push({
+         id: uniqueKey,
+         bindingName,
+@@ -121404,17 +121412,23 @@ var DevRegistry = class {
+     }
+     const previousRegistry = JSON.parse(this.previousJSON);
+     this.previousJSON = json3;
++    const namespacesChanged = Array.from(this.externalServices).some(
++      ([service, { durableObjectNamespaces }]) => Array.from(durableObjectNamespaces).some(([className, uniqueKey]) => {
++        const nextUniqueKey = registry3[service]?.durableObjectNamespaces?.[className];
++        return uniqueKey !== void 0 && nextUniqueKey !== void 0 && nextUniqueKey !== uniqueKey;
++      })
++    );
+     if (this.watchQueueConsumers && getQueueConsumersView(registry3) !== getQueueConsumersView(previousRegistry)) {
+-      this.onUpdate(registry3);
++      this.onUpdate(registry3, namespacesChanged);
+       return;
+     }
+     if (this.watchStorageCandidates && getStorageCandidatesView(registry3) !== getStorageCandidatesView(previousRegistry)) {
+-      this.onUpdate(registry3);
++      this.onUpdate(registry3, namespacesChanged);
+       return;
+     }
+     for (const [service] of this.externalServices) {
+       if (JSON.stringify(registry3[service]) !== JSON.stringify(previousRegistry[service])) {
+-        this.onUpdate(registry3);
++        this.onUpdate(registry3, namespacesChanged);
+         break;
+       }
+     }
+@@ -123088,7 +123102,11 @@ ${formatted}`
+   }
+   return [sharedOpts, workers];
+ }
+-function getDurableObjectClassNames(allWorkerOpts) {
++function getDurableObjectNamespaceScope(tmpPath, sharedOptions) {
++  const storagePath = getPersistPath(DURABLE_OBJECTS_PLUGIN_NAME, tmpPath, sharedOptions.isolatedResourcePersistencePath);
++  return (0, import_node_crypto12.createHash)("sha256").update(import_node_path36.default.resolve(storagePath)).digest("hex").slice(0, 16);
++}
++function getDurableObjectClassNames(allWorkerOpts, namespaceScope) {
+   const serviceClassNames = /* @__PURE__ */ new Map();
+   for (const workerOpts of allWorkerOpts) {
+     const serviceName = getUserServiceName(workerOpts.config.name);
+@@ -123103,7 +123121,7 @@ function getDurableObjectClassNames(allWorkerOpts) {
+     )) {
+       classNames.set(className, {
+         enableSql: exported.storage === "sqlite",
+-        unsafeUniqueKey: exported.unsafeUniqueKey,
++        unsafeUniqueKey: exported.unsafeUniqueKey ?? `${namespaceScope}-${workerOpts.config.name}-${className}`,
+         unsafePreventEviction: exported.unsafePreventEviction,
+         container: exported.container
+       });
+@@ -123118,7 +123136,7 @@ function getExternalServiceEntrypoints(allWorkerOpts) {
+     let externalService = externalServices.get(name);
+     if (!externalService) {
+       externalService = {
+-        classNames: /* @__PURE__ */ new Set(),
++        durableObjectNamespaces: /* @__PURE__ */ new Map(),
+         entrypoints: /* @__PURE__ */ new Set()
+       };
+       externalServices.set(name, externalService);
+@@ -123185,7 +123203,7 @@ function getExternalServiceEntrypoints(allWorkerOpts) {
+           worker: SERVICE_DEV_REGISTRY_PROXY,
+           exportName: getOutboundDoProxyClassName(worker, exportName)
+         };
+-        getEntrypoints(worker).classNames.add(exportName);
++        getEntrypoints(worker).durableObjectNamespaces.set(exportName, void 0);
+       }
+     }
+     for (const [, binding] of getEnvBindingsOfType(config3, "workflow")) {
+@@ -123509,8 +123527,9 @@ var Miniflare = class _Miniflare {
+     });
+     this.#devRegistry = new DevRegistry(
+       this.#sharedOpts.unsafeDevRegistryPath,
+-      (registry3) => {
+-        void this.#queueRegistryUpdate();
++      (registry3, namespacesChanged) => {
++        if (namespacesChanged) this.#restartRuntime();
++        else void this.#queueRegistryUpdate();
+         this.#sharedOpts.unsafeHandleDevRegistryUpdate?.(registry3);
+       },
+       this.#log
+@@ -124346,13 +124365,20 @@ See https://developers.cloudflare.com/cloudflare-one/access-controls/service-cre
+   }
+   async #assembleConfig(loopbackHost, loopbackPort, reusePorts) {
+     const allPreviousWorkerOpts = this.#previousWorkerOpts;
+-    const allWorkerOpts = this.#workerOpts;
++    const allWorkerOpts = this.#workerOpts.map((workerOpts) => ({
++      ...workerOpts,
++      config: {
++        ...workerOpts.config,
++        env: { ...workerOpts.config.env },
++        tailConsumers: workerOpts.config.tailConsumers?.slice()
++      }
++    }));
+     const sharedOpts = this.#sharedOpts;
+     await this.#loadExternalPlugins(allWorkerOpts);
+     sharedOpts.cf = await setupCf(this.#log, sharedOpts.cf);
+     this.#cfObject = sharedOpts.cf;
+     const externalServices = this.#devRegistry.isEnabled() ? getExternalServiceEntrypoints(allWorkerOpts) : null;
+-    const durableObjectClassNames = getDurableObjectClassNames(allWorkerOpts);
++    const durableObjectClassNames = getDurableObjectClassNames(allWorkerOpts, getDurableObjectNamespaceScope(this.#tmpPath, sharedOpts));
+     const workflowExporters = getWorkflowExporters(allWorkerOpts);
+     const queueProducers = getQueueProducers(allWorkerOpts);
+     const queueConsumers = getQueueConsumers(allWorkerOpts);
+@@ -124574,13 +124600,14 @@ See https://developers.cloudflare.com/cloudflare-one/access-controls/service-cre
+         hasQueues,
+         sharedOpts.unsafeEnableSharedStorage === true && sharedOpts.resourcePersistencePath !== void 0
+       );
++      const initialRegistry = this.#devRegistry.getRegistry();
+       const externalObjects = Array.from(externalServices).flatMap(
+-        ([scriptName, { classNames }]) => Array.from(classNames).map((className) => [
+-          scriptName,
+-          className
+-        ])
++        ([scriptName, { durableObjectNamespaces }]) => Array.from(durableObjectNamespaces.keys()).map((className) => {
++          const uniqueKey = initialRegistry[scriptName]?.durableObjectNamespaces?.[className] ?? getDurableObjectUniqueKey(className, scriptName);
++          durableObjectNamespaces.set(className, uniqueKey);
++          return [scriptName, className, uniqueKey];
++        })
+       );
+-      const initialRegistry = this.#devRegistry.getRegistry();
+       const mainModuleSource = [
+         `import { ExternalQueueProxy, ExternalServiceProxy, setRegistry, createProxyDurableObjectClass } from "./dev-registry-proxy.worker.js";`,
+         `export { ExternalQueueProxy, ExternalServiceProxy };`,
+@@ -124634,9 +124661,9 @@ See https://developers.cloudflare.com/cloudflare-one/access-controls/service-cre
+           durableObjectStorage: { inMemory: kVoid },
+           // uniqueKey must match the target session's key for identical DO IDs.
+           durableObjectNamespaces: externalObjects.map(
+-            ([scriptName, className]) => ({
++            ([scriptName, className, uniqueKey]) => ({
+               className: getOutboundDoProxyClassName(scriptName, className),
+-              uniqueKey: `${scriptName}-${className}`
++              uniqueKey
+             })
+           )
+         }
+@@ -124692,8 +124719,11 @@ See https://developers.cloudflare.com/cloudflare-one/access-controls/service-cre
+     this.#log.warn(
+       `The Workers runtime crashed unexpectedly and is being restarted (crash #${this.#workerdCrashCount}). Any additional runtime output above may indicate the cause.`
+     );
+-    this.#proxyClient?.poisonProxies();
+     this.#devRegistry.unregisterWorkers();
++    this.#restartRuntime();
++  }
++  #restartRuntime() {
++    this.#proxyClient?.poisonProxies();
+     void this.#runtimeMutex.runWith(async () => {
+       try {
+         await this.#assembleAndUpdateConfig(true);
+@@ -124702,7 +124732,7 @@ See https://developers.cloudflare.com/cloudflare-one/access-controls/service-cre
+         const cause = error101 instanceof Error ? error101 : new Error(String(error101));
+         this.#runtimeRestartError = new MiniflareCoreError(
+           "ERR_RUNTIME_FAILURE",
+-          "The Workers runtime failed to restart after an unexpected crash.",
++          "The Workers runtime failed to restart.",
+           cause
+         );
+         throw this.#runtimeRestartError;
+@@ -124800,7 +124830,13 @@ See https://developers.cloudflare.com/cloudflare-one/access-controls/service-cre
+       verbose: this.#sharedOpts.verbose,
+       handleStructuredLogs: this.#sharedOpts.handleStructuredLogs,
+       onWorkerdCrashRestart: () => this.#handleWorkerdCrash(),
+-      runtimeEnv: this.#sharedOpts.unsafeRuntimeEnv
++      runtimeEnv: this.#sharedOpts.unsafeRuntimeEnv,
++      containerNamespaces: config3.services.flatMap(({ worker }) =>
++        (worker?.durableObjectNamespaces ?? []).filter(({ container }) => container !== void 0).map(({ uniqueKey }) => ({
++          uniqueKey,
++          dockerHost: worker.containerEngine.localDocker.socketPath
++        }))
++      )
+     };
+     const maybeSocketPorts = await withPersistRootStartupLock(
+       this.#sharedOpts.unsafeEnableSharedStorage ? this.#sharedOpts.resourcePersistencePath : void 0,
+@@ -124958,6 +124994,10 @@ See https://developers.cloudflare.com/cloudflare-one/access-controls/service-cre
+       "Runtime entry URL must be set before registering workers"
+     );
+     const entries = [];
++    const durableObjectClassNames = getDurableObjectClassNames(
++      this.#workerOpts,
++      getDurableObjectNamespaceScope(this.#tmpPath, this.#sharedOpts)
++    );
+     const storageScope = this.#sharedOpts.unsafeEnableSharedStorage ? getStorageScope(this.#sharedOpts.resourcePersistencePath) : void 0;
+     if (storageScope !== void 0) {
+       entries.push([
+@@ -124994,6 +125034,11 @@ See https://developers.cloudflare.com/cloudflare-one/access-controls/service-cre
+           debugPortAddress,
+           defaultEntrypointService,
+           userWorkerService: getUserServiceName(workerName),
++          durableObjectNamespaces: Object.fromEntries(
++            Array.from(durableObjectClassNames.get(getUserServiceName(workerName)) ?? []).map(
++              ([className, { unsafeUniqueKey }]) => [className, getDurableObjectUniqueKey(className, workerName, unsafeUniqueKey)]
++            )
++          ),
+           ...queueConsumers.length > 0 ? { queueConsumers } : {}
+         }
+       ]);
+@@ -125074,8 +125119,9 @@ See https://developers.cloudflare.com/cloudflare-one/access-controls/service-cre
+     const newExternalOnUpdate = sharedOpts.unsafeHandleDevRegistryUpdate;
+     await this.#devRegistry.updateRegistryPath(
+       sharedOpts.unsafeDevRegistryPath,
+-      (registry3) => {
+-        void this.#queueRegistryUpdate();
++      (registry3, namespacesChanged) => {
++        if (namespacesChanged) this.#restartRuntime();
++        else void this.#queueRegistryUpdate();
+         newExternalOnUpdate?.(registry3);
+       }
+     );
+@@ -125458,7 +125504,7 @@ See https://developers.cloudflare.com/cloudflare-one/access-controls/service-cre
+       );
+     }
+     const serviceName = getUserServiceName(scriptName ?? resolvedWorkerName);
+-    const classConfig = getDurableObjectClassNames(this.#workerOpts).get(serviceName)?.get(className);
++    const classConfig = getDurableObjectClassNames(this.#workerOpts, getDurableObjectNamespaceScope(this.#tmpPath, this.#sharedOpts)).get(serviceName)?.get(className);
+     const unsafeUniqueKey = classConfig?.unsafeUniqueKey;
+     const namespaceKey = getDurableObjectUniqueKey(
+       className,

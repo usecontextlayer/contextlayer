@@ -16,7 +16,7 @@ import {
 	deleteDiscounts,
 } from "@polar-sh/sdk/2026-10/services/discounts"
 import { ingestEvents } from "@polar-sh/sdk/2026-10/services/events"
-import { listProducts } from "@polar-sh/sdk/2026-10/services/products"
+import { getProducts, listProducts } from "@polar-sh/sdk/2026-10/services/products"
 import { test } from "@tests/integration"
 import { expect } from "vitest"
 import { checkSlateBilling, saveCustomerState } from "@/billing.server"
@@ -217,12 +217,22 @@ test("missing state is pulled for an active non-Free customer and reused while f
 test("Free uses the saved balance until stale state is refreshed", async ({
 	db,
 	platformEnv: env,
-	serviceEnv,
 }) => {
 	const polar = createPolarCore({
 		accessToken: env.POLAR_ACCESS_TOKEN,
 		environment: env.POLAR_ENVIRONMENT,
 	})
+	const freeProduct = await getProducts(polar)(env.POLAR_FREE_PRODUCT_ID)
+	const clipsBenefit = freeProduct.benefits.find(
+		(benefit) =>
+			benefit.type === "meter_credit" &&
+			benefit.properties.meter_id === env.POLAR_CLIPS_METER_ID,
+	)
+	assert(
+		clipsBenefit?.type === "meter_credit",
+		"The Free product must grant Clips credits",
+	)
+	const clips = clipsBenefit.properties.units
 	await using scenario = new AsyncDisposableStack()
 	const ownerId = randomUUID()
 	const customer = await createCustomers(polar)({
@@ -231,7 +241,6 @@ test("Free uses the saved balance until stale state is refreshed", async ({
 		name: "Free saved balance integration",
 	})
 	scenario.defer(() => deleteCustomers(polar)(customer.id))
-	const clips = serviceEnv.catalog.clipsBenefit.properties.units
 	await expect
 		.poll(() => getStateCustomers(polar)(customer.id), {
 			interval: 1000,

@@ -2,7 +2,6 @@
 	"dependencies": {
 		"@better-auth/oauth-provider": "1.7.7",
 		"@polar-sh/cli": "2.0.2",
-		"@polar-sh/sdk": "1.0.1",
 		"@usecontextlayer/cli": "workspace:*",
 		"@usecontextlayer/db-infra": "workspace:*",
 		"better-auth": "1.7.7",

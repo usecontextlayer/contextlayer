@@ -68,8 +68,10 @@ export function readSlateOAuthEnv(env: Record<string, string>) {
 
 const polarSchema = z.object({
 	POLAR_ACCESS_TOKEN: z.string().min(1),
+	POLAR_CLIPS_METER_ID: z.uuid(),
 	POLAR_ENVIRONMENT: z.literal("sandbox"),
 	POLAR_FREE_PRODUCT_ID: z.uuid(),
+	POLAR_WEBHOOK_SECRET: z.string().min(1),
 })
 
 export function readPolarEnv(defaults: Record<string, string>) {

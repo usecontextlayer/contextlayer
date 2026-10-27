@@ -9,7 +9,9 @@ test("the generated starter installs, typechecks, and builds", async () => {
 	await using resources = new AsyncDisposableStack()
 	const checkout = await mkdtemp(join(tmpdir(), "slate-starter-"))
 	resources.defer(() => rm(checkout, { force: true, recursive: true }))
-	await createSlateProject(resolve(import.meta.dirname, "../../.."), checkout)
+	await createSlateProject(resolve(import.meta.dirname, "../../.."), checkout, {
+		installDependencies: true,
+	})
 	await execa("pnpm", ["typecheck"], { cwd: checkout })
 	await execa("pnpm", ["build"], { cwd: checkout, env: { NODE_ENV: undefined } })
 }, 180_000)

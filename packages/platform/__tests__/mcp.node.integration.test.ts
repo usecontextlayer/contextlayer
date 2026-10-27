@@ -147,7 +147,9 @@ test("private organization member passes billing through slate-bound MCP authori
 test("discovers a View and invokes an authored Worker once through native MCP", {
 	timeout: 300_000,
 }, async ({ slate, directory, dispatcher, mcpHeaders }) => {
-	await createSlateProject(resolve(import.meta.dirname, "../../.."), directory)
+	await createSlateProject(resolve(import.meta.dirname, "../../.."), directory, {
+		installDependencies: true,
+	})
 	for (const source of ["mcp", "mcp-ui", "workers/mcp.ts"]) {
 		await cp(
 			new URL(`./fixtures/mcp/${source}`, import.meta.url),

@@ -1,3 +1,4 @@
+import assert from "node:assert/strict"
 import { randomUUID } from "node:crypto"
 import { createPolarCore } from "@polar-sh/sdk/2026-10"
 import {
@@ -7,6 +8,7 @@ import {
 	listPaymentMethodsCustomers,
 } from "@polar-sh/sdk/2026-10/services/customers"
 import { ingestEvents } from "@polar-sh/sdk/2026-10/services/events"
+import { getProducts } from "@polar-sh/sdk/2026-10/services/products"
 import { test } from "@tests/integration"
 import { expect } from "vitest"
 import { slateSchema } from "@/slates.schema"
@@ -22,7 +24,17 @@ test("signed Free enrollment grants credits and exhaustion denies runtime access
 		environment: env.POLAR_ENVIRONMENT,
 	})
 	const origin = serviceEnv.addresses.CTX_PLATFORM_URL
-	const clips = serviceEnv.catalog.clipsBenefit.properties.units
+	const freeProduct = await getProducts(polar)(env.POLAR_FREE_PRODUCT_ID)
+	const clipsBenefit = freeProduct.benefits.find(
+		(benefit) =>
+			benefit.type === "meter_credit" &&
+			benefit.properties.meter_id === env.POLAR_CLIPS_METER_ID,
+	)
+	assert(
+		clipsBenefit?.type === "meter_credit",
+		"The Free product must grant Clips credits",
+	)
+	const clips = clipsBenefit.properties.units
 	for (const type of ["individual", "team"] as const) {
 		await using scenario = new AsyncDisposableStack()
 		const externalId = randomUUID()
