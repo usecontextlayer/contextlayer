@@ -1,12 +1,23 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { homedir, tmpdir } from "node:os"
-import { join } from "node:path"
+import { join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { execa } from "execa"
 import { afterEach, expect, test, vi } from "vitest"
 import { type AuthEnv, getAccessToken } from "@/auth"
+import { version } from "@/package.json"
 
 const directories: string[] = []
+const cwd = fileURLToPath(new URL("..", import.meta.url))
+const cliArgs = [
+	fileURLToPath(import.meta.resolve("tsx/cli")),
+	"--tsconfig",
+	fileURLToPath(new URL("../tsconfig.json", import.meta.url)),
+	fileURLToPath(new URL("../cli.ts", import.meta.url)),
+]
+const invocation = [process.execPath, ...cliArgs]
+	.map((argument) => `'${argument.replaceAll("'", "'\\''")}'`)
+	.join(" ")
 
 afterEach(async () => {
 	vi.unstubAllEnvs()
@@ -19,6 +30,7 @@ afterEach(async () => {
 
 test.each([
 	{ configured: undefined, expected: join(homedir(), ".contextlayer") },
+	{ configured: ".ctx-relative", expected: resolve(".ctx-relative") },
 	{
 		configured: join(tmpdir(), "ctx-selected"),
 		expected: join(tmpdir(), "ctx-selected"),
@@ -72,15 +84,35 @@ test("concurrent callers use their selected saved logins on the same server", as
 	)
 })
 
-async function expectLoginCommand(stderr: string, settings: Record<string, string>) {
-	const [, command] = stderr.split("Run: ")
-	expect(command?.trim()).toMatch(/ npx @usecontextlayer\/cli login$/)
-	const assignments = command?.trim().replace(/ npx @usecontextlayer\/cli login$/, "")
+async function loginCommandArgs(stderr: string) {
+	expect(stderr).toContain("Run: ")
+	const command = stderr.slice(stderr.indexOf("Run: ") + 5).trim()
 	const { stdout } = await execa("sh", [
 		"-c",
-		`${assignments} node -e 'process.stdout.write(JSON.stringify(process.env))'`,
+		`set -- ${command}; node -e 'process.stdout.write(JSON.stringify(process.argv.slice(1)))' "$@"`,
 	])
-	expect(JSON.parse(stdout)).toMatchObject(settings)
+	return { args: JSON.parse(stdout) as string[], command }
+}
+
+async function expectLoginCommand(
+	stderr: string,
+	settings: AuthEnv & { CTX_PLATFORM_URL: string },
+) {
+	const { args, command } = await loginCommandArgs(stderr)
+	expect(args[0]).toBe(`CTX_CLI_COMMAND=${invocation}`)
+	expect(args.slice(1, cliArgs.length + 2)).toEqual([process.execPath, ...cliArgs])
+	expect(args[cliArgs.length + 2]).toBe("login")
+	for (const [option, value] of [
+		["--auth-client-id", settings.CTX_AUTH_CLIENT_ID],
+		["--auth-issuer", settings.CTX_AUTH_ISSUER],
+		["--config-dir", settings.CTX_CONFIG_DIR],
+		["--platform-url", settings.CTX_PLATFORM_URL],
+	] as const) {
+		expect(args[args.indexOf(option) + 1]).toBe(value)
+	}
+	const { stdout } = await execa("sh", ["-c", `${command} --help`], { cwd })
+	expect(stdout).toContain("Usage: ctx login [options]")
+	expect(stdout).toContain("--config-dir <directory>")
 }
 
 test.each([
@@ -98,10 +130,10 @@ test.each([
 		}
 		const { exitCode, stderr, stdout } = await execa(
 			process.execPath,
-			["--import", "tsx", fileURLToPath(new URL("../cli.ts", import.meta.url)), "whoami"],
+			[...cliArgs, "whoami"],
 			{
-				cwd: fileURLToPath(new URL("..", import.meta.url)),
-				env: settings,
+				cwd,
+				env: { ...settings, CTX_CLI_COMMAND: invocation },
 				reject: false,
 			},
 		)
@@ -131,17 +163,69 @@ test.each(["missing", "expired"])(
 			await writeFile(path, JSON.stringify({ ...credentials, expiresAt: 0 }))
 		}
 		const settings = { ...saved, CTX_PLATFORM_URL: "http://localhost:43002" }
-		const { exitCode, stderr } = await execa(
-			process.execPath,
-			["--import", "tsx", fileURLToPath(new URL("../cli.ts", import.meta.url)), "whoami"],
-			{
-				cwd: fileURLToPath(new URL("..", import.meta.url)),
-				env: settings,
-				reject: false,
-			},
-		)
+		const { exitCode, stderr } = await execa(process.execPath, [...cliArgs, "whoami"], {
+			cwd,
+			env: { ...settings, CTX_CLI_COMMAND: invocation },
+			reject: false,
+		})
 		expect(exitCode).toBe(1)
 		expect(stderr).toContain(state === "missing" ? "Not signed in." : "Login expired.")
 		await expectLoginCommand(stderr, settings)
 	},
 )
+
+test("Git helper repair guidance uses its registered settings over the environment", async () => {
+	const saved = await savedLogin("unused-access-token")
+	const settings = {
+		...saved,
+		CTX_AUTH_CLIENT_ID: "registered-client",
+		CTX_PLATFORM_URL: "http://localhost:43002",
+	}
+	const { exitCode, stderr, stdout } = await execa(
+		process.execPath,
+		[
+			...cliArgs,
+			"git-credential",
+			"--auth-client-id",
+			settings.CTX_AUTH_CLIENT_ID,
+			"--auth-issuer",
+			settings.CTX_AUTH_ISSUER,
+			"--config-dir",
+			settings.CTX_CONFIG_DIR,
+			"--platform-url",
+			settings.CTX_PLATFORM_URL,
+			"get",
+		],
+		{
+			cwd,
+			env: {
+				CTX_AUTH_CLIENT_ID: "ambient-client",
+				CTX_AUTH_ISSUER: "https://ambient.example.com/api/auth",
+				CTX_CLI_COMMAND: invocation,
+				CTX_CONFIG_DIR: join(saved.CTX_CONFIG_DIR, "ambient"),
+				CTX_PLATFORM_URL: "https://ambient.example.com",
+			},
+			reject: false,
+		},
+	)
+	expect(exitCode).toBe(1)
+	expect(stdout).toBe("")
+	expect(stderr).toContain("Expected client ID: registered-client")
+	await expectLoginCommand(stderr, settings)
+})
+
+test("public login repair keeps the selected release and package-lookup directory", async () => {
+	const saved = await savedLogin("unused-access-token")
+	await rm(join(saved.CTX_CONFIG_DIR, "auth.json"))
+	const { stderr, exitCode } = await execa(process.execPath, [...cliArgs, "whoami"], {
+		cwd,
+		env: { ...saved, CTX_CLI_COMMAND: undefined },
+		reject: false,
+	})
+	expect(exitCode).toBe(1)
+	const { args } = await loginCommandArgs(stderr)
+	expect(args[1]).toBe("npx")
+	expect(args[args.indexOf("--prefix") + 1]).toBe(saved.CTX_CONFIG_DIR)
+	expect(args).toContain(`@usecontextlayer/cli@${version}`)
+	expect(args).toContain("login")
+})

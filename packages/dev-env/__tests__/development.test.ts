@@ -37,6 +37,7 @@ test("reads initialized local command settings without web or provider discovery
 		BETTER_AUTH_URL: "http://localhost:43001/",
 		CTX_AUTH_CLIENT_ID: "local-cli",
 		CTX_AUTH_ISSUER: "http://localhost:43001/api/auth",
+		CTX_CLI_COMMAND: `pnpm --silent -C '${directory}' dev:ctx`,
 		CTX_CONFIG_DIR: join(directory, ".contextlayer/cli"),
 		CTX_DISPATCHER_URL: "http://localhost:43004/",
 		CTX_PLATFORM_DATABASE_URL: addresses.CTX_PLATFORM_DATABASE_URL,

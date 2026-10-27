@@ -79,6 +79,7 @@ export function readDevelopmentCommandEnv(
 		),
 		CTX_AUTH_CLIENT_ID: addresses.CTX_AUTH_CLIENT_ID,
 		CTX_AUTH_ISSUER: new URL("/api/auth", addresses.BETTER_AUTH_URL).href,
+		CTX_CLI_COMMAND: `pnpm --silent -C '${resolve(root).replaceAll("'", "'\\''")}' dev:ctx`,
 		CTX_CONFIG_DIR: resolve(root, ".contextlayer/cli"),
 	}
 }

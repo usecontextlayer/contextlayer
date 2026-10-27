@@ -1,21 +1,19 @@
 import { createInterface } from "node:readline"
-import { fileURLToPath } from "node:url"
 import { execa } from "execa"
 import { z } from "zod"
-import { getAccessToken } from "@/auth"
-import { env } from "@/env"
+import { type AuthEnv, getAccessToken } from "@/auth"
+import { formatAuthCommand } from "@/auth-command"
+import type { env } from "@/env"
 
-export async function configureGit(cli: URL) {
-	const scope = new URL("/git", env.CTX_PLATFORM_URL).href
+export async function configureGit(settings: typeof env, invocation: string) {
+	const scope = new URL("/git", settings.CTX_PLATFORM_URL).href
 	const key = `credential.${scope}.helper`
-	const command = [process.execPath, fileURLToPath(cli), "git-credential"]
-		.map((argument) => `'${argument.replaceAll("'", "'\\''")}'`)
-		.join(" ")
+	const command = formatAuthCommand(invocation, "git-credential", settings)
 	await execa("git", ["config", "--global", "--replace-all", key, ""])
 	await execa("git", ["config", "--global", "--add", key, `!${command}`])
 }
 
-export async function gitCredential(operation: string) {
+export async function gitCredential(operation: string, settings: AuthEnv) {
 	if (operation === "capability") {
 		process.stdout.write("version 0\ncapability authtype\n")
 		return
@@ -33,6 +31,6 @@ export async function gitCredential(operation: string) {
 		attributes.getAll("capability[]").find((c) => c === "authtype"),
 	)
 	process.stdout.write(
-		`capability[]=authtype\nauthtype=Bearer\ncredential=${await getAccessToken(env)}\n\n`,
+		`capability[]=authtype\nauthtype=Bearer\ncredential=${await getAccessToken(settings)}\n\n`,
 	)
 }

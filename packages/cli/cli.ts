@@ -8,12 +8,13 @@ import { z } from "zod"
 import { connectAccount, listAccounts } from "@/accounts"
 import { runLocalAgent } from "@/agents"
 import { getAccessToken, getCurrentUser, LoginRequiredError, login } from "@/auth"
+import { formatAuthCommand } from "@/auth-command"
 import {
 	assignSlateConnection,
 	connectionsCommandSchema,
 	listSlateConnections,
 } from "@/connections"
-import { env } from "@/env"
+import { env, envSchema, readCliCommand } from "@/env"
 import { configureGit, gitCredential } from "@/git-credential"
 import { ownerOptionsSchema } from "@/owner"
 import { version } from "@/package.json"
@@ -22,13 +23,34 @@ import { dropSecret, secretNameSchema, secretOptionsSchema, setSecret } from "@/
 const program = new Command().name("ctx").description("ContextLayer CLI").version(version)
 program.addHelpText(
 	"afterAll",
-	`\nEnvironment (current values):\n  CTX_PLATFORM_URL    ${env.CTX_PLATFORM_URL}\n  CTX_AUTH_ISSUER     ${env.CTX_AUTH_ISSUER}\n  CTX_AUTH_CLIENT_ID  ${env.CTX_AUTH_CLIENT_ID}\n  CTX_CONFIG_DIR      ${env.CTX_CONFIG_DIR}  Saved-login directory; one login per directory.\n\nRun without a global install: npx @usecontextlayer/cli <command>`,
+	`\nEnvironment (current values):\n  CTX_PLATFORM_URL    ${env.CTX_PLATFORM_URL}\n  CTX_AUTH_ISSUER     ${env.CTX_AUTH_ISSUER}\n  CTX_AUTH_CLIENT_ID  ${env.CTX_AUTH_CLIENT_ID}\n  CTX_CONFIG_DIR      ${env.CTX_CONFIG_DIR}  Saved-login directory; one login per directory.\n  CTX_CLI_COMMAND     ${readCliCommand(env)}  CLI invocation used for Git registration and login repair.\n\nRun without a global install: npx @usecontextlayer/cli <command>`,
 )
 
-async function authenticate(command: Command) {
+function addAuthOptions(command: Command) {
+	return command
+		.option("--auth-client-id <id>", "OAuth client to use", env.CTX_AUTH_CLIENT_ID)
+		.option("--auth-issuer <url>", "OAuth issuer to use", env.CTX_AUTH_ISSUER)
+		.option(
+			"--config-dir <directory>",
+			"Saved-login directory to use",
+			env.CTX_CONFIG_DIR,
+		)
+		.option("--platform-url <url>", "Platform URL to use", env.CTX_PLATFORM_URL)
+}
+
+function readAuthOptions(options: Record<string, unknown>) {
+	return envSchema.parse({
+		CTX_AUTH_CLIENT_ID: options.authClientId,
+		CTX_AUTH_ISSUER: options.authIssuer,
+		CTX_CONFIG_DIR: options.configDir,
+		CTX_PLATFORM_URL: options.platformUrl,
+	})
+}
+
+async function authenticate(command: Command, settings = env) {
 	try {
-		return await getCurrentUser(env, {
-			authorization: `Bearer ${await getAccessToken(env)}`,
+		return await getCurrentUser(settings, {
+			authorization: `Bearer ${await getAccessToken(settings)}`,
 		})
 	} catch (error) {
 		if (error instanceof LoginRequiredError) {
@@ -42,10 +64,7 @@ async function authenticate(command: Command) {
 						`Expected client ID: ${expected.clientId}`,
 					)
 			}
-			const settings = Object.entries(env)
-				.map(([key, value]) => `${key}='${value.replaceAll("'", "'\\''")}'`)
-				.join(" ")
-			lines.push(`Run: ${settings} npx @usecontextlayer/cli login`)
+			lines.push(`Run: ${formatAuthCommand(readCliCommand(settings), "login", settings)}`)
 			command.error(lines.join("\n"))
 		}
 		throw error
@@ -146,25 +165,25 @@ See README.md for the development and connection workflow.
 `)
 	})
 
-program
-	.command("login")
+addAuthOptions(program.command("login"))
 	.description(
 		"Sign in by approving a browser code and configure Git credentials for ContextLayer repositories",
 	)
-	.action(async () => {
-		await login(env)
-		await configureGit(new URL(import.meta.url))
+	.action(async (options) => {
+		const settings = readAuthOptions(options)
+		await login(settings)
+		await configureGit(settings, readCliCommand(settings))
 		console.log("Git credentials configured for ContextLayer.")
 	})
-program
-	.command("git-credential <operation>")
+addAuthOptions(program.command("git-credential <operation>"))
 	.description(
 		"Git credential helper using the saved login; invoked automatically by Git",
 	)
-	.hook("preAction", async (command) => {
-		if (command.args[0] === "get") await requireLogin(command)
+	.action(async (operation: string, options, command: Command) => {
+		const settings = readAuthOptions(options)
+		if (operation === "get") await authenticate(command, settings)
+		await gitCredential(operation, settings)
 	})
-	.action(gitCredential)
 program
 	.command("whoami")
 	.description(
