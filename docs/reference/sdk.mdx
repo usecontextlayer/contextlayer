@@ -178,7 +178,13 @@ The Worker factory takes these options:
 | `development` | Whether the Worker is running in development. |
 | `mcp`, optional | A record of authored MCP modules, each exporting a tool definition and handler. |
 
-The Worker entry point also exports the `McpToolModule` type. Keep the starter's module discovery wiring when adding tools; [Expose MCP tools](/how-to/expose-mcp-tools) covers the authored files and deployment.
+The Worker entry point also exports the `McpToolModule` type. Its handler has this signature, with `CallToolResult` from `@modelcontextprotocol/server`:
+
+```ts
+handler(args: unknown): CallToolResult | Promise<CallToolResult>
+```
+
+ContextLayer validates `args` against the tool's `inputSchema` before invoking the handler. MCP handlers receive no ContextLayer resource capabilities; see [MCP tools](/core-concepts/slate/mcp#tools) for declaration restrictions. Keep the starter's module discovery wiring when adding tools; [Expose MCP tools](/how-to/expose-mcp-tools) covers the authored files and deployment.
 
 ## Standalone HTML pages
 

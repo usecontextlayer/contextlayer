@@ -23,7 +23,7 @@ export interface McpToolModule {
 		inputSchema: z.ZodType
 		outputSchema?: z.ZodType
 	}
-	handler(args: unknown, tools: Tools): CallToolResult | Promise<CallToolResult>
+	handler(args: unknown): CallToolResult | Promise<CallToolResult>
 }
 
 export interface SlateWorker
@@ -51,7 +51,7 @@ export function createSlateWorker({
 				)
 				if (!module) throw new Error(`Unknown MCP tool: ${ctx.props.mcpTool}`)
 				const args = await module.tool.inputSchema.parseAsync(await request.json())
-				return Response.json(await module.handler(args, createTools(ctx.props.tools)))
+				return Response.json(await module.handler(args))
 			}
 			const context = new RouterContextProvider()
 			context.set(
