@@ -59,6 +59,8 @@ export async function inspectCloudflare(
 	const accountPath = `/accounts/${encodeURIComponent(config.account_id)}`
 	const instancesPath = `${accountPath}/workflows/${encodeURIComponent(config.workflow_name)}/instances`
 	const scriptPath = `${accountPath}/workers/dispatch/namespaces/${encodeURIComponent(config.dispatch_namespace)}/scripts/${slateId}`
+	// Instance details and step output contain private inputs and diagnostics.
+	// Detail reads below establish ownership only; never forward their bodies.
 	if (url.pathname !== instancesPath && url.pathname !== scriptPath)
 		return new Response(null, { status: 404 })
 
@@ -75,12 +77,8 @@ export async function inspectCloudflare(
 		})
 	}
 	const belongsToSlate = (value: unknown) => {
-		const input = inputSchema.safeParse(instanceSchema.parse(value).params)
-		return (
-			input.success &&
-			input.data.namespace === config.dispatch_namespace &&
-			input.data.slateId === slateId
-		)
+		const input = inputSchema.parse(instanceSchema.parse(value).params)
+		return input.namespace === config.dispatch_namespace && input.slateId === slateId
 	}
 	const response = await readResponse(`${url.pathname}${url.search}`)
 	if (!response.ok || url.pathname === scriptPath) return response

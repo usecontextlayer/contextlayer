@@ -16,7 +16,7 @@ Think [Heroku](https://www.heroku.com/) for bespoke software: write React and Ty
 
 ## Build your first slate
 
-You'll need Node.js 24+, [pnpm](https://pnpm.io/), and Git with your author identity configured.
+You'll need a Node.js release supported by the [CLI's engines field](packages/cli/package.json), [pnpm](https://pnpm.io/), and Git with your author identity configured.
 
 ```sh
 # Sign in, create a slate, and run it locally
