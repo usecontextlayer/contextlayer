@@ -1,0 +1,97 @@
+{
+	"polar": {
+		"currency": "usd",
+		"meter": {
+			"aggregation": { "func": "sum", "property": "clips" },
+			"custom_label": "clip",
+			"custom_multiplier": 1000,
+			"filter": {
+				"clauses": [
+					{ "operator": "eq", "property": "name", "value": "loader_call" },
+					{ "operator": "eq", "property": "name", "value": "action_call" },
+					{ "operator": "eq", "property": "name", "value": "tool_call" }
+				],
+				"conjunction": "or"
+			},
+			"metadata": { "contextlayer_seed": "clips" },
+			"name": "Clips",
+			"unit": "custom"
+		},
+		"plans": [
+			{
+				"amount": 0,
+				"key": "POLAR_FREE_PRODUCT_ID",
+				"name": "Free",
+				"role": "free",
+				"units": 5000,
+				"visibility": "public"
+			},
+			{
+				"amount": 4000,
+				"key": "POLAR_PRO_PRODUCT_ID",
+				"name": "Pro",
+				"role": "pro",
+				"unitAmount": "0.200000000000",
+				"units": 20000,
+				"visibility": "public"
+			},
+			{
+				"amount": 20000,
+				"key": "POLAR_ULTRA_PRODUCT_ID",
+				"name": "Ultra",
+				"role": "ultra",
+				"unitAmount": "0.160000000000",
+				"units": 125000,
+				"visibility": "public"
+			},
+			{
+				"amount": 0,
+				"key": "POLAR_DEVENV_UNLIMITED_PRODUCT_ID",
+				"name": "DevEnv Unlimited",
+				"role": "devenv-unlimited",
+				"units": 0,
+				"visibility": "private"
+			}
+		],
+		"recurringInterval": "month",
+		"recurringIntervalCount": 1,
+		"rollover": false
+	},
+	"web": {
+		"client": {
+			"applicationType": "native",
+			"clientId": "JtdPmuAXQnEiljfqAAlGSLJrBzQInxSH",
+			"grantTypes": ["urn:ietf:params:oauth:grant-type:device_code", "refresh_token"],
+			"id": "Mbnbn5JdZTu1yVAyHEJUItDlxoESDSMT",
+			"name": "ContextLayer Development CLI",
+			"redirectUris": [],
+			"scopes": ["offline_access", "platform:access"],
+			"tokenEndpointAuthMethod": "none"
+		},
+		"clientResource": { "id": "1GeYNuWzsbLw4zQiV77OBng2MheYuG08" },
+		"createdAt": "2026-10-27T00:00:00.000Z",
+		"credentials": {
+			"id": "XT1ORPC0ueYZG3JAAN9yChnSCEZ64emM",
+			"password": "local-development",
+			"passwordHash": "ec897600b4ca69279da895440f8e5125:7f93fa2e14de4cd7ce099127b8a28c6b01f176397a556743d52585965803583301e75829e0eef2e23fcc3fb33f54593fb4ddd8625dfc63472276d083755dfa58"
+		},
+		"membership": { "id": "RMsIGdvIz6cr3vbpu3K3H0wIoZ2Y9wbB", "role": "owner" },
+		"organization": {
+			"id": "KYC240r6CRWnMoftpCSTeKBhXY1NpbGG",
+			"name": "Local Development",
+			"slug": "local-development"
+		},
+		"resource": {
+			"allowedScopes": ["platform:access", "offline_access"],
+			"id": "lBTbt4Evlbqpdpt65BDGDRCsps26SOps",
+			"identifier": "https://platform.usecontextlayer.com",
+			"name": "ContextLayer Platform"
+		},
+		"user": {
+			"email": "local-dev@usecontextlayer.com",
+			"emailVerified": false,
+			"id": "ix0x0lTkIivNzmFPbXLAYACGgZz64YUe",
+			"name": "Local Development"
+		}
+	}
+}

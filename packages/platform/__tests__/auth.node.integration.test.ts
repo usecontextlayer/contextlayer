@@ -234,33 +234,38 @@ test("native sessions and CLI tokens can manage slates and accept only scoped re
 	}
 })
 
-test("personal connected account execution requires permission to manage its slate", async ({
+test("personal connected account execution requires permission to manage personal and organization slates", async ({
 	slate,
 	db,
 	identity,
 	platform: { origin },
 }) => {
-	await db
-		.updateTable("slate")
-		.set({ owner_user_id: crypto.randomUUID(), visibility: "public" })
-		.where("id", "=", slate.id)
-		.execute()
 	const headers = new Headers(identity.headers)
 	headers.set("content-type", "application/json")
-	expect(
-		(
-			await fetch(`${origin}/api/accounts/ca_example/tools/call`, {
-				body: JSON.stringify({
-					arguments: {},
-					slate_id: slate.id,
-					tool: "READ",
-					toolkit: "gmail",
-				}),
-				headers,
-				method: "POST",
-			})
-		).status,
-	).toBe(403)
+	for (const owner of [
+		{ owner_organization_id: null, owner_user_id: crypto.randomUUID() },
+		{ owner_organization_id: crypto.randomUUID(), owner_user_id: null },
+	]) {
+		await db
+			.updateTable("slate")
+			.set({ ...owner, visibility: "public" })
+			.where("id", "=", slate.id)
+			.execute()
+		expect(
+			(
+				await fetch(`${origin}/api/accounts/ca_example/tools/call`, {
+					body: JSON.stringify({
+						arguments: {},
+						slate_id: slate.id,
+						tool: "READ",
+						toolkit: "gmail",
+					}),
+					headers,
+					method: "POST",
+				})
+			).status,
+		).toBe(403)
+	}
 })
 
 test("public slate resolution permits declaration paths without sign-in", async ({

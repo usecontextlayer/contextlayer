@@ -35,6 +35,7 @@ export async function saveDevEnvPorts(root: string, ports: DevEnvPorts) {
 		...Object.fromEntries(devEnvServiceKeys.map((key) => [key, ports[key]])),
 		CTX_AUTH_CLIENT_ID: ports.CTX_AUTH_CLIENT_ID,
 		CTX_PLATFORM_DATABASE_URL: ports.CTX_PLATFORM_DATABASE_URL,
+		DATABASE_URL: ports.DATABASE_URL,
 	}
 	await writeFile(resolve(root, ".env.json"), `${JSON.stringify(values, null, 2)}\n`)
 }
@@ -43,10 +44,7 @@ export async function assignDevEnvPorts(root: string) {
 	const previous = await readSavedPorts(root)
 	const saved = previous === undefined ? undefined : parseDevEnvServiceUrls(previous)
 	const env = readDevEnv()
-	// Each checkout gets its own platform database on the environment's server,
-	// named after its folder, so concurrent DevEnvs never run their
-	// branch migrations against one database. Web's database stays shared
-	// because the web checkout is.
+	// Branch migrations must not share a platform database across checkouts.
 	const database = new URL(env.CTX_PLATFORM_DATABASE_URL)
 	database.pathname = `/${basename(root)}_platform`
 	const addresses = { ...env, ...saved, CTX_PLATFORM_DATABASE_URL: database.href }

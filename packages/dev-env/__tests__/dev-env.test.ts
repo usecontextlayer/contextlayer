@@ -29,6 +29,7 @@ test("reads initialized DevEnv command settings without web or provider discover
 		CTX_VIEWER_AUTH_URL: new URL("http://localhost:43003/"),
 	}
 	await saveDevEnvPorts(directory, { ...addresses, CTX_AUTH_CLIENT_ID: "local-cli" })
+	vi.stubEnv("DATABASE_URL", "postgresql://postgres:postgres@127.0.0.1:5489/other_web")
 	const settings = readDevEnvCommandEnv(directory, await readDevEnvPorts(directory))
 	expect(settings).toEqual({
 		BETTER_AUTH_URL: "http://localhost:43001/",

@@ -5,7 +5,7 @@ import { join, resolve } from "node:path"
 import { promisify } from "node:util"
 import { writeDatabase } from "@tests/database-project"
 import { executionTest as test } from "@tests/integration"
-import { DEV_ENV_ORGANIZATION_SLUG } from "@usecontextlayer/dev-env/env"
+import seed from "@usecontextlayer/dev-env/seed.json" with { type: "json" }
 import { createSlateProject } from "@usecontextlayer/dev-env/slate"
 import { signInViewer } from "@usecontextlayer/dev-env/viewer"
 import {
@@ -47,7 +47,7 @@ test("native CLI provisioning initializes owner and member databases and applies
 	const organization = z
 		.object({ organizations: z.array(organizationSchema) })
 		.parse(await memberships.json())
-		.organizations.find((item) => item.slug === DEV_ENV_ORGANIZATION_SLUG)
+		.organizations.find((item) => item.slug === seed.web.organization.slug)
 	assert(organization)
 	const organizationSlug = organization.slug
 	const organizationId = organization.id

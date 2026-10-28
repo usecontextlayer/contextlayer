@@ -27,6 +27,19 @@ export async function initializeDatabase(
 	return url
 }
 
+export async function seedDatabase(
+	url: string,
+	template: string,
+	data: postgres.JSONValue,
+) {
+	const sql = postgres(url, { max: 1 })
+	try {
+		await sql.unsafe(template, [sql.json(data)])
+	} finally {
+		await sql.end()
+	}
+}
+
 type EphemeralDatabase = { url: string; drop: () => Promise<void> }
 
 // CREATE a uniquely-named `<baseName>_<hex8>` database so a composition never

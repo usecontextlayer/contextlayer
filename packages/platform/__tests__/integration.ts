@@ -9,11 +9,8 @@ import {
 	readDevEnvServiceEnv,
 	readDevEnvWebEnv,
 } from "@usecontextlayer/dev-env/dev-env"
-import {
-	DEV_ENV_ORGANIZATION_SLUG,
-	readDevEnvIdentityEnv,
-} from "@usecontextlayer/dev-env/env"
 import { readDevEnvPorts } from "@usecontextlayer/dev-env/ports"
+import seed from "@usecontextlayer/dev-env/seed.json" with { type: "json" }
 import { signInWeb } from "@usecontextlayer/dev-env/web"
 import type { SlateProvisioning } from "@usecontextlayer/shared/slate-provisioning"
 import type { HostedExecution } from "@usecontextlayer/shared/tools-worker"
@@ -34,18 +31,18 @@ type WorkerConfig = Pick<
 
 export const test = base
 	.extend("addresses", { scope: "file" }, () => readDevEnvPorts(root))
-	.extend("webEnv", { scope: "file" }, ({ addresses }) =>
-		readDevEnvWebEnv(webRoot, addresses),
-	)
+	.extend("webEnv", { scope: "file" }, async ({ addresses }) => ({
+		...(await readDevEnvWebEnv(webRoot, addresses)),
+		CTX_AUTH_CLIENT_ID: addresses.CTX_AUTH_CLIENT_ID,
+	}))
 	.extend("serviceEnv", { scope: "file" }, ({ addresses, webEnv }) =>
 		readDevEnvServiceEnv(root, webEnv, addresses),
 	)
 	.extend("webSession", async ({ webEnv }, { onCleanup }) => {
-		const identity = readDevEnvIdentityEnv(webEnv)
 		const session = await signInWeb({
 			baseURL: webEnv.BETTER_AUTH_URL,
-			email: identity.CTX_DEV_USER_EMAIL,
-			password: identity.CTX_DEV_USER_PASSWORD,
+			email: seed.web.user.email,
+			password: seed.web.credentials.password,
 		})
 		onCleanup(async () => {
 			await session.client.signOut()
@@ -60,7 +57,7 @@ export const test = base
 	)
 	.extend("organization", { scope: "file" }, ({ identity }) => {
 		const organization = identity.organizations.find(
-			(item) => item.slug === DEV_ENV_ORGANIZATION_SLUG,
+			(item) => item.id === seed.web.organization.id,
 		)
 		assert(
 			organization,

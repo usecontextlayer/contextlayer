@@ -20,6 +20,7 @@ import {
 	updateBenefitsProducts,
 	updateProducts,
 } from "@polar-sh/sdk/2026-10/services/products"
+import seed from "@usecontextlayer/dev-env/seed.json" with { type: "json" }
 
 const metadata = (role: string) => ({ contextlayer_seed: role })
 
@@ -43,32 +44,8 @@ export async function seedCatalog(
 	prerequisites: Record<string, string>,
 ) {
 	const products = await Array.fromAsync(iterListProducts(polar)())
-	const definitions = [
-		{ amount: 0, key: "POLAR_FREE_PRODUCT_ID", name: "Free", role: "free", units: 5_000 },
-		{
-			amount: 4_000,
-			key: "POLAR_PRO_PRODUCT_ID",
-			name: "Pro",
-			role: "pro",
-			unitAmount: "0.200000000000",
-			units: 20_000,
-		},
-		{
-			amount: 20_000,
-			key: "POLAR_ULTRA_PRODUCT_ID",
-			name: "Ultra",
-			role: "ultra",
-			unitAmount: "0.160000000000",
-			units: 125_000,
-		},
-		{
-			amount: 0,
-			key: "POLAR_DEVENV_UNLIMITED_PRODUCT_ID",
-			name: "DevEnv Unlimited",
-			role: "devenv-unlimited",
-			units: 0,
-		},
-	] as const
+	const definitions = seed.polar.plans
+	const currency = seed.polar.currency as models.PresentmentCurrency
 	const existing = new Map<string, models.Product>()
 	for (const definition of definitions) {
 		const tagged = unique(
@@ -86,37 +63,26 @@ export async function seedCatalog(
 		if (selected) {
 			adoptable(selected, definition.role)
 			existing.set(definition.role, selected)
-		} else if (definition.role !== "devenv-unlimited") {
-			const unmarked = products.filter(
-				(product) =>
-					!product.is_archived &&
-					product.is_recurring &&
-					product.visibility === "public" &&
-					!product.metadata.contextlayer_seed,
-			)
+		}
+	}
+	const existingIds = new Set([...existing.values()].map((product) => product.id))
+	const unmarked = products.filter(
+		(product) =>
+			!product.is_archived &&
+			product.is_recurring &&
+			product.visibility === "public" &&
+			!product.metadata.contextlayer_seed &&
+			!existingIds.has(product.id),
+	)
+	for (const definition of definitions) {
+		if (definition.role !== "devenv-unlimited" && !existing.has(definition.role))
 			assert(
 				!unmarked.length,
 				`Set ${definition.key} in platform/dev to explicitly adopt the existing ${definition.name} product. Unmarked public recurring products: ${unmarked.map((product) => product.id).join(", ")}.`,
 			)
-		}
 	}
 
-	const meterDefinition = {
-		aggregation: { func: "sum", property: "clips" },
-		custom_label: "clip",
-		custom_multiplier: 1_000,
-		filter: {
-			clauses: ["loader_call", "action_call", "tool_call"].map((value) => ({
-				operator: "eq" as const,
-				property: "name",
-				value,
-			})),
-			conjunction: "or",
-		},
-		metadata: metadata("clips"),
-		name: "Clips",
-		unit: "custom",
-	} satisfies models.MeterCreate
+	const meterDefinition = seed.polar.meter as models.MeterCreate
 	const taggedMeter = unique(
 		await Array.fromAsync(iterListMeters(polar)({ metadata: metadata("clips") })),
 		"clips",
@@ -134,8 +100,8 @@ export async function seedCatalog(
 	assert(
 		!meter.archived_at &&
 			meter.unit === "custom" &&
-			meter.custom_label === "clip" &&
-			meter.custom_multiplier === 1_000 &&
+			meter.custom_label === meterDefinition.custom_label &&
+			meter.custom_multiplier === meterDefinition.custom_multiplier &&
 			isDeepStrictEqual(meter.filter, meterDefinition.filter) &&
 			isDeepStrictEqual(meter.aggregation, meterDefinition.aggregation),
 		`Incompatible Clips meter ${meter.id}; resolve its configuration before rerunning.`,
@@ -152,13 +118,17 @@ export async function seedCatalog(
 	for (const definition of definitions) {
 		const prior = existing.get(definition.role)
 		const prices: models.ProductCreateRecurring["prices"] = [
-			{ amount_type: "fixed", price_amount: definition.amount, price_currency: "usd" },
+			{
+				amount_type: "fixed",
+				price_amount: definition.amount,
+				price_currency: currency,
+			},
 		]
-		if ("unitAmount" in definition)
+		if (definition.unitAmount !== undefined)
 			prices.push({
 				amount_type: "metered_unit",
 				meter_id: meter.id,
-				price_currency: "usd",
+				price_currency: currency,
 				unit_amount: definition.unitAmount,
 			})
 		let product =
@@ -167,30 +137,29 @@ export async function seedCatalog(
 				metadata: metadata(definition.role),
 				name: definition.name,
 				prices,
-				recurring_interval: "month",
-				recurring_interval_count: 1,
-				visibility: definition.role === "devenv-unlimited" ? "private" : "public",
+				recurring_interval: seed.polar.recurringInterval as models.RecurringInterval,
+				recurring_interval_count: seed.polar.recurringIntervalCount,
+				visibility: definition.visibility as models.ProductVisibility,
 			}))
 		const activePrices = product.prices.filter((price) => !price.is_archived)
 		assert(
 			!product.is_archived &&
 				product.name === definition.name &&
-				product.recurring_interval === "month" &&
-				product.recurring_interval_count === 1 &&
-				product.visibility ===
-					(definition.role === "devenv-unlimited" ? "private" : "public"),
+				product.recurring_interval === seed.polar.recurringInterval &&
+				product.recurring_interval_count === seed.polar.recurringIntervalCount &&
+				product.visibility === definition.visibility,
 			`Incompatible ${definition.role} product ${product.id}.`,
 		)
 		assert(
 			activePrices.length === prices.length &&
-				activePrices.every((price) => price.price_currency === "usd") &&
+				activePrices.every((price) => price.price_currency === seed.polar.currency) &&
 				activePrices.some(
 					(price) =>
 						price.amount_type === "fixed" && price.price_amount === definition.amount,
 				),
 			`Incompatible prices on ${definition.role} product ${product.id}.`,
 		)
-		if ("unitAmount" in definition)
+		if (definition.unitAmount !== undefined)
 			assert(
 				activePrices.some(
 					(price) =>
@@ -232,7 +201,7 @@ export async function seedCatalog(
 							metadata: metadata(role),
 							properties: {
 								meter_id: meter.id,
-								rollover: false,
+								rollover: seed.polar.rollover,
 								units: definition.units,
 							},
 							type: "meter_credit",
@@ -243,7 +212,7 @@ export async function seedCatalog(
 					benefit.type === "meter_credit" &&
 					benefit.properties.meter_id === meter.id &&
 					benefit.properties.units === definition.units &&
-					benefit.properties.rollover === false,
+					benefit.properties.rollover === seed.polar.rollover,
 				`Incompatible benefit ${role} (${benefit.id}).`,
 			)
 			if (benefit.metadata.contextlayer_seed !== role)

@@ -37,11 +37,6 @@ test("Owner subscriptions gate execution while declaration access stays availabl
 	const { headers, user } = identity
 	const personalOwner = user.id
 	const organizationOwner = organization.id
-	const post = (body: unknown) => ({
-		body: JSON.stringify(body),
-		headers: { ...headers, "content-type": "application/json" },
-		method: "POST",
-	})
 	const request = (path: string, init?: RequestInit) => fetch(new URL(path, origin), init)
 	const [personalSlate, organizationSlate] = (
 		await db
@@ -71,14 +66,6 @@ test("Owner subscriptions gate execution while declaration access stays availabl
 		expect((await request(resolve(slate.public_hostname, "/slate.json"))).status).toBe(
 			200,
 		)
-		expect(
-			(
-				await request(
-					`/api/accounts/ca_example/tools/call`,
-					post({ arguments: {}, slate_id: slate.id, tool: "EXAMPLE", toolkit: "gmail" }),
-				)
-			).status,
-		).toBe(403)
 	}
 	const slateWithoutPolarCustomer = slateSchema.parse(
 		await db

@@ -49,6 +49,7 @@
 			"import": "./dist/ports.mjs",
 			"types": "./dist/ports.d.mts"
 		},
+		"./seed.json": "./seed.json",
 		"./services": {
 			"import": "./dist/services.mjs",
 			"types": "./dist/services.d.mts"

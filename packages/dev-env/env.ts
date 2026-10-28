@@ -14,6 +14,7 @@ export const devEnvServiceKeys = serviceSchema.keyof().options
 const portsSchema = serviceSchema.extend({
 	CTX_AUTH_CLIENT_ID: z.string().min(1),
 	CTX_PLATFORM_DATABASE_URL: z.url(),
+	DATABASE_URL: z.url(),
 })
 
 export type DevEnvPorts = z.infer<typeof portsSchema>
@@ -45,29 +46,6 @@ export function parseDevEnvServiceUrls(input: unknown) {
 
 export function parseDevEnvPorts(input: unknown) {
 	return portsSchema.parse(input)
-}
-
-export const DEV_ENV_ORGANIZATION_SLUG = "local-development"
-
-const devEnvIdentitySchema = z.object({
-	CTX_DEV_USER_EMAIL: z.email(),
-	CTX_DEV_USER_PASSWORD: z.string().min(1),
-})
-
-export function readDevEnvIdentityEnv(
-	env: Record<string, string | undefined> = process.env,
-) {
-	return devEnvIdentitySchema.parse(env)
-}
-
-export function readDevEnvClientEnv(env: Record<string, string>) {
-	return z
-		.object({
-			CTX_AUTH_CLIENT_ID: z
-				.string({ error: "Run pnpm dev:seed to prepare the shared DevEnv baseline." })
-				.min(1, { error: "Run pnpm dev:seed to prepare the shared DevEnv baseline." }),
-		})
-		.parse(env)
 }
 
 export function readSlateOAuthEnv(env: Record<string, string>) {

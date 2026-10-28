@@ -4,6 +4,7 @@ import { initializeDatabase } from "@usecontextlayer/dev-env/database"
 import { readDevEnvServiceEnv, readDevEnvWebEnv } from "@usecontextlayer/dev-env/dev-env"
 import { startPolarListener } from "@usecontextlayer/dev-env/polar"
 import { assignDevEnvPorts, saveDevEnvPorts } from "@usecontextlayer/dev-env/ports"
+import seed from "@usecontextlayer/dev-env/seed.json" with { type: "json" }
 import { startNext, startVite, startWrangler } from "@usecontextlayer/dev-env/services"
 import { execa } from "execa"
 
@@ -16,9 +17,11 @@ const { values } = parseArgs({
 const root = resolve(import.meta.dirname, "..")
 const webRoot = resolve(root, "../web")
 const addresses = await assignDevEnvPorts(root)
+const webConfig = await readDevEnvWebEnv(webRoot, addresses)
+const clientId = seed.web.client.clientId
 const { issuer, platformEnv, polarEnv, webEnv } = await readDevEnvServiceEnv(
 	root,
-	await readDevEnvWebEnv(webRoot, addresses),
+	webConfig,
 	addresses,
 )
 
@@ -95,7 +98,6 @@ if (values["polar-listen"]) {
 		),
 	)
 }
-const clientId = webEnv.CTX_AUTH_CLIENT_ID
 await saveDevEnvPorts(root, { ...addresses, CTX_AUTH_CLIENT_ID: clientId })
 console.log(`Web: ${web.url}`)
 console.log(`Platform: ${new URL("/dashboard/personal/slates", platform.url)}`)

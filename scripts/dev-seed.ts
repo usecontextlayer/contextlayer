@@ -1,4 +1,5 @@
 import assert from "node:assert/strict"
+import { readFile } from "node:fs/promises"
 import { resolve } from "node:path"
 import { setTimeout } from "node:timers/promises"
 import { createPolarCore, errors, type models } from "@polar-sh/sdk/2026-10"
@@ -15,10 +16,11 @@ import {
 	createSubscriptions,
 	iterListSubscriptions,
 } from "@polar-sh/sdk/2026-10/services/subscriptions"
-import { initializeDatabase } from "@usecontextlayer/dev-env/database"
+import { initializeDatabase, seedDatabase } from "@usecontextlayer/dev-env/database"
 import { readDopplerEnv } from "@usecontextlayer/dev-env/doppler"
-import { readDevEnv, readDevEnvIdentityEnv } from "@usecontextlayer/dev-env/env"
-import { execa, execaNode } from "execa"
+import { readDevEnv } from "@usecontextlayer/dev-env/env"
+import seed from "@usecontextlayer/dev-env/seed.json" with { type: "json" }
+import { execa } from "execa"
 import { z } from "zod"
 // biome-ignore lint/style/noRestrictedImports: root operational scripts have no package alias.
 import { seedCatalog } from "./dev-seed-catalog"
@@ -27,7 +29,6 @@ const root = resolve(import.meta.dirname, "..")
 const webRoot = resolve(root, "../web")
 const platformConfig = await readDopplerEnv(root, "platform", "dev")
 const webConfig = await readDopplerEnv(webRoot, "web", "dev_personal")
-const webParentConfig = await readDopplerEnv(webRoot, "web", "dev")
 const bootstrap = z
 	.object({
 		POLAR_ACCESS_TOKEN: z.string().min(1),
@@ -39,11 +40,9 @@ const bootstrap = z
 		POLAR_ULTRA_PRODUCT_ID: z.uuid().optional(),
 	})
 	.parse(platformConfig)
-const identity = readDevEnvIdentityEnv(webConfig)
 const { DATABASE_URL } = readDevEnv()
 const webEnv = {
 	...webConfig,
-	...identity,
 	DATABASE_URL,
 	NODE_ENV: "development",
 	POLAR_ACCESS_TOKEN: bootstrap.POLAR_ACCESS_TOKEN,
@@ -53,11 +52,10 @@ const polar = createPolarCore({
 	accessToken: bootstrap.POLAR_ACCESS_TOKEN,
 	environment: bootstrap.POLAR_ENVIRONMENT,
 })
+const database = new URL(DATABASE_URL)
 console.log(
-	"Seeding shared DevEnv baseline in Polar Sandbox; no checkout runtime is started.",
+	`Seeding web database ${database.pathname.slice(1)} on ${database.host} and the shared Polar Sandbox baseline.`,
 )
-const { free, meter, unlimited } = await seedCatalog(polar, platformConfig)
-
 await execa("docker", ["compose", "up", "-d", "--no-recreate", "--wait", "postgres"], {
 	cwd: webRoot,
 	stdio: "inherit",
@@ -69,20 +67,16 @@ await initializeDatabase(DATABASE_URL, async () => {
 		stdio: "inherit",
 	})
 })
-const { ipcOutput } = await execaNode(resolve(webRoot, "scripts/dev-env.mts"), {
-	cwd: webRoot,
-	env: { ...webEnv, TSX_TSCONFIG_PATH: resolve(webRoot, "tsconfig.tsxrepl.json") },
-	ipc: true,
-	nodeOptions: ["--import", "tsx"],
-	stdio: ["ignore", "inherit", "inherit"],
-})
-const baseline = z
-	.object({
-		clientId: z.string().min(1),
-		organization: z.object({ id: z.string().min(1), name: z.string() }),
-		user: z.object({ email: z.email(), id: z.string().min(1), name: z.string() }),
-	})
-	.parse(ipcOutput[0])
+await seedDatabase(
+	DATABASE_URL,
+	await readFile(resolve(webRoot, "database/dev-seed.sql"), "utf8"),
+	seed,
+)
+const baseline = seed.web
+console.log(
+	`Web baseline ready: user ${baseline.user.id}, organization ${baseline.organization.id}, CLI client ${baseline.client.clientId}.`,
+)
+const { free, meter, unlimited } = await seedCatalog(polar, platformConfig)
 
 for (const body of [
 	{
@@ -203,12 +197,6 @@ async function publish(
 	)
 }
 
-assert(
-	!webConfig.CTX_AUTH_CLIENT_ID ||
-		webConfig.CTX_AUTH_CLIENT_ID === webParentConfig.CTX_AUTH_CLIENT_ID ||
-		webConfig.CTX_AUTH_CLIENT_ID === baseline.clientId,
-	"Conflicting CTX_AUTH_CLIENT_ID override in web/dev_personal; remove it before rerunning.",
-)
 await publish(root, "platform", "dev", platformConfig, {
 	POLAR_ACCESS_TOKEN: bootstrap.POLAR_ACCESS_TOKEN,
 	POLAR_CLIPS_METER_ID: meter.id,
@@ -216,14 +204,4 @@ await publish(root, "platform", "dev", platformConfig, {
 	POLAR_FREE_PRODUCT_ID: free.id,
 	POLAR_WEBHOOK_SECRET: webhookSecret,
 })
-await publish(webRoot, "web", "dev", webParentConfig, {
-	CTX_AUTH_CLIENT_ID: baseline.clientId,
-})
-const effectiveWeb = await readDopplerEnv(webRoot, "web", "dev_personal")
-assert(
-	effectiveWeb.CTX_AUTH_CLIENT_ID === baseline.clientId,
-	"web/dev_personal shadows the shared CTX_AUTH_CLIENT_ID; remove its override and rerun.",
-)
-console.log(
-	`Shared baseline ready: user ${baseline.user.id}, organization ${baseline.organization.id}, CLI client ${baseline.clientId}. Configuration verified in platform/dev and web/dev_personal.`,
-)
+console.log("Polar baseline ready. Account configuration verified in platform/dev.")
