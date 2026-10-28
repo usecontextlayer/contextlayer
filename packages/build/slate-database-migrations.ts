@@ -3,6 +3,7 @@ import { type DirectoryBackup, SandboxRunner } from "@cloudflare/ci/worker"
 import { DATABASE_HOST } from "@usecontextlayer/shared/databases"
 import type { SlateProvisioning } from "@usecontextlayer/shared/slate-provisioning"
 import type { BuildBindings } from "@/env"
+import { redactSecrets } from "@/redaction"
 
 export async function migrateSlateDatabases(
 	env: BuildBindings,
@@ -48,17 +49,29 @@ export async function migrateSlateDatabases(
 					token: token.plaintext,
 				},
 			})
-			await Promise.all(
-				Object.entries(result.logs).map(async ([channel, output]) => {
-					const text =
-						typeof output === "string" ? output : await new Response(output).text()
-					if (text) console.log(`Migration ${channel}:\n${text}`)
-				}),
+			const logs = Object.fromEntries(
+				await Promise.all(
+					Object.entries(result.logs).map(async ([channel, output]) => {
+						const text =
+							typeof output === "string" ? output : await new Response(output).text()
+						const safe = redactSecrets(text, [token.plaintext])
+						if (safe) console.log(`Migration ${channel}:\n${safe}`)
+						return [channel, safe] as const
+					}),
+				),
 			)
 			if (result.exitCode !== 0)
 				throw new Error(
-					`Database migration failed (exit ${result.exitCode})\n${result.preview.stderr || result.preview.stdout}`,
+					`Database migration failed (exit ${result.exitCode})\n${redactSecrets(result.preview.stderr || result.preview.stdout, [token.plaintext])}`,
 				)
+			return {
+				...result,
+				logs,
+				preview: {
+					stderr: redactSecrets(result.preview.stderr, [token.plaintext]),
+					stdout: redactSecrets(result.preview.stdout, [token.plaintext]),
+				},
+			}
 		},
 	)
 }

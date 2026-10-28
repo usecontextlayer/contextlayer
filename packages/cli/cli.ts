@@ -10,6 +10,7 @@ import { runLocalAgent } from "@/agents"
 import { addApiCommand } from "@/api"
 import { getAccessToken, getCurrentUser, LoginRequiredError, login } from "@/auth"
 import { formatAuthCommand } from "@/auth-command"
+import { inspectSlate, nativeInspectionHelp } from "@/ci"
 import {
 	assignSlateConnection,
 	connectionsCommandSchema,
@@ -21,7 +22,11 @@ import { ownerOptionsSchema } from "@/owner"
 import { version } from "@/package.json"
 import { dropSecret, secretNameSchema, secretOptionsSchema, setSecret } from "@/secrets"
 
-const program = new Command().name("ctx").description("ContextLayer CLI").version(version)
+const program = new Command()
+	.name("ctx")
+	.description("ContextLayer CLI")
+	.version(version)
+	.enablePositionalOptions()
 program.addHelpText(
 	"afterAll",
 	`\nEnvironment (current values):\n  CTX_PLATFORM_URL    ${env.CTX_PLATFORM_URL}\n  CTX_AUTH_ISSUER     ${env.CTX_AUTH_ISSUER}\n  CTX_AUTH_CLIENT_ID  ${env.CTX_AUTH_CLIENT_ID}\n  CTX_CONFIG_DIR      ${env.CTX_CONFIG_DIR}  Saved-login directory; one login per directory.\n  CTX_CLI_COMMAND     ${readCliCommand(env)}  CLI invocation used for Git registration and login repair.\n\nRun without a global install: npx @usecontextlayer/cli <command>`,
@@ -84,10 +89,40 @@ async function requireLogin(command: Command) {
 	await authenticate(command)
 }
 
+// NOTE: CI lists use --page because cf drops result_info.cursor; switch guidance to --cursor when cf includes the cursor in its output.
+for (const kind of ["ci", "worker"] as const) {
+	program
+		.command(kind)
+		.argument("<slate>", "SlateID or public hostname")
+		.argument(
+			"[arguments...]",
+			kind === "ci"
+				? "Native instance commands: list --page <number>, get <instance-id>, step get <instance-id> --name <step> --type step"
+				: "Native script-details command: get",
+		)
+		.description(
+			kind === "ci"
+				? "Inspect retained CI runs through the native Cloudflare CLI; read-only, with normal ContextLayer login"
+				: "Inspect the published Worker and its commit tag through the native Cloudflare CLI; read-only",
+		)
+		.addHelpText(
+			"after",
+			"\nAccount and native resource selection are supplied by ContextLayer. Arguments after the slate pass to cf unchanged; use <slate> --help for native help." +
+				(kind === "ci"
+					? "\nLists use native --page <number> pagination. Pages are filtered from the shared Workflow, so an empty page does not mean history is exhausted."
+					: ""),
+		)
+		.passThroughOptions()
+		.action(async (target: string, args: string[], _options, command: Command) => {
+			if (!nativeInspectionHelp(args)) await requireLogin(command)
+			await inspectSlate(kind, target, args)
+		})
+}
+
 program
 	.command("init <directory>")
 	.description(
-		"Create a private ContextLayer slate on main with React Router, Tailwind, and shadcn; requires login, Node.js 22.22.0+, pnpm, and Git author identity; sets the Git remote and prints how to start and deploy the slate",
+		"Create a private ContextLayer slate on main with React Router, Tailwind, and shadcn; requires login, a supported Node.js version, pnpm, and Git author identity; sets the Git remote and prints how to start and deploy the slate",
 	)
 	.option("--org <slug>", "Create the slate under an organization you belong to")
 	.hook("preAction", requireLogin)
@@ -169,6 +204,10 @@ Deploy the committed starter:
   git push -u origin main
 
 Commit your own changes before subsequent pushes.
+
+Inspect CI runs and the published Worker:
+  npx @usecontextlayer/cli ci ${slate.public_hostname} --help
+  npx @usecontextlayer/cli worker ${slate.public_hostname} get --help
 
 See README.md for the development and connection workflow.
 `)

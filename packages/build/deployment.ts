@@ -1,4 +1,4 @@
-export function slateDeploymentConfig(slateId: string) {
+export function slateDeploymentConfig(slateId: string, commit: string) {
 	return {
 		assets: { binding: "ASSETS", directory: "./payload/client" },
 		base_dir: "./payload/server",
@@ -11,6 +11,7 @@ export function slateDeploymentConfig(slateId: string) {
 		observability: { enabled: true },
 		rules: [{ globs: ["**/*.js", "**/*.mjs"], type: "ESModule" }],
 		tsconfig: "./tsconfig.json",
+		unsafe: { metadata: { tags: [`commit:${commit}`] } },
 		upload_source_maps: false,
 	}
 }

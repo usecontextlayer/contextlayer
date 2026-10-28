@@ -4,6 +4,7 @@
 	},
 	"dependencies": {
 		"@anthropic-ai/claude-agent-sdk": "0.3.289",
+		"cf": "1.0.0-beta.23",
 		"create-react-router": "8.5.0",
 		"kysely": "0.29.5",
 		"kysely-codegen": "0.20.0",
@@ -27,7 +28,7 @@
 		"zod": "^4.4.3"
 	},
 	"engines": {
-		"node": ">=22.22.0"
+		"node": "^22.23.0 || ^24.22.0 || ^26.12.0"
 	},
 	"exports": {
 		"./auth": {

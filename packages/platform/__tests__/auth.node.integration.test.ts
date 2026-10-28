@@ -45,6 +45,7 @@ test("viewer cookies authenticate runtime requests but not management APIs", asy
 		["POST", "/slates"],
 		["PATCH", `/slates/${slate.id}`],
 		["GET", `/slates/${slate.id}/agents/example`],
+		["GET", `/slates/${slate.id}/cloudflare`],
 		["GET", `/accounts/${owner}`],
 		["POST", `/accounts/${owner}`],
 		["GET", "/accounts?toolkit=gmail"],

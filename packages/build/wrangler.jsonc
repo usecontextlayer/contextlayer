@@ -85,6 +85,7 @@
 			"vars": {
 				"BACKUP_BUCKET_NAME": "contextlayer-test-build-backups",
 				"CLOUDFLARE_ACCOUNT_ID": "662809b9404bec57077de451f84b26cb",
+				"CTX_CI_WORKFLOW": "contextlayer-build-test",
 				"CTX_DISPATCH_NAMESPACE": "contextlayer-test"
 			},
 			"workflows": [
@@ -147,6 +148,7 @@
 	"vars": {
 		"BACKUP_BUCKET_NAME": "contextlayer-build-backups",
 		"CLOUDFLARE_ACCOUNT_ID": "662809b9404bec57077de451f84b26cb",
+		"CTX_CI_WORKFLOW": "contextlayer-build",
 		"CTX_DISPATCH_NAMESPACE": "contextlayer-prod"
 	},
 	"workers_dev": false,

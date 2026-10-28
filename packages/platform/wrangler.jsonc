@@ -18,7 +18,11 @@
 	"containers": [
 		{
 			"class_name": "SlateAgentJob",
-			"images": { "workspace": { "dockerfile": "./Dockerfile" } },
+			"images": {
+				"workspace": {
+					"dockerfile": "./Dockerfile"
+				}
+			},
 			"scheduling_policy": "durable_object"
 		},
 		{
@@ -72,7 +76,11 @@
 			"containers": [
 				{
 					"class_name": "SlateAgentJob",
-					"images": { "workspace": { "dockerfile": "./Dockerfile" } },
+					"images": {
+						"workspace": {
+							"dockerfile": "./Dockerfile"
+						}
+					},
 					"scheduling_policy": "durable_object"
 				},
 				{
@@ -128,6 +136,13 @@
 					"POLAR_CLIPS_METER_ID"
 				]
 			},
+			"services": [
+				{
+					"binding": "INSPECTION",
+					"entrypoint": "Inspection",
+					"service": "contextlayer-build-test"
+				}
+			],
 			"workflows": [
 				{
 					"binding": "MEMBER_PROVISIONING",
@@ -183,6 +198,13 @@
 			"POLAR_CLIPS_METER_ID"
 		]
 	},
+	"services": [
+		{
+			"binding": "INSPECTION",
+			"entrypoint": "Inspection",
+			"service": "contextlayer-build"
+		}
+	],
 	"workflows": [
 		{
 			"binding": "MEMBER_PROVISIONING",

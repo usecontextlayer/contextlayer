@@ -66,6 +66,10 @@ Keep viewing and management policy in the pure `authorizeSlateViewing` and `auth
 
 Git must authorize management before accessing Artifacts or minting credentials. Share `getGitAccess` and `listSlates` across consumers. Derive credential permission from the Git service: upload-pack reads and receive-pack writes, including discovery requests. HTTP method alone does not identify a write. Keep repository credentials server-side.
 
+### Native CI inspection
+
+Follow the [slate build inspection boundary](../../ARCHITECTURE.md#slate-build-inspection). Resolve the target through the existing `getSlate` management operation before calling Build's private `Inspection` entrypoint over `INSPECTION`. Keep the native forwarding routes in OpenAPI with schema-owned input validation; pass the canonical SlateID through the trusted binding. Build owns native resource selection and content filtering, so platform must not maintain another execution model or upstream credential.
+
 ## Accounts, connection assignments, and shared secrets
 
 Use canonical `Owner` and shared `authorizeOwner` before provider I/O. Convert HTTP Owner parameters through `ownerParamsSchema` at the boundary. Account discovery and connection must scope provider requests to that authorized Owner; the person completing an organization's OAuth flow must not become the connected account's Owner. Shared account schemas represent eligible active accounts so consumers do not each interpret provider lifecycle states.

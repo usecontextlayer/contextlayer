@@ -158,6 +158,8 @@ Use native Cloudflare authentication and select the intended account explicitly 
 
 For remote build/publication verification, configure `CF_TOKEN` for test-namespace deployment and bucket-scoped Object Read & Write credentials `R2_ACCESS_KEY_ID`/`R2_SECRET_ACCESS_KEY` in Doppler `platform/dev`. Wrangler OAuth access to the test R2 bucket is separate from those transfer credentials. The [Build test configuration](packages/build/wrangler.jsonc) owns the bucket and binding names. Production credentials are not a substitute. R2-only credential verification needs neither Docker nor Postgres.
 
+Native Workflows REST inspection reads the selected remote Workflow; local Workflow instances created by the Worker harness are not remote Cloudflare records. The configured remote test Workflow must exist to verify list, instance and step reads. Use isolated instances owned by the test run, with platform and Build in the existing shared Worker harness for their service binding. Keep remote prerequisites separate from hermetic inspection-policy and native CLI help checks.
+
 ## Recorded APIs
 
 [Exercise the Real Dependency](#exercise-the-real-dependency) owns the recording policy. For Planner, the [write recorder](packages/mcp-microsoft-planner-premium/lib/cassette/record.ts) and [read recorder](packages/mcp-microsoft-planner-premium/lib/cassette/record-reads.ts) own their invocation, preconditions and captures. Their headers are the operating instructions. Do not make either recorder part of tests, builds or checks. Refreshing reads does not authorize running the customer-write recorder; the root [per-write permission rule](AGENTS.md#never-write-to-customer-data-without-per-write-permission) applies.

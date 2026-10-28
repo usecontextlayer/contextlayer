@@ -3,6 +3,7 @@ import type { SlateDatabase } from "@usecontextlayer/shared/database-worker"
 import type { SlateProvisioning } from "@usecontextlayer/shared/slate-provisioning"
 
 export type BuildBindings = CiBindings & {
+	CTX_CI_WORKFLOW: string
 	CTX_DISPATCH_NAMESPACE: string
 	DATABASES: DurableObjectNamespace<SlateDatabase>
 	PROVISIONING: {

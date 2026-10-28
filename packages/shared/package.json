@@ -39,6 +39,10 @@
 			"import": "./dist/declaration.mjs",
 			"types": "./dist/declaration.d.mts"
 		},
+		"./inspection": {
+			"import": "./dist/inspection.mjs",
+			"types": "./dist/inspection.d.mts"
+		},
 		"./mcp": {
 			"import": "./dist/mcp.mjs",
 			"types": "./dist/mcp.d.mts"

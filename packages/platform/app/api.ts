@@ -63,6 +63,7 @@ import {
 	enrollFreeCustomer,
 	saveCustomerState,
 } from "@/billing.server"
+import { createInspectionApi } from "@/ci.api"
 import { getMcpMetadata } from "@/mcp.server"
 import { getSlateOwner } from "@/owner"
 import { ownerParamsSchema } from "@/owner.schema"
@@ -270,6 +271,7 @@ export function createApi() {
 	)
 	api.route("/slates", slateRouting)
 	api.use("*", identifyUser, requireCsrf)
+	api.route("/slates", createInspectionApi())
 
 	const slates = new OpenAPIHono<OwnerAuthenticatedEnv>()
 	slates.use("*", requireAuth)

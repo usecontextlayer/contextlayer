@@ -236,6 +236,8 @@ Follow [Build deployment configuration](packages/build/AGENTS.md#deployment-conf
 
 Before deploying Build, platform must export the named `Provisioning` entrypoint with `prepare` and `provisionSchedules`. Platform's `MEMBER_PROVISIONING` Workflow binding targets Build's `ProvisionSlateMember`; Build's `DATABASES` binding targets platform's `SlateDatabase`. Both Workers must have their corresponding classes deployed before slate provisioning runs.
 
+Deploy Build with its named `Inspection` entrypoint before deploying platform with the `INSPECTION` service binding. `CTX_CI_WORKFLOW` must select the Workflow configured in that same Build environment. [Native inspection prerequisites](TESTING.md#cloudflare-test-resources) explain the distinction between local Worker execution and remote Workflow records.
+
 ### Dispatch Worker
 
 Platform must export the named `Execution` entrypoint before deploying dispatcher with its `EXECUTION` service binding.
@@ -252,7 +254,7 @@ Follow [Auth deployment configuration](packages/auth/AGENTS.md#deployment-config
 
 Push committed source from a checkout created against the intended platform through its `/git/<slate-id>` remote. In production, pushes to `contextlayer-prod` Artifacts trigger the deployed build Workflow. Use published CLI and SDK packages for production hosted slates; unpublished packages belong in [local/test verification](TESTING.md#verifying-unpublished-cli-and-sdk-in-a-slate-checkout).
 
-In the Cloudflare dashboard, open Workflows → `contextlayer-build` and inspect the new instance. Cloudflare account access is required. Inspect `build`, `migrate`, and `deploy` in order, followed by schedule provisioning. Build output and status show whether the pushed commit built; a successful build includes its CI snapshot. **A failed migration stops deployment and is not automatically retried; earlier successful SQL statements may remain applied.** Migrations must remain compatible with the currently deployed Worker until publication completes. [Build and publication](ARCHITECTURE.md#build-pipeline) owns phase ordering and revision coherence.
+After a push, use the CLI's CI and Worker inspection entry points to compare pipeline execution with the published source commit. CLI help owns native command syntax and paging. Use `pnpm dev:ctx` for inspection against the DevEnv. Native retention and bounded failure previews limit the output available. Published-script metadata does not identify the revision that answered a particular HTTP request. Operators with Cloudflare account access can also open Workflows → `contextlayer-build` in the Cloudflare dashboard. Inspect `build`, `migrate`, and `deploy` in order, followed by schedule provisioning. Build output and status show whether the pushed commit built; a successful build includes its CI snapshot. **A failed migration stops deployment and is not automatically retried; earlier successful SQL statements may remain applied.** Migrations must remain compatible with the currently deployed Worker until publication completes. [Build and publication](ARCHITECTURE.md#build-pipeline) owns phase ordering and revision coherence.
 
 Inspect background membership provisioning in `contextlayer-member-provisioning`, or its `-test` counterpart during development. Membership is established before that Workflow finishes. A slate-creation provisioning failure can roll back SQL while leaving its Artifacts repository; inspect the actual resources before proposing cleanup.
 

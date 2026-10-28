@@ -12,6 +12,7 @@ export default defineConfig({
 		databases: "lib/databases.ts",
 		"databases-worker": "lib/databases-worker.ts",
 		declaration: "lib/declaration.ts",
+		inspection: "lib/inspection.ts",
 		mcp: "lib/mcp.ts",
 		"slate-connections": "lib/slate-connections.ts",
 		"slate-provisioning": "lib/slate-provisioning.ts",

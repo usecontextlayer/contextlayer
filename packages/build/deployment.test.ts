@@ -51,7 +51,9 @@ test("publishes compiled modules and assets with platform-owned configuration", 
 	await writeFile(join(output, "tsconfig.json"), "{}")
 	await writeFile(
 		join(output, "wrangler.json"),
-		JSON.stringify(slateDeploymentConfig("trusted-slate")),
+		JSON.stringify(
+			slateDeploymentConfig("trusted-slate", "0123456789abcdef0123456789abcdef01234567"),
+		),
 	)
 
 	const { stderr } = await execFile(
@@ -85,5 +87,6 @@ test("publishes compiled modules and assets with platform-owned configuration", 
 	}).formData()
 	const metadata = JSON.parse(String(upload.get("metadata")))
 	expect(metadata.bindings).toEqual([{ name: "ASSETS", type: "assets" }])
+	expect(metadata.tags).toEqual(["commit:0123456789abcdef0123456789abcdef01234567"])
 	expect(upload.has("assets/chunk.js")).toBe(true)
 }, 30_000)

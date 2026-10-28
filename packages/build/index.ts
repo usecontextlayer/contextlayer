@@ -1,4 +1,5 @@
 import {
+	WorkerEntrypoint,
 	WorkflowEntrypoint,
 	type WorkflowEvent,
 	type WorkflowStep,
@@ -14,12 +15,19 @@ import { databaseStatementSchema } from "@usecontextlayer/shared/databases"
 import type { SlateProvisioning } from "@usecontextlayer/shared/slate-provisioning"
 import { artifactTransferEnv } from "@/artifact"
 import type { BuildBindings } from "@/env"
+import { inspectCloudflare } from "@/inspection"
 import { publishSlate } from "@/publish"
 import { migrateSlateDatabases } from "@/slate-database-migrations"
 
 export { CiSandbox, ContainerProxy } from "@cloudflare/ci/worker"
 
 export default {} satisfies ExportedHandler<BuildBindings>
+
+export class Inspection extends WorkerEntrypoint<BuildBindings> {
+	fetch(request: Request) {
+		return inspectCloudflare(this.env, request)
+	}
+}
 
 CiSandbox.outboundHandlers = { database: queryDatabase }
 
@@ -58,7 +66,7 @@ export class Build extends CIWorkflow<CloudflareArtifacts, BuildBindings> {
 		ci: CiContext,
 	): Promise<void> {
 		if (event.payload.branch !== "main") return
-		const prepared = await step.do("prepare slate", () =>
+		const prepared = await step.do("prepare slate", { sensitive: "output" }, () =>
 			this.env.PROVISIONING.prepare(event.payload.repo, event.payload.sha),
 		)
 		const build = await ci.runner({
@@ -74,7 +82,8 @@ export class Build extends CIWorkflow<CloudflareArtifacts, BuildBindings> {
 				retries: { backoff: "linear", delay: "30 seconds", limit: 2 },
 				timeout: "15 minutes",
 			},
-			() => publishSlate(this.env, event.payload.repo, event.instanceId),
+			() =>
+				publishSlate(this.env, event.payload.repo, event.instanceId, event.payload.sha),
 		)
 		await step.do("provision slate schedules", () =>
 			this.env.PROVISIONING.provisionSchedules(prepared),

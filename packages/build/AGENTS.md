@@ -14,6 +14,12 @@ Keep publishing tools in the platform image and invoke its pinned Wrangler by ab
 
 No CI runner may opt into `cloudflareCredentials`. Scope deployment credentials to the image-owned Wrangler command after artifact preparation. Keep the parent R2 credential pair in the trusted Worker and derive temporary transfer credentials with Cloudflare's native prefix and permission scopes. Never print or commit credentials, including temporary session tokens.
 
+## Native inspection
+
+Follow the [inspection contract](../../ARCHITECTURE.md#slate-build-inspection) when exposing CI records. Implement forwarding through the named private `Inspection` entrypoint, using the Build environment's selected Workflow and existing Cloudflare credential. Use the same native input ownership check for list candidates and individual reads.
+
+Mark preparation step output sensitive and retain inspection-edge redaction for older preparation records. Persist native migration and publication command results only after removing execution-scoped credentials from logs, previews and errors; keep this pure redaction shared across execution and inspection. Preserve successful inline and streamed log redaction in the existing CI dependency patch. Changes to recorded steps or injected credentials require reviewing these exposure paths. Supply the trusted source SHA through custom script-upload metadata tags, rather than authored configuration or version annotations.
+
 ## Deployment configuration
 
 Use the [shared service deployment workflow](../../DEVELOPING.md#service-deployment) for this Worker. Keep the Artifacts trigger, bindings, and runtime secret names in `wrangler.jsonc`.

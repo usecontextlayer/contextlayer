@@ -25,6 +25,7 @@ export type PlatformEnv = {
 		SLATES: DispatchNamespace
 		ASSETS: Fetcher
 		ARTIFACTS: Artifacts
+		INSPECTION: Fetcher
 		DATABASES: DurableObjectNamespace<SlateDatabase>
 		MEMBER_PROVISIONING: Workflow<SlateProvisioning>
 	}
