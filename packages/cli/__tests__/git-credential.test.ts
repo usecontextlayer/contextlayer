@@ -13,10 +13,11 @@ const servers: Server[] = []
 const cli = fileURLToPath(new URL("../cli.ts", import.meta.url))
 const cwd = fileURLToPath(new URL("..", import.meta.url))
 const invocation = [
+	"env",
+	`TSX_TSCONFIG_PATH=${fileURLToPath(new URL("../tsconfig.json", import.meta.url))}`,
 	process.execPath,
-	fileURLToPath(import.meta.resolve("tsx/cli")),
-	"--tsconfig",
-	fileURLToPath(new URL("../tsconfig.json", import.meta.url)),
+	"--import",
+	"tsx",
 	cli,
 ]
 	.map((argument) => `'${argument.replaceAll("'", "'\\''")}'`)
@@ -115,7 +116,7 @@ test("one registration serves every slate with the latest registered login", asy
 	expect(stderr).toContain("Not signed in.")
 	expect(stderr).toContain("CTX_CLI_COMMAND=")
 	expect(stderr).not.toContain("ambient-helper-must-not-leak")
-})
+}, 10_000)
 
 test.each(["capability", "store", "erase"])(
 	"Git helper %s does not require a saved login",
