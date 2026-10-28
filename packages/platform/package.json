@@ -77,6 +77,7 @@
 		"start": "pnpm dev",
 		"test": "vitest run --config vitest.config.ts",
 		"test:integration:node": "doppler run --project platform --config dev -- vitest run --config vitest.integration.node.config.ts",
+		"test:integration:polar-webhooks": "doppler run --project platform --config dev -- vitest run --config vitest.integration.polar-webhooks.config.ts",
 		"tsc": "react-router typegen && tsc --noEmit"
 	},
 	"type": "module",

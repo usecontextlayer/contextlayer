@@ -9,7 +9,10 @@ import {
 	readDevEnvServiceEnv,
 	readDevEnvWebEnv,
 } from "@usecontextlayer/dev-env/dev-env"
-import { DEV_ENV_ORGANIZATION_SLUG } from "@usecontextlayer/dev-env/env"
+import {
+	DEV_ENV_ORGANIZATION_SLUG,
+	readDevEnvIdentityEnv,
+} from "@usecontextlayer/dev-env/env"
 import { readDevEnvPorts } from "@usecontextlayer/dev-env/ports"
 import { signInWeb } from "@usecontextlayer/dev-env/web"
 import type { SlateProvisioning } from "@usecontextlayer/shared/slate-provisioning"
@@ -38,10 +41,11 @@ export const test = base
 		readDevEnvServiceEnv(root, webEnv, addresses),
 	)
 	.extend("webSession", async ({ webEnv }, { onCleanup }) => {
+		const identity = readDevEnvIdentityEnv(webEnv)
 		const session = await signInWeb({
 			baseURL: webEnv.BETTER_AUTH_URL,
-			email: webEnv.CTX_DEV_USER_EMAIL,
-			password: webEnv.CTX_DEV_USER_PASSWORD,
+			email: identity.CTX_DEV_USER_EMAIL,
+			password: identity.CTX_DEV_USER_PASSWORD,
 		})
 		onCleanup(async () => {
 			await session.client.signOut()

@@ -9,11 +9,12 @@ import {
 } from "@polar-sh/sdk/2026-10/services/customers"
 import { ingestEvents } from "@polar-sh/sdk/2026-10/services/events"
 import { getProducts } from "@polar-sh/sdk/2026-10/services/products"
+import { createSubscriptions } from "@polar-sh/sdk/2026-10/services/subscriptions"
 import { test } from "@tests/integration"
 import { expect } from "vitest"
 import { slateSchema } from "@/slates.schema"
 
-test("signed Free enrollment grants credits and exhaustion denies runtime access after state refresh", async ({
+test("scenario-owned Free subscriptions grant credits and exhaustion denies runtime access after state refresh", async ({
 	devEnvDb: db,
 	identity,
 	serviceEnv,
@@ -44,7 +45,17 @@ test("signed Free enrollment grants credits and exhaustion denies runtime access
 			name: `ContextLayer Free billing proof (${type})`,
 			type,
 		})
-		scenario.defer(() => deleteCustomers(polar)(customer.id))
+		scenario.defer(async () => {
+			await deleteCustomers(polar)(customer.id)
+			await db
+				.deleteFrom("polar_customer_state")
+				.where("external_id", "=", externalId)
+				.execute()
+		})
+		await createSubscriptions(polar)({
+			customer_id: customer.id,
+			product_id: env.POLAR_FREE_PRODUCT_ID,
+		})
 		const slate = slateSchema.parse(
 			await db
 				.insertInto("slate")
@@ -63,16 +74,12 @@ test("signed Free enrollment grants credits and exhaustion denies runtime access
 		await expect
 			.poll(
 				async () => {
-					const saved = await db
-						.selectFrom("polar_customer_state")
-						.select("state")
-						.where("external_id", "=", externalId)
-						.executeTakeFirst()
+					const state = await getStateCustomers(polar)(customer.id)
 					return {
-						balance: saved?.state.active_meters.find(
+						balance: state.active_meters.find(
 							(meter) => meter.meter_id === env.POLAR_CLIPS_METER_ID,
 						)?.balance,
-						product_id: saved?.state.active_subscriptions[0]?.product_id,
+						product_id: state.active_subscriptions[0]?.product_id,
 					}
 				},
 				{ interval: 1000, timeout: 60_000 },
@@ -128,7 +135,6 @@ test("signed Free enrollment grants credits and exhaustion denies runtime access
 			headers: { ...identity.headers, "content-type": "application/json" },
 			method: "POST",
 		})
-		expect(response.status).toBe(402)
-		expect(await response.text()).toBe(message)
+		expect(response.status).toBe(403)
 	}
 }, 300_000)

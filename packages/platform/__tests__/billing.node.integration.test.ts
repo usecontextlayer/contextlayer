@@ -17,6 +17,7 @@ import {
 } from "@polar-sh/sdk/2026-10/services/discounts"
 import { ingestEvents } from "@polar-sh/sdk/2026-10/services/events"
 import { getProducts, listProducts } from "@polar-sh/sdk/2026-10/services/products"
+import { createSubscriptions } from "@polar-sh/sdk/2026-10/services/subscriptions"
 import { test } from "@tests/integration"
 import { expect } from "vitest"
 import { checkSlateBilling, saveCustomerState } from "@/billing.server"
@@ -96,9 +97,18 @@ test("Owner subscriptions gate execution while declaration access stays availabl
 		[organizationSlate, { id: organizationOwner, type: "organization" }],
 	] as const) {
 		const state = await getStateExternalCustomers(polar)(owner.id)
-		expect(state.active_subscriptions).toEqual([
-			expect.objectContaining({ product_id: env.POLAR_FREE_PRODUCT_ID }),
-		])
+		const unlimited = []
+		for (const subscription of state.active_subscriptions) {
+			const product = await getProducts(polar)(subscription.product_id)
+			if (product.metadata.contextlayer_seed === "devenv-unlimited")
+				unlimited.push(product)
+		}
+		expect(unlimited).toHaveLength(1)
+		expect(unlimited[0]).toMatchObject({
+			benefits: [],
+			name: "DevEnv Unlimited",
+			visibility: "private",
+		})
 		const response = await request(resolve(slate.public_hostname, "/"))
 		expect(response.status).toBe(200)
 		expect(await response.json()).toEqual({ id: slate.id, owner })
@@ -214,6 +224,40 @@ test("missing state is pulled for an active non-Free customer and reused while f
 	).toEqual({ allowed: true })
 })
 
+test("an existing customer without a subscription is refused execution", async ({
+	db,
+	platformEnv: env,
+}) => {
+	const polar = createPolarCore({
+		accessToken: env.POLAR_ACCESS_TOKEN,
+		environment: env.POLAR_ENVIRONMENT,
+	})
+	await using scenario = new AsyncDisposableStack()
+	const ownerId = randomUUID()
+	const customer = await createCustomers(polar)({
+		email: `${ownerId}@usecontextlayer.com`,
+		external_id: ownerId,
+		name: "Unsubscribed billing integration",
+	})
+	scenario.defer(() => deleteCustomers(polar)(customer.id))
+	expect((await getStateCustomers(polar)(customer.id)).active_subscriptions).toEqual([])
+	const slate = slateSchema.parse(
+		await db
+			.insertInto("slate")
+			.values({
+				owner_user_id: ownerId,
+				public_hostname: "unsubscribed.example.com",
+				visibility: "public",
+			})
+			.returningAll()
+			.executeTakeFirstOrThrow(),
+	)
+	expect(await checkSlateBilling(db, env, slate)).toMatchObject({
+		allowed: false,
+		reason: "subscription-required",
+	})
+})
+
 test("Free uses the saved balance until stale state is refreshed", async ({
 	db,
 	platformEnv: env,
@@ -241,6 +285,10 @@ test("Free uses the saved balance until stale state is refreshed", async ({
 		name: "Free saved balance integration",
 	})
 	scenario.defer(() => deleteCustomers(polar)(customer.id))
+	await createSubscriptions(polar)({
+		customer_id: customer.id,
+		product_id: env.POLAR_FREE_PRODUCT_ID,
+	})
 	await expect
 		.poll(() => getStateCustomers(polar)(customer.id), {
 			interval: 1000,

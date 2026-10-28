@@ -60,6 +60,16 @@ export function readDevEnvIdentityEnv(
 	return devEnvIdentitySchema.parse(env)
 }
 
+export function readDevEnvClientEnv(env: Record<string, string>) {
+	return z
+		.object({
+			CTX_AUTH_CLIENT_ID: z
+				.string({ error: "Run pnpm dev:seed to prepare the shared DevEnv baseline." })
+				.min(1, { error: "Run pnpm dev:seed to prepare the shared DevEnv baseline." }),
+		})
+		.parse(env)
+}
+
 export function readSlateOAuthEnv(env: Record<string, string>) {
 	return z
 		.object({ CTX_APP_OAUTH_PROVISIONING_SECRET: z.string().trim().min(1) })

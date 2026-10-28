@@ -9,7 +9,7 @@ import { readDopplerEnv } from "@/doppler"
 import {
 	type DevEnv,
 	type DevEnvPorts,
-	readDevEnvIdentityEnv,
+	readDevEnvClientEnv,
 	readPolarEnv,
 	readSlateOAuthEnv,
 } from "@/env"
@@ -18,7 +18,7 @@ export async function readDevEnvWebEnv(webRoot: string, addresses: DevEnv) {
 	const webEnv = await readDopplerEnv(webRoot, "web", "dev_personal")
 	return {
 		...webEnv,
-		...readDevEnvIdentityEnv(webEnv),
+		...readDevEnvClientEnv(webEnv),
 		BETTER_AUTH_URL: addresses.BETTER_AUTH_URL.href,
 		CTX_PLATFORM_URL: addresses.CTX_PLATFORM_URL.href,
 		CTX_VIEWER_AUTH_URL: addresses.CTX_VIEWER_AUTH_URL.href,

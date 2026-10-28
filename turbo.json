@@ -72,6 +72,11 @@
 			"dependsOn": ["^build"],
 			"outputs": []
 		},
+		"test:integration:polar-webhooks": {
+			"cache": false,
+			"dependsOn": ["^build"],
+			"outputs": []
+		},
 		"tsc": {
 			"dependsOn": ["^build", "^tsc"],
 			"outputs": []

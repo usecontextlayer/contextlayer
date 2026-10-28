@@ -1,13 +1,17 @@
 import { resolve } from "node:path"
+import { parseArgs } from "node:util"
 import { initializeDatabase } from "@usecontextlayer/dev-env/database"
 import { readDevEnvServiceEnv, readDevEnvWebEnv } from "@usecontextlayer/dev-env/dev-env"
 import { startPolarListener } from "@usecontextlayer/dev-env/polar"
 import { assignDevEnvPorts, saveDevEnvPorts } from "@usecontextlayer/dev-env/ports"
 import { startNext, startVite, startWrangler } from "@usecontextlayer/dev-env/services"
-import { execa, execaNode } from "execa"
-import { z } from "zod"
+import { execa } from "execa"
 
 process.once("SIGINT", () => process.exit(0))
+
+const { values } = parseArgs({
+	options: { "polar-listen": { default: false, type: "boolean" } },
+})
 
 const root = resolve(import.meta.dirname, "..")
 const webRoot = resolve(root, "../web")
@@ -81,27 +85,17 @@ await Promise.race([
 	Promise.all(services.map((service) => service.ready)),
 	servicesExited,
 ])
-const polarListener = startPolarListener(
-	new URL("/api/polar/webhooks", platform.url),
-	polarEnv,
-)
-const exited = Promise.race([servicesExited, polarListener]).then(() => {
-	throw new Error("The Polar listener exited.")
-})
-const { ipcOutput } = await Promise.race([
-	execaNode(resolve(webRoot, "scripts/dev-env.mts"), {
-		cwd: webRoot,
-		env: {
-			...webEnv,
-			TSX_TSCONFIG_PATH: resolve(webRoot, "tsconfig.tsxrepl.json"),
-		},
-		ipc: true,
-		nodeOptions: ["--import", "tsx"],
-		stdio: ["ignore", "inherit", "inherit"],
-	}),
-	exited,
-])
-const clientId = z.string().min(1).parse(ipcOutput[0])
+const lifetimes: Promise<unknown>[] = [servicesExited]
+if (values["polar-listen"]) {
+	lifetimes.push(
+		startPolarListener(new URL("/api/polar/webhooks", platform.url), polarEnv).then(
+			() => {
+				throw new Error("The Polar listener exited.")
+			},
+		),
+	)
+}
+const clientId = webEnv.CTX_AUTH_CLIENT_ID
 await saveDevEnvPorts(root, { ...addresses, CTX_AUTH_CLIENT_ID: clientId })
 console.log(`Web: ${web.url}`)
 console.log(`Platform: ${new URL("/dashboard/personal/slates", platform.url)}`)
@@ -109,4 +103,4 @@ console.log(`Viewer auth: ${auth.url}`)
 console.log(`Dispatcher: ${dispatcher.url}`)
 console.log(`CLI issuer: ${issuer}`)
 console.log(`CLI client: ${clientId}`)
-await exited
+await Promise.race(lifetimes)

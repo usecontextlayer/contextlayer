@@ -1,6 +1,7 @@
 {
 	"devDependencies": {
 		"@biomejs/biome": "^2.5.9",
+		"@polar-sh/sdk": "1.0.1",
 		"@tailwindcss/node": "^4.3.3",
 		"@tailwindcss/oxide": "^4.3.3",
 		"@types/node": "^24.13.3",
@@ -33,6 +34,7 @@
 		"dev": "pnpm exec turbo run build --filter=@usecontextlayer/platform^... --filter=@usecontextlayer/dispatcher^... --output-logs=errors-only && node --import tsx scripts/dev.ts",
 		"dev:ctx": "node --import tsx scripts/dev-ctx.ts",
 		"dev:env": "node --import tsx scripts/dev-env.ts",
+		"dev:seed": "node --import tsx scripts/dev-seed.ts",
 		"dev:watch": "pnpm exec turbo run dev:watch --filter=@usecontextlayer/platform",
 		"format": "pnpm run format.fix",
 		"format.fix": "pnpm run biome.fix",
@@ -43,6 +45,7 @@
 		"test:integration:browser": "pnpm run check.workspace-references && npx turbo run test:integration:browser",
 		"test:integration:claude": "pnpm run check.workspace-references && npx turbo run test:integration:claude",
 		"test:integration:node": "pnpm run check.workspace-references && npx turbo run test:integration:node",
+		"test:integration:polar-webhooks": "pnpm run check.workspace-references && pnpm exec turbo run test:integration:polar-webhooks --filter=@usecontextlayer/platform",
 		"tokei": "tokei . -e docs -e pnpm-lock.yaml",
 		"tsc": "npx turbo run tsc tsc.scripts",
 		"tsc.scripts": "npx tsc -p scripts/tsconfig.json"

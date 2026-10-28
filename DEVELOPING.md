@@ -42,23 +42,34 @@ A server's `dev` starts it; `dev:watch` adds watching. A library's `dev:watch` r
 
 ### Prerequisites and configuration
 
-Complete [Setup](#setup), install and build the sibling `../web` checkout, start Docker, and authenticate Wrangler for the remote `contextlayer-test` resources. Local Worker execution still needs Cloudflare access; [test-resource setup](TESTING.md#cloudflare-test-resources) owns provisioning those shared resources. Installation must complete the Polar CLI's allowed install script so its native binary is available.
+Complete [Setup](#setup), install and build the sibling `../web` checkout, start Docker, and authenticate Wrangler for the remote `contextlayer-test` resources. Local Worker execution still needs Cloudflare access; [test-resource setup](TESTING.md#cloudflare-test-resources) owns provisioning those shared resources. Installation must complete the Polar CLI's allowed install script so its native binary is available. Shared setup uses Polar CLI 3.0.0 and the SDK’s pinned `2026-10` API.
 
 Check `doppler me` in both checkout directories: both must resolve to the ContextLayer workplace, because web's configuration is read from `../web`. Follow [Doppler](#doppler) for scope and mutation rules. Startup reads `platform/dev` and `web/dev_personal`.
 
-Doppler `platform/dev` supplies provider credentials, including `COMPOSIO_API_KEY`, and the complete Polar Sandbox configuration: `POLAR_ACCESS_TOKEN`, `POLAR_ENVIRONMENT=sandbox`, `POLAR_FREE_PRODUCT_ID`, `POLAR_CLIPS_METER_ID`, and `POLAR_WEBHOOK_SECRET`. Set the meter ID to the Free product's Clips meter-credit benefit. Obtain the webhook secret with `pnpm exec polar listen --print-secret` from `packages/dev-env`, using the Sandbox token and environment. These two values belong to the Polar organization and are shared by local DevEnvs. The invoking environment overrides Doppler for all five values. Keep Sandbox credentials and databases separate from production.
+Doppler `platform/dev` supplies provider credentials, including `COMPOSIO_API_KEY`, and the complete runtime Polar Sandbox configuration: `POLAR_ACCESS_TOKEN`, `POLAR_ENVIRONMENT=sandbox`, `POLAR_FREE_PRODUCT_ID`, `POLAR_CLIPS_METER_ID`, and `POLAR_WEBHOOK_SECRET`. The shared seed publishes generated IDs and the CLI forwarding secret; startup only validates and consumes them. The invoking environment overrides Doppler for these five runtime values. Keep Sandbox credentials and databases separate from production.
 
 Slate provisioning requires `CTX_APP_OAUTH_PROVISIONING_SECRET` in Doppler `web/dev`, inherited by `web/dev_personal`. DevEnv supplies that one value to local web and platform. Do not maintain a second local copy in `platform/dev` or point local provisioning at production web.
+
+### Seed shared development state
+
+Run `pnpm dev:seed` from this checkout after installing and building dependencies. It is an explicit operator command that mutates the shared web development database, Polar Sandbox and Doppler development configuration. It needs Docker, installed/built sibling web dependencies, the existing web runtime configuration, and `CTX_DEV_USER_EMAIL` / `CTX_DEV_USER_PASSWORD` in parent `web/dev`, inherited by `web/dev_personal`. Supply an organization token and `POLAR_ENVIRONMENT=sandbox` in `platform/dev`; the token needs read/write access to meters, benefits, products, customers, subscriptions and organizations. Account creation and token authorization remain prerequisites. The seed reads canonical Doppler configuration, rather than shell overrides of its Polar account.
+
+The command applies web migrations, runs the native Better Auth initializer without starting the DevEnv services, and waits for its background customer hooks. It ensures one shared user, organization, public CLI client, Clips meter, Free/Pro/Ultra catalog, and private zero-price `DevEnv Unlimited` product. Both baseline customers receive one active Unlimited subscription without payment setup or webhook forwarding. Portal plan changes are enabled. `CTX_AUTH_CLIENT_ID` is published to parent `web/dev`; generated Polar runtime settings are published to `platform/dev` using native stdin writes. Unchanged values are not rewritten, and the command verifies effective `web/dev_personal` inheritance. A conflicting child override requires operator correction.
+
+Run one seed at a time. Resource metadata identifies seed roles; an unchanged rerun preserves persistent IDs and subscriptions and finishes incomplete relationships or configuration publication after interruption. Existing unmarked public products require explicit adoption IDs in `platform/dev`: `POLAR_FREE_PRODUCT_ID`, `POLAR_PRO_PRODUCT_ID` and `POLAR_ULTRA_PRODUCT_ID`. `POLAR_CLIPS_METER_ID` identifies an existing meter. An existing unmarked private Unlimited product can be adopted with `POLAR_DEVENV_UNLIMITED_PRODUCT_ID`. These adoption inputs are only needed for existing resources; a fresh Sandbox can create its catalog without generated IDs. Attached meter-credit benefits are adopted through their selected products. Incompatible or ambiguous resources stop setup; unrelated public recurring products are reported for operator disposition and are never archived automatically.
+
+The web database, identities, OAuth registration and Sandbox baseline are shared across checkouts. A new checkout normally consumes that state without reseeding. Existing DevEnvs are disposable for this change: stop and wipe only the identified checkout’s local state/database under the user’s direction, then restart. There is no old-record or billing-cache migration. Preserve the shared web database, Polar state, shared Postgres and other sessions’ runtimes.
 
 ### Start and sign in
 
 | Command | Purpose |
 | --- | --- |
-| `pnpm dev` | Initialize and start local web, platform, viewer auth, dispatcher and Polar Sandbox forwarding. Keep it running while developing or running tests against the DevEnv. |
+| `pnpm dev` | Start local web, platform, viewer auth and dispatcher using the shared baseline. Keep it running while developing or running tests against the DevEnv. |
+| `pnpm dev --polar-listen` | Start the same services with explicit Polar Sandbox webhook forwarding for webhook development and verification. |
 | `pnpm dev:ctx <args>` | Run the built CLI against this DevEnv with its checkout-local saved login. |
 | `pnpm dev:env` | Print shell-safe connection settings for another command. Use them in a subshell. |
 
-`pnpm dev` builds workspace dependencies, starts both checkouts' Compose Postgres services without recreating running containers, creates the selected logical databases if absent, and applies each application's migrations. Startup initializes the baseline user, organization and public CLI client, reusing them on later starts, and prints the selected service URLs. Polar Sandbox events are forwarded to this platform without a tunnel or manual issuer configuration; credit grants arrive asynchronously.
+`pnpm dev` builds workspace dependencies, starts both checkouts' Compose Postgres services without recreating running containers, creates the selected logical databases if absent, and applies each application's migrations. Startup reads the shared public client ID, prints the selected service URLs and saves the completed connection record. Missing shared setup fails with a `pnpm dev:seed` instruction. It creates no shared identities, catalog resources, customers or subscriptions and performs no Polar catalog discovery. Ordinary billing reads and direct usage ingestion still contact Polar. Forwarding is off by default; `--polar-listen` runs native `polar webhook listen` for this platform without a tunnel. That listener observes the entire Sandbox organization, so enable it deliberately and stop it with its owning DevEnv when finished. New local signups receive Free only when their customer-created webhook is delivered; normal development uses the shared Unlimited owners.
 
 Use your regular browser at the printed web URL, signed in as the baseline `CTX_DEV_USER_EMAIL` (`local-dev@usecontextlayer.com`). Its email/password inputs live in Doppler `web/dev`, inherited by `web/dev_personal`. **Sign out of any other localhost account before opening a CLI device link.** In another terminal:
 
@@ -75,7 +86,7 @@ For a second identity against the same DevEnv, run the built CLI inside a `dev:e
 
 | State | Location and lifetime |
 | --- | --- |
-| Initialized connection settings | This checkout's ignored `.env.json`, written after initialization completes and retained after shutdown. `dev:ctx`, `dev:env` and DevEnv test fixtures read it automatically. |
+| Initialized connection settings | This checkout's ignored `.env.json`, written after service readiness and retained after shutdown. `dev:ctx`, `dev:env` and DevEnv test fixtures read it automatically. |
 | CLI login | This checkout's `.contextlayer/cli`, selected by the DevEnv runners and fixtures independently of an inherited personal config directory. |
 | Platform database | `<checkout folder>_platform` on the server selected by `CTX_PLATFORM_DATABASE_URL`; the main checkout uses `contextlayer_platform`. Startup records the selected database URL in `.env.json`. |
 | Web checkout and database | Shared by every DevEnv using sibling `../web`. Web's `DATABASE_URL` defaults to `postgresql://postgres:postgres@127.0.0.1:5489/contextlayer_web`. Each DevEnv has its own web process and generated development output. |
@@ -85,7 +96,7 @@ Startup selects four available ports of at least 3000 for web, platform, viewer 
 
 Web database and Polar overrides must have the same values in every terminal that uses them. Another terminal does not inherit variables supplied only to startup; the checkout record does not carry those overrides.
 
-Ctrl+C stops the DevEnv and exits successfully. An owned service exiting also stops startup, including during initialization. Shared Postgres services remain subject to the [machine-ownership rules](AGENTS.md#the-machine-is-shared-own-only-what-you-created): never stop or reset them as part of session cleanup.
+Ctrl+C stops the DevEnv and exits successfully. An owned service exiting also stops startup; an explicitly enabled listener belongs to that same lifetime. Shared Postgres services remain subject to the [machine-ownership rules](AGENTS.md#the-machine-is-shared-own-only-what-you-created): never stop or reset them as part of session cleanup.
 
 Local Durable Object identities and state are scoped to their effective persistence directory. Restarting with the same directory preserves them; another directory is isolated. State stored under different namespace keys is not migrated automatically. Let Miniflare and Wrangler clean up the containers and development image tags they own on shutdown. Docker image content can be shared across sessions; it is not evidence of session ownership and must not be pruned as session cleanup.
 

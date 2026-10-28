@@ -6,7 +6,7 @@ export function startPolarListener(
 	url: URL,
 	env: Record<string, string>,
 ): Subprocess<{ stdio: ["ignore", "inherit", "inherit"] }> {
-	return polarCli("polar", ["listen", url.href], {
+	return polarCli("polar", ["webhook", "listen", url.href], {
 		env,
 		stdio: ["ignore", "inherit", "inherit"],
 	})

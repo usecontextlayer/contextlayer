@@ -19,6 +19,9 @@ importers:
       '@biomejs/biome':
         specifier: ^2.5.9
         version: 2.5.9
+      '@polar-sh/sdk':
+        specifier: 1.0.1
+        version: 1.0.1
       '@tailwindcss/node':
         specifier: ^4.3.3
         version: 4.3.3
@@ -213,8 +216,8 @@ importers:
         specifier: 1.7.7
         version: 1.7.7(@better-auth/core@1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.5))(jose@6.2.12)(kysely@0.29.5)(nanostores@1.5.4))(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(better-auth@1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.11)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261001.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.23.1)(supports-color@10.2.2))(kysely@0.29.5)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))(pg@8.23.1)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(vitest@4.1.11))(better-call@1.4.0(zod@4.6.5))
       '@polar-sh/cli':
-        specifier: 2.0.2
-        version: 2.0.2
+        specifier: 3.0.0
+        version: 3.0.0
       '@usecontextlayer/cli':
         specifier: workspace:*
         version: link:../cli
@@ -2935,33 +2938,33 @@ packages:
     resolution: {integrity: sha512-C2Xj8FZ0uHWeCXXqX5B4/gVFQmtSkiuOolzAgutjTfseNOHT3pUjljDZsTSxXFGgio54bCzVFqmEOUrIVk8RDA==}
     engines: {node: '>=20.0.0'}
 
-  '@polar-sh/cli-darwin-arm64@2.0.2':
-    resolution: {integrity: sha512-mvQ1TvQ1lHcGsvX89iibDm29jHC80K2ycEA4brzaLAadXQ5KKs4PH6KGeYMujW38QPOFSDL21pe8lyPZvHcB9w==}
+  '@polar-sh/cli-darwin-arm64@3.0.0':
+    resolution: {integrity: sha512-CTmMxAjhKsF7oB/rDNCkdcqxYC2KR06/WF8+xpNO/Y2pBxXWatdnfUgiH7MWBTyqpVB4Udr3uVuSE+OFJOVdCQ==}
     cpu: [arm64]
     os: [darwin]
 
-  '@polar-sh/cli-darwin-x64@2.0.2':
-    resolution: {integrity: sha512-fOqmMw1WSglRobnwB7McnBA9lMpvpaJw3uet9AiFcaZj/pLy2huzsbp0QNikoTV4svIzSlsom16Od4wxNHt8ng==}
+  '@polar-sh/cli-darwin-x64@3.0.0':
+    resolution: {integrity: sha512-owNWxIAa3xAGft/j6qcK0VOqFf8+IwffcRXHqTn3kZjJSvNe3VqttayIeWKFuIW45HzCE0WVLJ7AlVkVSVNaWw==}
     cpu: [x64]
     os: [darwin]
 
-  '@polar-sh/cli-linux-arm64@2.0.2':
-    resolution: {integrity: sha512-cmNbTcVpomdGvNq3vk1dLMU3b9pbCmbWgxcntXZmKYGkv2AfANEcWOt+HBn9adDoIcbnhTRJikQqGrntYx1VIw==}
+  '@polar-sh/cli-linux-arm64@3.0.0':
+    resolution: {integrity: sha512-Moa40eYNR7EPNkLPN6f63paw7aZXA1in/sLlN6s8AxkIFSfYx8slLgn9hW7HAjVbdk9ThjGk/pl2CkklzQMozg==}
     cpu: [arm64]
     os: [linux]
 
-  '@polar-sh/cli-linux-x64@2.0.2':
-    resolution: {integrity: sha512-Bqtfil86X33eGHzizjRMuqJx7uvq1sZblIZkwlvV+hD8tQQHFz+nbypBpyMmTaSE/Gteyo6VBcfW8jR+G2m9nQ==}
+  '@polar-sh/cli-linux-x64@3.0.0':
+    resolution: {integrity: sha512-3UClKpC2ZQrlOuCLjIWXBtRtNCGYMxrwbtZU5g3VB3gU0sWqTQsPPfihgNmctvzg8KvoXA7nN0sq3ild22iLXQ==}
     cpu: [x64]
     os: [linux]
 
-  '@polar-sh/cli-windows-x64@2.0.2':
-    resolution: {integrity: sha512-wf7dDBWgPAH38Ebzg4uXf7KbQBwdGnD+ZHjY39z5Ix9uqu24CUytvXc4tkPhPV/LUUZ0Pzw7n6m7oN2TufYduQ==}
+  '@polar-sh/cli-windows-x64@3.0.0':
+    resolution: {integrity: sha512-Xd0HCiXcl/KmK4RWGwnj/KaSQMTAS6UK8w7/TJLs3KUtyRsAAgKkFFymMJSt9IOP7dAZJ6KiVCzld/aIG74/Og==}
     cpu: [x64]
     os: [win32]
 
-  '@polar-sh/cli@2.0.2':
-    resolution: {integrity: sha512-/mjKQ/ht8DAXpBTV6vEgBVMQn4+3erUBCG49TguBbw7sCjEUUEOSbvp7739IL18/SLqsFGnD1nqDmzDgY3hU9g==}
+  '@polar-sh/cli@3.0.0':
+    resolution: {integrity: sha512-dEJVFLx2PFQ0Qo8+p9dPNzeHj+E8pFvAfR5L15s8XjG0BTL4ST8ONmBz4M7OCncRpH7As/1XyS9dmyl8eLW04A==}
     cpu: [arm64, x64]
     os: [darwin, linux, win32]
     hasBin: true
@@ -9321,28 +9324,28 @@ snapshots:
       tslib: 2.8.1
       tsyringe: 4.10.0
 
-  '@polar-sh/cli-darwin-arm64@2.0.2':
+  '@polar-sh/cli-darwin-arm64@3.0.0':
     optional: true
 
-  '@polar-sh/cli-darwin-x64@2.0.2':
+  '@polar-sh/cli-darwin-x64@3.0.0':
     optional: true
 
-  '@polar-sh/cli-linux-arm64@2.0.2':
+  '@polar-sh/cli-linux-arm64@3.0.0':
     optional: true
 
-  '@polar-sh/cli-linux-x64@2.0.2':
+  '@polar-sh/cli-linux-x64@3.0.0':
     optional: true
 
-  '@polar-sh/cli-windows-x64@2.0.2':
+  '@polar-sh/cli-windows-x64@3.0.0':
     optional: true
 
-  '@polar-sh/cli@2.0.2':
+  '@polar-sh/cli@3.0.0':
     optionalDependencies:
-      '@polar-sh/cli-darwin-arm64': 2.0.2
-      '@polar-sh/cli-darwin-x64': 2.0.2
-      '@polar-sh/cli-linux-arm64': 2.0.2
-      '@polar-sh/cli-linux-x64': 2.0.2
-      '@polar-sh/cli-windows-x64': 2.0.2
+      '@polar-sh/cli-darwin-arm64': 3.0.0
+      '@polar-sh/cli-darwin-x64': 3.0.0
+      '@polar-sh/cli-linux-arm64': 3.0.0
+      '@polar-sh/cli-linux-x64': 3.0.0
+      '@polar-sh/cli-windows-x64': 3.0.0
 
   '@polar-sh/sdk@1.0.1': {}
 
