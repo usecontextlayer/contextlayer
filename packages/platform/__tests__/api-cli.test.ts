@@ -8,13 +8,13 @@ import { execa } from "execa"
 import { test as base, expect } from "vitest"
 import { createApi } from "@/api"
 
-const cli = fileURLToPath(new URL("../../cli/dist/cli.mjs", import.meta.url))
-type Document = ReturnType<OpenAPIHono["getOpenAPI31Document"]>
+const cliPath = fileURLToPath(new URL("../../cli/dist/cli.mjs", import.meta.url))
+type OpenAPIDocument = ReturnType<OpenAPIHono["getOpenAPI31Document"]>
 
 const test = base.extend<{
-	endpoint: {
-		document: Document
-		input?: string
+	apiCli: {
+		document: OpenAPIDocument
+		stdin?: string
 		settings: Record<string, string>
 		respond?: (response: ServerResponse) => void
 		run: (
@@ -23,14 +23,14 @@ const test = base.extend<{
 	}
 }>({
 	// biome-ignore lint/correctness/noEmptyPattern: Vitest identifies fixture dependencies by destructuring.
-	endpoint: async ({}, use) => {
+	apiCli: async ({}, use) => {
 		const directory = await mkdtemp(join(tmpdir(), "ctx-api-"))
 		const server = createServer(async (request, response) => {
 			response.setHeader("content-type", "application/json")
 			if (request.url === "/api/openapi.json") {
-				response.end(JSON.stringify(endpoint.document))
-			} else if (endpoint.respond) {
-				endpoint.respond(response)
+				response.end(JSON.stringify(apiCli.document))
+			} else if (apiCli.respond) {
+				apiCli.respond(response)
 			} else {
 				const chunks: Buffer[] = []
 				for await (const chunk of request) chunks.push(chunk)
@@ -54,12 +54,12 @@ const test = base.extend<{
 			CTX_CONFIG_DIR: directory,
 			CTX_PLATFORM_URL: `http://127.0.0.1:${address.port}`,
 		}
-		const schema = new OpenAPIHono()
-		schema.openAPIRegistry.registerComponent("securitySchemes", "bearer", {
+		const api = new OpenAPIHono()
+		api.openAPIRegistry.registerComponent("securitySchemes", "bearer", {
 			scheme: "bearer",
 			type: "http",
 		})
-		schema.openAPIRegistry.registerPath(
+		api.openAPIRegistry.registerPath(
 			createRoute({
 				description: "Accept an opaque value",
 				method: "post",
@@ -74,23 +74,23 @@ const test = base.extend<{
 				responses: { 200: { description: "Opaque response" } },
 			}),
 		)
-		const endpoint = {
-			document: schema.getOpenAPI31Document({
+		const apiCli = {
+			document: api.getOpenAPI31Document({
 				info: { title: "CLI contract fixture", version: "1" },
 				openapi: "3.1.0",
 				security: [{ bearer: [] }],
 				servers: [{ url: `${settings.CTX_PLATFORM_URL}/transport` }],
 			}),
-			input: undefined as string | undefined,
 			respond: undefined as ((response: ServerResponse) => void) | undefined,
 			run: (...args: string[]) =>
-				execa(process.execPath, [cli, ...args], {
+				execa(process.execPath, [cliPath, ...args], {
 					env: settings,
-					input: endpoint.input,
+					input: apiCli.stdin,
 					reject: false,
 					stripFinalNewline: false,
 				}),
 			settings,
+			stdin: undefined as string | undefined,
 		}
 		await writeFile(
 			join(directory, "auth.json"),
@@ -102,7 +102,7 @@ const test = base.extend<{
 			}),
 		)
 		try {
-			await use(endpoint)
+			await use(apiCli)
 		} finally {
 			await new Promise<void>((resolve, reject) =>
 				server.close((error) => (error ? reject(error) : resolve())),
@@ -113,26 +113,26 @@ const test = base.extend<{
 })
 
 test("discovers every operation published by the platform without invoking endpoints", async ({
-	endpoint,
+	apiCli,
 }) => {
 	let operationRequests = 0
-	endpoint.respond = (response) => {
+	apiCli.respond = (response) => {
 		operationRequests++
 		response.end()
 	}
-	endpoint.document = await (
+	apiCli.document = await (
 		await createApi().request(
-			new URL("/openapi.json", endpoint.settings.CTX_PLATFORM_URL).href,
+			new URL("/openapi.json", apiCli.settings.CTX_PLATFORM_URL).href,
 		)
 	).json()
-	const ids = Object.values(endpoint.document.paths ?? {}).flatMap((path) =>
+	const ids = Object.values(apiCli.document.paths ?? {}).flatMap((path) =>
 		Object.values(path ?? {}).flatMap((operation) =>
 			typeof operation === "object" && operation && "operationId" in operation
 				? [operation.operationId]
 				: [],
 		),
 	)
-	const result = await endpoint.run("api", "--help")
+	const result = await apiCli.run("api", "--help")
 	expect(result.exitCode, result.stderr).toBe(0)
 	const words = result.stdout.split("\n").map((line) => line.trim().split(/\s+/)[0])
 	expect(ids.length).toBeGreaterThan(0)
@@ -141,31 +141,31 @@ test("discovers every operation published by the platform without invoking endpo
 })
 
 test("describes the supplied contract without login or invocation", async ({
-	endpoint,
+	apiCli,
 }) => {
-	await rm(join(String(endpoint.settings.CTX_CONFIG_DIR), "auth.json"))
+	await rm(join(String(apiCli.settings.CTX_CONFIG_DIR), "auth.json"))
 	let operationRequests = 0
-	endpoint.respond = (response) => {
+	apiCli.respond = (response) => {
 		operationRequests++
 		response.statusCode = 500
 		response.end("Unexpected invocation")
 	}
-	const described = await endpoint.run("api", "request", "--describe")
-	expect(described.exitCode, described.stderr).toBe(0)
-	expect(JSON.parse(described.stdout)).toMatchObject({
+	const describeResult = await apiCli.run("api", "request", "--describe")
+	expect(describeResult.exitCode, describeResult.stderr).toBe(0)
+	expect(JSON.parse(describeResult.stdout)).toMatchObject({
 		description: "Accept an opaque value",
 		method: "post",
 		operationId: "request",
 		path: "/values/{key}",
 	})
-	const help = await endpoint.run("api", "request", "--help")
-	expect(help.exitCode).toBe(0)
-	expect(help.stdout).toContain("Accept an opaque value")
+	const helpResult = await apiCli.run("api", "request", "--help")
+	expect(helpResult.exitCode).toBe(0)
+	expect(helpResult.stdout).toContain("Accept an opaque value")
 	expect(operationRequests).toBe(0)
 })
 
 test("uses the document's server and inputs without changing JSON values", async ({
-	endpoint,
+	apiCli,
 }) => {
 	for (const value of [
 		{ opaque: [true, null, "@file"] },
@@ -175,7 +175,7 @@ test("uses the document's server and inputs without changing JSON values", async
 		12,
 		null,
 	]) {
-		const result = await endpoint.run(
+		const result = await apiCli.run(
 			"api",
 			"request",
 			"--params",
@@ -184,18 +184,18 @@ test("uses the document's server and inputs without changing JSON values", async
 			JSON.stringify(value),
 		)
 		expect(result.exitCode, result.stderr).toBe(0)
-		const received = JSON.parse(result.stdout).data
-		const url = new URL(received.url, endpoint.settings.CTX_PLATFORM_URL)
-		expect(received.method).toBe("POST")
+		const receivedRequest = JSON.parse(result.stdout).data
+		const url = new URL(receivedRequest.url, apiCli.settings.CTX_PLATFORM_URL)
+		expect(receivedRequest.method).toBe("POST")
 		expect(url.pathname).toBe("/transport/values/example")
 		expect(url.searchParams.get("label")).toBe("literal @- & text")
-		expect(received.header).toBe("header-value")
-		expect(JSON.parse(received.body)).toEqual(value)
+		expect(receivedRequest.header).toBe("header-value")
+		expect(JSON.parse(receivedRequest.body)).toEqual(value)
 	}
 })
 
 test("preserves HTTP responses and decides failure from HTTP status alone", async ({
-	endpoint,
+	apiCli,
 }) => {
 	for (const { status, data, exitCode } of [
 		{ data: { opaque: ["value", false, null] }, exitCode: 0, status: 200 },
@@ -205,14 +205,14 @@ test("preserves HTTP responses and decides failure from HTTP status alone", asyn
 		{ data: { detail: "rejected" }, exitCode: 1, status: 409 },
 		{ data: "Unavailable", exitCode: 1, status: 503 },
 	]) {
-		endpoint.respond = (response) => {
+		apiCli.respond = (response) => {
 			response.statusCode = status
 			response.statusMessage = "Fixture response"
 			response.setHeader("x-example", "preserved")
 			if (status === 503) response.setHeader("content-type", "text/plain")
 			response.end(status === 204 || status === 503 ? data : JSON.stringify(data))
 		}
-		const result = await endpoint.run("api", "request", "--params", '{"key":"example"}')
+		const result = await apiCli.run("api", "request", "--params", '{"key":"example"}')
 		expect(result.exitCode).toBe(exitCode)
 		expect(result.stderr).toBe("")
 		expect(JSON.parse(result.stdout)).toMatchObject({
@@ -230,60 +230,75 @@ test("preserves HTTP responses and decides failure from HTTP status alone", asyn
 	}
 })
 
-test("accepts only inline JSON with an object for parameters", async ({ endpoint }) => {
-	const file = join(String(endpoint.settings.CTX_CONFIG_DIR), "body.json")
+test("accepts only inline JSON with an object for parameters", async ({ apiCli }) => {
+	const file = join(String(apiCli.settings.CTX_CONFIG_DIR), "body.json")
 	await writeFile(file, '{"source":"file"}')
-	endpoint.input = '{"source":"stdin"}'
+	apiCli.stdin = '{"source":"stdin"}'
 	for (const args of [
 		["--params", '{"key":"example"}', "--json", "@-"],
 		["--params", '{"key":"example"}', "--json", `@${file}`],
 		["--params", "1"],
 	]) {
-		const result = await endpoint.run("api", "request", ...args)
+		const result = await apiCli.run("api", "request", ...args)
 		expect(result.exitCode).toBe(1)
 		expect(result.stdout).toBe("")
 		expect(result.stderr).not.toBe("")
 	}
 })
 
-test("follows the document's authentication declaration", async ({ endpoint }) => {
-	const authenticated = await endpoint.run(
+test("follows the document's authentication declaration", async ({ apiCli }) => {
+	const authenticatedResult = await apiCli.run(
 		"api",
 		"request",
 		"--params",
 		'{"key":"example"}',
 	)
-	expect(JSON.parse(authenticated.stdout).data.authorization).toBe(
+	expect(JSON.parse(authenticatedResult.stdout).data.authorization).toBe(
 		"Bearer fixture-access-token",
 	)
-	const credentials = join(String(endpoint.settings.CTX_CONFIG_DIR), "auth.json")
-	await rm(credentials)
-	const required = await endpoint.run("api", "request", "--params", '{"key":"example"}')
-	expect(required.exitCode).toBe(1)
-	expect(required.stdout).toBe("")
-	endpoint.document.security = [{ bearer: [] }, {}]
-	const optional = await endpoint.run("api", "request", "--params", '{"key":"example"}')
-	expect(JSON.parse(optional.stdout).data.authorization).toBeNull()
-	await writeFile(credentials, "invalid JSON")
-	const invalid = await endpoint.run("api", "request", "--params", '{"key":"example"}')
-	expect(invalid.exitCode).toBe(1)
-	expect(invalid.stdout).toBe("")
-	endpoint.document.security = [{}]
-	const publicCall = await endpoint.run("api", "request", "--params", '{"key":"example"}')
-	expect(JSON.parse(publicCall.stdout).data.authorization).toBeNull()
+	const credentialsPath = join(String(apiCli.settings.CTX_CONFIG_DIR), "auth.json")
+	await rm(credentialsPath)
+	const missingLoginResult = await apiCli.run(
+		"api",
+		"request",
+		"--params",
+		'{"key":"example"}',
+	)
+	expect(missingLoginResult.exitCode).toBe(1)
+	expect(missingLoginResult.stdout).toBe("")
+	apiCli.document.security = [{ bearer: [] }, {}]
+	const anonymousResult = await apiCli.run(
+		"api",
+		"request",
+		"--params",
+		'{"key":"example"}',
+	)
+	expect(JSON.parse(anonymousResult.stdout).data.authorization).toBeNull()
+	await writeFile(credentialsPath, "invalid JSON")
+	const invalidLoginResult = await apiCli.run(
+		"api",
+		"request",
+		"--params",
+		'{"key":"example"}',
+	)
+	expect(invalidLoginResult.exitCode).toBe(1)
+	expect(invalidLoginResult.stdout).toBe("")
+	apiCli.document.security = [{}]
+	const publicResult = await apiCli.run("api", "request", "--params", '{"key":"example"}')
+	expect(JSON.parse(publicResult.stdout).data.authorization).toBeNull()
 })
 
 test("token output and root help stay independent of API discovery", async ({
-	endpoint,
+	apiCli,
 }) => {
-	endpoint.settings.CTX_PLATFORM_URL = "http://127.0.0.1:1"
-	const token = await endpoint.run("token")
-	expect(token.exitCode).toBe(0)
-	expect(token.stdout).toBe("fixture-access-token\n")
-	const help = await endpoint.run("--help")
-	expect(help.exitCode).toBe(0)
-	const unavailable = await endpoint.run("api", "--help")
-	expect(unavailable.exitCode).toBe(1)
-	expect(unavailable.stdout).toBe("")
-	expect(unavailable.stderr).not.toBe("")
+	apiCli.settings.CTX_PLATFORM_URL = "http://127.0.0.1:1"
+	const tokenResult = await apiCli.run("token")
+	expect(tokenResult.exitCode).toBe(0)
+	expect(tokenResult.stdout).toBe("fixture-access-token\n")
+	const helpResult = await apiCli.run("--help")
+	expect(helpResult.exitCode).toBe(0)
+	const discoveryResult = await apiCli.run("api", "--help")
+	expect(discoveryResult.exitCode).toBe(1)
+	expect(discoveryResult.stdout).toBe("")
+	expect(discoveryResult.stderr).not.toBe("")
 })

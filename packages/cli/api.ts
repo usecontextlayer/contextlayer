@@ -5,7 +5,7 @@ import { z } from "zod"
 import { getAccessToken, LoginRequiredError, MissingLoginError } from "@/auth"
 import { env } from "@/env"
 
-const jsonInput = z
+const inlineJsonSchema = z
 	.string()
 	.transform((value, context) => {
 		try {
@@ -17,8 +17,8 @@ const jsonInput = z
 	})
 	.pipe(z.json())
 const optionsSchema = z.object({
-	json: jsonInput.optional(),
-	params: jsonInput.pipe(z.record(z.string(), z.json())).optional(),
+	json: inlineJsonSchema.optional(),
+	params: inlineJsonSchema.pipe(z.record(z.string(), z.json())).optional(),
 })
 const apiHelp =
 	"\nDiscovery requires a reachable platform, but no login. Operation IDs and descriptions come from its OpenAPI document.\n\nCalls reuse the selected saved login and refresh it when needed. Public operations can run without login.\n\nInputs are inline JSON only; no file, @, or stdin expansion. Responses are JSON containing status, statusText, headers, and data. HTTP 4xx/5xx exit 1; other HTTP responses exit 0. Exit status follows HTTP status, not domain outcomes. Failures without an operation response go to stderr and exit nonzero."
@@ -61,9 +61,9 @@ export function addApiCommand(program: Command) {
 								console.log(JSON.stringify(operation, null, 2))
 								return
 							}
-							const input = optionsSchema.parse(options)
+							const parsedOptions = optionsSchema.parse(options)
 							const security = operation.security ?? []
-							const bearer = security.some((requirement) =>
+							const acceptsBearerAuth = security.some((requirement) =>
 								Object.keys(requirement).some((name) => {
 									const scheme = api.definition.components?.securitySchemes?.[name]
 									return (
@@ -74,19 +74,20 @@ export function addApiCommand(program: Command) {
 									)
 								}),
 							)
-							let token: string | undefined
-							if (bearer) {
+							let accessToken: string | undefined
+							if (acceptsBearerAuth) {
 								try {
-									token = await getAccessToken(env)
+									accessToken = await getAccessToken(env)
 								} catch (error) {
-									const anonymous = security.some(
+									const allowsAnonymousAccess = security.some(
 										(requirement) => Object.keys(requirement).length === 0,
 									)
-									if (!(anonymous && error instanceof MissingLoginError)) throw error
+									if (!(allowsAnonymousAccess && error instanceof MissingLoginError))
+										throw error
 								}
 							}
 							const { status, statusText, headers, data } = await invoke(
-								input.params as Parameters | undefined,
+								parsedOptions.params as Parameters | undefined,
 								// Axios accepts JSON text; retaining it preserves string primitives.
 								options.json,
 								{
@@ -94,7 +95,7 @@ export function addApiCommand(program: Command) {
 										...(options.json !== undefined
 											? { "Content-Type": "application/json" }
 											: {}),
-										...(token ? { Authorization: `Bearer ${token}` } : {}),
+										...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
 									},
 									validateStatus: () => true,
 								},
