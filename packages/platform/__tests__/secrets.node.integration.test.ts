@@ -165,6 +165,8 @@ test("non-writing: Owner accounts enforce access and list through the real API a
 	)
 })
 
+// Writes reach the configured shared vault, outside the test database.
+// Failed assertions can leave secrets behind; fixture teardown does not roll these writes back.
 test("live Doppler: CLI/API save, replace, isolate Owners, and drop with no values in output", async ({
 	identity,
 	organization,

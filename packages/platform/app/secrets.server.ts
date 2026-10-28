@@ -161,6 +161,7 @@ export async function loadMeridianProfiles(config: PlatformBindings) {
 		})
 		.parse(await response.json())
 	return [
+		// Keep the first profile invalid: an unknown profile must never borrow an Owner's token.
 		{ id: "unconfigured", oauthToken: "deliberately-invalid" },
 		...Object.entries(secrets)
 			.filter(([key]) => isSecretKey(key, "CLAUDE_CODE_OAUTH_TOKEN"))

@@ -37,7 +37,7 @@ export const agentJobRequestSchema = agentRunRequestSchema.omit({ name: true })
 export const agentJobReceiptSchema = z.object({
 	accepted: z.boolean(),
 	operationId: z.string(),
-	session: z.string(),
+	session: z.string().openapi({ description: "Pi session ID scoped to this job." }),
 }) satisfies z.ZodType<PiReceipt>
 export const agentJobPendingSchema = z.object({
 	operationId: z.string(),
@@ -67,16 +67,24 @@ export type AgentJobMetadata = z.infer<typeof agentJobMetadataSchema>
 export type AgentJobTrigger = z.infer<typeof agentJobTriggerSchema>
 
 export const agentJobEntrySchema = z.object({
-	createdAt: z.number(),
+	createdAt: z
+		.number()
+		.openapi({ description: "Catalog creation time in Unix milliseconds." }),
 	id: z.uuid(),
 	metadata: agentJobMetadataSchema.nullable(),
-	updatedAt: z.number(),
+	updatedAt: z.number().openapi({
+		description: "Last catalog update in Unix milliseconds; not execution progress.",
+	}),
 }) satisfies z.ZodType<RoutedAgentEntry<AgentJobMetadata>>
 export const agentJobCreationSchema = z.object({
 	job: agentJobEntrySchema,
 	receipt: agentJobReceiptSchema,
 })
-export const agentJobsQuerySchema = z.object({ schedule: z.string().min(1).optional() })
+export const agentJobsQuerySchema = z.object({
+	schedule: z.string().min(1).optional().openapi({
+		description: "Authored schedule name, independent of the native schedule ID.",
+	}),
+})
 export const agentScheduleParamsSchema = agentParamsSchema.extend({
 	scheduleId: z.string().min(1),
 })
@@ -148,10 +156,15 @@ const piUsageSchema = z.looseObject({
 	reasoning: z.number().optional(),
 	totalTokens: z.number(),
 }) satisfies z.ZodType<Usage>
-export const agentJobUsageSchema = z.looseObject({
-	models: z.record(z.string(), piUsageSchema),
-	tools: z.record(z.string(), piUsageSchema),
-}) satisfies z.ZodType<UsageState>
+export const agentJobUsageSchema = z
+	.looseObject({
+		models: z.record(z.string(), piUsageSchema),
+		tools: z.record(z.string(), piUsageSchema),
+	})
+	.openapi({
+		description:
+			"Native model and tool usage aggregated across this job's conversations.",
+	}) satisfies z.ZodType<UsageState>
 
 export const agentJobInspectionSchema = z
 	.looseObject({
@@ -169,7 +182,7 @@ export const agentJobInspectionSchema = z
 	})
 	.openapi({
 		description:
-			"Native HarnessInspection of live work: unfinished tasks and queued or placed submissions.",
+			"Native HarnessInspection of live work: unfinished tasks and queued or placed submissions. May be empty after settlement; use messages for completed work.",
 	})
 
 export const agentScheduleSchema = z.object({
@@ -201,7 +214,7 @@ export const agentRuntimeScheduleSchema = z.object({
 			maxDelayMs: z.number().optional(),
 		})
 		.optional(),
-	time: z.number(),
+	time: z.number().openapi({ description: "Unix seconds." }),
 	type: z.literal("cron"),
 }) satisfies z.ZodType<
 	Extract<Schedule<z.infer<typeof scheduledAgentRunSchema>>, { type: "cron" }>

@@ -169,6 +169,7 @@ test("discovers a View and invokes an authored Worker once through native MCP", 
 		name: slate.id,
 	})
 	const execute = execa({ cwd: directory })
+	// Inheriting Vitest's NODE_ENV=test prevents Vite from using production build defaults.
 	await execute("pnpm", ["build"], { env: { NODE_ENV: undefined } })
 	await execute("pnpm", [
 		"exec",

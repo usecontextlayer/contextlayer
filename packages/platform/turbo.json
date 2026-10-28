@@ -22,7 +22,7 @@
 		},
 		"test:integration:node": {
 			"cache": false,
-			"dependsOn": ["build"],
+			"dependsOn": ["build", "@usecontextlayer/dispatcher#build"],
 			"passThroughEnv": ["CLOUDFLARE_*", "COMPOSIO_API_KEY", "POLAR_*"]
 		}
 	}

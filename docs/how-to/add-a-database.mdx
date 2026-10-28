@@ -76,19 +76,6 @@ Start `pnpm dev` from the checkout root before editing the declarations and keep
 
     `db.codegen` writes `databases/tasks/types.ts` from the migrated local database. Applying migrations and generating types are separate operations: the migration creates the table, then generation describes that table for TypeScript. Do not edit the generated types by hand.
 
-    The generated file includes a `Tasks` row type and a `DB` mapping for the table. This excerpt omits its generated helper definitions:
-
-    ```ts
-    export interface Tasks {
-      id: Generated<number>;
-      title: string;
-    }
-
-    export interface DB {
-      tasks: Tasks;
-    }
-    ```
-
     Kysely does not run a migration again once it has been applied, so change the schema with a new migration rather than by editing an applied one.
   </Step>
   <Step title="Restart the development server">

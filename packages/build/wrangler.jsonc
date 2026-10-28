@@ -60,6 +60,7 @@
 					}
 				]
 			},
+			// Bind the same remote store used by upload; a local bucket cannot restore its snapshots.
 			"r2_buckets": [
 				{
 					"binding": "BACKUP_BUCKET",
@@ -78,6 +79,7 @@
 				}
 			],
 			"triggers": {
+				// Test pushes store source only; tests own when their Workflow starts.
 				"events": []
 			},
 			"vars": {

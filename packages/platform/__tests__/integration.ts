@@ -85,6 +85,7 @@ export const test = base
 		{
 			configPath: new URL("../wrangler.jsonc", import.meta.url),
 			env: "test",
+			// React Router owns platform compilation; Wrangler must load its built Worker.
 			prebuiltWorkerDir: new URL("../build/server", import.meta.url),
 			secrets: platformEnv,
 		},

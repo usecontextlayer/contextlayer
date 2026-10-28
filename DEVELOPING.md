@@ -1,8 +1,6 @@
 # Developing
 
-See [DOCS.md](DOCS.md) for document ownership and [Architecture](ARCHITECTURE.md#domain-model) for the domain vocabulary used below.
-
-Use the root package scripts and Turbo for libraries and applications. Main pushes run checks; version-tag pushes publish npm packages.
+This guide owns setup and repo-wide operating workflows. Use the [domain model](ARCHITECTURE.md#domain-model) for vocabulary, [AGENTS.md](AGENTS.md) for construction and permission rules, and [TESTING.md](TESTING.md) for test execution and verification. [Documentation guidance](AGENTS.md#documentation) defines document ownership; package-specific instructions live in each package's AGENTS.md.
 
 ## Setup
 
@@ -16,7 +14,7 @@ mise install
 pnpm install --frozen-lockfile
 ```
 
-The root `.node-version` pins Node for Cloudflare builds, local development, and GitHub Actions. `mise.toml` reads that file and provides Node and pnpm; the pnpm version must match `package.json`. Corepack stays unused. `pnpm-workspace.yaml` enforces the Node version floor and disables automatic dependency repair during task execution, so install dependencies explicitly before running tasks.
+Mise supplies the repository's pinned Node and pnpm versions; Corepack stays unused. `.node-version` owns the Node version across local development and CI, and the pnpm versions in `mise.toml` and `package.json` must agree. Install dependencies explicitly before running tasks: the workspace enforces the Node version floor and disables automatic dependency repair during task execution.
 
 ## Workspace commands
 
@@ -24,317 +22,276 @@ The root `.node-version` pins Node for Cloudflare builds, local development, and
 pnpm run check
 pnpm run format.verify
 pnpm run tsc
-pnpm test
 pnpm run build
 ```
 
-`check` runs workspace-reference and Tailwind checks, fixes formatting, and typechecks. `format.verify` checks without editing files. The Tailwind checker discovers stylesheet entry points across `packages/`; it reports explicitly when there are no Tailwind stylesheets to scan. The root Tailwind deprecation checker owns its compiler and scanner as development dependencies.
+`check` runs workspace-reference and Tailwind checks, fixes formatting, and typechecks. **It edits files.** Use `format.verify` to check formatting without editing. [TESTING.md](TESTING.md#running-tests) owns test commands.
 
 For package-scoped work, use Turbo selectors:
 
 ```sh
 pnpm exec turbo run build tsc --filter=@usecontextlayer/shared...
-pnpm exec turbo run test --filter=@usecontextlayer/shared...
 pnpm exec turbo run dev:watch --filter=@usecontextlayer/db-infra...
 ```
 
-A library carries `dev:watch` for rebuilding its output. The general task convention remains: a server's `dev` starts it, `dev:watch` adds watching, and a package defines only the forms it actually uses. Turbo owns dependency builds through `^build`.
+A server's `dev` starts it; `dev:watch` adds watching. A library's `dev:watch` rebuilds its output. Packages define only the forms they use, and Turbo owns dependency builds through `^build`.
 
 ## DevEnv
 
-Run the DevEnv from this checkout with Node and workspace dependencies installed as in [Setup](#setup), the sibling `../web` checkout installed and built, Docker running, and Wrangler authenticated for the remote `contextlayer-test` resources. Doppler must resolve to the ContextLayer workplace in both checkout directories: check `doppler me` in each before use, because web's configuration is read with `../web` as the working directory. The `@polar-sh/cli` install script, allowed by `pnpm-workspace.yaml`, must have unpacked its native `polar` binary during `pnpm install`.
+**Run development through the DevEnv. The built CLI's defaults select production and the user's personal saved login.** The runners below select this checkout's local services and login instead; follow the root [production boundary](AGENTS.md#production-is-never-a-development-target).
+
+### Prerequisites and configuration
+
+Complete [Setup](#setup), install and build the sibling `../web` checkout, start Docker, and authenticate Wrangler for the remote `contextlayer-test` resources. Local Worker execution still needs Cloudflare access; [test-resource setup](TESTING.md#cloudflare-test-resources) owns provisioning those shared resources. Installation must complete the Polar CLI's allowed install script so its native binary is available.
+
+Check `doppler me` in both checkout directories: both must resolve to the ContextLayer workplace, because web's configuration is read from `../web`. Follow [Doppler](#doppler) for scope and mutation rules. Startup reads `platform/dev` and `web/dev_personal`.
+
+Doppler `platform/dev` supplies provider credentials, including `COMPOSIO_API_KEY`, and the complete Polar Sandbox configuration: `POLAR_ACCESS_TOKEN`, `POLAR_ENVIRONMENT=sandbox`, `POLAR_FREE_PRODUCT_ID`, `POLAR_CLIPS_METER_ID`, and `POLAR_WEBHOOK_SECRET`. Set the meter ID to the Free product's Clips meter-credit benefit. Obtain the webhook secret with `pnpm exec polar listen --print-secret` from `packages/dev-env`, using the Sandbox token and environment. These two values belong to the Polar organization and are shared by local DevEnvs. The invoking environment overrides Doppler for all five values. Keep Sandbox credentials and databases separate from production.
+
+Slate provisioning requires `CTX_APP_OAUTH_PROVISIONING_SECRET` in Doppler `web/dev`, inherited by `web/dev_personal`. DevEnv supplies that one value to local web and platform. Do not maintain a second local copy in `platform/dev` or point local provisioning at production web.
+
+### Start and sign in
 
 | Command | Purpose |
 | --- | --- |
 | `pnpm dev` | Initialize and start local web, platform, viewer auth, dispatcher and Polar Sandbox forwarding. Keep it running while developing or running tests against the DevEnv. |
-| `pnpm dev:ctx <args>` | Run the built CLI with the selected local platform URL, web issuer, initialized public CLI client and checkout-local saved login, in the directory pnpm was invoked from. |
-| `pnpm dev:env` | Print shell-safe connection settings for an arbitrary command in a subshell. |
+| `pnpm dev:ctx <args>` | Run the built CLI against this DevEnv with its checkout-local saved login. |
+| `pnpm dev:env` | Print shell-safe connection settings for another command. Use them in a subshell. |
 
-Startup asks the OS for available ports of 3000 or higher for web, platform, viewer auth and dispatcher, then records their complete service URLs, the initialized public CLI client ID and the selected platform database URL in this checkout's ignored `.env.json` file after initialization completes. On later starts, it reuses the entire saved set of ports only if all four meet that minimum and are free; if any is occupied, it assigns four new ports. Ctrl+C stops the DevEnv and returns exit code 0. The file persists after shutdown. `dev:ctx`, `dev:env` and platform tests against the DevEnv read it automatically, so another terminal needs no copied service-address exports. Separate checkouts have separate `.env.json` files. Local command composition selects `<checkout>/.contextlayer/cli` for saved CLI credentials; `dev:ctx`, `dev:env`, and suites against the DevEnv use that same directory, independently of an inherited personal config directory. If the web port changes, run `pnpm dev:ctx login` again because the saved CLI credential belongs to the previous issuer.
+`pnpm dev` builds workspace dependencies, starts both checkouts' Compose Postgres services without recreating running containers, creates the selected logical databases if absent, and applies each application's migrations. Startup initializes the baseline user, organization and public CLI client, reusing them on later starts, and prints the selected service URLs. Polar Sandbox events are forwarded to this platform without a tunnel or manual issuer configuration; credit grants arrive asynchronously.
 
-Each checkout gets its own platform database, named `<checkout folder>_platform`, on the server that `CTX_PLATFORM_DATABASE_URL` names: the main checkout uses `contextlayer_platform` and a faux worktree uses its folder name. Startup creates it if absent and records its URL in `.env.json`, so `dev:ctx`, `dev:env` and the DevEnv fixtures read it from there. Web database URL and Polar overrides still need the same values in every terminal that uses them; another terminal does not inherit variables passed only to the startup process. Web's `DATABASE_URL` defaults to `postgresql://postgres:postgres@127.0.0.1:5489/contextlayer_web` and is shared by every checkout, because the web checkout is.
+Use your regular browser at the printed web URL, signed in as the baseline `CTX_DEV_USER_EMAIL` (`local-dev@usecontextlayer.com`). Its email/password inputs live in Doppler `web/dev`, inherited by `web/dev_personal`. **Sign out of any other localhost account before opening a CLI device link.** In another terminal:
 
-`pnpm dev` builds workspace dependencies through Turbo, reads Doppler `platform/dev` and `web/dev_personal`, starts both checkouts' Compose Postgres services without recreating running containers, creates the selected logical databases if absent, and runs each application's migrations. It starts native Next.js, React Router/Vite and Wrangler development for web, platform, viewer auth and dispatcher; the Workers select Cloudflare `test`. Platform development includes Build as a native auxiliary Worker so first-use provisioning can start its member-provisioning Workflow. Concurrent DevEnvs use the same sibling `../web` checkout, with a separate Next.js process and generated `.next/<web port>/dev` output for each DevEnv. Once the services listen, it starts the Polar listener, invokes web's baseline initializer and prints the selected URLs. An owned service exiting stops startup, including during initialization. Credit grants arrive asynchronously. Repeated initialization reuses the baseline user, organization and public CLI client. The organization slug `local-development` and client name `ContextLayer Development CLI` are hardcoded constants.
+```sh
+pnpm dev:ctx login
+pnpm dev:ctx whoami
+```
 
-Doppler `platform/dev` supplies provider credentials, including `COMPOSIO_API_KEY` and the complete Sandbox Polar configuration: `POLAR_ACCESS_TOKEN`, `POLAR_ENVIRONMENT=sandbox`, `POLAR_FREE_PRODUCT_ID`, `POLAR_CLIPS_METER_ID`, and `POLAR_WEBHOOK_SECRET`. Set the meter ID to the Free product's Clips meter-credit benefit and the webhook secret to the value printed by `pnpm exec polar listen --print-secret` from `packages/dev-env` with the Sandbox token and environment. Both values belong to the Polar organization and are shared by local DevEnvs. The invoking environment overrides Doppler for all five values. Environment composition validates them without calling Polar, supplies the token/environment to web, platform and dispatcher, derives `CTX_AUTH_ISSUER` from the web URL, and selects `CTX_PLATFORM_DATABASE_URL` from the parsed addresses. Startup runs a listener forwarding Sandbox events to that DevEnv's platform URL; no tunnel or manual issuer configuration is needed. Billing tests fetch product details in their own test bodies when needed.
+Approve the device request in that same browser session. Better Auth binds a device code to the first signed-in user who opens it; if another account claimed the code, switch accounts and start a fresh login. Keep the baseline session for ordinary development and CLI approvals. Open `/dashboard/personal/slates` at the printed platform URL for dashboard development.
 
-Slate provisioning requires `CTX_APP_OAUTH_PROVISIONING_SECRET` in Doppler `web/dev`, inherited by `web/dev_personal`; DevEnv setup passes that one value to local web and platform. A provisioning failure rolls back SQL but can leave the Artifacts repository. Do not maintain a second local secret copy in `platform/dev` or point local provisioning at production web.
+For a second identity against the same DevEnv, run the built CLI inside a `dev:env` subshell with `CTX_CONFIG_DIR` pointing at another directory, impersonate the intended user in web, and approve that device code there. Each directory holds one login. CLI `--help` prints the selected issuer, client, platform URL and config directory; `whoami` verifies the identity.
 
-Use your regular browser at the printed web URL, signed in as the baseline `CTX_DEV_USER_EMAIL` (`local-dev@usecontextlayer.com`); the email/password inputs live in Doppler `web/dev` and are inherited by `web/dev_personal`. Sign out of any other localhost account before opening a CLI device link. In another terminal, run `pnpm dev:ctx login` and approve its device request in that same browser, then run `pnpm dev:ctx whoami`. Keep that browser session for development and ordinary CLI approvals. Better Auth binds a device code to the first signed-in user who opens it; if another account claimed it, switch accounts and start a fresh login. For a second identity against the same DevEnv, run the built CLI inside a `dev:env` subshell with `CTX_CONFIG_DIR` pointing at another directory, impersonate the intended user in web, and approve that device code there; one login lives in each directory. Open the printed platform dashboard URL for browser development.
+### State, isolation and shutdown
 
-After initialization, `dev:ctx`, `dev:env`, and DevEnv fixtures read the completed checkout record and use the same command-settings composer. Obtaining command settings requires no Doppler download, web database lookup, or client-discovery subprocess. `dev:ctx` then runs the requested CLI command in the directory pnpm was invoked from, so `pnpm -C <checkout> dev:ctx …` acts on the current directory from anywhere. `dev:env` exports the four service URLs, `CTX_PLATFORM_DATABASE_URL`, `DATABASE_URL`, `CTX_AUTH_ISSUER`, `CTX_AUTH_CLIENT_ID`, `CTX_CONFIG_DIR` and `CTX_CLI_COMMAND`. The CLI command prefix invokes this checkout's quiet `dev:ctx` runner for both Git authentication and login repair. It does not export access tokens, baseline credentials, Polar overrides or the applications' Doppler secret sets.
+| State | Location and lifetime |
+| --- | --- |
+| Initialized connection settings | This checkout's ignored `.env.json`, written after initialization completes and retained after shutdown. `dev:ctx`, `dev:env` and DevEnv test fixtures read it automatically. |
+| CLI login | This checkout's `.contextlayer/cli`, selected by the DevEnv runners and fixtures independently of an inherited personal config directory. |
+| Platform database | `<checkout folder>_platform` on the server selected by `CTX_PLATFORM_DATABASE_URL`; the main checkout uses `contextlayer_platform`. Startup records the selected database URL in `.env.json`. |
+| Web checkout and database | Shared by every DevEnv using sibling `../web`. Web's `DATABASE_URL` defaults to `postgresql://postgres:postgres@127.0.0.1:5489/contextlayer_web`. Each DevEnv has its own web process and generated development output. |
+| Cloudflare resources | Remote `contextlayer-test` repositories and user Workers, shared infrastructure even though the services run locally. |
 
-`dev:env` writes shell assignments to stdout and leaves command banners and diagnostics on stderr. Use its output directly with `eval`, without `--silent`, in a subshell so the parent shell stays unchanged:
+Startup selects four available ports of at least 3000 for web, platform, viewer auth and dispatcher. It reuses the complete saved set only when all four still meet that minimum and are free; otherwise it selects a new set. **If the web port changes, run `pnpm dev:ctx login` again: the saved credential belongs to the previous issuer.**
+
+Web database and Polar overrides must have the same values in every terminal that uses them. Another terminal does not inherit variables supplied only to startup; the checkout record does not carry those overrides.
+
+Ctrl+C stops the DevEnv and exits successfully. An owned service exiting also stops startup, including during initialization. Shared Postgres services remain subject to the [machine-ownership rules](AGENTS.md#the-machine-is-shared-own-only-what-you-created): never stop or reset them as part of session cleanup.
+
+Local Durable Object identities and state are scoped to their effective persistence directory. Restarting with the same directory preserves them; another directory is isolated. State stored under different namespace keys is not migrated automatically. Let Miniflare and Wrangler clean up the containers and development image tags they own on shutdown. Docker image content can be shared across sessions; it is not evidence of session ownership and must not be pruned as session cleanup.
+
+### Commands in another directory or terminal
+
+Once initialization completes, obtaining command settings requires only the checkout's completed connection record: no Doppler download, web database lookup or client-discovery subprocess. This guarantee applies to composing command settings; the command being run may need its own service access.
+
+`dev:ctx` preserves the directory pnpm was invoked from: `pnpm -C <path-to-this-checkout> dev:ctx …` acts on the current directory from anywhere. For an arbitrary command, `dev:env` supplies service URLs, platform and web database URLs, issuer/client settings, the checkout-local login directory and the CLI invocation used for Git authentication and login repair. It does not export access tokens, baseline credentials, Polar overrides or the applications' Doppler secret sets.
+
+`dev:env` writes shell assignments to stdout and diagnostics to stderr. Use its output directly with `eval`, without `--silent`, in a subshell so the parent shell stays unchanged:
 
 ```sh
 (ctx_env=$(pnpm dev:env) && eval "$ctx_env" && python my-script.py)
 ```
 
-Wrangler’s native `secrets.required` list imports process configuration into Worker bindings; do not maintain a `.dev.vars` copy. `CTX_SLATES_DOMAIN` defaults to `contextlayer.xyz`. The default `ARTIFACTS` and `SLATES` bindings select `contextlayer-prod`; DevEnv startup and integration harnesses select native `test` bindings using remote `contextlayer-test` repositories and user Workers.
+For database changes, follow [Platform database migrations](#platform-database-migrations). For running platform independently of the DevEnv, use its [local runtime instructions](packages/platform/AGENTS.md#local-runtime).
 
-The platform package's `dev:watch` uses Cloudflare Vite with the source entrypoint, while its `dev` uses Wrangler with the compiled bundle and source Wrangler configuration. Both select `test` and run in workerd, defaulting to port 3010. Vite preview uses the bindings selected at build time; changing `CLOUDFLARE_ENV` only at preview startup does not select another namespace. There is no Node production server or `CTX_PLATFORM_PORT` setting.
+### Faux worktrees and change summaries
 
-Miniflare scopes local Durable Object namespaces to their effective storage directory. Different persistence roots are isolated; restarting with the same root preserves object IDs and state. Nonpersistent harnesses use Miniflare's instance-specific temporary directory. After stopping workerd, Miniflare removes application containers and retained proxy sidecars by their configured namespace names. Wrangler and Cloudflare Vite then remove their tracked development image tags without force or parent-image pruning. Images can share content across sessions; application Dockerfiles carry no session ownership.
+A faux worktree is a sibling clone made by `setup-faux-worktree <existing_folder> <new_branch>` and removed by `close-faux-worktree`; it has its own `.git`, so Git worktree commands do not apply. Always ask before creating one for a spec. One worktree per spec is the usual shape described in [PRODUCT-DEVELOPMENT-v1.md](prompts/PRODUCT-DEVELOPMENT-v1.md).
 
-Local Durable Object data written under the earlier unscoped namespace keys is not migrated to the new identities and remains in its old namespace directories.
+Run its DevEnv as from any checkout, with the [state boundaries above](#state-isolation-and-shutdown). Closing the worktree does not drop its platform database.
 
-Apply `008_polar_customer_state_refreshed_at` before starting platform against an existing database in each environment. It replaces `event_timestamp` with non-null, database-stamped `refreshed_at`, including for existing rows. Production platform Postgres migrations run separately from Worker deployment. DevEnv startup migrates without regenerating source. To migrate and regenerate Kanel types against the same selected platform database, use the initialized command environment:
-
-```sh
-(ctx_env=$(pnpm dev:env) && eval "$ctx_env" && pnpm exec turbo run db.latest --filter=@usecontextlayer/platform)
-```
-
-The migration command reads `CTX_PLATFORM_DATABASE_URL` and passes that URL to Kanel as its child-process `DATABASE_URL`. A bare `doppler run -p platform -c dev -- …` selects Doppler's database URL, which need not match the one startup recorded.
-
-The local server prints its root URL; open `/dashboard/personal/slates` for the dashboard. Changing Vite's base to `/dashboard/` would put its modules inside the dashboard authentication/routing gate.
+`/describe-changes` narrates a range's actual behavior and files. `/close-faux-worktree` owns the landing sequence: current CI-equivalent gates plus all local integration tiers before merging. Account for every failure and skip; do not silently drop a landing gate.
 
 ## Developing with a local slate
 
-A slate created against the DevEnv is the vehicle for developing most of the system: web as the issuer and baseline user, platform for slate creation, the dashboard, connections, assignment and tool execution, the SDK installed in the slate, and the CLI for init, login and the Vite plugin that serves local resources. The ordinary development loop runs the slate's own dev server against this DevEnv.
-
-With `pnpm dev` running, build the CLI, log in through the DevEnv, and create the slate outside this repository:
+A slate created against the DevEnv is the ordinary development loop for the issuer, platform, CLI and SDK together: run the slate's own dev server against the DevEnv. With the DevEnv running and its [CLI login established](#start-and-sign-in), build the CLI and create a slate outside this repository:
 
 ```sh
 pnpm exec turbo run build --filter=@usecontextlayer/cli
-pnpm dev:ctx login
 pnpm dev:ctx init ../my-slate
 ```
 
-`dev:ctx` runs the built CLI with the DevEnv's issuer, client, platform URL and checkout-local login, so the slate is registered in the local platform and appears at `/dashboard/personal/slates` immediately. Approve the device code in the browser session signed in as the baseline user, as described under [DevEnv](#devenv). See `ctx init --help` for organization selection. Run `pnpm exec turbo run dev:watch --filter=@usecontextlayer/cli` to rebuild the CLI and starter as their source changes. Initialize a fresh slate to verify starter edits; rebuilding does not update an existing slate's files.
+The slate is registered in the local platform and appears in its dashboard. Use `pnpm dev:ctx init --help` for organization selection. Create slates outside this repository so they have an independent Git root and package-manager workspace. pnpm must work there too; a machine-wide mise default supplies it outside repo-local tool configuration, without `mise exec` or a CLI workaround.
 
-Create slates outside this repository so they have an independent Git root and package-manager workspace. The pnpm executable must also work from the generated checkout; a machine-wide mise default supplies it outside repo-local tool configuration, without `mise exec` or a CLI workaround.
+Run `pnpm exec turbo run dev:watch --filter=@usecontextlayer/cli` to rebuild the CLI and starter as their source changes. **Rebuilding does not update an existing slate's files; initialize a fresh slate to exercise starter edits.** Before running a slate against unpublished CLI or SDK changes, [install matching local packages](TESTING.md#verifying-unpublished-cli-and-sdk-in-a-slate-checkout). `dev:ctx` selects this workspace's CLI, but the slate's Vite integration uses its installed packages.
 
-Before starting the slate to verify unpublished CLI or SDK changes, follow [Verifying unpublished CLI and SDK in a slate checkout](#verifying-unpublished-cli-and-sdk-in-a-slate-checkout) to install matching local packages.
-
-Commands that act on the slate checkout, such as a local connection assignment or a local agent run, read the current directory. Run them from inside the checkout through this checkout's `dev:ctx`, which keeps the directory pnpm was invoked from:
+Commands that act on a slate checkout read the current directory. Run them from inside that checkout through this repository's DevEnv runner:
 
 ```sh
 cd ../my-slate
 pnpm -C <path-to-this-checkout> dev:ctx connections local assign <slug> <account_id>
 ```
 
-From inside the slate checkout, start its own dev server inside a `dev:env` subshell so its Vite startup finds the DevEnv's issuer, client and login:
+Start the slate's own dev server inside a `dev:env` subshell so Vite finds the DevEnv's issuer, client and login:
 
 ```sh
 (ctx_env=$(pnpm -C /path/to/contextlayer-checkout dev:env) && eval "$ctx_env" && pnpm dev)
 ```
 
-For Git source verification, push from inside the slate checkout after logging in through the DevEnv. Git's registered helper invokes that checkout's `dev:ctx` runner with the login settings recorded at registration, so a plain push uses the local issuer, client and saved login. Commit any edits you want to include before pushing. This stores source in `contextlayer-test`; it does not trigger a Cloudflare build or deployment:
+### Local slate resources
+
+Follow [Local login and assignment](docs/reference/sdk.mdx#local-login-and-assignment) for the checkout's declarations, resource inputs and persistent state. Hosted assignments and vault values do not supply local inputs.
+
+Listing local requirements needs no Git metadata, login, running development server or platform request.
+
+Restart the slate's `pnpm dev` after declaration, assignment or secret changes, and when its startup access token expires. Keep the generated `workers/local-resources` files current with the CLI template when updating a development checkout. [Local verification](TESTING.md#local-slate-resources-and-agents) owns checks against the running app.
+
+### Running an agent locally
+
+Build the CLI with `pnpm exec turbo run build tsc --filter=@usecontextlayer/cli`. From a slate checkout containing `agents/<name>/instructions.md`, run `pnpm -C <path-to-this-checkout> dev:ctx agent --help` for local-run commands. Claude Agent SDK uses native Claude authentication, so an existing Claude login or SDK-supported model credential must be available. The command starts and stops the slate's development server and uses its persisted `.contextlayer/databases` state. App connection declarations require the matching saved CLI login; declarations with only databases need no ContextLayer login.
+
+[Local agent execution](ARCHITECTURE.md#local-agent-execution) owns instruction composition and settings isolation. Follow [local agent verification](TESTING.md#local-slate-resources-and-agents) to exercise changes.
+
+### Authored database development
+
+Follow [Add a database](docs/how-to/add-a-database.mdx) for declarations, native Kysely migrations, type generation, and the local apply/restart/commit workflow. These are slate databases, separate from the [platform Postgres database](#platform-database-migrations). Publish committed migrations through [slate deployment](#slate-deployment); [membership provisioning](ARCHITECTURE.md#membership-creation-and-provisioning) covers newly added members.
+
+### Git source pushes
+
+After logging in through the DevEnv, commit the slate changes and push from its checkout:
 
 ```sh
 git push origin HEAD:main
 ```
 
-`/api/openapi.json` describes creation, listing, hostname resolution, and visibility updates.
+**A DevEnv push stores source in `contextlayer-test`; it does not trigger a Cloudflare build or deployment.** Production publication follows [Slate deployment](#slate-deployment).
 
-The `ctx login` / `ctx whoami` flow requires web's OAuth device extension and a public CLI client linked to the platform resource; DevEnv startup initializes that client. Only localhost/127.0.0.1 issuers permit HTTP in the CLI. Credentials are written to `auth.json` in the selected CLI config directory with owner-only permissions on creation. `ctx --help` prints the issuer, client, platform URL and config directory in use, and `ctx whoami` prints the identity those settings verify. `dev:ctx` keeps one login per checkout in `.contextlayer/cli`. Approve its device code as the intended web identity; for example, impersonate that user in web before approving. Interactive login remains a CLI command; DevEnv tools pass the same directory setting through `@usecontextlayer/cli/auth`.
+CLI login registers Git's credential helper for this OS user, once per platform URL for all its slates. Subsequent pushes use the recorded login settings independently of the terminal's `CTX_*` variables. DevEnv registrations require this checkout and its built CLI to remain available. Run login again to replace the registration, select a newer public CLI release, or change the saved login used for that platform. Login and init must target the same platform URL so the helper's URL scope matches the remote. Git requires native `authtype` credential support. [CLI authentication](ARCHITECTURE.md#cli-authentication) owns the helper and credential-storage contract.
 
-`ctx login` also configures Git's credential helper for this OS user, once per platform URL for all its slates. Public registrations run the login release through npx with the saved-login directory as its package-lookup prefix, independently of the slate's installed dependencies, and can download it again after cache removal; DevEnv registrations use this checkout's `dev:ctx` runner and require the checkout and its built CLI to remain available. Both record the selected login settings as explicit helper arguments, including a non-default login directory, so later pushes do not depend on the terminal's `CTX_*` variables. Login repair guidance uses the same CLI invocation and passes those settings explicitly to `login`, preserving the selected release or unpublished checkout and account directory. Run login again to replace an older registration or select a newer CLI release or another saved login for that platform. Git needs native `authtype` credential support. Login and init must target the same platform URL so Git's configured URL scope matches the remote.
+### Slate chrome development
 
-Configure hosted personal inputs in the chrome; there is no separate join command. See [membership and resource ownership](ARCHITECTURE.md#slate-membership-and-unattended-execution) for the automatic provisioning rules.
+Use the [App Layout reference](docs/reference/sdk.mdx#app-layout) for `Layout` integration and the [chrome architecture](ARCHITECTURE.md#slate-chrome) for its boundary. Chrome verification requires a hosted slate: follow [cross-site chrome and viewer sessions](TESTING.md#cross-site-chrome-and-viewer-sessions). Configure hosted personal inputs in the chrome; there is no separate join command.
 
-## Faux worktrees and change summaries
+## Configuration and migrations
 
-A faux worktree is a sibling clone made by `setup-faux-worktree <existing_folder> <new_branch>` and removed by `close-faux-worktree`; it has its own `.git`, so Git worktree commands do not apply. Always ask before creating one for a spec. One worktree per spec is the usual shape described in [PRODUCT-DEVELOPMENT-v1.md](prompts/PRODUCT-DEVELOPMENT-v1.md).
+### Platform database migrations
 
-Run the DevEnv from the worktree as from any checkout. It selects its own ports, writes its own `.env.json`, and gets its own platform database named after the worktree folder, while sharing the sibling `../web` checkout and web's database with every other DevEnv. Nothing drops that database when the worktree closes.
-
-`/describe-changes` narrates a range's actual behavior and files. `/close-faux-worktree` owns the landing sequence: current CI-equivalent gates plus all local integration tiers before merging. Account for every failure and skip; do not silently drop a landing gate.
-
-## Verifying unpublished CLI and SDK in a slate checkout
-
-Production hosted slates must use published packages. Local development and integration tests may use unpublished CLI/SDK packages against the DevEnv, including source uploaded to an isolated `contextlayer-test` Artifacts repository. The database integration fixture uses the real starter with packed CLI/SDK overrides, preparing a lockfile for push-only scenarios and installing dependencies for local commands; see [slate database verification](packages/platform/AGENTS.md#slate-database-verification).
-
-`dev:ctx` runs this workspace's CLI, but the slate's Vite integration loads its installed SDK and CLI packages. `dev:env` supplies connection settings; it does not select package source. To verify unpublished CLI or SDK changes, build and pack both packages from the repository root, then install the resulting tarballs in the slate:
+DevEnv startup applies pending platform Postgres migrations without regenerating source. To migrate and regenerate Kanel types against that same selected database, run from the initialized repository checkout:
 
 ```sh
-pnpm exec turbo run build --filter=@usecontextlayer/cli --filter=@usecontextlayer/sdk
-(cd packages/cli && pnpm pack)
-(cd packages/sdk && pnpm pack)
-cd ../my-slate
-pnpm add /absolute/path/to/usecontextlayer-cli-<version>.tgz /absolute/path/to/usecontextlayer-sdk-<version>.tgz
+(ctx_env=$(pnpm dev:env) && eval "$ctx_env" && pnpm exec turbo run db.latest --filter=@usecontextlayer/platform)
 ```
 
-Installing the CLI as a direct file dependency does not make the SDK's transitive CLI dependency use it; the SDK's Vite integration then loads the published CLI instead of your build. Add a native pnpm override in the slate's `pnpm-workspace.yaml` so both resolve to the local CLI tarball, run `pnpm install`, and restart the slate's dev server:
+The migration command reads `CTX_PLATFORM_DATABASE_URL`. **A bare `doppler run -p platform -c dev -- …` can select a different database from the one startup recorded.** Use the initialized command environment when targeting this DevEnv. Production platform migrations run separately from Worker deployment; apply pending migrations before running the corresponding application version against an existing database.
 
-```yaml
-overrides:
-  '@usecontextlayer/cli': 'file:/absolute/path/to/usecontextlayer-cli-<version>.tgz'
-```
+### OAuth registration and migration
 
-This belongs only in the temporary unpublished-package setup; published matching versions resolve normally. Start the slate's dev server inside a `dev:env` subshell and run CLI commands against the checkout through `pnpm -C <path-to-this-checkout> dev:ctx …`, as under [Developing with a local slate](#developing-with-a-local-slate). Use the generated checkout's own typecheck and build as part of the verification.
-
-## Local slate resources
-
-Local CLI configuration uses only the current checkout's `public/slate.json` and `agents/{name}/slate.json`, ignored `.contextlayer/connections.json` assignments, exact-name secret environment variables, and developer-local database references. Migration execution separately loads each database’s native Kysely configuration and authored files. Listing does not require Git metadata, a login, a running development server, or a platform request. Local SQLite-backed Durable Objects persist in `.contextlayer/databases`. Use the commands' `--help` for connecting and assigning accounts. For a live smoke check, call a read-only tool or query through an authored route and verify its observable response. React Router index actions require the native `?index` query parameter on direct POST requests, as framework Form submissions supply.
-
-Run the generated checkout's `pnpm dev` command for local resources. Development-startup inputs require restarting pnpm dev after declaration/configuration changes.
-
-[The SDK README](packages/sdk/README.md) documents the loader API and connected-service setup. [Architecture](ARCHITECTURE.md#key-contract-slate-resource-requirements) owns the connection-slug contract and runtime boundaries. To verify unpublished source, follow [Verifying unpublished CLI and SDK in a slate checkout](#verifying-unpublished-cli-and-sdk-in-a-slate-checkout).
-
-## Running an agent locally
-
-Build the CLI with `pnpm exec turbo run build tsc --filter=@usecontextlayer/cli`. From a slate checkout containing `agents/<name>/instructions.md`, run `pnpm -C <path-to-this-checkout> dev:ctx agent --help` for local-run commands. Claude Agent SDK uses native Claude authentication, so an existing Claude login or SDK-supported model credential must be available. The command starts and stops the slate's local development server automatically and uses its persisted `.contextlayer/databases` state. If the app declares connections, the command also needs the matching saved CLI login; declarations with only databases need no ContextLayer login.
-
-See [Authored agents](ARCHITECTURE.md#authored-agents) for local instruction composition and settings isolation. Verify instruction behavior with a real local task and record model output as observational evidence.
-
-## Authored database development
-
-Follow the [SDK database guide](packages/sdk/README.md#a-loader-that-queries-cached-data) to declare databases, author their migrations and query them through a loader or action.
-
-Local startup applies pending migrations before queries. While development is running, apply new migrations with the native Kysely CLI and generate query types separately as described in the SDK guide. Restart after declaration or configuration changes; editing an already-applied migration does not replay it. Push committed migrations through the normal slate deployment workflow for existing members; new membership starts a background Workflow that applies the selected committed history and then provisions schedules. Membership is established before that background work finishes. See [Database provisioning and resource ownership](ARCHITECTURE.md#slate-forking-membership-and-resource-ownership) for provisioning and execution invariants.
-
-## Deploying and inspecting an agent
-
-Add `agents/<name>/instructions.md` to a checkout and push through its normal `/git/<slate-id>` remote. See [Authored agents](ARCHITECTURE.md#authored-agents) for inspection, authorization, and revision semantics.
-
-Declare schedules as `agents/<name>/schedules/<prompt>.md` with YAML frontmatter such as `cron: "0 7 * * 1-5"` and the user prompt in the Markdown body. Cron is canonical five-field UTC.
-
-See platform guidance for [hosted model configuration](packages/platform/AGENTS.md#hosted-model-configuration) and [hosted-agent integration suites](packages/platform/AGENTS.md#hosted-agent-integration-suites).
-
-## Slate chrome development
-
-See [Slate chrome](ARCHITECTURE.md#slate-chrome) for its boundary and the [SDK README](packages/sdk/README.md) for `Layout` integration. Verify unpublished changes as under [Verifying unpublished CLI and SDK in a slate checkout](#verifying-unpublished-cli-and-sdk-in-a-slate-checkout), and the chrome itself through a hosted slate as under [slate chrome verification](packages/platform/AGENTS.md#slate-chrome-verification).
-
-Use the current `workers/local-resources` files from the CLI template when updating a development checkout. Follow [Local slate resources](#local-slate-resources) to reset its local database state. Verify that the deployment build excludes the auxiliary Worker and local credentials.
-
-## Verifying the slate-connection read
-
-Verify local configuration from a checkout root using the built CLI. Change an app or agent declaration without pushing and confirm the next listing reflects it. Local assignments live only in `.contextlayer/connections.json`; secret values come only from exact-name environment variables. Follow [Authored database development](#authored-database-development) for migration authoring and application. Listing displays connection requirements and saved connected account IDs without printing secrets. `packages/cli/__tests__/resources.test.ts` exercises checkout-based configuration, consumer selection, assignment preservation, declaration edits and isolation. Run through `pnpm exec turbo run test --filter=@usecontextlayer/cli...`.
-
-For hosted connection configuration, sign in with `ctx login` and use a SlateID/hostname CLI target. For an organization-owned requirement, connect the account and list connected accounts through the explicitly authorized organization connected account management operations before assigning it.
-
-For live connection assignment, use the intended CTX_PLATFORM_URL and the auth issuer/client matching the saved CLI login. Verify local execution through an authored route using the saved developer connected account, and hosted execution through the deployed declaration and assignment. Development runtime declaration/configuration edits require restarting pnpm dev.
-
-## Tests and local Postgres
-
-`pnpm test` runs the unit tier. `AGENTS.md` and `vitest.shared.ts` define the Node/browser runtimes and node/browser/Claude integration tiers. CI runs unit tests; integration tests are opt-in. Node unit suites run in cli, sdk, shared, dev-env, build, dispatcher, platform and mcp-microsoft-planner-premium; Node integration suites run in dev-env (starter installation and Postgres), build (R2 temporary credentials) and platform (Cloudflare Artifacts, Polar sandbox and Postgres). Dispatcher browser-policy unit tests exercise the production Hono middleware; dispatch behavior runs through platform’s native usage and MCP integrations.
-
-To verify starter installation, typechecking and production build against the checkout's CLI and SDK, run the command below. It requires package-registry access but no local services or login. Turbo builds the required workspace packages automatically.
-
-```sh
-pnpm exec turbo run test:integration:node --filter=@usecontextlayer/dev-env -- starter.node.integration.test.ts
-```
-
-For Build's local checks, see [artifact verification](packages/build/AGENTS.md#artifact-verification). The real deployment test's commands and external-service prerequisites are under [slate build verification](packages/platform/AGENTS.md#slate-build-verification).
-
-Platform integration tests provision isolated databases on the server selected by `CTX_PLATFORM_DATABASE_URL`, defaulting to Compose Postgres on `127.0.0.1:6489`; see [DevEnv](#devenv) for address selection. Web's persistent development database on port 5489 is separate from the isolated platform SQL. Suites against the DevEnv use the running web service and can create sessions, OAuth registrations and grants there; each suite’s paragraph records its writes and cleanup. If the shared Compose server is not running, start it once:
-
-```sh
-docker compose up -d postgres
-```
-
-`packages/dev-env/__tests__/ephemeral.node.integration.test.ts` needs only that Postgres server. It checks database provisioning, caller-supplied migrations, failure cleanup and concurrent isolation. It creates and drops uniquely named databases on the selected server and makes no cloud/provider writes. Run:
-
-```sh
-pnpm exec turbo run test:integration:node --filter=@usecontextlayer/dev-env -- ephemeral.node.integration.test.ts
-```
-
-Do not stop, restart or reset the shared Postgres instance. Reclaim only databases your session created; report suspected leftovers and ask before cleaning up another session's resources. An interrupted test can leave databases behind, so a prefix alone never proves a database is safe to delete.
-
-The root commands `test:integration:node`, `test:integration:browser`, and `test:integration:claude` select individual tiers. `test:integration` requests all three.
-
-Platform's integration suites, their prerequisites, their external writes and their run commands are documented in [platform integration suites](packages/platform/AGENTS.md#platform-integration-suites); fixture ownership and resource lifetimes in [platform integration fixtures](packages/platform/AGENTS.md#platform-integration-fixtures).
-
-## OAuth registration and migration
-
-Follow the [resource and scope contract](ARCHITECTURE.md#oauth-resources-and-scopes). Keep the issuer, client registration and all consumers in the same environment; local initialization must use local web.
-
-Use the checkout's `.env.json` record for selected local service addresses; do not add a global environment registry, hostname pool or platform-resource setting. Follow [DevEnv](#devenv) for local setup.
+Follow the [resource and scope contract](ARCHITECTURE.md#oauth-resources-and-scopes). Keep the issuer, client registration and consumers in the same environment. Local initialization uses local web and the checkout's completed `.env.json`; the service address does not change the canonical platform OAuth resource. CLI issuers require HTTPS except on localhost/127.0.0.1.
 
 For a new environment, register resources and the public CLI client through Better Auth's native operations, link the client to the platform resource, and allow the device-code and refresh-token grants with `platform:access` and `offline_access`. Let normal CLI device login and MCP authorization issue credentials.
 
-For an existing environment, inspect native resource registrations, client scopes and client-resource links before proposing changes. Coordinate caller/verifier changes with registration updates, including resource `allowedScopes`, while preserving `offline_access`; source edits do not update registrations or saved grants. Remote configuration changes require the operator’s approval for each write. Re-run CLI login and MCP authorization afterward. Production slate OAuth provisioning requires the same `CTX_APP_OAUTH_PROVISIONING_SECRET` in Doppler `platform/prod` and `web/prod`; see [Releases and deployment](#releases-and-deployment).
+For an existing environment, inspect native resource registrations, client scopes and client-resource links before proposing changes. Coordinate caller/verifier changes with registration updates, including resource `allowedScopes`, while preserving `offline_access`. **Source edits do not update registrations or saved grants.** Remote configuration changes require the operator's approval for each write. Re-run CLI login and MCP authorization afterward. The shared provisioning secret is configured under [DevEnv](#prerequisites-and-configuration) for local use and [Service deployment](#service-deployment) for production.
 
-## Releases and deployment
+### Polar configuration
 
-The production platform URL is `https://platform.usecontextlayer.com`. Production database configuration belongs in Doppler `platform/prod`; Neon's `platform` project owns the production database. Configure native Cloudflare Workers Builds for platform, dispatcher, auth, build, and mcp-microsoft-planner-premium against `main` in `usecontextlayer/contextlayer`, with repository root `/`. Every Worker uses the same root script, with only its package argument changing:
+For production, register a Polar endpoint for `customer.created` and `customer.state_changed`, API version `2026-10`, at platform's `/api/polar/webhooks`. Store its signing secret as `POLAR_WEBHOOK_SECRET` in Doppler `platform/prod`, alongside `POLAR_ACCESS_TOKEN`, `POLAR_ENVIRONMENT=production`, `POLAR_FREE_PRODUCT_ID` and `POLAR_CLIPS_METER_ID` for the matching production catalog. Configure a recurring Free product with a fixed zero price, no metered price and the native non-rollover Clips credit benefit. Apply platform database migrations before verifying billing state, and deploy both platform and dispatcher through [Service deployment](#service-deployment).
+
+Polar locks pricing type at creation. Replacing a metered Free product requires creating a genuine Free product and attaching the native credit benefit. Archive the replaced catalog entry so new customers see the intended Free plan. **Catalog replacement does not migrate existing subscriptions: they retain their native prices and benefits.** Inspect those subscriptions separately before changing a catalog product.
+
+[DevEnv](#prerequisites-and-configuration) owns Sandbox configuration and webhook forwarding; [Polar testing guidance](TESTING.md#polar-sandbox) owns verification and provider-state ownership. Sandbox tests do not configure production or deploy services. External configuration changes remain user-owned.
+
+## npm releases
+
+Use the release tool's help for commands, options and stopping points:
+
+```sh
+node --import tsx scripts/release.ts --help
+```
+
+Main pushes run checks; version-tag pushes publish npm packages. Use the release ladder to keep the version, checked commit and release tag together. Tag publication requires successful checks for that exact commit and package versions matching the tag. The ladder commits and pushes; follow the machine's Git approval convention. GitHub receives `NPM_TOKEN` for publication and `FONTAWESOME_PACKAGE_TOKEN` for CI installation through Doppler sync. Package manifests own which packages publish. npm publication and service deployment have separate workflows, but the release ladder also pushes main and can therefore trigger [Workers Builds](#service-deployment). Twilio deployment remains separate.
+
+For public CLI onboarding and deployment, follow the [CLI README](packages/cli/README.md) and the generated checkout's README. Public setup uses `npx @usecontextlayer/cli` without a global installation.
+
+## Service deployment
+
+Cloudflare Workers Builds deploys ContextLayer's Workers from `main` in `usecontextlayer/contextlayer`, with repository root `/`. Configure each Worker with the shared root script, using its package name (`platform`, `dispatcher`, `auth`, `build`, or `mcp-microsoft-planner-premium`):
 
 ```sh
 bash scripts/cloudflare.sh build <package>
 bash scripts/cloudflare.sh deploy <package>
 ```
 
-Use `platform`, `dispatcher`, `auth`, `build`, or `mcp-microsoft-planner-premium` as `<package>`. Workers Builds reads the repository-root `.node-version`; remove any separate `NODE_VERSION` build override. Set `PNPM_VERSION=11.22.0`, `SKIP_DEPENDENCY_INSTALL=true`, and `WRANGLER_CI_OVERRIDE_NETWORK_MODE_HOST=1` in each Workers Builds configuration. Registry authentication must be available before installation. Wrangler's native CI setting lets Docker image build steps use the runner's host network; Turbo's build task passes that exact variable through its strict environment filter.
+Workers Builds reads the root `.node-version`; remove any separate `NODE_VERSION` override. Set `PNPM_VERSION` to the pnpm version pinned by the repository, `SKIP_DEPENDENCY_INSTALL=true`, and `WRANGLER_CI_OVERRIDE_NETWORK_MODE_HOST=1` in each build configuration. The last setting lets Docker image builds use the runner's host network. Registry authentication must be available before dependency installation.
 
-Supply a config-scoped read-only service token for Doppler `platform/prod` as the Cloudflare build secret `DOPPLER_TOKEN`. Use the credential returned when creating the token; subsequent token listing/get calls return metadata without its value. The shared build phase installs the official Doppler CLI, obtains `FONTAWESOME_PACKAGE_TOKEN` through `scripts/ci.npmrc`, installs workspace dependencies, and runs the selected package's existing Turbo build. The deploy phase reads the effective Wrangler configuration, including Vite's generated configuration, obtains only its native `secrets.required` names from Doppler, writes a temporary secrets file, and passes it to native `wrangler deploy --secrets-file`. Auth declares `[]` and follows this same path with an empty JSON secrets file.
+Supply a config-scoped read-only token for Doppler `platform/prod` as the Cloudflare build secret `DOPPLER_TOKEN`. Capture its value when creating it; later token listing/get calls return metadata without the credential. Doppler supplies `FONTAWESOME_PACKAGE_TOKEN` for installation. Keep both bootstrap and registry credentials in the build environment; neither belongs in runtime Worker bindings.
 
-Doppler is the source for runtime secret values, including the build Worker's `CF_TOKEN`, `R2_ACCESS_KEY_ID`, and `R2_SECRET_ACCESS_KEY`; Cloudflare receives copies on deployment. Platform additionally requires `CTX_APP_OAUTH_PROVISIONING_SECRET` in `platform/prod`, with the same value in `web/prod` for web's trusted provisioning endpoint. The bootstrap Doppler token and registry credential remain in the build environment and must not become runtime Worker bindings. In their default production Wrangler configurations, dispatcher declares only `POLAR_ACCESS_TOKEN` and `POLAR_ENVIRONMENT`, and auth declares no required secrets. Doppler value changes take effect on the next deployment. Production platform Postgres migrations run separately from Worker deployment.
+Follow the [secret-delivery contract](ARCHITECTURE.md#worker-deployment-and-secrets): declare runtime secret names through Wrangler's native `secrets.required` and keep their values in Doppler. The shared deployment workflow resolves the effective configuration, including Vite's generated configuration. Do not maintain a `.dev.vars` copy or a separate secret list. Changed Doppler values take effect on the next deployment.
 
-Use the release tool's help for its commands, options, and stopping points:
+Production platform serves at `https://platform.usecontextlayer.com`. Its database configuration belongs in Doppler `platform/prod`; Neon's `platform` project owns the production database. Run [platform migrations](#platform-database-migrations) separately from Worker deployment. Slate OAuth provisioning requires the same `CTX_APP_OAUTH_PROVISIONING_SECRET` in Doppler `platform/prod` and `web/prod`.
 
-```sh
-node --import tsx scripts/release.ts --help
-node --import tsx scripts/release.ts audit
-node --import tsx scripts/release.ts verify
-```
+For Planner-specific service configuration, use its [deployment instructions](packages/mcp-microsoft-planner-premium/AGENTS.md#deployment). The [Twilio README](packages/twilio/README.md) owns Twilio configuration and deployment.
 
-The release ladder bumps package versions and the lockfile, commits with `gitc`, pushes main, waits for its `check.yml` run, and pushes a version tag. Pushing `vX.Y.Z` starts `release.yml`, which requires a successful check for that exact commit and verifies every package version against the tag before publishing. Its final rung watches the release run. Manual workflow dispatch remains available. Only packages without `private: true` publish; currently these are `@usecontextlayer/cli` and `@usecontextlayer/sdk`. GitHub receives `NPM_TOKEN` and `FONTAWESOME_PACKAGE_TOKEN` through Doppler sync. The former publishes packages; the latter installs the dashboard's private icons during CI. Releases do not deploy Twilio.
+### Build Worker
 
-Public setup uses `npx @usecontextlayer/cli` consistently without a global installation: log in, initialize a checkout, and start its normal `pnpm dev` command. For public CLI onboarding and deployment, follow the [CLI README](packages/cli/README.md) and the generated checkout’s README. CLI help owns command syntax and prerequisites.
+Follow [Build deployment configuration](packages/build/AGENTS.md#deployment-configuration) for Docker, namespace, bucket and credential prerequisites.
 
-The [Twilio README](packages/twilio/README.md) owns its service configuration and deployment details.
+Before deploying Build, platform must export the named `Provisioning` entrypoint with `prepare` and `provisionSchedules`. Platform's `MEMBER_PROVISIONING` Workflow binding targets Build's `ProvisionSlateMember`; Build's `DATABASES` binding targets platform's `SlateDatabase`. Both Workers must have their corresponding classes deployed before slate provisioning runs.
 
-## Build Worker
+### Dispatch Worker
 
-Build and typecheck `packages/build` from the repository root with `pnpm exec turbo run build tsc --filter=@usecontextlayer/build`. Building the configured Sandbox image requires Docker. Deployment of the build Worker itself uses the shared repository-root workflow described under [Releases and deployment](#releases-and-deployment).
+Platform must export the named `Execution` entrypoint before deploying dispatcher with its `EXECUTION` service binding.
 
-Verify provisioning through the existing [test service-binding setup](packages/platform/AGENTS.md#remote-resources-for-integration-tests).
+Follow [Dispatcher deployment configuration](packages/dispatcher/AGENTS.md#deployment-configuration) for namespace setup, wildcard DNS and runtime service targets.
 
-The `contextlayer-build-backups` R2 bucket stores Cloudflare CI build snapshots and compiled deployment folders under separate prefixes. Manage bucket-scoped Object Read & Write credentials as `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY`, and the authored-slate Workers deployment API token as `CF_TOKEN`, centrally in Doppler `platform/prod`. The R2 pair is the parent credential for temporary run-scoped transfer access; it is not supplied to author commands. Declare those three runtime secrets in the build Worker's native `secrets.required`; the shared deployment workflow supplies them through Wrangler without a `.dev.vars` copy. Platform must export the named `Provisioning` entrypoint with `prepare` and `provisionSchedules` before deploying the build Worker that calls it. Configure Platform’s `MEMBER_PROVISIONING` Workflow binding to Build’s `ProvisionSlateMember` and Build’s `DATABASES` binding to Platform’s `SlateDatabase`; both Workers must have the corresponding deployed classes before slate provisioning runs. Inspect background membership runs in the `contextlayer-member-provisioning` Workflow, or its `-test` counterpart in development. The production Artifacts namespace, dispatch namespace, and R2 bucket must exist before slate deployment runs.
+### Viewer auth Worker
 
-For production slate deployments, push a checkout created against the production platform through that platform’s Git endpoint. Pushes to its `contextlayer-prod` Artifacts namespace trigger the deployed build workflow. In the Cloudflare dashboard, open Workflows → `contextlayer-build` and inspect the new instance’s `build` step. Its command output and status show whether the pushed commit built; a successful result includes the Cloudflare CI build snapshot. Cloudflare account access is required to inspect these runs. Inspect `build`, `migrate`, and `deploy` in order, followed by schedule provisioning. The migration phase restores the successful build snapshot and applies that commit’s native Kysely migrations. A failed migration stops before deployment and is not automatically retried; earlier successful SQL statements may remain applied. To update a scheduled agent, keep public/slate.json and every agents/<name>/slate.json valid, commit its schedules/<prompt>.md with canonical five-field UTC cron frontmatter and a Markdown user prompt, and push normally.
+Web must expose `/viewer/sign-in` and enable Better Auth's one-time-token and bearer plugins before deploying auth and dispatcher.
 
-## Dispatch Worker
+Follow [Auth deployment configuration](packages/auth/AGENTS.md#deployment-configuration) for route specificity, issuer and domain settings, and the callback destination shared with web and dispatcher. Use [viewer-session verification](TESTING.md#cross-site-chrome-and-viewer-sessions) to check the combined flow.
 
-Build and typecheck with `pnpm exec turbo run build tsc --filter=@usecontextlayer/dispatcher`. Deploy through the shared repository-root workflow described under [Releases and deployment](#releases-and-deployment). The `contextlayer-prod` WfP namespace must exist before deployment. Platform must export the named `Execution` entrypoint before deploying dispatcher with its `EXECUTION` service binding; local tests bind to `contextlayer-platform-test`.
+## Slate deployment
 
-Configure proxied wildcard DNS for `*.contextlayer.xyz`, where hosted slates serve. Wrangler attaches that route to `contextlayer-dispatcher`; platform serves separately at `https://platform.usecontextlayer.com`, the dispatcher’s `CTX_PLATFORM_URL`. Slate routing uses the deployed platform and its database; no local server or tunnel is required.
+Push committed source from a checkout created against the intended platform through its `/git/<slate-id>` remote. In production, pushes to `contextlayer-prod` Artifacts trigger the deployed build Workflow. Use published CLI and SDK packages for production hosted slates; unpublished packages belong in [local/test verification](TESTING.md#verifying-unpublished-cli-and-sdk-in-a-slate-checkout).
 
-## Viewer auth Worker
+In the Cloudflare dashboard, open Workflows → `contextlayer-build` and inspect the new instance. Cloudflare account access is required. Inspect `build`, `migrate`, and `deploy` in order, followed by schedule provisioning. Build output and status show whether the pushed commit built; a successful build includes its CI snapshot. **A failed migration stops deployment and is not automatically retried; earlier successful SQL statements may remain applied.** Migrations must remain compatible with the currently deployed Worker until publication completes. [Build and publication](ARCHITECTURE.md#build-pipeline) owns phase ordering and revision coherence.
 
-Build and typecheck with `pnpm exec turbo run build tsc --filter=@usecontextlayer/auth --filter=@usecontextlayer/dispatcher`. Auth uses Wrangler on `auth.contextlayer.xyz/*`, more specific than dispatcher's wildcard, and follows the same shared repository-root deployment workflow as the other Workers. Web must expose `/viewer/sign-in` and enable Better Auth's one-time-token and bearer plugins before deploying these Workers.
+Inspect background membership provisioning in `contextlayer-member-provisioning`, or its `-test` counterpart during development. Membership is established before that Workflow finishes. A slate-creation provisioning failure can roll back SQL while leaving its Artifacts repository; inspect the actual resources before proposing cleanup.
 
-Auth's `CTX_AUTH_ISSUER` defaults to `https://www.usecontextlayer.com/api/auth`; dispatcher uses `CTX_VIEWER_AUTH_URL`, defaulting to `https://auth.contextlayer.xyz`, and auth uses `CTX_SLATES_DOMAIN`, defaulting to `contextlayer.xyz`. Web's `CTX_VIEWER_AUTH_URL` fixes the allowed callback destination. Verify that logging out on web makes the next private slate request require sign-in and public slates remain anonymously viewable.
+### Deploying and inspecting an agent
 
-## Polar configuration
+Commit `agents/<name>/instructions.md` and keep `public/slate.json` and every `agents/<name>/slate.json` valid. Declare schedules in `agents/<name>/schedules/<prompt>.md` with YAML frontmatter such as `cron: "0 7 * * 1-5"` and the user prompt in the Markdown body. Cron is canonical five-field UTC. Push through the normal slate deployment workflow to publish changes and provision schedules.
 
-Run the platform database migrations before verifying billing state. For production, register a Polar endpoint for `customer.created` and `customer.state_changed`, API version `2026-10`, at platform's `/api/polar/webhooks`. Store its signing secret as `POLAR_WEBHOOK_SECRET` in Doppler `platform/prod`, alongside `POLAR_ACCESS_TOKEN`, `POLAR_ENVIRONMENT=production`, `POLAR_FREE_PRODUCT_ID` and `POLAR_CLIPS_METER_ID` for the matching production catalog. Configure a recurring Free product with a fixed zero price, no metered price and the native non-rollover Clips credit benefit. Production also requires matching `CTX_APP_OAUTH_PROVISIONING_SECRET` values in `platform/prod` and `web/prod`, as described under [Releases and deployment](#releases-and-deployment).
+Follow platform guidance for [hosted model configuration](packages/platform/AGENTS.md#hosted-model-configuration), [Authored agents](ARCHITECTURE.md#authored-agents) for inspection and authorization semantics, and [model-test prerequisites](TESTING.md#provider-accounts-and-model-credentials) for verification.
 
-Dispatcher and platform require `POLAR_ACCESS_TOKEN` and `POLAR_ENVIRONMENT` through their package-local `env.ts`. Use the Sandbox configuration from [DevEnv](#devenv) for local verification and follow the [dispatcher deployment prerequisites](#dispatch-worker). Both Workers use [Releases and deployment](#releases-and-deployment); dispatcher's default configuration declares only its Polar values. External configuration changes remain user-owned. Shared unit tests exercise the public request/response classification contract for dynamic reads, mutation verbs, redirects and uncharged assets/declarations.
+## Operational tools
 
-Allow for asynchronous Polar delivery when verifying signup enrollment and credit fulfillment.
-
-Polar locks pricing type at creation. Replacing a metered Free product requires creating a genuine Free product and attaching the native credit benefit. Archive the replaced catalog entry so new customers see the intended Free plan. Existing subscriptions retain their native prices and benefits; catalog replacement does not migrate them. Before changing a catalog product, inspect existing subscriptions separately. Sandbox tests do not configure production or deploy services.
-
-For local webhook delivery, follow [DevEnv](#devenv): Doppler supplies the Sandbox Clips meter ID and CLI webhook secret, and the Polar CLI listener forwards events to the local platform. Keep Sandbox and production credentials and databases separate. Doppler mutations remain user-owned. The billing and usage suites are under [platform integration suites](packages/platform/AGENTS.md#platform-integration-suites).
-
-## Skills
-
-The third-party skills are owned by `npx skills` and `skills-lock.json`; never hand-edit installed skill content or the lock. `.agents/skills` is the store and `.claude/skills` is the view. The skill store is excluded from root Biome checks so installed content keeps its upstream formatting. Reconcile the view with `skills-sync`, without hand-maintaining symlinks. After a skills operation, format the changed lock/config files and verify formatting; include those formatting changes alongside the skill update when committing.
-
-## Doppler
+### Doppler
 
 Local platform and deployed-service configuration live in the ContextLayer workplace. Authentication is directory-scoped and case-sensitive: run `doppler me` before use and stop if it reports another workplace or no scoped token. Do not borrow a token or log in ad hoc to bypass a missing directory scope.
 
-Pass the project and config explicitly with `doppler run -p <project> -c <config> -- <cmd>`. Reads are fine; creating or changing projects, configs, or secrets is user-territory. Propose the exact change to the user.
+Pass project and config explicitly with `doppler run -p <project> -c <config> -- <cmd>`. Follow the root [Doppler permission rule](AGENTS.md#operating-the-repo) before changing configuration.
 
-Configs inherit values from their environment's root config and override only their local settings. Set shared values at the root rather than duplicating them in branch configs. A branch's secret listing includes inherited values, so presence does not establish that the value was set on that branch.
+Configs inherit values from their environment's root config and override only local settings. Set shared values at the root rather than duplicating them in branch configs. A branch's secret listing includes inherited values, so presence does not establish that the value was set on that branch.
 
-## Cloudflare and Fly.io
+### Cloudflare and Fly.io
 
-For Cloudflare operations, use `npx cf`; configuration stays in Wrangler's format. The Workers in `packages/platform`, `packages/build`, and `packages/dispatcher` use `pnpm exec wrangler` for build and deployment. The `cf` configuration cannot represent the build Worker’s Artifacts push-event triggers. Fly commands must target the `contextlayer` organization: pass `--org contextlayer` where supported, and verify with `fly orgs list` or the app's `fly status` before any mutation. Do not create an app as a side effect. Keep Fly deployments to one machine (`--ha=false` when creating machines); changes beyond a plain deploy require discussion with the user.
+Use `npx cf` for Cloudflare resource operations and the [shared deployment workflow](#service-deployment) for the repository's Workers. Configuration stays in Wrangler's format; `cf` configuration cannot represent Build's Artifacts push-event triggers.
 
-## Sentry
+Fly commands must target the `contextlayer` organization: pass `--org contextlayer` where supported, and verify with `fly orgs list` or the app's `fly status` before any mutation. Do not create an app as a side effect. Keep Fly deployments to one machine (`--ha=false` when creating machines); changes beyond a plain deploy require discussion with the user.
+
+### Sentry
 
 Sentry org `803-inc` owns the reporting projects; `sentry project list` is the live inventory. Use the retained Sentry skills for CLI operations, error triage, and instrumentation; they do not authorize changing the remote service.
 
 When interpreting telemetry, sampling means counts are not traffic rates; span start order does not establish dependencies, and overlapping spans must not be summed as elapsed user wait. Attribute subprocess spans by working directory, not just command name. For streamed responses, HTTP 200 alone does not prove a successful render.
 
+### Skills
+
+Third-party skills are owned by `npx skills` and `skills-lock.json`; never hand-edit installed skill content or the lock. `.agents/skills` is the store and `.claude/skills` is the view. Reconcile the view with `skills-sync`, without hand-maintaining symlinks. Keep installed content's upstream formatting; format and verify changed lock/config files, and commit those formatting changes with the skill update.
+
 ## Troubleshooting
 
 The user permits pnpm to rebuild `node_modules` when installation requires it. In a non-interactive shell, use `CI=true` to accept that operation.
 
-Run commands directly (`pnpm`, `npx`, `node`); do not prefix them with `mise exec`. Mise provides the installed tool versions through the shell environment. If a command reports a runtime or version error, stop and ask before changing the environment or invocation. Keep the enforced version floor.
+Run commands directly (`pnpm`, `npx`, `node`); do not prefix them with `mise exec`. Mise supplies installed versions through the shell environment. If a command reports a runtime or version error, stop and ask before changing the environment or invocation. Keep the enforced version floor.
 
-Run a failing Turbo task alone to read its output. Shared-machine cleanup requires exact ownership: stop only your own PIDs and reclaim only your own databases. Report resources of uncertain ownership and ask before removing them.
+Run a failing Turbo task alone to read its output. For cleanup, follow the root [machine-ownership rules](AGENTS.md#the-machine-is-shared-own-only-what-you-created).

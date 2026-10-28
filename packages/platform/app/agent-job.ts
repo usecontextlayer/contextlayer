@@ -35,6 +35,7 @@ export class SlateAgentJob extends Agent<
 	initialState = { connectionSessions: {}, receipt: null, run: null }
 	private piContext!: PiHarnessContext["context"]
 	private registry = createRegistry()
+	// Poll count, not time. Durable script deadlines use the @options timeout_ms field.
 	private sandbox = createInlineCodemodeSandbox({ interruptBudget: 50_000 })
 	private connection?: Connection
 	private closeConnection = () => {
@@ -147,6 +148,7 @@ export class SlateAgentJob extends Agent<
 				container.setInactivityTimeout(COMPUTER_INACTIVITY_TIMEOUT_MS),
 			)
 		}
+		// Pi must finish disposal while its sandbox and computer are still available.
 		this.lifecycle.use({
 			dispose: async () => {
 				this.closeConnection()

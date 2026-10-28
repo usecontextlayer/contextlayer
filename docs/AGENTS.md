@@ -1,6 +1,6 @@
 # ContextLayer docs
 
-This directory is the ContextLayer documentation site, built on [Mintlify](https://mintlify.com) and published at https://docs.usecontextlayer.com from `main`. The repository's root `AGENTS.md` and `DOCS.md` still apply here; this file adds what is specific to the docs site.
+This directory is the ContextLayer documentation site, built on [Mintlify](https://mintlify.com) and published at https://docs.usecontextlayer.com from `main`. The repository's [root AGENTS.md](../AGENTS.md), including its [documentation standards](../AGENTS.md#documentation), applies here; this file adds what is specific to the docs site.
 
 - Pages are MDX files with YAML front matter (`title`, `description`); a page's URL is its path under this directory. `README.md` is ignored by Mintlify; the landing page is `index.mdx`.
 - `docs.json` holds the site settings and the whole navigation. A page that is not listed there does not appear in the sidebar.

@@ -10,6 +10,7 @@ const worker: SlateWorker = {
 			...result,
 			structuredContent: {
 				...result.structuredContent,
+				// Observe the authored request: a constant null would hide leaked credentials.
 				authorization: request.headers.get("authorization"),
 			},
 		})

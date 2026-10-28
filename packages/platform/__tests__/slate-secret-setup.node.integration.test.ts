@@ -157,6 +157,7 @@ test("non-writing: chrome lists agent-only personal secrets and rejects invalid 
 	expect(await instance.listSchedules()).toEqual([])
 })
 
+// These are real vault writes. An interrupted process can leave keys despite the cleanup below.
 test("live Doppler: API partial save and chrome final secret enable agent-only resources", {
 	timeout: 180_000,
 }, async ({ platform, secretSlate, webSession }) => {

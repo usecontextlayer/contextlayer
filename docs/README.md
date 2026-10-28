@@ -2,7 +2,7 @@
 
 This directory contains the ContextLayer documentation site, built with Mintlify and published at [docs.usecontextlayer.com](https://docs.usecontextlayer.com) from `main`.
 
-For contribution rules, read [AGENTS.md](AGENTS.md) together with the repository's [documentation guidance](../DOCS.md).
+For contribution rules, read [AGENTS.md](AGENTS.md) together with the repository's [documentation guidance](../AGENTS.md#documentation).
 
 ## Find the source
 

@@ -42,6 +42,7 @@ test("failed job admission leaves the catalog empty", async ({ platform }) => {
 	})
 	const { AGENTS } = await platform.worker.getEnv()
 	await expect(startAgentRun(AGENTS, run)).rejects.toThrow()
+	// Reacquire after rejected admission: a stub held across the failure can be invalid.
 	const agent = await getAgentByName(
 		AGENTS,
 		getAgentInstanceName(run.slateId, run.agent.name, run.actor),
@@ -67,6 +68,7 @@ test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
 		const { ARTIFACTS } = await worker.getEnv()
 		await using resources = new AsyncDisposableStack()
 		resources.defer(async () => {
+			// Cleanup runs after Worker reload; do not retain a binding from the old runtime.
 			const { ARTIFACTS } = await worker.getEnv()
 			await ARTIFACTS.delete(slate.id)
 		})

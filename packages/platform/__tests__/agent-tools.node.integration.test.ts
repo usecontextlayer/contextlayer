@@ -19,6 +19,7 @@ test("agent tools bind two Gmail namespaces to their connected accounts", async 
 	})
 	expect(accountsResponse.status).toBe(200)
 	const { accounts } = accountsSchema.parse(await accountsResponse.json())
+	// Distinct identities make a namespace routed to the wrong account observable.
 	const first = accounts[0]
 	const second = accounts.find((account) => account.display_name !== first?.display_name)
 	if (!first || !second)

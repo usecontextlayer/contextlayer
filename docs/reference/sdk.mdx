@@ -116,17 +116,7 @@ export default defineConfig({
 })
 ```
 
-With `pnpm dev` running, use the native CLI to create a migration, edit its `up(db)` and optional `down(db)`, then apply it. Type generation is a separate command:
-
-```sh
-pnpm exec kysely --config databases/notes/kysely.config.ts migrate make add_created_at
-pnpm exec kysely --config databases/notes/kysely.config.ts migrate latest
-pnpm db.codegen notes
-```
-
-Commit the authored migrations and generated `databases/notes/types.ts`; do not hand-maintain query types. Local startup also applies pending migrations before app queries, and local tools access only local storage. [Add a database](/how-to/add-a-database) covers the full authoring sequence, including when to restart the app.
-
-Hosted builds apply the selected commit's migrations before deployment. New members' databases are provisioned and migrated in the background before their schedules are installed. Migration failure stops the deployment or provisioning that ran it, and earlier SQL statements may remain applied. See [Databases](/core-concepts/resources/databases) for the lifecycle and [the database architecture](https://github.com/usecontextlayer/contextlayer/blob/main/ARCHITECTURE.md#slate-databases-and-authored-migrations) for the isolation boundary.
+Follow [Add a database](/how-to/add-a-database) to create and apply migrations, generate and commit query types, and restart local development at the right point. [Databases](/core-concepts/resources/databases#local-and-hosted-state) explains local and hosted storage, member provisioning, and migration failure behavior; [the database architecture](https://github.com/usecontextlayer/contextlayer/blob/main/ARCHITECTURE.md#slate-databases-and-authored-migrations) owns the isolation boundary.
 
 ## Missing resource setup
 
