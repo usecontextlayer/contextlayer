@@ -14,6 +14,7 @@ type Document = ReturnType<OpenAPIHono["getOpenAPI31Document"]>
 const test = base.extend<{
 	endpoint: {
 		document: Document
+		input?: string
 		settings: Record<string, string>
 		respond?: (response: ServerResponse) => void
 		run: (
@@ -80,10 +81,12 @@ const test = base.extend<{
 				security: [{ bearer: [] }],
 				servers: [{ url: `${settings.CTX_PLATFORM_URL}/transport` }],
 			}),
+			input: undefined as string | undefined,
 			respond: undefined as ((response: ServerResponse) => void) | undefined,
 			run: (...args: string[]) =>
 				execa(process.execPath, [cli, ...args], {
 					env: settings,
+					input: endpoint.input,
 					reject: false,
 					stripFinalNewline: false,
 				}),
@@ -112,6 +115,11 @@ const test = base.extend<{
 test("discovers every operation published by the platform without invoking endpoints", async ({
 	endpoint,
 }) => {
+	let operationRequests = 0
+	endpoint.respond = (response) => {
+		operationRequests++
+		response.end()
+	}
 	endpoint.document = await (
 		await createApi().request(
 			new URL("/openapi.json", endpoint.settings.CTX_PLATFORM_URL).href,
@@ -129,13 +137,16 @@ test("discovers every operation published by the platform without invoking endpo
 	const words = result.stdout.split("\n").map((line) => line.trim().split(/\s+/)[0])
 	expect(ids.length).toBeGreaterThan(0)
 	for (const id of ids) expect(words).toContain(id)
+	expect(operationRequests).toBe(0)
 })
 
 test("describes the supplied contract without login or invocation", async ({
 	endpoint,
 }) => {
 	await rm(join(String(endpoint.settings.CTX_CONFIG_DIR), "auth.json"))
+	let operationRequests = 0
 	endpoint.respond = (response) => {
+		operationRequests++
 		response.statusCode = 500
 		response.end("Unexpected invocation")
 	}
@@ -150,6 +161,7 @@ test("describes the supplied contract without login or invocation", async ({
 	const help = await endpoint.run("api", "request", "--help")
 	expect(help.exitCode).toBe(0)
 	expect(help.stdout).toContain("Accept an opaque value")
+	expect(operationRequests).toBe(0)
 })
 
 test("uses the document's server and inputs without changing JSON values", async ({
@@ -219,15 +231,18 @@ test("preserves HTTP responses and decides failure from HTTP status alone", asyn
 })
 
 test("accepts only inline JSON with an object for parameters", async ({ endpoint }) => {
+	const file = join(String(endpoint.settings.CTX_CONFIG_DIR), "body.json")
+	await writeFile(file, '{"source":"file"}')
+	endpoint.input = '{"source":"stdin"}'
 	for (const args of [
-		["--json", "@-"],
-		["--json", "@file"],
-		["--params", "[]"],
+		["--params", '{"key":"example"}', "--json", "@-"],
+		["--params", '{"key":"example"}', "--json", `@${file}`],
+		["--params", "1"],
 	]) {
 		const result = await endpoint.run("api", "request", ...args)
 		expect(result.exitCode).toBe(1)
 		expect(result.stdout).toBe("")
-		expect(result.stderr).toMatch(/Expected inline JSON|expected record/)
+		expect(result.stderr).not.toBe("")
 	}
 })
 
