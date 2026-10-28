@@ -60,4 +60,4 @@ git push -u origin main
 
 ContextLayer builds and deploys the slate through its native Git remote. Your dashboard and hosted URL were printed by initialization. The hosted URL becomes usable after deployment succeeds. The slate starts private; sign in with your ContextLayer account to open it. Configure hosted assignments in the header of the [chrome](https://github.com/usecontextlayer/contextlayer/blob/main/ARCHITECTURE.md#slate-chrome).
 
-After pushing, use the CLI’s CI inspection to read native run status, steps and available command output, then inspect the published Worker’s commit tag to see which source revision is published. Use CLI help for the CI and Worker entry points. These reads use your normal ContextLayer login. Cloudflare retains the records and defines their statuses; a completed pipeline and the published script’s metadata do not identify which revision answered a particular HTTP request.
+After pushing, inspect CI and the published Worker using your normal ContextLayer login. Use CLI help for the entry points and the [deployment guide](https://docs.usecontextlayer.com/how-to/deploy) to interpret the results.

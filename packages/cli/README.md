@@ -4,7 +4,7 @@ Create and deploy ContextLayer slates, and connect accounts with the `ctx` CLI.
 
 The [domain model](https://github.com/usecontextlayer/contextlayer/blob/main/ARCHITECTURE.md#domain-model) defines slates, declarations, resources, Owners, and assignments.
 
-Use a Node.js release supported by this package’s `engines` field, pnpm, and Git. The bundled Cloudflare client shares that Node requirement. Git author identity must be configured; initialization displays Git's configuration instructions when it is missing.
+Use a Node.js release supported by this package’s `engines` field, pnpm, and Git. Git author identity must be configured; initialization displays Git's configuration instructions when it is missing.
 
 Start with login, then create and run your slate:
 
@@ -37,4 +37,4 @@ git push -u origin main
 
 The native Git remote starts ContextLayer's build and deployment pipeline.
 
-After a push, inspect CI through the CLI’s CI entry point and compare its source revision with the commit tag on the published Worker. Native Workflow status describes pipeline execution; Worker metadata describes the published script. Neither identifies the revision that answered an individual HTTP request. Use the CI and Worker help for native inspection commands; Cloudflare credentials and a separate Cloudflare installation are unnecessary.
+After pushing, follow the [deployment guide](https://docs.usecontextlayer.com/how-to/deploy) to inspect the build and published revision. Use CLI help for the CI and Worker entry points.

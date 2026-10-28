@@ -16,9 +16,7 @@ No CI runner may opt into `cloudflareCredentials`. Scope deployment credentials 
 
 ## Native inspection
 
-Follow the [inspection contract](../../ARCHITECTURE.md#slate-build-inspection) when exposing CI records. Implement forwarding through the named private `Inspection` entrypoint, using the Build environment's selected Workflow and existing Cloudflare credential. Use the same native input ownership check for list candidates and individual reads.
-
-Mark preparation step output sensitive and retain inspection-edge redaction for older preparation records. Persist native migration and publication command results only after removing execution-scoped credentials from logs, previews and errors; keep this pure redaction shared across execution and inspection. Preserve successful inline and streamed log redaction in the existing CI dependency patch. Changes to recorded steps or injected credentials require reviewing these exposure paths. Supply the trusted source SHA through custom script-upload metadata tags, rather than authored configuration or version annotations.
+When changing recorded steps or injected credentials, review successful inline and streamed logs, failure previews and errors, and retained outputs against the [inspection contract](../../ARCHITECTURE.md#slate-build-inspection). Redact credentials before persistence as well as at inspection. Mark preparation output sensitive; retain inspection-edge redaction because older preparation records can still contain private member and database data.
 
 ## Deployment configuration
 

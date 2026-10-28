@@ -35,6 +35,13 @@ Work from the slate checkout created by `init`, which has `origin` set to the sl
 
     A successful push means the repository received the commit. The hosted app changes after the build, migrations, and publication succeed.
   </Step>
+  <Step title="Inspect the build and published revision">
+    Use the CLI's CI entry point to find the run for your pushed commit and inspect its status, steps, and available command output. These reads use your normal ContextLayer login; you do not need Cloudflare credentials or a separate Cloudflare installation. Use CLI help for the CI and Worker commands and paging options.
+
+    Cloudflare defines the run statuses and retains the records. Retention and bounded failure previews limit the output available. Run status describes pipeline execution; to confirm which source revision is published, inspect the Worker's commit tag and compare it with your pushed commit. Neither the latest push nor a completed run alone confirms the published revision.
+
+    Published-script metadata does not identify the revision that answered a particular HTTP request.
+  </Step>
   <Step title="Open the hosted URL">
     After deployment succeeds, open the hosted URL printed by `init`. Its dashboard link is the management page; the hosted URL is the running app.
 
