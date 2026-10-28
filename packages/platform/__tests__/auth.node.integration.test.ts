@@ -235,7 +235,6 @@ test("native sessions and CLI tokens can manage slates and accept only scoped re
 })
 
 test("personal connected account execution requires permission to manage personal and organization slates", async ({
-	slate,
 	db,
 	identity,
 	platform: { origin },
@@ -246,11 +245,15 @@ test("personal connected account execution requires permission to manage persona
 		{ owner_organization_id: null, owner_user_id: crypto.randomUUID() },
 		{ owner_organization_id: crypto.randomUUID(), owner_user_id: null },
 	]) {
-		await db
-			.updateTable("slate")
-			.set({ ...owner, visibility: "public" })
-			.where("id", "=", slate.id)
-			.execute()
+		const slate = await db
+			.insertInto("slate")
+			.values({
+				...owner,
+				public_hostname: `${crypto.randomUUID()}.example.com`,
+				visibility: "public",
+			})
+			.returning("id")
+			.executeTakeFirstOrThrow()
 		expect(
 			(
 				await fetch(`${origin}/api/accounts/ca_example/tools/call`, {
@@ -268,18 +271,20 @@ test("personal connected account execution requires permission to manage persona
 	}
 })
 
-test("public slate resolution permits declaration paths without sign-in", async ({
+test("declaration resolution enforces private visibility and permits public access", async ({
 	slate,
 	db,
 	identity,
 	platform: { origin },
 }) => {
+	const resolve = `${origin}/api/slates/resolve?hostname=${slate.public_hostname}&pathname=/slate.json`
+	expect((await fetch(resolve)).status).toBe(401)
+	expect((await fetch(resolve, { headers: identity.headers })).status).toBe(200)
 	await db
 		.updateTable("slate")
 		.set({ visibility: "public" })
 		.where("id", "=", slate.id)
 		.execute()
-	const resolve = `${origin}/api/slates/resolve?hostname=${slate.public_hostname}&pathname=/slate.json`
 	const response = await fetch(resolve)
 	expect(response.status).toBe(200)
 	expect(await response.json()).toEqual({

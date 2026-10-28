@@ -14,16 +14,14 @@ import { test } from "@tests/integration"
 import { expect } from "vitest"
 import { slateSchema } from "@/slates.schema"
 
-test("scenario-owned Free subscriptions grant credits and exhaustion denies runtime access after state refresh", async ({
-	devEnvDb: db,
-	serviceEnv,
+test("Free subscriptions grant credits and exhaustion denies runtime access after state refresh", async ({
+	db,
+	platform: { env, origin },
 }) => {
-	const env = serviceEnv.platformEnv
 	const polar = createPolarCore({
 		accessToken: env.POLAR_ACCESS_TOKEN,
 		environment: env.POLAR_ENVIRONMENT,
 	})
-	const origin = serviceEnv.addresses.CTX_PLATFORM_URL
 	const freeProduct = await getProducts(polar)(env.POLAR_FREE_PRODUCT_ID)
 	const clipsBenefit = freeProduct.benefits.find(
 		(benefit) =>
@@ -44,13 +42,7 @@ test("scenario-owned Free subscriptions grant credits and exhaustion denies runt
 			name: `ContextLayer Free billing proof (${type})`,
 			type,
 		})
-		scenario.defer(async () => {
-			await deleteCustomers(polar)(customer.id)
-			await db
-				.deleteFrom("polar_customer_state")
-				.where("external_id", "=", externalId)
-				.execute()
-		})
+		scenario.defer(() => deleteCustomers(polar)(customer.id))
 		await createSubscriptions(polar)({
 			customer_id: customer.id,
 			product_id: env.POLAR_FREE_PRODUCT_ID,
@@ -67,9 +59,6 @@ test("scenario-owned Free subscriptions grant credits and exhaustion denies runt
 				.returningAll()
 				.executeTakeFirstOrThrow(),
 		)
-		scenario.defer(async () => {
-			await db.deleteFrom("slate").where("id", "=", slate.id).execute()
-		})
 		await expect
 			.poll(
 				async () => {

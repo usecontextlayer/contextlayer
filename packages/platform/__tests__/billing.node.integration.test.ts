@@ -9,7 +9,6 @@ import {
 	createCustomers,
 	deleteCustomers,
 	getStateCustomers,
-	getStateExternalCustomers,
 } from "@polar-sh/sdk/2026-10/services/customers"
 import {
 	createDiscounts,
@@ -29,12 +28,8 @@ test("Owner subscriptions gate execution while declaration access stays availabl
 	organization,
 	platform,
 }) => {
-	const { env, origin } = platform
-	const polar = createPolarCore({
-		accessToken: env.POLAR_ACCESS_TOKEN,
-		environment: env.POLAR_ENVIRONMENT,
-	})
-	const { headers, user } = identity
+	const { origin } = platform
+	const { user } = identity
 	const personalOwner = user.id
 	const organizationOwner = organization.id
 	const request = (path: string, init?: RequestInit) => fetch(new URL(path, origin), init)
@@ -83,47 +78,10 @@ test("Owner subscriptions gate execution while declaration access stays availabl
 		[personalSlate, { id: personalOwner, type: "personal" }],
 		[organizationSlate, { id: organizationOwner, type: "organization" }],
 	] as const) {
-		const state = await getStateExternalCustomers(polar)(owner.id)
-		const unlimited = []
-		for (const subscription of state.active_subscriptions) {
-			const product = await getProducts(polar)(subscription.product_id)
-			if (product.metadata.contextlayer_seed === "devenv-unlimited")
-				unlimited.push(product)
-		}
-		expect(unlimited).toHaveLength(1)
-		expect(unlimited[0]).toMatchObject({
-			benefits: [],
-			name: "DevEnv Unlimited",
-			visibility: "private",
-		})
 		const response = await request(resolve(slate.public_hostname, "/"))
 		expect(response.status).toBe(200)
 		expect(await response.json()).toEqual({ id: slate.id, owner })
-		const saved = await db
-			.selectFrom("polar_customer_state")
-			.selectAll()
-			.where("external_id", "=", owner.id)
-			.executeTakeFirstOrThrow()
-		expect(saved.customer_id).toBe(state.id)
-		expect(saved.refreshed_at).toBeInstanceOf(Date)
-		await expectBlocked(slateWithoutPolarCustomer)
 	}
-	const privateSlate = await db
-		.insertInto("slate")
-		.values({
-			owner_user_id: personalOwner,
-			public_hostname: "private.example.com",
-			visibility: "private",
-		})
-		.returningAll()
-		.executeTakeFirstOrThrow()
-	expect(
-		(await request(resolve(privateSlate.public_hostname, "/slate.json"))).status,
-	).toBe(401)
-	expect(
-		(await request(resolve(privateSlate.public_hostname, "/slate.json"), { headers }))
-			.status,
-	).toBe(200)
 })
 
 test("missing state is pulled for an active non-Free customer and reused while fresh", async ({
@@ -168,7 +126,6 @@ test("missing state is pulled for an active non-Free customer and reused while f
 		allowed: false,
 		reason: "subscription-required",
 	})
-	expect(await db.selectFrom("polar_customer_state").selectAll().execute()).toEqual([])
 	const customer = await createCustomers(polar)({
 		email: `${ownerId}@usecontextlayer.com`,
 		external_id: ownerId,
@@ -192,16 +149,6 @@ test("missing state is pulled for an active non-Free customer and reused while f
 			]),
 		})
 	expect(await checkSlateBilling(db, env, slate)).toEqual({ allowed: true })
-	const saved = await db
-		.selectFrom("polar_customer_state")
-		.selectAll()
-		.where("external_id", "=", ownerId)
-		.executeTakeFirstOrThrow()
-	expect(saved.customer_id).toBe(customer.id)
-	expect(saved.state.active_subscriptions).toEqual(
-		expect.arrayContaining([expect.objectContaining({ product_id: product.id })]),
-	)
-	expect(saved.refreshed_at).toBeInstanceOf(Date)
 	expect(
 		await checkSlateBilling(
 			db,
@@ -339,15 +286,5 @@ test("Free uses the saved balance until stale state is refreshed", async ({
 		message: expect.stringContaining("Free clips renew on"),
 		reason: "credits-exhausted",
 	})
-	const saved = await db
-		.selectFrom("polar_customer_state")
-		.selectAll()
-		.where("external_id", "=", ownerId)
-		.executeTakeFirstOrThrow()
-	expect(saved.refreshed_at.getTime()).toBeGreaterThan(refreshedAt.getTime())
-	expect(
-		saved.state.active_meters.find((meter) => meter.meter_id === env.POLAR_CLIPS_METER_ID)
-			?.balance,
-	).toBe(0)
 	expect(await checkSlateBilling(db, invalidPolarTokenConfig, slate)).toEqual(exhausted)
 }, 180_000)

@@ -31,10 +31,9 @@ type WorkerConfig = Pick<
 
 export const test = base
 	.extend("addresses", { scope: "file" }, () => readDevEnvPorts(root))
-	.extend("webEnv", { scope: "file" }, async ({ addresses }) => ({
-		...(await readDevEnvWebEnv(webRoot, addresses)),
-		CTX_AUTH_CLIENT_ID: addresses.CTX_AUTH_CLIENT_ID,
-	}))
+	.extend("webEnv", { scope: "file" }, ({ addresses }) =>
+		readDevEnvWebEnv(webRoot, addresses),
+	)
 	.extend("serviceEnv", { scope: "file" }, ({ addresses, webEnv }) =>
 		readDevEnvServiceEnv(root, webEnv, addresses),
 	)

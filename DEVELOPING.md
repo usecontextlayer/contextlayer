@@ -52,7 +52,7 @@ Slate provisioning requires `CTX_APP_OAUTH_PROVISIONING_SECRET` in Doppler `web/
 
 ### Seed shared development state
 
-Run `pnpm dev:seed` from this checkout after installing and building dependencies. It applies migrations and the web-owned SQL template to the database selected by `DATABASE_URL`, independently of running DevEnv services, then ensures the shared Polar Sandbox baseline. It mutates that web database, Polar Sandbox and Doppler `platform/dev`. Docker, sibling web dependencies and runtime configuration remain prerequisites. Supply an organization token and `POLAR_ENVIRONMENT=sandbox` in `platform/dev`; the token needs read/write access to meters, benefits, products, customers, subscriptions and organizations. The seed selects its Polar account from canonical Doppler configuration so published IDs and credentials belong to the same account; shell Polar overrides apply only to runtime.
+Run `pnpm dev:seed` from this checkout after installing and building dependencies. It applies migrations and the web-owned SQL template to the database selected by `DATABASE_URL`, independently of running DevEnv services, then ensures the shared Polar Sandbox baseline. It mutates that web database, Polar Sandbox and Doppler `platform/dev`. Docker and sibling web dependencies remain prerequisites; seeding requires no web runtime secrets. Supply an organization token and `POLAR_ENVIRONMENT=sandbox` in `platform/dev`; the token needs read/write access to meters, benefits, products, customers, subscriptions and organizations. The seed selects its Polar account from canonical Doppler configuration so published IDs and credentials belong to the same account; shell Polar overrides apply only to runtime.
 
 [The checked-in fixture](packages/dev-env/seed.json) owns the fixed development login, identity and OAuth registration values, and catalog definitions. The SQL template prepares the baseline user, organization, owner membership, public CLI client and platform-resource link in each selected web database. Every such database has matching baseline identities and can change independently. The seed ensures matching personal and team Polar customers, one active private zero-price Unlimited subscription for each, the Clips meter and public Free/Pro/Ultra catalog, and portal plan changes. It publishes account-specific Polar runtime settings to `platform/dev`. The fixed public client ID and development credentials are imported directly from the fixture; Doppler does not supply them.
 
@@ -69,9 +69,9 @@ Seed and start a separately selected web database with the same `DATABASE_URL`. 
 | `pnpm dev:ctx <args>` | Run the built CLI against this DevEnv with its checkout-local saved login. |
 | `pnpm dev:env` | Print shell-safe connection settings for another command. Use them in a subshell. |
 
-`pnpm dev` builds workspace dependencies, starts both checkouts' Compose Postgres services without recreating running containers, creates the selected logical databases if absent, and applies each application's migrations. Startup imports the fixed public client ID, prints the selected service URLs and saves both database selections in the completed connection record. It creates no shared identities, catalog resources, customers or subscriptions and performs no Polar catalog discovery. Ordinary billing reads and direct usage ingestion still contact Polar. Forwarding is off by default; `--polar-listen` runs native `polar webhook listen` for this platform without a tunnel. That listener observes the entire Sandbox organization, so enable it deliberately and stop it with its owning DevEnv when finished. New local signups receive Free only when their customer-created webhook is delivered; normal development uses the shared Unlimited owners.
+`pnpm dev` builds workspace dependencies, starts both checkouts' Compose Postgres services without recreating running containers, creates the selected logical databases if absent, and applies each application's migrations. After service readiness, it prints the selected URLs and writes the connection record described under [state and isolation](#state-isolation-and-shutdown). Shared fixture and provider state is prepared through the [explicit seed workflow](#seed-shared-development-state); ordinary billing reads and direct usage ingestion still contact Polar. Forwarding is off by default; `--polar-listen` runs native `polar webhook listen` for this platform without a tunnel. That listener observes the entire Sandbox organization, so enable it deliberately and stop it with its owning DevEnv when finished. New local signups receive Free only when their customer-created webhook is delivered; normal development uses the shared Unlimited owners.
 
-Use your regular browser at the printed web URL and sign in with the development email and password in [the fixture](packages/dev-env/seed.json). **Sign out of any other localhost account before opening a CLI device link.** In another terminal:
+Use your regular browser at the printed web URL and sign in with the development email and password in [the fixture](packages/dev-env/seed.json). Do not use incognito/private sessions. **Sign out of any other localhost account before opening a CLI device link.** In another terminal:
 
 ```sh
 pnpm dev:ctx login
@@ -86,7 +86,7 @@ For a second identity against the same DevEnv, run the built CLI inside a `dev:e
 
 | State | Location and lifetime |
 | --- | --- |
-| Initialized connection settings | This checkout's ignored `.env.json`, written after service readiness and retained after shutdown. `dev:ctx`, `dev:env` and DevEnv test fixtures read it automatically. |
+| DevEnv connection record | This checkout's ignored `.env.json`, written after service readiness and retained after shutdown. `dev:ctx`, `dev:env` and DevEnv test fixtures read it automatically. |
 | CLI login | This checkout's `.contextlayer/cli`, selected by the DevEnv runners and fixtures independently of an inherited personal config directory. |
 | Platform database | `<checkout folder>_platform` on the server selected by `CTX_PLATFORM_DATABASE_URL`; the main checkout uses `contextlayer_platform`. Startup records the selected database URL in `.env.json`. |
 | Web source | Sibling `../web`, shared by the running web processes; generated development output is separated by port. |
@@ -105,7 +105,7 @@ Local Durable Object identities and state are scoped to their effective persiste
 
 ### Commands in another directory or terminal
 
-Once initialization completes, obtaining command settings requires only the checkout's completed connection record: no Doppler download, web database lookup or client-discovery subprocess. This guarantee applies to composing command settings; the command being run may need its own service access.
+Once startup publishes the connection record, obtaining command settings requires only that record: no Doppler download, web database lookup or client-discovery subprocess. This guarantee applies to composing command settings; the command being run may need its own service access.
 
 `dev:ctx` preserves the directory pnpm was invoked from: `pnpm -C <path-to-this-checkout> dev:ctx …` acts on the current directory from anywhere. For an arbitrary command, `dev:env` supplies service URLs, platform and web database URLs, issuer/client settings, the checkout-local login directory and the CLI invocation used for Git authentication and login repair. It does not export access tokens, baseline credentials, Polar overrides or the applications' Doppler secret sets.
 
@@ -199,9 +199,9 @@ The migration command reads `CTX_PLATFORM_DATABASE_URL`. **A bare `doppler run -
 
 ### OAuth registration and migration
 
-Follow the [resource and scope contract](ARCHITECTURE.md#oauth-resources-and-scopes). Keep the issuer, client registration and consumers in the same environment. Local initialization uses local web and the checkout's completed `.env.json`; the service address does not change the canonical platform OAuth resource. CLI issuers require HTTPS except on localhost/127.0.0.1.
+Follow the [resource and scope contract](ARCHITECTURE.md#oauth-resources-and-scopes). Keep the issuer, client registration and consumers in the same environment. For a DevEnv, [seed the selected web database](#seed-shared-development-state) before login; startup records the fixed client ID and selected web URL for later commands. CLI issuers require HTTPS except on localhost/127.0.0.1.
 
-For a new environment, register resources and the public CLI client through Better Auth's native operations, link the client to the platform resource, and allow the device-code and refresh-token grants with `platform:access` and `offline_access`. Let normal CLI device login and MCP authorization issue credentials.
+For a new deployed environment, register resources and the public CLI client through Better Auth's native operations, link the client to the platform resource, and allow the device-code and refresh-token grants with `platform:access` and `offline_access`. Let normal CLI device login and MCP authorization issue credentials.
 
 For an existing environment, inspect native resource registrations, client scopes and client-resource links before proposing changes. Coordinate caller/verifier changes with registration updates, including resource `allowedScopes`, while preserving `offline_access`. **Source edits do not update registrations or saved grants.** Remote configuration changes require the operator's approval for each write. Re-run CLI login and MCP authorization afterward. The shared provisioning secret is configured under [DevEnv](#prerequisites-and-configuration) for local use and [Service deployment](#service-deployment) for production.
 

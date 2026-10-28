@@ -28,7 +28,6 @@ import { seedCatalog } from "./dev-seed-catalog"
 const root = resolve(import.meta.dirname, "..")
 const webRoot = resolve(root, "../web")
 const platformConfig = await readDopplerEnv(root, "platform", "dev")
-const webConfig = await readDopplerEnv(webRoot, "web", "dev_personal")
 const bootstrap = z
 	.object({
 		POLAR_ACCESS_TOKEN: z.string().min(1),
@@ -41,13 +40,6 @@ const bootstrap = z
 	})
 	.parse(platformConfig)
 const { DATABASE_URL } = readDevEnv()
-const webEnv = {
-	...webConfig,
-	DATABASE_URL,
-	NODE_ENV: "development",
-	POLAR_ACCESS_TOKEN: bootstrap.POLAR_ACCESS_TOKEN,
-	POLAR_ENVIRONMENT: bootstrap.POLAR_ENVIRONMENT,
-}
 const polar = createPolarCore({
 	accessToken: bootstrap.POLAR_ACCESS_TOKEN,
 	environment: bootstrap.POLAR_ENVIRONMENT,
@@ -63,7 +55,7 @@ await execa("docker", ["compose", "up", "-d", "--no-recreate", "--wait", "postgr
 await initializeDatabase(DATABASE_URL, async () => {
 	await execa("pnpm", ["db.latest", "--ci"], {
 		cwd: webRoot,
-		env: webEnv,
+		env: { DATABASE_URL, NODE_ENV: "development" },
 		stdio: "inherit",
 	})
 })
