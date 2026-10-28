@@ -65,13 +65,40 @@ Start with a private slate created with `init`, as in the [Quickstart](/quicksta
     Hosted jobs read the agent from the latest commit on `main`, so a pushed change to `instructions.md` or `slate.json` applies to the next job. Database migrations and schedules take effect only when the pushed commit builds and deploys successfully. See [Deploy](/how-to/deploy).
   </Step>
   <Step title="Start a hosted job and inspect it">
-    Hosted jobs start through the platform API, and only on private slates. The CLI's `agent` command runs an agent on your own machine instead; `npx @usecontextlayer/cli agent --help` describes it.
+    Hosted jobs start through the platform API, and only on private slates. Use [the API CLI](/how-to/use-the-platform-api) with your saved login to invoke its operations. The CLI's `agent` command runs an agent on your own machine; `npx @usecontextlayer/cli agent --help` describes it.
 
     Open the deployed notes app and add a few notes for the agent to summarize. Notes created during local development stay in the local database and are not present in the hosted database.
 
-    Call [Start an agent job with a prompt](/api-reference/agent-jobs/start-an-agent-job-with-a-prompt) with "Summarize the notes." Keep the job identifier returned by the API for the requests below. The start request returns after the job is accepted for execution; it does not wait for the answer.
+    Inspect [Start an agent job with a prompt](/api-reference/agent-jobs/start-an-agent-job-with-a-prompt), then send the prompt:
 
-    Start by checking its [current operation](/api-reference/agent-jobs/get-an-agent-jobs-current-operation), then [wait for the operation result](/api-reference/agent-jobs/wait-for-an-agent-jobs-operation-result). A successful result should summarize the notes you added. Each job starts a fresh conversation; start a new job for another task.
+    ```sh
+    npx @usecontextlayer/cli api startAgentJob --describe
+    npx @usecontextlayer/cli api startAgentJob \
+      --params '{"target":"<slate-id-or-hostname>","name":"digest"}' \
+      --json '{"prompt":"Summarize the notes."}'
+    ```
+
+    Keep `data.job.id` for the requests below. The start request returns after the job is accepted for execution; it does not wait for the answer. The native operation and session IDs in `data.receipt` identify execution within the job and are separate from its catalog ID.
+
+    Start by checking its [current operation](/api-reference/agent-jobs/get-an-agent-jobs-current-operation), then [wait for the operation result](/api-reference/agent-jobs/wait-for-an-agent-jobs-operation-result):
+
+    ```sh
+    npx @usecontextlayer/cli api getAgentJobOperation \
+      --params '{"target":"<slate-id-or-hostname>","name":"digest","id":"<job-id>"}'
+    npx @usecontextlayer/cli api getAgentJobResult \
+      --params '{"target":"<slate-id-or-hostname>","name":"digest","id":"<job-id>"}'
+    ```
+
+    Read the native result in `data`. A `done` result means the operation answered; check its text to see whether it completed the task. The answer should summarize the notes you added. Each job starts a fresh conversation; start a new job for another task.
+
+    To read the model and tool messages, enumerate the job's sessions, then select a returned session ID:
+
+    ```sh
+    npx @usecontextlayer/cli api listAgentJobSessions \
+      --params '{"target":"<slate-id-or-hostname>","name":"digest","id":"<job-id>"}'
+    npx @usecontextlayer/cli api getAgentJobMessages \
+      --params '{"target":"<slate-id-or-hostname>","name":"digest","id":"<job-id>","session":"<session-id>"}'
+    ```
 
     For more detail, use these inspection operations:
 

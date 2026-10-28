@@ -31,6 +31,12 @@ export class LoginRequiredError extends Error {
 	}
 }
 
+export class MissingLoginError extends LoginRequiredError {
+	constructor(options?: ErrorOptions) {
+		super("Not signed in.", options)
+	}
+}
+
 async function configuration(env: AuthEnv) {
 	const issuer = new URL(env.CTX_AUTH_ISSUER)
 	return oauth.discovery(issuer, env.CTX_AUTH_CLIENT_ID, undefined, oauth.None(), {
@@ -81,7 +87,7 @@ export async function getAccessToken(env: AuthEnv) {
 	const contents = await readFile(join(env.CTX_CONFIG_DIR, "auth.json"), "utf8").catch(
 		(error: unknown) => {
 			if (error instanceof Error && "code" in error && error.code === "ENOENT") {
-				throw new LoginRequiredError("Not signed in.", { cause: error })
+				throw new MissingLoginError({ cause: error })
 			}
 			throw error
 		},
@@ -139,6 +145,7 @@ export async function listOrganizations(env: AuthEnv, headers: HeadersInit) {
 			headers,
 		},
 	)
+	if (response.status === 401) throw new LoginRequiredError("Saved login was rejected.")
 	if (!response.ok) throw new Error(`Organization lookup failed: HTTP ${response.status}`)
 	const { organizations } = z
 		.object({

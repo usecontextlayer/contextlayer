@@ -180,6 +180,8 @@ export function createApi() {
 	const slateRouting = new OpenAPIHono<IdentityEnv>()
 	slateRouting.openapi(
 		createRoute({
+			description:
+				"Resolve a public hostname to a slate authorized for this caller. Private slates require the owning user or an organization member. The pathname identifies the requested slate path; /slate.json skips the execution billing check.",
 			method: "get",
 			operationId: "resolveSlate",
 			path: "/resolve",
@@ -228,6 +230,8 @@ export function createApi() {
 	)
 	slateRouting.openapi(
 		createRoute({
+			description:
+				"Read public OAuth protected-resource metadata for a slate MCP endpoint. This does not grant access to the slate or its resources.",
 			method: "get",
 			operationId: "getSlateMcpMetadata",
 			path: "/mcp/metadata",
@@ -272,7 +276,7 @@ export function createApi() {
 	slates.openapi(
 		createRoute({
 			description:
-				"List manageable slates. Supply either owner_user_id or owner_organization_id, or omit both to list all manageable slates.",
+				"List manageable slates, including slates belonging to the authenticated user and their organizations. Supply either owner_user_id or owner_organization_id, or omit both to list all manageable slates. Filters do not grant access to another Owner.",
 			method: "get",
 			operationId: "listSlates",
 			path: "/",
@@ -317,6 +321,8 @@ export function createApi() {
 	)
 	slates.openapi(
 		createRoute({
+			description:
+				"Create a private slate and its source repository. Omitting organization_slug uses the authenticated personal Owner; supplying it selects an organization the caller belongs to.",
 			method: "post",
 			operationId: "createSlate",
 			path: "/",
@@ -356,6 +362,8 @@ export function createApi() {
 	)
 	slates.openapi(
 		createRoute({
+			description:
+				"Read the canonical slate identity and visibility using a SlateID or public hostname. Requires slate management permission.",
 			method: "get",
 			operationId: "getSlate",
 			path: "/{target}",
@@ -396,6 +404,8 @@ export function createApi() {
 	slate.use("*", requireSlateViewing)
 	slate.openapi(
 		createRoute({
+			description:
+				"Change the slate between public and private viewing. Requires slate management permission; visibility does not change source-management authority or resource ownership.",
 			method: "patch",
 			operationId: "updateSlateVisibility",
 			path: "/",
@@ -447,6 +457,8 @@ export function createApi() {
 	})
 	slateResources.openapi(
 		createRoute({
+			description:
+				"Read requirements from the pushed app and agent declarations together with their hosted configuration. This inventory does not execute resources or return secret values.",
 			method: "post",
 			operationId: "listSlateResources",
 			path: "/resources/list",
@@ -489,6 +501,8 @@ export function createApi() {
 	)
 	slateResources.openapi(
 		createRoute({
+			description:
+				"Read pushed connection requirements and hosted account assignments. Local checkout assignments are independent and are not uploaded to this configuration.",
 			method: "post",
 			operationId: "listSlateConnections",
 			path: "/connections/list",
@@ -530,6 +544,8 @@ export function createApi() {
 	)
 	slateResources.openapi(
 		createRoute({
+			description:
+				"Assign an existing connected account to a pushed connection requirement for its declared Owner. The account must match the declared toolkit. This does not create an account or perform provider authorization.",
 			method: "post",
 			operationId: "assignSlateConnection",
 			path: "/connections/assign",
@@ -572,6 +588,8 @@ export function createApi() {
 	)
 	slateResources.openapi(
 		createRoute({
+			description:
+				"Save the named secret for the Owner selected by its pushed requirement and mode. Supply secret values directly; responses do not return stored values.",
 			method: "put",
 			operationId: "setSlateSecret",
 			path: "/secrets/{name}",
@@ -617,6 +635,8 @@ export function createApi() {
 	const agents = new OpenAPIHono<OwnerViewingEnv>()
 	agents.openapi(
 		createRoute({
+			description:
+				"Read an authored agent definition from the latest commit on main. Requires slate management permission because instructions are source. Each hosted job starts a fresh execution of this definition.",
 			method: "get",
 			operationId: "getAgent",
 			path: "/",
@@ -660,6 +680,8 @@ export function createApi() {
 	)
 	agents.openapi(
 		createRoute({
+			description:
+				"Inspect native authored cron schedules in the app and current-user scopes available to this caller. Requires slate management permission. Schedule authoring and removal happen through Git and deployment; framework lifecycle callbacks are excluded.",
 			method: "get",
 			operationId: "listAgentSchedules",
 			path: "/schedules",
@@ -701,6 +723,8 @@ export function createApi() {
 	)
 	agents.openapi(
 		createRoute({
+			description:
+				"Inspect one native authored schedule by scheduleId. Requires slate management permission. Native schedule time uses Unix seconds; the authored schedule name is separate from the native schedule ID.",
 			method: "get",
 			operationId: "getAgentSchedule",
 			path: "/schedules/{scheduleId}",
@@ -748,6 +772,8 @@ export function createApi() {
 	})
 	jobs.openapi(
 		createRoute({
+			description:
+				"Start a fresh hosted job on a private slate using the latest agent definition on main and the authenticated acting user. Returns after admission with the catalog job and native execution receipt, without waiting for an answer. Use job.id for job routes and receipt.operationId and receipt.session to identify its native execution.",
 			method: "post",
 			operationId: "startAgentJob",
 			path: "/",
@@ -814,6 +840,8 @@ export function createApi() {
 	)
 	jobs.openapi(
 		createRoute({
+			description:
+				"Read one native catalog entry by job ID. Catalog metadata records the actor and API or schedule trigger; it does not describe execution progress. Use the operation and result endpoints for execution state.",
 			method: "get",
 			operationId: "getAgentJob",
 			path: "/{id}",
@@ -841,6 +869,8 @@ export function createApi() {
 	)
 	jobs.openapi(
 		createRoute({
+			description:
+				"Inspect the admitted native operation without waiting. Pending status is queued or running; settled status is done or unanswered. A done result means the operation answered, not that the requested task succeeded. This response contains no transcript.",
 			method: "get",
 			operationId: "getAgentJobOperation",
 			path: "/{id}/operation",
@@ -874,6 +904,8 @@ export function createApi() {
 	)
 	jobs.openapi(
 		createRoute({
+			description:
+				"Wait for the admitted native operation to settle and return its native result without a transcript. done means an answer is available; unanswered may include a reason. Neither status is a judgment that the requested task succeeded. Use sessions and messages for execution detail.",
 			method: "get",
 			operationId: "getAgentJobResult",
 			path: "/{id}/result",
@@ -901,6 +933,8 @@ export function createApi() {
 	)
 	jobs.openapi(
 		createRoute({
+			description:
+				"Enumerate native execution sessions within this job. Requires slate management permission. Session IDs are local to a job and can recur in other jobs; use the returned IDs with this job messages route.",
 			method: "get",
 			operationId: "listAgentJobSessions",
 			path: "/{id}/sessions",
@@ -944,6 +978,8 @@ export function createApi() {
 	)
 	jobs.openapi(
 		createRoute({
+			description:
+				"Read the active transcript of an existing session in this job, preserving native entry and model fields. Requires slate management permission. This is active context, including native context edits, rather than a normalized chat history. Missing jobs or sessions return HTTP 404.",
 			method: "get",
 			operationId: "getAgentJobMessages",
 			path: "/{id}/sessions/{session}/messages",
@@ -988,6 +1024,8 @@ export function createApi() {
 	)
 	jobs.openapi(
 		createRoute({
+			description:
+				"Read native model and tool usage buckets aggregated across the job conversations. Requires slate management permission. Keys and usage fields retain their native meanings.",
 			method: "get",
 			operationId: "getAgentJobUsage",
 			path: "/{id}/usage",
@@ -1031,6 +1069,8 @@ export function createApi() {
 	)
 	jobs.openapi(
 		createRoute({
+			description:
+				"Inspect live scheduling, unfinished tasks, and queued or placed submissions. Requires slate management permission. An empty inspection after settlement is valid; use session messages to read completed work.",
 			method: "get",
 			operationId: "getAgentJobInspection",
 			path: "/{id}/inspection",
@@ -1074,6 +1114,8 @@ export function createApi() {
 	)
 	jobs.openapi(
 		createRoute({
+			description:
+				"Abort the native pending operation and retain the job and execution records. Requires slate management permission. HTTP 200 contains the native boolean result, including false when nothing was aborted; a missing catalog entry returns HTTP 404.",
 			method: "delete",
 			operationId: "abortAgentJob",
 			path: "/{id}/operation",
@@ -1117,6 +1159,8 @@ export function createApi() {
 	)
 	jobs.openapi(
 		createRoute({
+			description:
+				"Delete an owned job catalog entry and its native execution state, releasing its computer. Requires slate management permission. Deletion does not undo database writes or actions already performed by tools.",
 			method: "delete",
 			operationId: "deleteAgentJob",
 			path: "/{id}",
@@ -1158,6 +1202,8 @@ export function createApi() {
 	)
 	jobs.openapi(
 		createRoute({
+			description:
+				"List native catalog entries for this agent in the app and current-user scopes available to the caller, newest first by creation time and ID. The optional schedule filter is the authored schedule name. Catalog timestamps describe metadata changes in Unix milliseconds, not execution progress.",
 			method: "get",
 			operationId: "listAgentJobs",
 			path: "/",
@@ -1203,6 +1249,8 @@ export function createApi() {
 	accounts.use("*", requireAuth)
 	accounts.openapi(
 		createRoute({
+			description:
+				"List the authenticated developer personal ACTIVE connected accounts for the declared toolkit. This discovery does not include organization accounts or grant authority to execute arbitrary account tools.",
 			method: "get",
 			operationId: "listPersonalAccounts",
 			path: "/",
@@ -1233,6 +1281,8 @@ export function createApi() {
 	)
 	accounts.openapi(
 		createRoute({
+			description:
+				"Call a provider action through the authenticated developer personal connected account and the authorized slate. Preserve the provider result and error fields; HTTP success does not imply the provider action succeeded.",
 			method: "post",
 			operationId: "callAccountTool",
 			path: "/{account_id}/tools/call",
@@ -1300,6 +1350,8 @@ export function createApi() {
 	)
 	accounts.openapi(
 		createRoute({
+			description:
+				"List ACTIVE connected accounts belonging to the selected personal or organization Owner. The caller must be that personal user or a member of the organization. Provider credentials remain in Composio.",
 			method: "get",
 			operationId: "listAccounts",
 			path: "/{type}/{owner_id}",
@@ -1330,6 +1382,8 @@ export function createApi() {
 	)
 	accounts.openapi(
 		createRoute({
+			description:
+				"Create a provider authorization link for the selected personal or organization Owner. The person completing the hosted OAuth flow chooses and authorizes the external account. The link is not a completed connection.",
 			method: "post",
 			operationId: "connectAccount",
 			path: "/{type}/{owner_id}",
@@ -1372,6 +1426,8 @@ export function createApi() {
 	secrets.use("*", requireAuth)
 	secrets.openapi(
 		createRoute({
+			description:
+				"Save a named secret for the selected personal or organization Owner after Owner authorization. The stored value is used by declarations resolving to that Owner and is not returned.",
 			method: "put",
 			operationId: "setSharedSecret",
 			path: "/{type}/{owner_id}/{name}",
@@ -1411,6 +1467,8 @@ export function createApi() {
 	)
 	secrets.openapi(
 		createRoute({
+			description:
+				"Delete a named secret for the selected personal or organization Owner after Owner authorization. Declarations remain unchanged and subsequently require the missing value.",
 			method: "delete",
 			operationId: "dropSharedSecret",
 			path: "/{type}/{owner_id}/{name}",

@@ -51,6 +51,7 @@
 		"@types/react-dom": "^19.0.0",
 		"@usecontextlayer/dev-env": "workspace:*",
 		"@usecontextlayer/sdk": "workspace:*",
+		"execa": "^10.0.1",
 		"kanel": "^4.0.3",
 		"kanel-kysely": "^4.0.0",
 		"tailwindcss": "^4.3.3",

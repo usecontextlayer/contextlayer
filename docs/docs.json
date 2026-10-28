@@ -99,6 +99,7 @@
 					{
 						"group": "How-to",
 						"pages": [
+							"how-to/use-the-platform-api",
 							"how-to/build-an-agent",
 							"how-to/connect-an-account",
 							"how-to/add-a-database",

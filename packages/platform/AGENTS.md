@@ -7,6 +7,7 @@ Preserve conceptual integrity when extending platform: use the [canonical domain
 **Expose product operations through OpenAPI and one shared domain function, including simple database queries.** API handlers and React Router server loaders/actions must call that same function. Add the API contract with the first implementation, not after the UI ships.
 
 - Zod schemas own input validation, inferred types, and OpenAPI contracts. Reuse the input schema wherever callers accept the same untrusted input.
+- Published operations are CLI operations. Give each a unique stable `operationId` and descriptions explaining inputs, authorization, response meaning, and native units where needed. The generic `ctx api` consumer and API reference read that contract; do not add parallel per-operation CLI definitions or endpoint documentation.
 - Handlers own HTTP: parse and validate inputs, call the operation, and adapt its result. Loaders/actions call the operation in-process; never call our own API over HTTP or implement another database path.
 - Domain functions own business rules, authorization, and database reads/writes. Accept typed, normalized arguments and explicit dependencies; do not accept framework request/context objects or return HTTP responses.
 - Use ordinary functions grouped by domain. Do not add service classes, a generic repository layer, or a dependency-injection framework to express this boundary.

@@ -148,12 +148,21 @@ importers:
       '@usecontextlayer/shared':
         specifier: workspace:*
         version: link:../shared
+      axios:
+        specifier: 1.20.0
+        version: 1.20.0(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2)
       commander:
         specifier: ^15.0.0
         version: 15.0.0
       execa:
         specifier: ^10.0.1
         version: 10.0.1
+      js-yaml:
+        specifier: 4.3.2
+        version: 4.3.2
+      openapi-client-axios:
+        specifier: 7.9.1
+        version: 7.9.1(axios@1.20.0(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2))(js-yaml@4.3.2)
       openid-client:
         specifier: ^6.8.8
         version: 6.8.8
@@ -468,6 +477,9 @@ importers:
       '@usecontextlayer/sdk':
         specifier: workspace:*
         version: link:../sdk
+      execa:
+        specifier: ^10.0.1
+        version: 10.0.1
       kanel:
         specifier: ^4.0.3
         version: 4.0.4(@electric-sql/pglite@0.5.8)(supports-color@10.2.2)
@@ -3821,6 +3833,9 @@ packages:
     engines: {node: '>=6.0.0'}
     hasBin: true
 
+  bath-es5@3.0.3:
+    resolution: {integrity: sha512-PdCioDToH3t84lP40kUFCKWCOCH389Dl1kbC8FGoqOwamxsmqxxnJSXdkTOsPoNHXjem4+sJ+bbNoQm5zeCqxg==}
+
   better-auth@1.7.7:
     resolution: {integrity: sha512-Zhgxi/c5ylmfB/sX+nwnBbsFf/j6k0L8DvL6CJXZSrXgxc5pPMC/e7j812zNd4L4B4ELmdURCPw3X8nAOUdcjw==}
     peerDependencies:
@@ -4242,6 +4257,9 @@ packages:
   dequal@2.0.3:
     resolution: {integrity: sha512-0je+qPKHEMohvfRTCEo3CrPG6cAzAYgmzKyxRiYSSDkS6eGJdyVJm7WaYA5ECaAD9wLB2T4EEeymA5aFVcYXCA==}
     engines: {node: '>=6'}
+
+  dereference-json-schema@0.2.3:
+    resolution: {integrity: sha512-CBVoEuf2tKhqnUhoKjvX4wo5NVxDSHxInqwExQfUNEK67aX+LPC27Vg+6CApi+KRebABJZAWhHBVoNpKfhMssg==}
 
   detect-indent@7.0.2:
     resolution: {integrity: sha512-y+8xyqdGLL+6sh0tVeHcfP/QDd8gUgbasolJJpY7NgeQGSZ739bDtSiaiDgtoicy+mtYB81dKLxO9xRhCyIB3A==}
@@ -5769,6 +5787,15 @@ packages:
         optional: true
       zod:
         optional: true
+
+  openapi-client-axios@7.9.1:
+    resolution: {integrity: sha512-T8BqBwXJvJIV6afVWPV2/WRUe19hf/uBye/8ceuxOCCxPANhFYVbdOKBFJjrdmpm4lKDt3guosAuAVoJXujuCA==}
+    peerDependencies:
+      axios: '>=0.25.0'
+      js-yaml: ^4.1.0
+
+  openapi-types@12.1.3:
+    resolution: {integrity: sha512-N4YtSYJqghVu4iek2ZUvcN/0aqH1kRDuNqzcycDxhOUpg7GdvLa2F3DgS6yBNhInhv2r/6I0Flkn7CqL8+nIcw==}
 
   openapi3-ts@4.6.1:
     resolution: {integrity: sha512-XW9MOldkhoICNeXVzzmXzmOW5G73ppOEGmh7fLCqHjgfdEYCGGN+00MlVCeUZgovjjfC56j9tvtDt1zGabNjjA==}
@@ -9972,6 +9999,8 @@ snapshots:
 
   baseline-browser-mapping@2.11.27: {}
 
+  bath-es5@3.0.3: {}
+
   better-auth@1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.11)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261001.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.17.2)(supports-color@10.2.2))(kysely@0.29.5)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))(pg@8.23.1)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(vitest@4.1.11):
     dependencies:
       '@better-auth/core': 1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.5))(jose@6.2.12)(kysely@0.29.5)(nanostores@1.5.4)
@@ -10101,8 +10130,7 @@ snapshots:
 
   buffer-equal-constant-time@1.0.1: {}
 
-  buffer-from@1.1.2:
-    optional: true
+  buffer-from@1.1.2: {}
 
   buffer@5.7.1:
     dependencies:
@@ -10364,6 +10392,8 @@ snapshots:
   depd@2.0.0: {}
 
   dequal@2.0.3: {}
+
+  dereference-json-schema@0.2.3: {}
 
   detect-indent@7.0.2: {}
 
@@ -12123,6 +12153,16 @@ snapshots:
       undici: 7.30.0
       ws: 8.21.3
       zod: 4.6.5
+
+  openapi-client-axios@7.9.1(axios@1.20.0(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2))(js-yaml@4.3.2):
+    dependencies:
+      axios: 1.20.0(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2)
+      bath-es5: 3.0.3
+      dereference-json-schema: 0.2.3
+      js-yaml: 4.3.2
+      openapi-types: 12.1.3
+
+  openapi-types@12.1.3: {}
 
   openapi3-ts@4.6.1:
     dependencies:

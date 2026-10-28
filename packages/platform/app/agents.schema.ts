@@ -25,8 +25,12 @@ export const agentSchema = z.object({
 })
 
 export const agentRunRequestSchema = z.strictObject({
-	name: z.string().min(1),
-	prompt: z.string().min(1),
+	name: z.string().min(1).openapi({
+		description: "Agent directory name under agents/ in the pushed source.",
+	}),
+	prompt: z.string().min(1).openapi({
+		description: "User message for a fresh job, separate from its standing instructions.",
+	}),
 })
 
 export const agentParamsSchema = z.object({
@@ -35,21 +39,35 @@ export const agentParamsSchema = z.object({
 })
 export const agentJobRequestSchema = agentRunRequestSchema.omit({ name: true })
 export const agentJobReceiptSchema = z.object({
-	accepted: z.boolean(),
-	operationId: z.string(),
-	session: z.string().openapi({ description: "Pi session ID scoped to this job." }),
+	accepted: z.boolean().openapi({
+		description: "Whether the native operation was admitted; not a task-success result.",
+	}),
+	operationId: z.string().openapi({
+		description: "Native Pi operation identifier, distinct from the catalog job ID.",
+	}),
+	session: z.string().openapi({
+		description: "Pi session ID scoped to this job; IDs can recur in other jobs.",
+	}),
 }) satisfies z.ZodType<PiReceipt>
 export const agentJobPendingSchema = z.object({
-	operationId: z.string(),
-	session: z.string(),
+	operationId: agentJobReceiptSchema.shape.operationId,
+	session: agentJobReceiptSchema.shape.session,
 	status: z.enum(["queued", "running"]),
 }) satisfies z.ZodType<PiPendingOperation>
 export const agentJobResultSchema = z.object({
-	operationId: z.string(),
-	reason: z.string().optional(),
-	session: z.string(),
-	status: z.enum(["done", "unanswered"]),
-	text: z.string().optional(),
+	operationId: agentJobReceiptSchema.shape.operationId,
+	reason: z.string().optional().openapi({
+		description: "Native explanation when the operation settles without an answer.",
+	}),
+	session: agentJobReceiptSchema.shape.session,
+	status: z.enum(["done", "unanswered"]).openapi({
+		description:
+			"done means the operation answered; unanswered means it settled without an answer. Neither asserts task success.",
+	}),
+	text: z.string().optional().openapi({
+		description:
+			"Final answer text when supplied by the native operation; not a transcript.",
+	}),
 }) satisfies z.ZodType<PiOperationResult>
 export const agentJobOperationSchema = z.union([
 	agentJobPendingSchema,
@@ -70,7 +88,10 @@ export const agentJobEntrySchema = z.object({
 	createdAt: z
 		.number()
 		.openapi({ description: "Catalog creation time in Unix milliseconds." }),
-	id: z.uuid(),
+	id: z.uuid().openapi({
+		description:
+			"Catalog job ID used by job routes, distinct from the operation and session IDs.",
+	}),
 	metadata: agentJobMetadataSchema.nullable(),
 	updatedAt: z.number().openapi({
 		description: "Last catalog update in Unix milliseconds; not execution progress.",
@@ -86,7 +107,9 @@ export const agentJobsQuerySchema = z.object({
 	}),
 })
 export const agentScheduleParamsSchema = agentParamsSchema.extend({
-	scheduleId: z.string().min(1),
+	scheduleId: z.string().min(1).openapi({
+		description: "Native provisioned schedule ID from the schedule listing.",
+	}),
 })
 export const agentJobParamsSchema = agentParamsSchema.extend({
 	id: agentJobEntrySchema.shape.id,
@@ -101,8 +124,10 @@ export const agentJobSessionParamsSchema = agentJobParamsSchema.extend({
 })
 export const agentJobSessionSchema = z.object({
 	busy: z.boolean(),
-	id: z.string(),
-	parent: z.string().optional(),
+	id: agentJobReceiptSchema.shape.session,
+	parent: z.string().optional().openapi({
+		description: "Parent session ID within the same job, when present.",
+	}),
 }) satisfies z.ZodType<PiSessionInfo>
 
 const piMessageSchema = z

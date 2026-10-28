@@ -1,10 +1,16 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
+import { createServer } from "node:http"
 import { homedir, tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { execa } from "execa"
 import { afterEach, expect, test, vi } from "vitest"
-import { type AuthEnv, getAccessToken } from "@/auth"
+import {
+	type AuthEnv,
+	getAccessToken,
+	LoginRequiredError,
+	listOrganizations,
+} from "@/auth"
 import { version } from "@/package.json"
 
 const directories: string[] = []
@@ -94,6 +100,31 @@ async function loginCommandArgs(stderr: string) {
 	return { args: JSON.parse(stdout) as string[], command }
 }
 
+test("organization reads report a rejected login", async () => {
+	const server = createServer((_request, response) => {
+		response.writeHead(401).end()
+	})
+	await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve))
+	try {
+		const address = server.address()
+		if (!address || typeof address === "string") throw new Error("Expected TCP server")
+		await expect(
+			listOrganizations(
+				{
+					CTX_AUTH_CLIENT_ID: "cli-client",
+					CTX_AUTH_ISSUER: `http://127.0.0.1:${address.port}/api/auth`,
+					CTX_CONFIG_DIR: tmpdir(),
+				},
+				{},
+			),
+		).rejects.toBeInstanceOf(LoginRequiredError)
+	} finally {
+		await new Promise<void>((resolve, reject) =>
+			server.close((error) => (error ? reject(error) : resolve())),
+		)
+	}
+})
+
 async function expectLoginCommand(
 	stderr: string,
 	settings: AuthEnv & { CTX_PLATFORM_URL: string },
@@ -151,9 +182,13 @@ test.each([
 	},
 )
 
-test.each(["missing", "expired"])(
-	"CLI preserves selected settings for a %s login",
-	async (state) => {
+test.each(
+	["whoami", "token"].flatMap((command) =>
+		["missing", "expired"].map((state) => ({ command, state })),
+	),
+)(
+	"$command preserves selected settings for a $state login",
+	async ({ command, state }) => {
 		const saved = await savedLogin("unused-access-token")
 		const path = join(saved.CTX_CONFIG_DIR, "auth.json")
 		if (state === "missing") {
@@ -163,7 +198,7 @@ test.each(["missing", "expired"])(
 			await writeFile(path, JSON.stringify({ ...credentials, expiresAt: 0 }))
 		}
 		const settings = { ...saved, CTX_PLATFORM_URL: "http://localhost:43002" }
-		const { exitCode, stderr } = await execa(process.execPath, [...cliArgs, "whoami"], {
+		const { exitCode, stderr } = await execa(process.execPath, [...cliArgs, command], {
 			cwd,
 			env: { ...settings, CTX_CLI_COMMAND: invocation },
 			reject: false,

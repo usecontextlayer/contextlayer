@@ -7,6 +7,7 @@ import { execa } from "execa"
 import { z } from "zod"
 import { connectAccount, listAccounts } from "@/accounts"
 import { runLocalAgent } from "@/agents"
+import { addApiCommand } from "@/api"
 import { getAccessToken, getCurrentUser, LoginRequiredError, login } from "@/auth"
 import { formatAuthCommand } from "@/auth-command"
 import {
@@ -25,6 +26,8 @@ program.addHelpText(
 	"afterAll",
 	`\nEnvironment (current values):\n  CTX_PLATFORM_URL    ${env.CTX_PLATFORM_URL}\n  CTX_AUTH_ISSUER     ${env.CTX_AUTH_ISSUER}\n  CTX_AUTH_CLIENT_ID  ${env.CTX_AUTH_CLIENT_ID}\n  CTX_CONFIG_DIR      ${env.CTX_CONFIG_DIR}  Saved-login directory; one login per directory.\n  CTX_CLI_COMMAND     ${readCliCommand(env)}  CLI invocation used for Git registration and login repair.\n\nRun without a global install: npx @usecontextlayer/cli <command>`,
 )
+
+addApiCommand(program)
 
 function addAuthOptions(command: Command) {
 	return command
@@ -47,26 +50,32 @@ function readAuthOptions(options: Record<string, unknown>) {
 	})
 }
 
+function reportLoginRequired(
+	error: LoginRequiredError,
+	command: Command,
+	settings = env,
+) {
+	const lines = [error.message]
+	if (error.mismatch) {
+		const { saved, expected } = error.mismatch
+		lines.push(`Saved issuer: ${saved.issuer}`, `Expected issuer: ${expected.issuer}`)
+		if (saved.clientId !== expected.clientId)
+			lines.push(
+				`Saved client ID: ${saved.clientId}`,
+				`Expected client ID: ${expected.clientId}`,
+			)
+	}
+	lines.push(`Run: ${formatAuthCommand(readCliCommand(settings), "login", settings)}`)
+	command.error(lines.join("\n"))
+}
+
 async function authenticate(command: Command, settings = env) {
 	try {
 		return await getCurrentUser(settings, {
 			authorization: `Bearer ${await getAccessToken(settings)}`,
 		})
 	} catch (error) {
-		if (error instanceof LoginRequiredError) {
-			const lines = [error.message]
-			if (error.mismatch) {
-				const { saved, expected } = error.mismatch
-				lines.push(`Saved issuer: ${saved.issuer}`, `Expected issuer: ${expected.issuer}`)
-				if (saved.clientId !== expected.clientId)
-					lines.push(
-						`Saved client ID: ${saved.clientId}`,
-						`Expected client ID: ${expected.clientId}`,
-					)
-			}
-			lines.push(`Run: ${formatAuthCommand(readCliCommand(settings), "login", settings)}`)
-			command.error(lines.join("\n"))
-		}
+		if (error instanceof LoginRequiredError) reportLoginRequired(error, command, settings)
 		throw error
 	}
 }
@@ -196,6 +205,15 @@ program
 		)
 	})
 
+program
+	.command("token")
+	.description(
+		"Print the current platform access token, refreshing the selected saved login if needed",
+	)
+	.action(async () => {
+		console.log(await getAccessToken(env))
+	})
+
 const accounts = program
 	.command("accounts")
 	.description("Connect and list the selected Owner's connected accounts")
@@ -203,7 +221,6 @@ const accounts = program
 		"--org <slug>",
 		"Manage this organization's connected accounts; defaults to the signed-in user",
 	)
-	.hook("preAction", requireLogin)
 
 accounts
 	.command("list")
@@ -291,7 +308,6 @@ const secrets = program
 		"Save or drop Owner-owned shared secrets through the authenticated platform",
 	)
 	.option("--org <slug>", "Use this organization's Owner; defaults to the signed-in user")
-	.hook("preAction", requireLogin)
 
 secrets
 	.command("set")
@@ -354,4 +370,9 @@ program
 		}
 	})
 
-await program.parseAsync()
+try {
+	await program.parseAsync()
+} catch (error) {
+	if (error instanceof LoginRequiredError) reportLoginRequired(error, program)
+	throw error
+}

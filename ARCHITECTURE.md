@@ -86,6 +86,8 @@ The packages have these responsibilities:
 
 Almost every user-facing platform capability is exposed through OpenAPI so the web dashboard, CLI, and a future MCP consumer share the same product operations. Zod owns their input and output contracts. A shared domain function owns each operation’s business logic, authorization, and database calls; API handlers adapt it to HTTP and React Router loaders/actions invoke it directly in-process. UI components own presentation and interaction. This is a standing design rule, not a claim that every future CLI command or MCP surface exists today. Better Auth owns its native authentication protocols; product APIs consume the resulting verified identity.
 
+The CLI must expose published operations through `ctx api` using the selected platform's live OpenAPI contract. Operation IDs, input schemas, descriptions, and response payloads must retain the API's vocabulary. The CLI owns shell input, existing saved-login authentication, and full HTTP response JSON; it must not maintain a second operation catalog or interpret domain outcomes. Existing task-oriented commands remain consumers of the platform operations.
+
 ## Trust and authority
 
 ### Security boundary: trusted services and authored slates — principles
