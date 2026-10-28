@@ -109,7 +109,6 @@ export function addApiCommand(program: Command) {
 					})
 			}
 		} catch (error) {
-			if (error instanceof LoginRequiredError) throw error
 			apiCommand.error(error instanceof Error ? error.message : String(error))
 		}
 	})
