@@ -39,17 +39,19 @@ test("per-key mode migrates each database with its own migrator and dropAll recl
 			},
 		},
 	})
-	expect(Object.keys(provisioned.urls).sort()).toEqual([
-		"ctx_ephemeral_pk_one",
-		"ctx_ephemeral_pk_two",
-	])
-	expect(migrated.sort()).toEqual(Object.values(provisioned.urls).sort())
 	const names = databaseNamesFromUrls(provisioned.urls)
-	expect(await listLiveDatabaseNames("ctx_ephemeral_pk_")).toEqual(
-		expect.arrayContaining(names),
-	)
-
-	await provisioned.dropAll()
+	try {
+		expect(Object.keys(provisioned.urls).sort()).toEqual([
+			"ctx_ephemeral_pk_one",
+			"ctx_ephemeral_pk_two",
+		])
+		expect(migrated.sort()).toEqual(Object.values(provisioned.urls).sort())
+		expect(await listLiveDatabaseNames("ctx_ephemeral_pk_")).toEqual(
+			expect.arrayContaining(names),
+		)
+	} finally {
+		await provisioned.dropAll()
+	}
 	const after = await listLiveDatabaseNames("ctx_ephemeral_pk_")
 	for (const name of names) {
 		expect(after).not.toContain(name)

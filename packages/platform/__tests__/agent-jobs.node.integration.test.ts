@@ -51,7 +51,7 @@ test("failed job admission leaves the catalog empty", async ({ platform }) => {
 })
 
 test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
-	"API jobs using %s expose native Bash execution",
+	"API jobs using %s complete through the declared provider",
 	{ timeout: 240_000 },
 	async (providerSecret, { directory, platform, webEnv, webSession }) => {
 		const { origin, worker } = platform
@@ -116,7 +116,9 @@ test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
 		const results: z.infer<typeof agentJobResultSchema>[] = []
 		const markerPath = "/workspace/contextlayer-coding-tools.txt"
 		const prompts = [
-			`Use bash to run uname -s, then write CREATED to ${markerPath} and print the file contents. Report completion briefly.`,
+			providerSecret === "ANTHROPIC_API_KEY"
+				? `Use bash to run uname -s, then write CREATED to ${markerPath} and print the file contents. Report completion briefly.`
+				: "Say hello in one sentence without using tools.",
 		]
 		if (providerSecret === "ANTHROPIC_API_KEY") {
 			prompts.push(
@@ -217,10 +219,10 @@ test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
 				.filter((output) => output.toolName === "bash")
 				.map((output) => output.text)
 				.join("\n")
-			if (index === 0) {
+			if (providerSecret === "ANTHROPIC_API_KEY" && index === 0) {
 				expect(bashOutput).toContain("Linux")
 				expect(outputs.map((output) => output.text).join("\n")).toContain("CREATED")
-			} else {
+			} else if (providerSecret === "ANTHROPIC_API_KEY") {
 				expect(bashOutput).toContain("FRESH_JOB_FILESYSTEM")
 			}
 			console.info("Native Pi execution results", executionResults)

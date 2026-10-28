@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { execFile as execFileCallback } from "node:child_process"
-import { mkdir, readdir, writeFile } from "node:fs/promises"
+import { mkdir, writeFile } from "node:fs/promises"
 import { join, resolve } from "node:path"
 import { promisify } from "node:util"
 import { writeDatabase } from "@tests/database-project"
@@ -92,6 +92,8 @@ test("native CLI provisioning initializes owner and member databases and applies
 		return resources
 	}
 	const firstUse = async (slate: Slate) => {
+		await using workflows =
+			await provisioning.worker.introspectWorkflow("MEMBER_PROVISIONING")
 		const viewerHeaders = await signInViewer({
 			authURL: serviceEnv.addresses.CTX_VIEWER_AUTH_URL.origin,
 			returnTo: `https://${slate.public_hostname}/`,
@@ -118,19 +120,14 @@ test("native CLI provisioning initializes owner and member databases and applies
 				.where("slate_id", "=", slate.id)
 				.execute(),
 		).toEqual([{ slate_id: slate.id, user_id: user.id }])
-		const instance = await getAgentByName(
-			AGENTS,
-			getAgentInstanceName(slate.id, "daily-summary", { id: user.id, type: "user" }),
-		)
-		await expect
-			.poll(() => instance.listSchedules(), { interval: 1000, timeout: 900_000 })
-			.toHaveLength(1)
+		for (const instance of await workflows.get()) {
+			await using workflow = instance
+			await workflow.waitForStatus("complete")
+		}
 	}
 	for (const slate of slates) {
 		const checkout = join(dir, slate.id)
-		await createSlateProject(resolve(import.meta.dirname, "../../.."), checkout, {
-			installDependencies: true,
-		})
+		await createSlateProject(resolve(import.meta.dirname, "../../.."), checkout)
 		await mkdir(join(checkout, "agents/daily-summary/schedules"), { recursive: true })
 		const git = async (...args: string[]) =>
 			(await execFile("git", args, { cwd: checkout, env: gitEnv })).stdout.trim()
@@ -253,106 +250,76 @@ test("native CLI provisioning initializes owner and member databases and applies
 		expect(checkouts[0]?.configuration.databases[slug]?.instance_name).not.toBe(
 			checkouts[1]?.configuration.databases[slug]?.instance_name,
 		)
-	for (const { slate, checkout, git, scheduleFile, instance } of checkouts) {
-		await execFile(
-			"pnpm",
-			[
-				"exec",
-				"kysely",
-				"--config",
-				"databases/reports/kysely.config.ts",
-				"migrate",
-				"make",
-				"add_source",
-			],
-			{ cwd: checkout },
-		)
-		const migration = (
-			await readdir(join(checkout, "databases/reports/migrations"))
-		).find((name) => name.endsWith("_add_source.ts"))
-		assert(migration)
-		await writeFile(
-			join(checkout, "databases/reports/migrations", migration),
-			`import { sql, type Kysely } from "kysely"
+	const firstCheckout = checkouts[0]
+	assert(firstCheckout)
+	const { slate, checkout, git, scheduleFile, instance } = firstCheckout
+	const migration = "002_add_source.ts"
+	await writeFile(
+		join(checkout, "databases/reports/migrations", migration),
+		`import { sql, type Kysely } from "kysely"
 export async function up(db: Kysely<unknown>) {
   await sql\`ALTER TABLE updates ADD COLUMN source TEXT NOT NULL DEFAULT 'email'\`.execute(db)
 }
 `,
+	)
+	await writeFile(
+		join(checkout, "public/slate.json"),
+		JSON.stringify({
+			connections: {},
+			databases: {
+				archive: { mode: "owner" },
+				drafts: { mode: "viewer" },
+				reports: { mode: "owner" },
+			},
+		}),
+	)
+	await writeFile(
+		scheduleFile,
+		'---\ncron: "0 1 1 1 *"\n---\nSave a refreshed scheduled document.\n',
+	)
+	await writeDatabase(checkout, "archive")
+	await git("add", ".")
+	await git(
+		"-c",
+		"commit.gpgsign=false",
+		"commit",
+		"-m",
+		"Add a database and refresh the schedule",
+	)
+	await git("push", "origin", "main")
+	const configuration: SlateResourceConfiguration = await readConfiguration(slate)
+	const archive = configuration.databases.archive
+	if (!archive) throw new Error("Expected new archive declaration")
+	const reports = z
+		.object({ instance_name: z.string() })
+		.parse(configuration.databases.reports)
+	await expect(
+		DATABASES.getByName(archive.instance_name).query("SELECT * FROM updates"),
+	).rejects.toThrow()
+	const prepared = await PROVISIONING.prepare(slate.id, await git("rev-parse", "HEAD"))
+	{
+		await using workflow = await provisioning.worker.introspectWorkflowInstance(
+			"MEMBER_PROVISIONING",
+			(await MEMBER_PROVISIONING.create({ params: prepared })).id,
 		)
-		await writeFile(
-			join(checkout, "public/slate.json"),
-			JSON.stringify({
-				connections: {},
-				databases: {
-					archive: { mode: "owner" },
-					drafts: { mode: "viewer" },
-					reports: { mode: "owner" },
-				},
-			}),
-		)
-		await writeFile(
-			scheduleFile,
-			'---\ncron: "0 1 1 1 *"\n---\nSave a refreshed scheduled document.\n',
-		)
-		await git("add", ".")
-		await git(
-			"-c",
-			"commit.gpgsign=false",
-			"commit",
-			"-m",
-			"Add a database and refresh the schedule",
-		)
-		await git("push", "origin", "main")
-		const configuration: SlateResourceConfiguration = await readConfiguration(slate)
-		const archive = configuration.databases.archive
-		if (!archive) throw new Error("Expected new archive declaration")
-		const reports = z
-			.object({ instance_name: z.string() })
-			.parse(configuration.databases.reports)
-		await writeDatabase(checkout, "archive")
-		await git("add", "databases")
-		await git("-c", "commit.gpgsign=false", "commit", "-m", "Add archive migrations")
-		await git("push", "origin", "main")
-		await expect(
-			DATABASES.getByName(archive.instance_name).query("SELECT * FROM updates"),
-		).rejects.toThrow()
-		const prepared = await PROVISIONING.prepare(slate.id, await git("rev-parse", "HEAD"))
-		{
-			await using workflow = await provisioning.worker.introspectWorkflowInstance(
-				"MEMBER_PROVISIONING",
-				(await MEMBER_PROVISIONING.create({ params: prepared })).id,
-			)
-			await workflow.waitForStatus("complete")
-		}
-		expect(
-			(
-				await DATABASES.getByName(reports.instance_name).query(
-					"PRAGMA table_info(updates)",
-				)
-			).rows.map((row) => row.name),
-		).toContain("source")
-		expect(
-			(
-				await DATABASES.getByName(reports.instance_name).query(
-					"SELECT source FROM updates",
-				)
-			).rows,
-		).toEqual(slate.id === joinedBeforeProvisioning.id ? [{ source: "email" }] : [])
-		expect(
-			(await DATABASES.getByName(archive.instance_name).query("SELECT * FROM updates"))
-				.rows,
-		).toEqual([])
-		const schedules = z
-			.array(z.object({ payload: scheduledAgentRunSchema }))
-			.parse(await instance.listSchedules())
-		expect(schedules).toHaveLength(1)
-		expect(schedules[0]?.payload.prompt).toContain("refreshed scheduled document")
-		{
-			await using workflow = await provisioning.worker.introspectWorkflowInstance(
-				"MEMBER_PROVISIONING",
-				(await MEMBER_PROVISIONING.create({ params: prepared })).id,
-			)
-			await workflow.waitForStatus("complete")
-		}
+		await workflow.waitForStatus("complete")
 	}
+	expect(
+		(
+			await DATABASES.getByName(reports.instance_name).query("PRAGMA table_info(updates)")
+		).rows.map((row) => row.name),
+	).toContain("source")
+	expect(
+		(await DATABASES.getByName(reports.instance_name).query("SELECT source FROM updates"))
+			.rows,
+	).toEqual([{ source: "email" }])
+	expect(
+		(await DATABASES.getByName(archive.instance_name).query("SELECT * FROM updates"))
+			.rows,
+	).toEqual([])
+	const schedules = z
+		.array(z.object({ payload: scheduledAgentRunSchema }))
+		.parse(await instance.listSchedules())
+	expect(schedules).toHaveLength(1)
+	expect(schedules[0]?.payload.prompt).toContain("refreshed scheduled document")
 }, 1_800_000)

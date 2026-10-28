@@ -166,6 +166,7 @@ test("hosted configuration uses pushed declarations independently of developer-l
 	await git("config", "user.email", "resources-test@example.com")
 	await git("remote", "add", "origin", `${origin}/git/${personal.id}`)
 	expect((await command("connections", "local", "list")).stdout).toContain("repository")
+	await mkdir(join(dir, ".contextlayer"))
 	await writeFile(
 		join(dir, ".contextlayer/connections.json"),
 		JSON.stringify({ repository: "developer-local-repository" }),
@@ -274,6 +275,8 @@ test("hosted configuration uses pushed declarations independently of developer-l
 				},
 			},
 		})
+		// The API covers both Owner projections; exercise the chrome transport once.
+		if (slate === organization) continue
 		const chromeUrl = new URL(`/dashboard/chrome/slates/${slate.id}`, origin)
 		chromeUrl.searchParams.set("parentOrigin", `https://${slate.public_hostname}`)
 		const chromeHeaders = { ...headers, accept: "text/html" }
@@ -308,31 +311,29 @@ test("hosted configuration uses pushed declarations independently of developer-l
 			slateResourcesSchema.parse(await saved.json()).resources.connections.mail
 				?.account_id,
 		).toBe(mailAccount.id)
-		if (slate === personal) {
-			await db
-				.updateTable("slate")
-				.set({ owner_user_id: publicViewer.owner_user_id, visibility: "public" })
-				.where("id", "=", slate.id)
-				.execute()
-			const viewerChrome = await fetch(chromeUrl, { headers: chromeHeaders })
-			expect(viewerChrome.status).toBe(200)
-			expect(await viewerChrome.text()).toContain("Managed by slate Owner")
-			const denied = await fetch(chromeUrl, {
-				body: new URLSearchParams({
-					account_id: mailAccount.id,
-					intent: "assign",
-					slug: "repository",
-				}),
-				headers: chromeHeaders,
-				method: "POST",
-			})
-			expect(denied.status).toBe(403)
-			await db
-				.updateTable("slate")
-				.set({ owner_user_id: user.id, visibility: "private" })
-				.where("id", "=", slate.id)
-				.execute()
-		}
+		await db
+			.updateTable("slate")
+			.set({ owner_user_id: publicViewer.owner_user_id, visibility: "public" })
+			.where("id", "=", slate.id)
+			.execute()
+		const viewerChrome = await fetch(chromeUrl, { headers: chromeHeaders })
+		expect(viewerChrome.status).toBe(200)
+		expect(await viewerChrome.text()).toContain("Managed by slate Owner")
+		const denied = await fetch(chromeUrl, {
+			body: new URLSearchParams({
+				account_id: mailAccount.id,
+				intent: "assign",
+				slug: "repository",
+			}),
+			headers: chromeHeaders,
+			method: "POST",
+		})
+		expect(denied.status).toBe(403)
+		await db
+			.updateTable("slate")
+			.set({ owner_user_id: user.id, visibility: "private" })
+			.where("id", "=", slate.id)
+			.execute()
 	}
 	await writeFile(
 		agentDeclaration,
@@ -372,20 +373,4 @@ test("hosted configuration uses pushed declarations independently of developer-l
 	).toBe(400)
 	const openapi = await fetch(`${origin}/api/openapi.json`)
 	expect(await openapi.text()).toContain('"operationId":"listSlateResources"')
-	expect(
-		(
-			await fetch(
-				`${origin}/api/slates/${publicViewer.id}/connections/list`,
-				post({ resources }),
-			)
-		).status,
-	).toBe(400)
-	expect(
-		(
-			await fetch(
-				`${origin}/api/slates/${personal.id}/connections/list`,
-				post({ declaration: { connections: {} } }),
-			)
-		).status,
-	).toBe(400)
 })

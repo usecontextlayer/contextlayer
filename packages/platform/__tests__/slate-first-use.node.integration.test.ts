@@ -203,6 +203,8 @@ test("first use joins immediately and provisions personal data and schedules in 
 		JSON.stringify({ connections: {}, databases: { inbox: { mode: "viewer" } } }),
 	)
 	await push("Complete the input-free slate")
+	await using workflows =
+		await provisioning.worker.introspectWorkflow("MEMBER_PROVISIONING")
 	const first = await query("SELECT 1 AS joined")
 	expect(first.status, await first.clone().text()).toBe(200)
 	expect(databaseResultSchema.parse(await first.json()).rows).toEqual([{ joined: 1 }])
@@ -211,9 +213,11 @@ test("first use joins immediately and provisions personal data and schedules in 
 		AGENTS,
 		getAgentInstanceName(slate.id, "daily", { id: webSession.user.id, type: "user" }),
 	)
-	await expect
-		.poll(() => instance.listSchedules(), { interval: 1000, timeout: 900_000 })
-		.toHaveLength(1)
+	for (const instance of await workflows.get()) {
+		await using workflow = instance
+		await workflow.waitForStatus("complete")
+	}
+	expect(await instance.listSchedules()).toHaveLength(1)
 	const schedules = await instance.listSchedules()
 	expect(
 		(await DATABASES.getByName(inbox.instance_name).query("SELECT * FROM updates")).rows,

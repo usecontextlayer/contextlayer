@@ -9,16 +9,18 @@ import type { Owner } from "@/owner"
 import { secretKey } from "@/secrets.server"
 
 const cli = join(import.meta.dirname, "../../cli/dist/cli.mjs")
+const runCli = (env: Record<string, string>, args: string[], input = "") =>
+	execa(process.execPath, [cli, ...args], {
+		all: true,
+		env,
+		input,
+		reject: false,
+	})
 const test = base.extend(
 	"runCli",
 	({ cliEnv }) =>
 		(args: string[], input = "") =>
-			execa(process.execPath, [cli, ...args], {
-				all: true,
-				env: cliEnv,
-				input,
-				reject: false,
-			}),
+			runCli(cliEnv, args, input),
 )
 
 test("non-writing: secret API requires authentication and the selected Owner", async ({
@@ -75,22 +77,27 @@ test("non-writing: secret API requires authentication and the selected Owner", a
 	).toBe(404)
 })
 
-test("non-writing: CLI requires explicit stdin input and resolves organization membership", async ({
-	runCli,
-}) => {
-	const nonTerminal = await runCli(["secrets", "set", "CTX_SECRET_ACCESS_TEST"])
-	expect(nonTerminal.exitCode).toBe(1)
-	expect(nonTerminal.all).toContain("Use --stdin")
-	const unknownOrg = await runCli([
-		"secrets",
-		"--org",
-		"not-a-member",
-		"drop",
-		"CTX_SECRET_ACCESS_TEST",
-	])
-	expect(unknownOrg.exitCode).toBe(1)
-	expect(unknownOrg.all).toContain("Organization is not in your memberships")
-})
+base(
+	"non-writing: CLI requires explicit stdin input and resolves organization membership",
+	async ({ commandEnv }) => {
+		const nonTerminal = await runCli(commandEnv, [
+			"secrets",
+			"set",
+			"CTX_SECRET_ACCESS_TEST",
+		])
+		expect(nonTerminal.exitCode).toBe(1)
+		expect(nonTerminal.all).toContain("Use --stdin")
+		const unknownOrg = await runCli(commandEnv, [
+			"secrets",
+			"--org",
+			"not-a-member",
+			"drop",
+			"CTX_SECRET_ACCESS_TEST",
+		])
+		expect(unknownOrg.exitCode).toBe(1)
+		expect(unknownOrg.all).toContain("Organization is not in your memberships")
+	},
+)
 
 test("non-writing: Owner accounts enforce access and list through the real API and CLI", async ({
 	identity,
@@ -166,7 +173,7 @@ test("non-writing: Owner accounts enforce access and list through the real API a
 })
 
 // Writes reach the configured shared vault, outside the test database.
-// Failed assertions can leave secrets behind; fixture teardown does not roll these writes back.
+// Cleanup stays inside the body so the platform is alive when test-owned keys are dropped.
 test("live Doppler: CLI/API save, replace, isolate Owners, and drop with no values in output", async ({
 	identity,
 	organization,
@@ -209,6 +216,20 @@ test("live Doppler: CLI/API save, replace, isolate Owners, and drop with no valu
 	}
 	// Existing secrets are not disposable fixtures; refuse to overwrite them for this proof.
 	for (const url of [personalUrl, orgUrl]) await assertRawValue(url, null)
+	const personalApi = `${origin}/api/secrets/personal/${encodeURIComponent(userId)}/${name}`
+	const organizationApi = `${origin}/api/secrets/org/${encodeURIComponent(orgId)}/${name}`
+	await using cleanup = new AsyncDisposableStack()
+	for (const [url, api] of [
+		[personalUrl, personalApi],
+		[orgUrl, organizationApi],
+	] as const) {
+		cleanup.defer(async () => {
+			if ((await readRaw(url)) === null) return
+			const response = await fetch(api, { headers, method: "DELETE" })
+			expect(response.status).toBe(200)
+			await assertRawValue(url, null)
+		})
+	}
 	const values = [
 		`  synthetic-personal-\${DOPPLER_PROJECT}\nsecond line  `,
 		"synthetic-organization",
@@ -225,7 +246,6 @@ test("live Doppler: CLI/API save, replace, isolate Owners, and drop with no valu
 		type: "personal",
 	})
 	await assertRawValue(personalUrl, values[0])
-	const personalApi = `${origin}/api/secrets/personal/${encodeURIComponent(userId)}/${name}`
 	expect((await fetch(personalApi, { headers })).status).toBe(404)
 	assertCli(await runCli(["secrets", "--org", slug, "set", name, "--stdin"], values[1]), {
 		id: orgId,
@@ -251,10 +271,7 @@ test("live Doppler: CLI/API save, replace, isolate Owners, and drop with no valu
 	assertCli(await runCli(["secrets", "drop", name]), { id: userId, type: "personal" })
 	await assertRawValue(personalUrl, null)
 	await assertRawValue(orgUrl, values[3])
-	const dropped = await fetch(
-		`${origin}/api/secrets/org/${encodeURIComponent(orgId)}/${name}`,
-		{ headers, method: "DELETE" },
-	)
+	const dropped = await fetch(organizationApi, { headers, method: "DELETE" })
 	expect(dropped.status).toBe(200)
 	expect(await dropped.json()).toEqual({
 		name,

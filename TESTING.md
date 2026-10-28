@@ -96,6 +96,8 @@ When sharing a runtime, give its database, platform configuration, Worker config
 
 ## Maintain the testing model
 
+**Review duration alongside correctness.** For materially slow or timing-sensitive tests, measure fixture acquisition, scenario preparation, the operation and its asynchronous completion, and cleanup before choosing a fix. Compare focused and normal parallel-suite runs, recording cache state and host interruptions; overlapping spans are not additive. Remove repeated preparation and waits that do not serve the contract, while retaining real work required to prove it. Set a case's timeout from its complete measured lifecycle under the normal suite, with room for observed variation. A timeout is a failure bound, not a performance target; increasing it does not resolve unexplained duration. Keep detailed measurements and tradeoffs in the change's ExecPlan.
+
 **Test quality is ongoing maintenance, not a one-time cleanup.** When working in an area, review its existing tests against these principles. Do not copy a weak pattern merely because it already exists. If tests need restructuring or violate the guidance, explain the mismatch, propose a concrete improvement, and ask the user before expanding the work. Once approved, bring them into alignment while preserving coverage.
 
 Tie this responsibility to the area being touched; do not turn every task into a repository-wide audit. Routine changes within an already-approved test refactor can proceed. Discovering a broader problem requires discussion, not an unsolicited rewrite.
