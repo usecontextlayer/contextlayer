@@ -19,6 +19,7 @@ const routes = [
 		inspectionPath,
 		"getSlateInspectionConfiguration",
 		"Get native inspection configuration",
+		"Requires slate management permission. Returns the configured Cloudflare account, shared Workflow, dispatch namespace and canonical script name for the selected slate; no Cloudflare credential is returned.",
 		inspectionConfigurationSchema,
 		targetParams,
 	],
@@ -26,6 +27,7 @@ const routes = [
 		instancesPath,
 		"listSlateCiInstances",
 		"List the slate's native CI instances",
+		"Requires slate management permission. Returns only the selected slate's native CI list rows, without instance parameters, step records, execution error text or logs. Pagination applies to shared Workflow candidates before slate filtering, so an empty filtered page does not establish exhaustion.",
 		z.unknown(),
 		workflowParams,
 	],
@@ -33,6 +35,7 @@ const routes = [
 		`${accountPath}/workers/dispatch/namespaces/{namespace}/scripts/{script}`,
 		"getSlateWorker",
 		"Inspect the published Worker",
+		"Requires slate management permission. Returns the selected published Worker's native metadata, including its trusted source commit tag when present. This metadata does not identify the revision that answered an individual HTTP request.",
 		z.unknown(),
 		accountParams.extend({ namespace: z.string(), script: z.string() }),
 	],
@@ -41,8 +44,9 @@ const routes = [
 export function createInspectionApi() {
 	const api = new OpenAPIHono<OwnerAuthenticatedEnv>()
 	api.use("*", requireAuth)
-	for (const [path, operationId, summary, schema, params] of routes) {
+	for (const [path, operationId, summary, description, schema, params] of routes) {
 		const route = createRoute({
+			description,
 			method: "get",
 			operationId,
 			path,
