@@ -1,6 +1,6 @@
 import {
 	INSPECTION_SLATE_ID_HEADER,
-	type InspectionConfiguration,
+	inspectionConfigurationSchema,
 } from "@usecontextlayer/shared/inspection"
 import { z } from "zod"
 import type { BuildBindings } from "@/env"
@@ -35,16 +35,13 @@ const inputSchema = z.union([
 		})),
 ])
 
-function configuration(
-	env: InspectionBindings,
-	slateId: string,
-): InspectionConfiguration {
-	return {
+function configuration(env: InspectionBindings, slateId: string) {
+	return inspectionConfigurationSchema.parse({
 		account_id: env.CLOUDFLARE_ACCOUNT_ID,
 		dispatch_namespace: env.CTX_DISPATCH_NAMESPACE,
 		script_name: slateId,
 		workflow_name: env.CTX_CI_WORKFLOW,
-	}
+	})
 }
 
 export async function inspectCloudflare(
