@@ -1,3 +1,45 @@
+diff --git a/src/ci/cache.ts b/src/ci/cache.ts
+index 433f19c0e750f2957e1c08e9c41600f90b234296..dce83564840b89f0b1e31083c1a7fae3229ff8b8 100644
+--- a/src/ci/cache.ts
++++ b/src/ci/cache.ts
+@@ -16,6 +16,7 @@ const BACKUP_ID =
+ const cachePointerSchema = z.object({
+   backupId: z.string().regex(BACKUP_ID),
+   dir: z.literal('/workspace'),
++  localBucket: z.boolean().optional(),
+   producedBySha: z.string().min(1),
+   createdAt: z.string().min(1),
+ });
+@@ -173,7 +174,11 @@ export async function lookupSnapshotCache(
+   }
+   return {
+     status: 'hit',
+-    snapshot: { id: pointer.backupId, dir: pointer.dir },
++    snapshot: {
++      id: pointer.backupId,
++      dir: pointer.dir,
++      localBucket: pointer.localBucket,
++    },
+     cachePointer: { key: input.key, ...metadata },
+   };
+ }
+@@ -190,7 +195,7 @@ export async function publishSnapshotCache(
+   env: Bindings,
+   input: PublishSnapshotCacheInput
+ ): Promise<CacheSnapshotPointer> {
+-  const { id, dir } = input.snapshot;
++  const { id, dir, localBucket } = input.snapshot;
+   if (dir !== '/workspace') {
+     throw new Error(`${input.label} produced a backup outside /workspace`);
+   }
+@@ -202,6 +207,7 @@ export async function publishSnapshotCache(
+   await writeCachePointer(env, input.key, {
+     backupId: id,
+     dir,
++    localBucket,
+     producedBySha: input.producedBySha,
+     createdAt: metadata.createdAt,
+   });
 diff --git a/src/ci/runners/runner.ts b/src/ci/runners/runner.ts
 index aa6068d5ab399caf3f018e5c7c4a691da57931a7..00ced22304dd823fb8dee429675a493a396aa775 100644
 --- a/src/ci/runners/runner.ts
@@ -85,10 +127,10 @@ index 83946a318ec5493d258581f33babf8ed43a9e909..debe4bfe725aad68aec49bae999bc6a8
        if (glob[index + 2] === '/') {
          pattern += '(?:.*/)?';
 diff --git a/src/worker.ts b/src/worker.ts
-index 3d37e16ab2a6d9fd321d3173a35610dc22e5f43b..e20ad2c58e3fd3ba48b324a9984f430612442d31 100644
+index 3d37e16ab2a6d9fd321d3173a35610dc22e5f43b..2ed56268175d7e17f849633d6c24646dfa4ba95d 100644
 --- a/src/worker.ts
 +++ b/src/worker.ts
-@@ -1,7 +1,10 @@
+@@ -1,7 +1,16 @@
  // Copyright (c) 2026 Cloudflare, Inc.
  // SPDX-License-Identifier: Apache-2.0
  
@@ -96,6 +138,12 @@ index 3d37e16ab2a6d9fd321d3173a35610dc22e5f43b..e20ad2c58e3fd3ba48b324a9984f4306
  export { CiSandbox } from './ci/sandbox';
 +export { SandboxRunner } from './ci/runners/sandbox';
 +export type { RunOutput, RunStepInput, RunStepResult, Runner } from './ci/runners/runner';
++export { lookupSnapshotCache, publishSnapshotCache } from './ci/cache';
++export type {
++  PublishSnapshotCacheInput,
++  SnapshotCacheInput,
++  SnapshotCacheLookup,
++} from './ci/cache';
  export { restartCiRun, startCiRun } from './ci/dispatch';
  export type {
    CreatePullRequestResult,

@@ -1,15 +1,18 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises"
+import { appendFile, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import type { CiParams, CiRunnerResult, CloudflareArtifacts } from "@cloudflare/ci"
 import type { CiBindings } from "@cloudflare/ci/worker"
 import { test as base } from "@tests/database"
+import { writeDatabase } from "@tests/database-project"
 import type { Workers } from "@tests/workers"
 import { createSlateProject } from "@usecontextlayer/dev-env/slate"
 import { execa } from "execa"
 import { expect } from "vitest"
 import { z } from "zod"
 import type { PlatformEnv } from "@/context"
+import type { Provisioning } from "@/provisioning.server"
+import { prepareSlateProvisioning } from "@/slate-provisioning.server"
 import { prepareSlateDatabase } from "@/slate-resource-configuration.server"
 import { slateSchema } from "@/slates.schema"
 
@@ -34,7 +37,7 @@ const test = base.extend(
 	],
 )
 
-test("the build Workflow publishes a migrated slate with platform-owned bindings", async ({
+test("the build Workflow publishes a migrated slate and its workspace provisions a later member", async ({
 	db,
 	harness,
 }) => {
@@ -46,9 +49,13 @@ test("the build Workflow publishes a migrated slate with platform-owned bindings
 	const { ARTIFACTS, DATABASES } = await harness
 		.getWorker<PlatformEnv["Bindings"]>("contextlayer-platform-test")
 		.getEnv()
-	const buildWorker = harness.getWorker<CiBindings & { CTX_DISPATCH_NAMESPACE: string }>(
-		"contextlayer-build-test",
-	)
+	const buildWorker = harness.getWorker<
+		CiBindings & {
+			CTX_DISPATCH_NAMESPACE: string
+			MEMBER_PROVISIONING: PlatformEnv["Bindings"]["MEMBER_PROVISIONING"]
+			PROVISIONING: Service<Provisioning>
+		}
+	>("contextlayer-build-test")
 	const buildEnv = await buildWorker.getEnv()
 	const { SLATES } = await harness
 		.getWorker<{ SLATES: DispatchNamespace }>("contextlayer-dispatcher-test")
@@ -64,6 +71,11 @@ test("the build Workflow publishes a migrated slate with platform-owned bindings
 	const repo = await ARTIFACTS.create(slate.id)
 	resources.defer(async () => {
 		await ARTIFACTS.delete(slate.id)
+	})
+	resources.defer(async () => {
+		const page = await buildEnv.BACKUP_BUCKET.list({ prefix: `cache/build/${slate.id}/` })
+		if (page.objects.length > 0)
+			await buildEnv.BACKUP_BUCKET.delete(page.objects.map(({ key }) => key))
 	})
 
 	const execute = execa({
@@ -90,6 +102,30 @@ test("the build Workflow publishes a migrated slate with platform-owned bindings
 		])
 	})
 	await createSlateProject(resolve(import.meta.dirname, "../../.."), checkout)
+	await writeFile(
+		join(checkout, "public/slate.json"),
+		JSON.stringify({
+			connections: {},
+			databases: { drafts: { mode: "viewer" }, notes: { mode: "owner" } },
+			secrets: {},
+		}),
+	)
+	await appendFile(
+		join(checkout, "vite.config.ts"),
+		`\nimport { writeFileSync } from "node:fs"\nwriteFileSync("build-workspace.txt", ${JSON.stringify(slate.id)})\n`,
+	)
+	await writeDatabase(checkout, "drafts")
+	await writeFile(
+		join(checkout, "databases/drafts/migrations/001_create_updates.ts"),
+		`import { readFileSync } from "node:fs"
+import { sql, type Kysely } from "kysely"
+export async function up(db: Kysely<unknown>) {
+  const built = readFileSync("build-workspace.txt", "utf8")
+  await sql\`CREATE TABLE build_workspace (value TEXT NOT NULL)\`.execute(db)
+  await sql\`INSERT INTO build_workspace (value) VALUES (\${built})\`.execute(db)
+}
+`,
+	)
 	await writeFile(
 		join(checkout, "app/routes.ts"),
 		`import { index, route, type RouteConfig } from "@react-router/dev/routes"
@@ -162,6 +198,30 @@ export default [index("routes/home.tsx"), route("build-proof", "routes/build-pro
 	)
 	await workflow.waitForStatus("complete")
 	expect(await workflow.getOutput()).toEqual({ conclusion: "success" })
+	const member = { id: crypto.randomUUID(), type: "user" } as const
+	const prepared = await buildEnv.PROVISIONING.prepare(
+		slate.id,
+		await git("rev-parse", "HEAD"),
+	)
+	const memberProvisioning = await buildEnv.MEMBER_PROVISIONING.create({
+		params: prepareSlateProvisioning(slate, [member], prepared.snapshot),
+	})
+	await using memberWorkflow = await buildWorker.introspectWorkflowInstance(
+		"MEMBER_PROVISIONING",
+		memberProvisioning.id,
+	)
+	await memberWorkflow.waitForStatus("complete")
+	const drafts = prepareSlateDatabase(slate, member, "drafts", {
+		consumers: [{ type: "app" }],
+		mode: "viewer",
+	})
+	expect(
+		(
+			await DATABASES.getByName(drafts.instance_name).query(
+				"SELECT * FROM build_workspace",
+			)
+		).rows,
+	).toEqual([{ value: slate.id }])
 
 	const database = prepareSlateDatabase(slate, null, "notes", {
 		consumers: [{ type: "app" }],
