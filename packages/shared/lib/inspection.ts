@@ -9,4 +9,4 @@ export const inspectionConfigurationSchema = z.object({
 
 export type InspectionConfiguration = z.infer<typeof inspectionConfigurationSchema>
 
-export const INSPECTION_SLATE_HEADER = "X-ContextLayer-Slate"
+export const INSPECTION_SLATE_ID_HEADER = "X-ContextLayer-Slate"

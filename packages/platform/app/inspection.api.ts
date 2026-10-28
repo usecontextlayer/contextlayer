@@ -1,6 +1,6 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi"
 import {
-	INSPECTION_SLATE_HEADER,
+	INSPECTION_SLATE_ID_HEADER,
 	inspectionConfigurationSchema,
 } from "@usecontextlayer/shared/inspection"
 import type { OwnerAuthenticatedEnv } from "@/auth.middleware"
@@ -8,44 +8,44 @@ import { requireAuth } from "@/auth.middleware"
 import { slateTargetSchema } from "@/slates.schema"
 import { getSlate } from "@/slates.server"
 
-const base = "/{target}/cloudflare"
-const account = `${base}/accounts/{account}`
-const runs = `${account}/workflows/{workflow}/instances`
+const inspectionPath = "/{target}/cloudflare"
+const accountPath = `${inspectionPath}/accounts/{account}`
+const instancesPath = `${accountPath}/workflows/{workflow}/instances`
 const targetParams = z.object({ target: slateTargetSchema })
 const accountParams = targetParams.extend({ account: z.string() })
 const workflowParams = accountParams.extend({ workflow: z.string() })
 const instanceParams = workflowParams.extend({ instance: z.string() })
 const routes = [
 	[
-		base,
+		inspectionPath,
 		"getSlateInspectionConfiguration",
 		"Get native inspection configuration",
 		inspectionConfigurationSchema,
 		targetParams,
 	],
 	[
-		runs,
+		instancesPath,
 		"listSlateCiInstances",
 		"List the slate's native CI instances",
 		z.unknown(),
 		workflowParams,
 	],
 	[
-		`${runs}/{instance}`,
+		`${instancesPath}/{instance}`,
 		"getSlateCiInstance",
 		"Inspect a native CI instance",
 		z.unknown(),
 		instanceParams,
 	],
 	[
-		`${runs}/{instance}/step`,
+		`${instancesPath}/{instance}/step`,
 		"getSlateCiStep",
 		"Read native CI step output",
 		z.unknown(),
 		instanceParams,
 	],
 	[
-		`${account}/workers/dispatch/namespaces/{namespace}/scripts/{script}`,
+		`${accountPath}/workers/dispatch/namespaces/{namespace}/scripts/{script}`,
 		"getSlateWorker",
 		"Inspect the published Worker",
 		z.unknown(),
@@ -83,7 +83,7 @@ export function createInspectionApi() {
 			},
 			security: [{ bearerAuth: [] }, { webCookie: [] }, { localWebCookie: [] }],
 			summary,
-			tags: ["CI inspection"],
+			tags: ["Slate inspection"],
 		})
 		api.openapi<
 			typeof route,
@@ -103,7 +103,7 @@ export function createInspectionApi() {
 			const suffix = url.pathname.split("/cloudflare/")[1]
 			return c.env.INSPECTION.fetch(
 				new Request(`https://inspection${suffix ? `/${suffix}` : "/"}${url.search}`, {
-					headers: { [INSPECTION_SLATE_HEADER]: access.slate.id },
+					headers: { [INSPECTION_SLATE_ID_HEADER]: access.slate.id },
 				}),
 			)
 		})

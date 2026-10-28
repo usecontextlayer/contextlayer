@@ -10,7 +10,6 @@ import { runLocalAgent } from "@/agents"
 import { addApiCommand } from "@/api"
 import { getAccessToken, getCurrentUser, LoginRequiredError, login } from "@/auth"
 import { formatAuthCommand } from "@/auth-command"
-import { inspectSlate, nativeInspectionHelp } from "@/ci"
 import {
 	assignSlateConnection,
 	connectionsCommandSchema,
@@ -18,6 +17,7 @@ import {
 } from "@/connections"
 import { env, envSchema, readCliCommand } from "@/env"
 import { configureGit, gitCredential } from "@/git-credential"
+import { inspectSlate, isNativeHelpRequest } from "@/inspection"
 import { ownerOptionsSchema } from "@/owner"
 import { version } from "@/package.json"
 import { dropSecret, secretNameSchema, secretOptionsSchema, setSecret } from "@/secrets"
@@ -114,7 +114,7 @@ for (const kind of ["ci", "worker"] as const) {
 		)
 		.passThroughOptions()
 		.action(async (target: string, args: string[], _options, command: Command) => {
-			if (!nativeInspectionHelp(args)) await requireLogin(command)
+			if (!isNativeHelpRequest(args)) await requireLogin(command)
 			await inspectSlate(kind, target, args)
 		})
 }

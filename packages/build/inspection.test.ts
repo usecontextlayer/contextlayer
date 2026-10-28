@@ -1,10 +1,10 @@
-import { INSPECTION_SLATE_HEADER } from "@usecontextlayer/shared/inspection"
+import { INSPECTION_SLATE_ID_HEADER } from "@usecontextlayer/shared/inspection"
 import { describe, expect, it } from "vitest"
 import { inspectCloudflare, redactPreparationOutput } from "@/inspection"
 import { redactSecrets } from "@/redaction"
 
 it("exposes configuration without credentials and rejects unselected upstream authority", async () => {
-	const slate = crypto.randomUUID()
+	const slateId = crypto.randomUUID()
 	const env = {
 		CF_TOKEN: "private-cloudflare-credential",
 		CLOUDFLARE_ACCOUNT_ID: "selected-account",
@@ -16,21 +16,21 @@ it("exposes configuration without credentials and rejects unselected upstream au
 		inspectCloudflare(
 			env,
 			new Request(`https://inspection${path}`, {
-				headers: { [INSPECTION_SLATE_HEADER]: slate },
+				headers: { [INSPECTION_SLATE_ID_HEADER]: slateId },
 				method,
 			}),
 		)
 	expect(await (await request("/")).json()).toEqual({
 		account_id: env.CLOUDFLARE_ACCOUNT_ID,
 		dispatch_namespace: env.CTX_DISPATCH_NAMESPACE,
-		script_name: slate,
+		script_name: slateId,
 		workflow_name: env.CTX_CI_WORKFLOW,
 	})
 	for (const path of [
 		"/accounts/another-account/workflows/selected-workflow/instances",
 		"/accounts/selected-account/workflows/another-workflow/instances",
 		`/accounts/selected-account/workers/dispatch/namespaces/selected-namespace/scripts/${crypto.randomUUID()}`,
-		`/accounts/selected-account/workers/dispatch/namespaces/selected-namespace/scripts/${slate}/secrets`,
+		`/accounts/selected-account/workers/dispatch/namespaces/selected-namespace/scripts/${slateId}/secrets`,
 	])
 		expect((await request(path)).status).toBe(404)
 	for (const method of ["POST", "PUT", "PATCH", "DELETE"])
