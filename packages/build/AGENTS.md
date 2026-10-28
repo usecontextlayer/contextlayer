@@ -16,7 +16,7 @@ No CI runner may opt into `cloudflareCredentials`. Scope deployment credentials 
 
 ## Native inspection
 
-When changing recorded steps or injected credentials, review successful inline and streamed logs, failure previews and errors, and retained outputs against the [inspection contract](../../ARCHITECTURE.md#slate-build-inspection). Redact credentials before persistence as well as at inspection. Mark preparation output sensitive; retain inspection-edge redaction because older preparation records can still contain private member and database data.
+Keep native instance-detail reads internal to list ownership selection under the [inspection contract](../../ARCHITECTURE.md#slate-build-inspection). Return selected native LIST rows rather than constructing public responses from detail records, and keep private record bodies out of failure responses. Adding a route or broadening an upstream read requires reviewing that disclosure boundary; masking known strings cannot make arbitrary step output safe.
 
 ## Deployment configuration
 

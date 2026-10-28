@@ -14,7 +14,6 @@ const instancesPath = `${accountPath}/workflows/{workflow}/instances`
 const targetParams = z.object({ target: slateTargetSchema })
 const accountParams = targetParams.extend({ account: z.string() })
 const workflowParams = accountParams.extend({ workflow: z.string() })
-const instanceParams = workflowParams.extend({ instance: z.string() })
 const routes = [
 	[
 		inspectionPath,
@@ -29,20 +28,6 @@ const routes = [
 		"List the slate's native CI instances",
 		z.unknown(),
 		workflowParams,
-	],
-	[
-		`${instancesPath}/{instance}`,
-		"getSlateCiInstance",
-		"Inspect a native CI instance",
-		z.unknown(),
-		instanceParams,
-	],
-	[
-		`${instancesPath}/{instance}/step`,
-		"getSlateCiStep",
-		"Read native CI step output",
-		z.unknown(),
-		instanceParams,
 	],
 	[
 		`${accountPath}/workers/dispatch/namespaces/{namespace}/scripts/{script}`,
@@ -66,13 +51,6 @@ export function createInspectionApi() {
 				200: {
 					content: {
 						"application/json": { schema },
-						...(operationId === "getSlateCiStep"
-							? {
-									"application/octet-stream": {
-										schema: z.string().openapi({ format: "binary" }),
-									},
-								}
-							: {}),
 					},
 					description: "Native inspection result",
 				},

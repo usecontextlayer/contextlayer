@@ -5,7 +5,7 @@ settings:
   excludeLinksFromLockfile: false
 
 patchedDependencies:
-  '@cloudflare/ci@0.2.0': b4762391cd2eadc75d9065db4f96560daf8785b569e58cce24599f6e252f5dac
+  '@cloudflare/ci@0.2.0': 5aeac246a51b1cffedb31389c5c4878c7ab33949de095db54744a3d9a07c06c5
   '@cloudflare/vite-plugin@1.62.4': 36dce0131d509e6ee9a9f57b60f8199f2dd6999c8124fe54e4391ba9cc923dcc
   '@earendil-works/pi-env@1.3.0': b6b974cb9999c0b24f865f23ecc1e2019bf0bb738dfa5b056a9d0a2ef119900c
   miniflare@5.20261001.0-alpha: c48ba0417c1d3ef7bdf77051fc1505278b6f5325f32aaa14c4dc766668e7f446
@@ -82,7 +82,7 @@ importers:
     dependencies:
       '@cloudflare/ci':
         specifier: 0.2.0
-        version: 0.2.0(patch_hash=b4762391cd2eadc75d9065db4f96560daf8785b569e58cce24599f6e252f5dac)
+        version: 0.2.0(patch_hash=5aeac246a51b1cffedb31389c5c4878c7ab33949de095db54744a3d9a07c06c5)
       '@cloudflare/sandbox':
         specifier: 0.12.1
         version: 0.12.1
@@ -452,7 +452,7 @@ importers:
     devDependencies:
       '@cloudflare/ci':
         specifier: 0.2.0
-        version: 0.2.0(patch_hash=b4762391cd2eadc75d9065db4f96560daf8785b569e58cce24599f6e252f5dac)
+        version: 0.2.0(patch_hash=5aeac246a51b1cffedb31389c5c4878c7ab33949de095db54744a3d9a07c06c5)
       '@cloudflare/vite-plugin':
         specifier: ^1.62.4
         version: 1.62.4(patch_hash=36dce0131d509e6ee9a9f57b60f8199f2dd6999c8124fe54e4391ba9cc923dcc)(@types/node@24.13.3)(vite@8.3.2(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(wrangler@4.146.0(patch_hash=003bc61a6a869a3898c52abb2ad22a9a664c594572132dc4dfef520438468a68)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.13.3))
@@ -8012,7 +8012,7 @@ snapshots:
       fast-wrap-ansi: 0.2.2
       sisteransi: 1.0.5
 
-  '@cloudflare/ci@0.2.0(patch_hash=b4762391cd2eadc75d9065db4f96560daf8785b569e58cce24599f6e252f5dac)':
+  '@cloudflare/ci@0.2.0(patch_hash=5aeac246a51b1cffedb31389c5c4878c7ab33949de095db54744a3d9a07c06c5)':
     dependencies:
       '@cloudflare/sandbox': 0.12.1
       zod: 4.6.5

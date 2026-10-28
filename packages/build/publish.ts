@@ -2,33 +2,28 @@ import { getSandbox } from "@cloudflare/sandbox"
 import { artifactTransferEnv } from "@/artifact"
 import { slateDeploymentConfig } from "@/deployment"
 import type { BuildBindings } from "@/env"
-import { redactSecrets } from "@/redaction"
 
 export async function publishSlate(
 	env: BuildBindings,
 	slateId: string,
 	instanceId: string,
 	commit: string,
-) {
+): Promise<void> {
 	const sandbox = getSandbox(env.SANDBOX, `deploy-${crypto.randomUUID()}`, {
 		enableDefaultSession: false,
 		transport: "rpc",
 	})
 	try {
-		const transfer = await artifactTransferEnv(env, instanceId, "object-read-only")
-		const secrets = [env.CF_TOKEN, ...Object.values(transfer)]
 		const download = await sandbox.exec(
 			'/usr/local/bin/rclone copy "$CTX_BUILD_ARTIFACT_PATH" /tmp/slate-deploy/payload --config /dev/null',
 			{
 				cwd: "/",
-				env: transfer,
+				env: await artifactTransferEnv(env, instanceId, "object-read-only"),
 				timeout: 120_000,
 			},
 		)
 		if (!download.success) {
-			throw new Error(
-				`Deployment artifact download failed: ${redactSecrets(download.stderr, secrets)}`,
-			)
+			throw new Error(`Deployment artifact download failed: ${download.stderr}`)
 		}
 		await sandbox.writeFile("/tmp/slate-deploy/tsconfig.json", "{}")
 		await sandbox.writeFile(
@@ -49,16 +44,10 @@ export async function publishSlate(
 				timeout: 600_000,
 			},
 		)
-		const result = {
-			...deployment,
-			stderr: redactSecrets(deployment.stderr, secrets),
-			stdout: redactSecrets(deployment.stdout, secrets),
+		console.log(deployment.stdout)
+		if (!deployment.success) {
+			throw new Error(`Slate deployment failed: ${deployment.stderr}`)
 		}
-		console.log(result.stdout)
-		if (!result.success) {
-			throw new Error(`Slate deployment failed: ${result.stderr}`)
-		}
-		return result
 	} finally {
 		await sandbox.destroy()
 	}

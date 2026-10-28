@@ -97,19 +97,19 @@ for (const kind of ["ci", "worker"] as const) {
 		.argument(
 			"[arguments...]",
 			kind === "ci"
-				? "Native instance commands: list --page <number>, get <instance-id>, step get <instance-id> --name <step> --type step"
+				? "Supported native instance command: list --page <number>"
 				: "Native script-details command: get",
 		)
 		.description(
 			kind === "ci"
-				? "Inspect retained CI runs through the native Cloudflare CLI; read-only, with normal ContextLayer login"
+				? "List retained CI run metadata through the native Cloudflare CLI; read-only, with normal ContextLayer login"
 				: "Inspect the published Worker and its commit tag through the native Cloudflare CLI; read-only",
 		)
 		.addHelpText(
 			"after",
 			"\nAccount and native resource selection are supplied by ContextLayer. Arguments after the slate pass to cf unchanged; use <slate> --help for native help." +
 				(kind === "ci"
-					? "\nLists use native --page <number> pagination. Pages are filtered from the shared Workflow, so an empty page does not mean history is exhausted."
+					? "\nOnly list is supported; instance details, steps, and logs are unavailable. Lists use native --page <number> pagination. Pages are filtered from the shared Workflow, so an empty page does not mean history is exhausted."
 					: ""),
 		)
 		.passThroughOptions()

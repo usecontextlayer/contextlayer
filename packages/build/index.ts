@@ -66,7 +66,7 @@ export class Build extends CIWorkflow<CloudflareArtifacts, BuildBindings> {
 		ci: CiContext,
 	): Promise<void> {
 		if (event.payload.branch !== "main") return
-		const prepared = await step.do("prepare slate", { sensitive: "output" }, () =>
+		const prepared = await step.do("prepare slate", () =>
 			this.env.PROVISIONING.prepare(event.payload.repo, event.payload.sha),
 		)
 		const build = await ci.runner({
