@@ -21,7 +21,7 @@ const optionsSchema = z.object({
 	params: jsonInput.pipe(z.record(z.string(), z.json())).optional(),
 })
 const apiHelp =
-	"\nDiscovery requires a reachable platform, but no login. Operation IDs and descriptions come from its OpenAPI document.\n\nCalls reuse the selected saved login and refresh it when needed. Public operations can run without login.\n\nInputs are inline JSON only; no file, @, or stdin expansion. Responses are JSON containing status, statusText, headers, and data. HTTP 4xx/5xx exit 1; other HTTP responses exit 0. Failures without an operation response go to stderr and exit nonzero."
+	"\nDiscovery requires a reachable platform, but no login. Operation IDs and descriptions come from its OpenAPI document.\n\nCalls reuse the selected saved login and refresh it when needed. Public operations can run without login.\n\nInputs are inline JSON only; no file, @, or stdin expansion. Responses are JSON containing status, statusText, headers, and data. HTTP 4xx/5xx exit 1; other HTTP responses exit 0. Exit status follows HTTP status, not domain outcomes. Failures without an operation response go to stderr and exit nonzero."
 
 export function addApiCommand(program: Command) {
 	const apiCommand = program

@@ -89,8 +89,7 @@ export const agentJobEntrySchema = z.object({
 		.number()
 		.openapi({ description: "Catalog creation time in Unix milliseconds." }),
 	id: z.uuid().openapi({
-		description:
-			"Catalog job ID used by job routes, distinct from the operation and session IDs.",
+		description: "Catalog job ID used by job routes.",
 	}),
 	metadata: agentJobMetadataSchema.nullable(),
 	updatedAt: z.number().openapi({

@@ -636,7 +636,7 @@ export function createApi() {
 	agents.openapi(
 		createRoute({
 			description:
-				"Read an authored agent definition from the latest commit on main. Requires slate management permission because instructions are source. Each hosted job starts a fresh execution of this definition.",
+				"Read an authored agent definition from the latest commit on main. Requires slate management permission because instructions are source.",
 			method: "get",
 			operationId: "getAgent",
 			path: "/",
@@ -724,7 +724,7 @@ export function createApi() {
 	agents.openapi(
 		createRoute({
 			description:
-				"Inspect one native authored schedule by scheduleId. Requires slate management permission. Native schedule time uses Unix seconds; the authored schedule name is separate from the native schedule ID.",
+				"Inspect one native authored schedule by scheduleId. Requires slate management permission.",
 			method: "get",
 			operationId: "getAgentSchedule",
 			path: "/schedules/{scheduleId}",
@@ -773,7 +773,7 @@ export function createApi() {
 	jobs.openapi(
 		createRoute({
 			description:
-				"Start a fresh hosted job on a private slate using the latest agent definition on main and the authenticated acting user. Returns after admission with the catalog job and native execution receipt, without waiting for an answer. Use job.id for job routes and receipt.operationId and receipt.session to identify its native execution.",
+				"Start a fresh hosted job on a private slate using the latest agent definition on main and the authenticated acting user. Returns after admission with the catalog job and native execution receipt, without waiting for an answer.",
 			method: "post",
 			operationId: "startAgentJob",
 			path: "/",
@@ -841,7 +841,7 @@ export function createApi() {
 	jobs.openapi(
 		createRoute({
 			description:
-				"Read one native catalog entry by job ID. Catalog metadata records the actor and API or schedule trigger; it does not describe execution progress. Use the operation and result endpoints for execution state.",
+				"Read one native catalog entry by job ID. Use the operation and result endpoints for execution state.",
 			method: "get",
 			operationId: "getAgentJob",
 			path: "/{id}",
@@ -870,7 +870,7 @@ export function createApi() {
 	jobs.openapi(
 		createRoute({
 			description:
-				"Inspect the admitted native operation without waiting. Pending status is queued or running; settled status is done or unanswered. A done result means the operation answered, not that the requested task succeeded. This response contains no transcript.",
+				"Inspect the admitted native operation without waiting, including pending or settled state. This response contains no transcript.",
 			method: "get",
 			operationId: "getAgentJobOperation",
 			path: "/{id}/operation",
@@ -905,7 +905,7 @@ export function createApi() {
 	jobs.openapi(
 		createRoute({
 			description:
-				"Wait for the admitted native operation to settle and return its native result without a transcript. done means an answer is available; unanswered may include a reason. Neither status is a judgment that the requested task succeeded. Use sessions and messages for execution detail.",
+				"Wait for the admitted native operation to settle and return its native result without a transcript. Use sessions and messages for execution detail.",
 			method: "get",
 			operationId: "getAgentJobResult",
 			path: "/{id}/result",
@@ -934,7 +934,7 @@ export function createApi() {
 	jobs.openapi(
 		createRoute({
 			description:
-				"Enumerate native execution sessions within this job. Requires slate management permission. Session IDs are local to a job and can recur in other jobs; use the returned IDs with this job messages route.",
+				"Enumerate native execution sessions within this job. Requires slate management permission. Use the returned IDs with this job's messages operation.",
 			method: "get",
 			operationId: "listAgentJobSessions",
 			path: "/{id}/sessions",
@@ -979,7 +979,7 @@ export function createApi() {
 	jobs.openapi(
 		createRoute({
 			description:
-				"Read the active transcript of an existing session in this job, preserving native entry and model fields. Requires slate management permission. This is active context, including native context edits, rather than a normalized chat history. Missing jobs or sessions return HTTP 404.",
+				"Read the active transcript of an existing session in this job. Requires slate management permission. Missing jobs or sessions return HTTP 404.",
 			method: "get",
 			operationId: "getAgentJobMessages",
 			path: "/{id}/sessions/{session}/messages",
@@ -1025,7 +1025,7 @@ export function createApi() {
 	jobs.openapi(
 		createRoute({
 			description:
-				"Read native model and tool usage buckets aggregated across the job conversations. Requires slate management permission. Keys and usage fields retain their native meanings.",
+				"Read native model and tool usage buckets for the job. Requires slate management permission.",
 			method: "get",
 			operationId: "getAgentJobUsage",
 			path: "/{id}/usage",
@@ -1070,7 +1070,7 @@ export function createApi() {
 	jobs.openapi(
 		createRoute({
 			description:
-				"Inspect live scheduling, unfinished tasks, and queued or placed submissions. Requires slate management permission. An empty inspection after settlement is valid; use session messages to read completed work.",
+				"Inspect live scheduling, unfinished tasks, and queued or placed submissions. Requires slate management permission.",
 			method: "get",
 			operationId: "getAgentJobInspection",
 			path: "/{id}/inspection",
@@ -1203,7 +1203,7 @@ export function createApi() {
 	jobs.openapi(
 		createRoute({
 			description:
-				"List native catalog entries for this agent in the app and current-user scopes available to the caller, newest first by creation time and ID. The optional schedule filter is the authored schedule name. Catalog timestamps describe metadata changes in Unix milliseconds, not execution progress.",
+				"List native catalog entries for this agent in the app and current-user scopes available to the caller, newest first by creation time and ID.",
 			method: "get",
 			operationId: "listAgentJobs",
 			path: "/",

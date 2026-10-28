@@ -78,7 +78,7 @@ Start with a private slate created with `init`, as in the [Quickstart](/quicksta
       --json '{"prompt":"Summarize the notes."}'
     ```
 
-    Keep `data.job.id` for the requests below. The start request returns after the job is accepted for execution; it does not wait for the answer. The native operation and session IDs in `data.receipt` identify execution within the job and are separate from its catalog ID.
+    Keep `data.job.id` for the requests below. The start request returns after the job is accepted for execution; it does not wait for the answer.
 
     Start by checking its [current operation](/api-reference/agent-jobs/get-an-agent-jobs-current-operation), then [wait for the operation result](/api-reference/agent-jobs/wait-for-an-agent-jobs-operation-result):
 
@@ -89,7 +89,7 @@ Start with a private slate created with `init`, as in the [Quickstart](/quicksta
       --params '{"target":"<slate-id-or-hostname>","name":"digest","id":"<job-id>"}'
     ```
 
-    Read the native result in `data`. A `done` result means the operation answered; check its text to see whether it completed the task. The answer should summarize the notes you added. Each job starts a fresh conversation; start a new job for another task.
+    Read the answer in `data.text` and check that it summarizes the notes you added. Each job starts a fresh conversation; start a new job for another task.
 
     To read the model and tool messages, enumerate the job's sessions, then select a returned session ID:
 

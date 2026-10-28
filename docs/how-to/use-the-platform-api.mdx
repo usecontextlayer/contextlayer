@@ -3,9 +3,9 @@ title: "Use the platform API from the CLI"
 description: "Discover platform operations and compose them with your saved ContextLayer login."
 ---
 
-`ctx api` exposes the operations published by the selected platform's OpenAPI document. You can inspect the contract, choose an operation, and compose its result with another operation. Newly published operations appear without waiting for a CLI release.
+`ctx api` lets you discover platform operations, inspect their contracts, and use one operation's result in another. Newly published operations appear without waiting for a CLI release.
 
-Start with [Installation](/installation) to sign in. A person approves the initial browser request and chooses the account the CLI will act through. API calls then reuse that saved login and refresh it when needed. Public operations and discovery work without a saved login.
+Follow [Installation](/installation) to sign in before making authenticated calls.
 
 ## Discover an operation
 
@@ -17,7 +17,7 @@ npx @usecontextlayer/cli api listSlates --help
 npx @usecontextlayer/cli api listSlates --describe
 ```
 
-The operation names, descriptions, and schemas come from the same OpenAPI contract as the [API reference](/api-reference/slates/list-slates-the-caller-can-manage). Discovery needs a reachable platform. Read the description before invoking an unfamiliar operation: viewing, execution, and management have different authorization requirements.
+The [API reference](/api-reference/slates/list-slates-the-caller-can-manage) uses the same contract. Read it before invoking an unfamiliar operation to understand its inputs, authorization, and result. Use the command's help for CLI input and output rules.
 
 ## Make a request and use its result
 
@@ -27,24 +27,14 @@ List the slates your account manages:
 npx @usecontextlayer/cli api listSlates
 ```
 
-The response contains HTTP metadata and the complete API payload. Read `data.slates` to select a slate for another operation. An operation's `--describe` output explains its parameter names, parameter locations, request body, and responses; its `--help` explains how to supply those inputs.
-
-For example, inspect an agent on the slate you chose:
+Choose a slate from `data.slates`, then use its ID to read its details:
 
 ```sh
-npx @usecontextlayer/cli api getAgent \
-  --params '{"target":"<slate-id-or-hostname>","name":"digest"}'
+npx @usecontextlayer/cli api getSlate --describe
+npx @usecontextlayer/cli api getSlate --params '{"target":"<slate-id>"}'
 ```
 
-See [Build an agent](/how-to/build-an-agent#start-a-hosted-job-and-inspect-it) for a workflow that sends a request body, waits for a result, and reads execution messages.
-
-## Interpret the HTTP outcome
-
-For every received response, stdout contains one JSON document with `status`, `statusText`, `headers`, and `data`. Use the HTTP status to interpret the request and the operation contract to interpret its payload. HTTP errors retain their payload and metadata and also make the process exit nonzero, so a script can inspect the returned error.
-
-A successful HTTP request can return a domain outcome such as `false` or an `unanswered` job result. Those values retain their API meanings. A job that answered can still report that it could not complete the task; inspect its answer and, when authorized, its messages.
-
-Failures before an operation response, such as an unreachable platform or an invalid saved login, appear on stderr. Follow the CLI's login guidance if the saved login needs repair. Use `ctx --help` to inspect the selected platform, issuer, client, and saved-login directory when switching environments.
+Interpret `data` using the operation's contract. See [Build an agent](/how-to/build-an-agent#start-a-hosted-job-and-inspect-it) for a workflow that sends a request body, waits for a result, and reads execution messages.
 
 ## Call HTTP from another program
 
@@ -56,4 +46,4 @@ curl --header "Authorization: Bearer $access_token" \
   https://platform.usecontextlayer.com/api/slates
 ```
 
-The token command uses the same saved login and refresh behavior. Obtain it when the program needs it rather than reading the credential file or retaining an expired token. Treat its output as a credential. Ordinary `ctx api` calls handle this step themselves.
+Obtain the token when your program needs it so the CLI selects the login and refreshes it if necessary, rather than reading the saved credential file.
