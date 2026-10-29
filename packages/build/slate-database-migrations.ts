@@ -23,13 +23,18 @@ export async function migrateSlateDatabases(
 				hostname: `database-${index}.${DATABASE_HOST}`,
 				index,
 			}))
+			// A restored workspace is the build's install of this exact commit. The runner's source overlay
+			// refreshes package.json mtimes, which pnpm's default pre-run check answers with a full reinstall.
+			const kysely = restore
+				? "pnpm --config.verify-deps-before-run=false exec kysely"
+				: "pnpm exec kysely"
 			const runner = new SandboxRunner(env)
 			const result = await runner.run({
 				command: [
 					...(restore ? [] : ["pnpm install --frozen-lockfile --ignore-scripts"]),
 					...targets.flatMap(({ hostname, index, slug }) => [
 						`printf '%s\\n' ${shellQuote(`Migration ${index}: ${slug}`)}`,
-						`CTX_DATABASE_URL=${shellQuote(`http://${hostname}`)} pnpm exec kysely --config ${shellQuote(`databases/${slug}/kysely.config.ts`)} migrate latest`,
+						`CTX_DATABASE_URL=${shellQuote(`http://${hostname}`)} ${kysely} --config ${shellQuote(`databases/${slug}/kysely.config.ts`)} migrate latest`,
 					]),
 				].join(" && "),
 				createSnapshot: false,
