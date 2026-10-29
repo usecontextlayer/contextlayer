@@ -4,13 +4,10 @@ import { writeFile } from "node:fs/promises"
 import { join, resolve } from "node:path"
 import { createPolarCore } from "@polar-sh/sdk/2026-10"
 import { listEvents } from "@polar-sh/sdk/2026-10/services/events"
-import { writeDatabase } from "@tests/database-project"
 import { executionTest as test } from "@tests/integration"
 import { createSlateProject } from "@usecontextlayer/dev-env/slate"
 import { signInViewer } from "@usecontextlayer/dev-env/viewer"
 import { accountsSchema } from "@usecontextlayer/shared/accounts"
-import type { Databases } from "@usecontextlayer/shared/databases-worker"
-import { slateResourcesSchema } from "@usecontextlayer/shared/slate-resources"
 import type {
 	HostedExecution,
 	Tools,
@@ -22,7 +19,7 @@ import { z } from "zod"
 import { listSlateMembers } from "@/slate-members.server"
 import { slateSchema } from "@/slates.schema"
 
-test("native resource capabilities enforce access and report exact slate-Owner tool usage", {
+test("native Tools capability enforces access and reports exact slate-Owner tool usage", {
 	timeout: 660_000,
 }, async ({
 	cliEnv,
@@ -32,7 +29,6 @@ test("native resource capabilities enforce access and report exact slate-Owner t
 	identity,
 	organization,
 	platform,
-	provisioning,
 	serviceEnv,
 	webEnv,
 	webSession,
@@ -47,8 +43,7 @@ test("native resource capabilities enforce access and report exact slate-Owner t
 		account,
 		"Connect a Gmail account for the DevEnv user with pnpm dev:ctx accounts add gmail, then approve the link in your browser.",
 	)
-	const { ARTIFACTS, DATABASES } = await worker.getEnv()
-	const { PROVISIONING, MEMBER_PROVISIONING } = await provisioning.worker.getEnv()
+	const { ARTIFACTS } = await worker.getEnv()
 	await using resources = new AsyncDisposableStack()
 	const post = (body: unknown) => ({
 		body: JSON.stringify(body),
@@ -67,14 +62,8 @@ test("native resource capabilities enforce access and report exact slate-Owner t
 		expect(response.status).toBe(200)
 		return response.json()
 	}
-	const callCapability = <Method extends "tools" | "databases">(
-		method: Method,
-		props: ToolsProps,
-		args: Method extends "tools"
-			? Parameters<Tools["call"]>
-			: Parameters<Databases["query"]>,
-	) =>
-		execution.worker.fetch(`http://execution/${method}`, {
+	const callTools = (props: ToolsProps, args: Parameters<Tools["call"]>) =>
+		execution.worker.fetch("http://execution/tools", {
 			body: JSON.stringify([props, args]),
 			headers: { "content-type": "application/json" },
 			method: "POST",
@@ -131,24 +120,13 @@ test("native resource capabilities enforce access and report exact slate-Owner t
 			{ arguments: {}, slug: "mail", tool: "GMAIL_GET_PROFILE" },
 		]),
 	).toEqual(refusal)
-	expect(
-		await callExecution("queryDatabase", [
-			slateWithoutPolarCustomer.id,
-			viewerToken,
-			{ slug: "drafts", sql: "SELECT * FROM updates" },
-		]),
-	).toEqual(refusal)
 
 	const checkout = join(directory, slate.id)
 	await createSlateProject(resolve(import.meta.dirname, "../../.."), checkout)
 	await writeFile(
 		join(checkout, "public/slate.json"),
-		JSON.stringify({
-			connections: { mail: { mode: "viewer", toolkit: "gmail" } },
-			databases: { drafts: { mode: "viewer" }, reports: { mode: "owner" } },
-		}),
+		JSON.stringify({ connections: { mail: { mode: "viewer", toolkit: "gmail" } } }),
 	)
-	for (const slug of ["drafts", "reports"]) await writeDatabase(checkout, slug)
 	const execute = execa({ cwd: checkout })
 	const git = (...args: string[]) =>
 		execute("git", args, {
@@ -172,17 +150,6 @@ test("native resource capabilities enforce access and report exact slate-Owner t
 	await git("add", ".")
 	await git("-c", "commit.gpgsign=false", "commit", "-m", "Declare app resources")
 	await git("push", "origin", "main")
-	const prepared = await PROVISIONING.prepare(
-		slate.id,
-		(await git("rev-parse", "HEAD")).stdout.trim(),
-	)
-	{
-		await using workflow = await provisioning.worker.introspectWorkflowInstance(
-			"MEMBER_PROVISIONING",
-			(await MEMBER_PROVISIONING.create({ params: prepared })).id,
-		)
-		await workflow.waitForStatus("complete")
-	}
 	expect(
 		await callExecution("callTool", [
 			slate.id,
@@ -190,7 +157,7 @@ test("native resource capabilities enforce access and report exact slate-Owner t
 			{ arguments: {}, slug: "other", tool: "EXAMPLE" },
 		]),
 	).toEqual({ allowed: false, reason: "not-declared" })
-	const unassigned = await callCapability("tools", props, [
+	const unassigned = await callTools(props, [
 		"mail",
 		"GMAIL_GET_PROFILE",
 		{ user_id: "me" },
@@ -200,20 +167,9 @@ test("native resource capabilities enforce access and report exact slate-Owner t
 		reason: "connection-required",
 		slug: "mail",
 	})
-	const undeclared = await callCapability("tools", props, ["other", "EXAMPLE", {}])
+	const undeclared = await callTools(props, ["other", "EXAMPLE", {}])
 	expect(undeclared.status).toBe(400)
 	expect(await undeclared.json()).toEqual({ error: "not-declared" })
-	const databaseRefusal = await callCapability("databases", props, [
-		"drafts",
-		"SELECT id, body FROM updates ORDER BY created_at",
-	])
-	expect(databaseRefusal.status).toBe(409)
-	expect(await databaseRefusal.json()).toEqual({
-		reason: "connection-required",
-		slug: "mail",
-	})
-	await using workflows =
-		await provisioning.worker.introspectWorkflow("MEMBER_PROVISIONING")
 	const assigned = await fetch(
 		`${origin}/api/slates/${slate.id}/connections/assign`,
 		post({ account_id: account.id, slug: "mail" }),
@@ -225,7 +181,7 @@ test("native resource capabilities enforce access and report exact slate-Owner t
 		.deleteFrom("slate_connection_assignment")
 		.where("slate_id", "=", slate.id)
 		.execute()
-	const missingForMember = await callCapability("tools", props, [
+	const missingForMember = await callTools(props, [
 		"mail",
 		"GMAIL_GET_PROFILE",
 		{ user_id: "me" },
@@ -244,45 +200,7 @@ test("native resource capabilities enforce access and report exact slate-Owner t
 			)
 		).status,
 	).toBe(200)
-	for (const instance of await workflows.get()) {
-		await using workflow = instance
-		await workflow.waitForStatus("complete")
-	}
-	const opened = await callCapability("databases", props, [
-		"drafts",
-		"SELECT id FROM updates",
-	])
-	expect(opened.status).toBe(200)
-	expect(await opened.json()).toMatchObject({ rows: [] })
-	const configuration = await fetch(
-		`${origin}/api/slates/${slate.id}/resources/list`,
-		post({}),
-	)
-	expect(configuration.status).toBe(200)
-	const { resources: configured } = slateResourcesSchema.parse(await configuration.json())
-	for (const slug of ["drafts", "reports"]) {
-		const database = configured.databases[slug]
-		assert(database)
-		expect(database.owner).toEqual(
-			slug === "drafts"
-				? { id: user.id, type: "personal" }
-				: { id: organization.id, type: "organization" },
-		)
-		await DATABASES.getByName(database.instance_name).query(
-			"INSERT INTO updates (id, kind, body, created_at) VALUES (?, ?, ?, ?)",
-			["native-proof", "proof", slate.id, 1],
-		)
-		const response = await callCapability("databases", props, [
-			slug,
-			"SELECT id, body FROM updates ORDER BY created_at",
-		])
-		expect(response.status).toBe(200)
-		expect(await response.json()).toMatchObject({
-			columns: ["id", "body"],
-			rows: [{ body: slate.id, id: "native-proof" }],
-		})
-	}
-	const toolResponse = await callCapability("tools", props, [
+	const toolResponse = await callTools(props, [
 		"mail",
 		"GMAIL_GET_PROFILE",
 		{ user_id: "me" },
