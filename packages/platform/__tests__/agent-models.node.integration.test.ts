@@ -52,9 +52,11 @@ for (const mode of ["default", "owner", "viewer"] as const) {
 			expect(ownerModel, "Configure distinct owner and viewer model IDs").not.toBe(
 				viewerModel,
 			)
-			expect(viewerModel, "Configure a viewer model different from the default").not.toBe(
-				expectedModel,
-			)
+			for (const model of [ownerModel, viewerModel])
+				expect(
+					model,
+					"Configure owner and viewer models different from the default",
+				).not.toBe(expectedModel)
 			expectedModel = mode === "owner" ? ownerModel : viewerModel
 		}
 		const created = await fetch(`${origin}/api/slates`, {

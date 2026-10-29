@@ -1,10 +1,11 @@
 import { execFile as execFileCallback } from "node:child_process"
 import { mkdir, rm, writeFile } from "node:fs/promises"
-import { join } from "node:path"
+import { join, resolve } from "node:path"
 import { promisify } from "node:util"
 import { UserEntry } from "@earendil-works/pi-durable"
 import { test } from "@tests/integration"
 import seed from "@usecontextlayer/dev-env/seed.json" with { type: "json" }
+import { createSlateProject } from "@usecontextlayer/dev-env/slate"
 import { accountsSchema } from "@usecontextlayer/shared/accounts"
 import { slateResourcesSchema } from "@usecontextlayer/shared/slate-resources"
 import { getAgentByName } from "agents/routing"
@@ -58,8 +59,8 @@ test("member schedules retain viewer actor and trigger provenance", async ({
 	const repo = await ARTIFACTS.get(slate.id)
 	const { remote } = await repo.info()
 	const token = await repo.createToken("write")
+	await createSlateProject(resolve(import.meta.dirname, "../../.."), directory)
 	await mkdir(join(directory, "agents/profile/schedules"), { recursive: true })
-	await mkdir(join(directory, "public"))
 	await writeFile(
 		join(directory, "public/slate.json"),
 		JSON.stringify({ connections: {} }),
@@ -94,7 +95,7 @@ test("member schedules retain viewer actor and trigger provenance", async ({
 	await git("init", "-b", "main")
 	await git("config", "user.name", "Scheduled Member Acceptance")
 	await git("config", "user.email", "scheduled-member-test@example.com")
-	await git("add", "agents", "public")
+	await git("add", ".")
 	await git("-c", "commit.gpgsign=false", "commit", "-m", "Declare member schedule")
 	await git("push", remote, "main")
 	await using workflows =
@@ -125,7 +126,7 @@ test("member schedules retain viewer actor and trigger provenance", async ({
 		AGENTS,
 		getAgentInstanceName(slate.id, "profile", { type: "app" }),
 	)
-	expect(await app.listSchedules()).toEqual([])
+	expect(await app.listAuthoredSchedules()).toEqual([])
 	const scheduled = await fetch(
 		`${origin}/api/slates/${slate.id}/agents/profile/schedules`,
 		{

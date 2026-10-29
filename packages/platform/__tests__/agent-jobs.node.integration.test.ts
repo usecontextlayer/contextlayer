@@ -116,9 +116,7 @@ test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
 		const results: z.infer<typeof agentJobResultSchema>[] = []
 		const markerPath = "/workspace/contextlayer-coding-tools.txt"
 		const prompts = [
-			providerSecret === "ANTHROPIC_API_KEY"
-				? `Use bash to run uname -s, then write CREATED to ${markerPath} and print the file contents. Report completion briefly.`
-				: "Say hello in one sentence without using tools.",
+			`Use bash to run uname -s, then write CREATED to ${markerPath} and print the file contents. Report completion briefly.`,
 		]
 		if (providerSecret === "ANTHROPIC_API_KEY") {
 			prompts.push(
@@ -219,7 +217,7 @@ test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
 				.filter((output) => output.toolName === "bash")
 				.map((output) => output.text)
 				.join("\n")
-			if (providerSecret === "ANTHROPIC_API_KEY" && index === 0) {
+			if (index === 0) {
 				expect(bashOutput).toContain("Linux")
 				expect(outputs.map((output) => output.text).join("\n")).toContain("CREATED")
 			} else if (providerSecret === "ANTHROPIC_API_KEY") {

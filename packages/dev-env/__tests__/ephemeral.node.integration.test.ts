@@ -28,14 +28,14 @@ function databaseNamesFromUrls(urls: Record<string, string>): string[] {
 }
 
 test("per-key mode migrates each database with its own migrator and dropAll reclaims them", async () => {
-	const migrated: string[] = []
+	const migrated: { one: string[]; two: string[] } = { one: [], two: [] }
 	const provisioned = await provisionEphemeralDatabases(databaseUrl, {
 		migrators: {
 			ctx_ephemeral_pk_one: async (url) => {
-				migrated.push(url)
+				migrated.one.push(url)
 			},
 			ctx_ephemeral_pk_two: async (url) => {
-				migrated.push(url)
+				migrated.two.push(url)
 			},
 		},
 	})
@@ -45,7 +45,10 @@ test("per-key mode migrates each database with its own migrator and dropAll recl
 			"ctx_ephemeral_pk_one",
 			"ctx_ephemeral_pk_two",
 		])
-		expect(migrated.sort()).toEqual(Object.values(provisioned.urls).sort())
+		expect(migrated).toEqual({
+			one: [provisioned.urls.ctx_ephemeral_pk_one],
+			two: [provisioned.urls.ctx_ephemeral_pk_two],
+		})
 		expect(await listLiveDatabaseNames("ctx_ephemeral_pk_")).toEqual(
 			expect.arrayContaining(names),
 		)

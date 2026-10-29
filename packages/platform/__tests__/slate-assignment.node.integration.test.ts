@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import { mkdir, writeFile } from "node:fs/promises"
 import { join, resolve } from "node:path"
+import { writeDatabase } from "@tests/database-project"
 import { test } from "@tests/integration"
 import { createSlateProject } from "@usecontextlayer/dev-env/slate"
 import { accountsSchema } from "@usecontextlayer/shared/accounts"
@@ -11,7 +12,7 @@ import { expect } from "vitest"
 import { getAgentInstanceName } from "@/agent-instance"
 import { slateSchema } from "@/slates.schema"
 
-test("chrome and API final assignments provision agent-only schedules without opening the app", {
+test("chrome and API final assignments migrate agent-only personal databases and provision schedules without opening the app", {
 	timeout: 900_000,
 }, async ({ db, directory, platform, provisioning, webSession }) => {
 	const headers = new Headers(webSession.headers)
@@ -31,7 +32,7 @@ test("chrome and API final assignments provision agent-only schedules without op
 		account,
 		"The native chrome proof requires an existing ACTIVE personal Gmail connected account for the DevEnv user.",
 	)
-	const { ARTIFACTS, AGENTS } = await platform.worker.getEnv()
+	const { ARTIFACTS, DATABASES, AGENTS } = await platform.worker.getEnv()
 	await using cleanup = new AsyncDisposableStack()
 	for (const mode of ["chrome", "api"] as const) {
 		const created = await fetch(`${platform.origin}/api/slates`, post({}))
@@ -60,6 +61,7 @@ test("chrome and API final assignments provision agent-only schedules without op
 					primary: { mode: "viewer", toolkit: "gmail" },
 					secondary: { mode: "owner", toolkit: "gmail" },
 				},
+				databases: { inbox: { mode: "viewer" } },
 			}),
 		)
 		await writeFile(
@@ -70,6 +72,7 @@ test("chrome and API final assignments provision agent-only schedules without op
 			join(checkout, "agents/daily/schedules/daily.md"),
 			'---\ncron: "0 0 1 1 *"\n---\nSummarize the assigned mailboxes.\n',
 		)
+		await writeDatabase(checkout, "inbox")
 		const execute = execa({
 			cwd: checkout,
 			env: {
@@ -104,6 +107,11 @@ test("chrome and API final assignments provision agent-only schedules without op
 		const { resources } = slateResourcesSchema.parse(await listing.json())
 		expect(resources.connections.primary?.account_id).toBe(account.id)
 		expect(resources.connections.secondary?.account_id).toBeNull()
+		const inbox = resources.databases.inbox
+		assert(inbox)
+		await expect(
+			DATABASES.getByName(inbox.instance_name).query("SELECT * FROM updates"),
+		).rejects.toThrow()
 		const instance = await getAgentByName(
 			AGENTS,
 			getAgentInstanceName(slate.id, "daily", { id: webSession.user.id, type: "user" }),
@@ -145,6 +153,10 @@ test("chrome and API final assignments provision agent-only schedules without op
 			await workflow.waitForStatus("complete")
 		}
 		expect(await instance.listSchedules()).toHaveLength(1)
+		expect(
+			(await DATABASES.getByName(inbox.instance_name).query("SELECT * FROM updates"))
+				.rows,
+		).toEqual([])
 		const schedules = await instance.listSchedules()
 		const again = await fetch(
 			`${platform.origin}/api/slates/${slate.id}/connections/assign`,

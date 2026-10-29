@@ -1,8 +1,10 @@
 import assert from "node:assert/strict"
 import { mkdir, writeFile } from "node:fs/promises"
 import { join, resolve } from "node:path"
+import { writeDatabase } from "@tests/database-project"
 import { test as base } from "@tests/integration"
 import { createSlateProject } from "@usecontextlayer/dev-env/slate"
+import { slateResourcesSchema } from "@usecontextlayer/shared/slate-resources"
 import { getAgentByName } from "agents/routing"
 import { execa } from "execa"
 import { expect } from "vitest"
@@ -30,7 +32,7 @@ const test = base.extend(
 		})
 		expect(created.status, await created.clone().text()).toBe(201)
 		const slate = slateSchema.parse(await created.json())
-		const { ARTIFACTS, AGENTS } = await platform.worker.getEnv()
+		const { ARTIFACTS, DATABASES, AGENTS } = await platform.worker.getEnv()
 		onCleanup(async () => {
 			await ARTIFACTS.delete(slate.id)
 		})
@@ -44,6 +46,7 @@ const test = base.extend(
 			join(directory, "agents/daily/slate.json"),
 			JSON.stringify({
 				connections: {},
+				databases: { inbox: { mode: "viewer" } },
 				secrets: Object.fromEntries(names.map((name) => [name, { mode: "viewer" }])),
 			}),
 		)
@@ -55,6 +58,7 @@ const test = base.extend(
 			join(directory, "agents/daily/schedules/daily.md"),
 			'---\ncron: "0 0 1 1 *"\n---\nUse the configured personal secrets.\n',
 		)
+		await writeDatabase(directory, "inbox")
 		const execute = execa({
 			cwd: directory,
 			env: {
@@ -85,11 +89,23 @@ const test = base.extend(
 		const chromeHeaders = new Headers(webSession.headers)
 		chromeHeaders.set("origin", platform.origin)
 		chromeHeaders.set("accept", "text/html")
-
+		const listing = await fetch(
+			`${platform.origin}/api/slates/${slate.id}/resources/list`,
+			{
+				body: "{}",
+				headers,
+				method: "POST",
+			},
+		)
+		expect(listing.status).toBe(200)
+		const { resources } = slateResourcesSchema.parse(await listing.json())
+		const inbox = resources.databases.inbox
+		assert(inbox)
 		return {
 			chromeHeaders,
 			chromeUrl,
 			headers,
+			inbox: DATABASES.getByName(inbox.instance_name),
 			instance: await getAgentByName(
 				AGENTS,
 				getAgentInstanceName(slate.id, "daily", { id: webSession.user.id, type: "user" }),
@@ -144,10 +160,10 @@ test("non-writing: chrome lists agent-only personal secrets and rejects invalid 
 })
 
 // These are real vault writes. An interrupted process can leave keys despite the cleanup below.
-test("live Doppler: API partial save and chrome final secret provision agent-only schedules", {
+test("live Doppler: API partial save and chrome final save migrate an agent-only personal database and provision schedules", {
 	timeout: 180_000,
 }, async ({ platform, provisioning, secretSlate, webSession }) => {
-	const { chromeHeaders, chromeUrl, headers, instance, members, names, slate } =
+	const { chromeHeaders, chromeUrl, headers, inbox, instance, members, names, slate } =
 		secretSlate
 	const owner = { id: webSession.user.id, type: "personal" } as const
 	const vault = parseSharedSecretsEnv(platform.env)
@@ -196,6 +212,7 @@ test("live Doppler: API partial save and chrome final secret provision agent-onl
 		if (index === 0) {
 			expect(await members()).toEqual([])
 			expect(await instance.listSchedules()).toEqual([])
+			await expect(inbox.query("SELECT * FROM updates")).rejects.toThrow()
 		} else {
 			expect(output).toContain("Setup complete")
 			expect(await members()).toEqual([{ user_id: owner.id }])
@@ -204,6 +221,7 @@ test("live Doppler: API partial save and chrome final secret provision agent-onl
 				await workflow.waitForStatus("complete")
 			}
 			expect(await instance.listSchedules()).toHaveLength(1)
+			expect((await inbox.query("SELECT * FROM updates")).rows).toEqual([])
 		}
 	}
 	const logs = JSON.stringify(platform.harness.getLogs())

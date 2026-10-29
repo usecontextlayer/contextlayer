@@ -275,17 +275,21 @@ test("hosted configuration uses pushed declarations independently of developer-l
 				},
 			},
 		})
-		// The API covers both Owner projections; exercise the chrome transport once.
-		if (slate === organization) continue
 		const chromeUrl = new URL(`/dashboard/chrome/slates/${slate.id}`, origin)
 		chromeUrl.searchParams.set("parentOrigin", `https://${slate.public_hostname}`)
 		const chromeHeaders = { ...headers, accept: "text/html" }
 		const chrome = await fetch(chromeUrl, { headers: chromeHeaders })
 		expect(chrome.status).toBe(200)
+		const html = await chrome.text()
+		if (slate === organization) {
+			expect(html).toContain(mailAccount.id)
+			expect(html).toContain("test-repository")
+			expect(html).not.toContain("Managed by slate Owner")
+			continue
+		}
 		expect(chrome.headers.get("content-security-policy")).toContain(
 			"form-action 'self' https://connect.composio.dev https://dashboard.composio.dev",
 		)
-		const html = await chrome.text()
 		expect(html).toContain("2 inputs to configure")
 		expect(html.match(/agent: daily-summary/g)).toHaveLength(2)
 		expect(html).not.toContain("Used by")
