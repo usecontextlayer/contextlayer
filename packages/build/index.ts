@@ -16,6 +16,7 @@ import type { SlateProvisioning } from "@usecontextlayer/shared/slate-provisioni
 import { artifactTransferEnv } from "@/artifact"
 import type { BuildBindings } from "@/env"
 import { inspectCloudflare } from "@/inspection"
+import { prepareSlateArtifactsCommand } from "@/preparation"
 import { publishSlate } from "@/publish"
 import { migrateSlateDatabases } from "@/slate-database-migrations"
 
@@ -70,8 +71,7 @@ export class Build extends CIWorkflow<CloudflareArtifacts, BuildBindings> {
 			this.env.PROVISIONING.prepare(event.payload.repo, event.payload.sha),
 		)
 		const build = await ci.runner({
-			command:
-				'pnpm install --frozen-lockfile && pnpm build && /usr/local/bin/rclone copy ./build "$CTX_BUILD_ARTIFACT_PATH" --config /dev/null',
+			command: `${prepareSlateArtifactsCommand} && /usr/local/bin/rclone copy ./build "$CTX_BUILD_ARTIFACT_PATH" --config /dev/null`,
 			env: await artifactTransferEnv(this.env, event.instanceId, "object-read-write"),
 			name: "build",
 		})

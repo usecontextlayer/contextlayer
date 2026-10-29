@@ -37,12 +37,12 @@ export function createSlateWorker({
 	development,
 	mcp = {},
 }: {
-	build: Parameters<typeof createRequestHandler>[0]
+	build?: Parameters<typeof createRequestHandler>[0]
 	mode: string
 	development: boolean
 	mcp?: Record<string, McpToolModule>
 }): SlateWorker {
-	const requestHandler = createRequestHandler(build, mode)
+	const requestHandler = build ? createRequestHandler(build, mode) : undefined
 	return {
 		async fetch(request, env, ctx) {
 			if (ctx.props.mcpTool) {
@@ -53,6 +53,7 @@ export function createSlateWorker({
 				const args = await module.tool.inputSchema.parseAsync(await request.json())
 				return Response.json(await module.handler(args))
 			}
+			if (!requestHandler) return new Response(null, { status: 404 })
 			const context = new RouterContextProvider()
 			context.set(
 				databasesContext,

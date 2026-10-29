@@ -25,10 +25,12 @@ export async function publishSlate(
 		if (!download.success) {
 			throw new Error(`Deployment artifact download failed: ${download.stderr}`)
 		}
+		await sandbox.mkdir("/tmp/slate-deploy/payload/client", { recursive: true })
+		const server = await sandbox.exists("/tmp/slate-deploy/payload/server/index.js")
 		await sandbox.writeFile("/tmp/slate-deploy/tsconfig.json", "{}")
 		await sandbox.writeFile(
 			"/tmp/slate-deploy/wrangler.json",
-			JSON.stringify(slateDeploymentConfig(slateId, commit)),
+			JSON.stringify(slateDeploymentConfig(slateId, commit, server.exists)),
 		)
 		const deployment = await sandbox.exec(
 			'/opt/contextlayer/node_modules/.bin/wrangler deploy --config ./wrangler.json --no-bundle --dispatch-namespace "$CTX_DISPATCH_NAMESPACE"',

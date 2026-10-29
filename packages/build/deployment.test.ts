@@ -52,7 +52,11 @@ test("publishes compiled modules and assets with platform-owned configuration", 
 	await writeFile(
 		join(output, "wrangler.json"),
 		JSON.stringify(
-			slateDeploymentConfig("trusted-slate", "0123456789abcdef0123456789abcdef01234567"),
+			slateDeploymentConfig(
+				"trusted-slate",
+				"0123456789abcdef0123456789abcdef01234567",
+				true,
+			),
 		),
 	)
 
@@ -90,3 +94,57 @@ test("publishes compiled modules and assets with platform-owned configuration", 
 	expect(metadata.tags).toEqual(["commit:0123456789abcdef0123456789abcdef01234567"])
 	expect(upload.has("assets/chunk.js")).toBe(true)
 }, 30_000)
+
+test.for(["static", "empty"])(
+	"publishes %s assets without an authored server or assets binding",
+	{ timeout: 30_000 },
+	async (source, { directory }) => {
+		const output = join(directory, "deploy")
+		await mkdir(join(output, "payload/client"), { recursive: true })
+		if (source === "static") {
+			await writeFile(join(output, "payload/client/index.html"), "<p>static slate</p>")
+		}
+		await writeFile(join(output, "tsconfig.json"), "{}")
+		await writeFile(
+			join(output, "wrangler.json"),
+			JSON.stringify(
+				slateDeploymentConfig(
+					"trusted-assets-slate",
+					"0123456789abcdef0123456789abcdef01234567",
+					false,
+				),
+			),
+		)
+		await execFile(
+			wrangler,
+			[
+				"deploy",
+				"--config",
+				"wrangler.json",
+				"--no-bundle",
+				"--dry-run",
+				"--outfile",
+				join(directory, "worker.bundle"),
+				"--dispatch-namespace",
+				"test",
+			],
+			{
+				cwd: output,
+				env: {
+					CI: "true",
+					PATH: process.env.PATH,
+					WRANGLER_LOG_PATH: join(directory, "wrangler.log"),
+					WRANGLER_SEND_METRICS: "false",
+				},
+			},
+		)
+		const bundle = await readFile(join(directory, "worker.bundle"))
+		const boundary = bundle.toString().split("\r\n", 1)[0].slice(2)
+		const upload = await new Response(new Uint8Array(bundle), {
+			headers: { "Content-Type": `multipart/form-data; boundary=${boundary}` },
+		}).formData()
+		const metadata = JSON.parse(String(upload.get("metadata")))
+		expect(metadata.bindings).toEqual([])
+		expect(metadata.tags).toEqual(["commit:0123456789abcdef0123456789abcdef01234567"])
+	},
+)

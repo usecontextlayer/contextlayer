@@ -1,5 +1,6 @@
+import { existsSync } from "node:fs"
 import { glob, readFile } from "node:fs/promises"
-import { dirname, join, relative } from "node:path"
+import { dirname, join, relative, resolve } from "node:path"
 import { RESOURCE_MIME_TYPE } from "@modelcontextprotocol/ext-apps/server"
 import { declarationSchema } from "@usecontextlayer/shared/declaration"
 import { MCP_MANIFEST_PATH, mcpManifestSchema } from "@usecontextlayer/shared/mcp"
@@ -7,6 +8,9 @@ import { build, createServer, createServerModuleRunner, type Plugin } from "vite
 import { viteSingleFile } from "vite-plugin-singlefile"
 import { z } from "zod"
 import type { McpToolModule } from "@/worker"
+
+const clientEntry = "virtual:contextlayer-mcp-assets"
+const resolvedClientEntry = `\0${clientEntry}`
 
 export function mcpApps(): Plugin {
 	let root: string
@@ -88,14 +92,42 @@ export function mcpApps(): Plugin {
 	}
 
 	return {
+		config(config) {
+			root = resolve(config.root ?? ".")
+		},
+		configEnvironment: {
+			handler(name, config) {
+				if (
+					name === "client" &&
+					config.input === undefined &&
+					!config.build?.rolldownOptions?.input &&
+					!config.build?.rollupOptions?.input &&
+					!existsSync(join(root, "index.html"))
+				) {
+					return { build: { rolldownOptions: { input: clientEntry } } }
+				}
+			},
+			order: "post",
+		},
 		configResolved(config) {
 			root = config.root
 		},
-		async generateBundle() {
+		async generateBundle(_options, bundle) {
 			if (this.environment.config.consumer !== "client") return
 			compiled ??= compile()
 			for (const asset of await compiled) this.emitFile(asset)
+			for (const [fileName, output] of Object.entries(bundle)) {
+				if (output.type === "chunk" && output.facadeModuleId === resolvedClientEntry) {
+					delete bundle[fileName]
+				}
+			}
+		},
+		load(id) {
+			if (id === resolvedClientEntry) return "export {}"
 		},
 		name: "contextlayer-mcp-apps",
+		resolveId(id) {
+			if (id === clientEntry) return resolvedClientEntry
+		},
 	}
 }
