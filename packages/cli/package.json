@@ -57,7 +57,7 @@
 	},
 	"scripts": {
 		"build": "tsdown",
-		"dev:watch": "tsdown --watch template",
+		"dev:watch": "tsdown --watch templates",
 		"test": "vitest run --project @usecontextlayer/cli",
 		"tsc": "tsc -b tsconfig.json"
 	},

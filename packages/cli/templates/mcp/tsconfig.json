@@ -1,0 +1,19 @@
+{
+	"compilerOptions": {
+		"lib": ["ES2022", "DOM"],
+		"module": "ESNext",
+		"moduleResolution": "bundler",
+		"noEmit": true,
+		"paths": { "@/*": ["./*"] },
+		"skipLibCheck": true,
+		"strict": true,
+		"target": "ES2022",
+		"types": ["vite/client", "node"]
+	},
+	"include": [
+		"mcp/**/*.ts",
+		"workers/**/*.ts",
+		"vite.config.ts",
+		"worker-configuration.d.ts"
+	]
+}

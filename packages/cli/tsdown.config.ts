@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process"
+import { cpSync } from "node:fs"
 import { defineConfig } from "tsdown"
 
 export default defineConfig({
@@ -14,10 +14,7 @@ export default defineConfig({
 	format: ["esm"],
 	hooks: {
 		"build:done": () => {
-			execFileSync("tar", ["-czf", "dist/template.tar.gz", "template"], {
-				env: { ...process.env, COPYFILE_DISABLE: "1" },
-				stdio: "inherit",
-			})
+			cpSync("templates", "dist/templates", { recursive: true })
 		},
 	},
 	outDir: "dist",

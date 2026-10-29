@@ -5,26 +5,17 @@ import { execa } from "execa"
 export async function createSlateProject(
 	workspaceRoot: string,
 	checkout: string,
-	{ installDependencies = false }: { installDependencies?: boolean } = {},
+	{
+		installDependencies = false,
+		scaffold = "app",
+	}: { installDependencies?: boolean; scaffold?: "app" | "mcp" } = {},
 ) {
 	const packagesRoot = join(workspaceRoot, "packages")
 	const cli = join(packagesRoot, "cli")
-	await execa(
-		"pnpm",
-		[
-			"exec",
-			"create-react-router",
-			checkout,
-			"--template",
-			join(cli, "dist/template.tar.gz"),
-			"--package-manager",
-			"pnpm",
-			"--no-install",
-			"--no-git-init",
-			"--yes",
-		],
-		{ cwd: cli },
-	)
+	await mkdir(checkout, { recursive: true })
+	await execa(process.execPath, [join(cli, "dist/cli.mjs"), "scaffold", scaffold], {
+		cwd: checkout,
+	})
 	const packages = join(checkout, "packages")
 	await mkdir(packages, { recursive: true })
 	await Promise.all(

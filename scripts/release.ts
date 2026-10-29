@@ -22,7 +22,10 @@ import path from "node:path"
 
 const PACKAGES_DIR = "packages"
 const LOCKFILE_PATH = "pnpm-lock.yaml"
-const STARTER_MANIFEST_PATH = "packages/cli/template/package.json"
+const SCAFFOLD_MANIFEST_PATHS = [
+	"packages/cli/templates/app/package.json",
+	"packages/cli/templates/mcp/package.json",
+]
 
 const VERSION_RE = /^\d+\.\d+\.\d+$/
 const UNVERSIONED = "(unversioned)"
@@ -215,20 +218,22 @@ function planBump(version: string): BumpChange[] {
 			})
 		}
 	}
-	const before = fs.readFileSync(STARTER_MANIFEST_PATH, "utf8")
-	const starter = JSON.parse(before) as {
-		dependencies: { "@usecontextlayer/sdk": string }
-		devDependencies: { "@usecontextlayer/cli": string }
-	}
-	starter.dependencies["@usecontextlayer/sdk"] = version
-	starter.devDependencies["@usecontextlayer/cli"] = version
-	const after = stringifyNpmManifest(starter)
-	if (before !== after) {
-		changes.push({
-			afterContent: after,
-			beforeContent: before,
-			manifestPath: STARTER_MANIFEST_PATH,
-		})
+	for (const manifestPath of SCAFFOLD_MANIFEST_PATHS) {
+		const before = fs.readFileSync(manifestPath, "utf8")
+		const starter = JSON.parse(before) as {
+			dependencies: { "@usecontextlayer/sdk": string }
+			devDependencies: { "@usecontextlayer/cli": string }
+		}
+		starter.dependencies["@usecontextlayer/sdk"] = version
+		starter.devDependencies["@usecontextlayer/cli"] = version
+		const after = stringifyNpmManifest(starter)
+		if (before !== after) {
+			changes.push({
+				afterContent: after,
+				beforeContent: before,
+				manifestPath,
+			})
+		}
 	}
 	return changes
 }
@@ -298,20 +303,24 @@ function runVerify(target: string | undefined): void {
 		return
 	}
 	const all = collectNpmPackages()
-	const starter = readJson<{
-		dependencies: { "@usecontextlayer/sdk": string }
-		devDependencies: { "@usecontextlayer/cli": string }
-	}>(STARTER_MANIFEST_PATH)
 	const versions = [
 		...all,
-		{
-			manifestPath: `${STARTER_MANIFEST_PATH} dependencies.@usecontextlayer/sdk`,
-			version: starter.dependencies["@usecontextlayer/sdk"],
-		},
-		{
-			manifestPath: `${STARTER_MANIFEST_PATH} devDependencies.@usecontextlayer/cli`,
-			version: starter.devDependencies["@usecontextlayer/cli"],
-		},
+		...SCAFFOLD_MANIFEST_PATHS.flatMap((manifestPath) => {
+			const starter = readJson<{
+				dependencies: { "@usecontextlayer/sdk": string }
+				devDependencies: { "@usecontextlayer/cli": string }
+			}>(manifestPath)
+			return [
+				{
+					manifestPath: `${manifestPath} dependencies.@usecontextlayer/sdk`,
+					version: starter.dependencies["@usecontextlayer/sdk"],
+				},
+				{
+					manifestPath: `${manifestPath} devDependencies.@usecontextlayer/cli`,
+					version: starter.devDependencies["@usecontextlayer/cli"],
+				},
+			]
+		}),
 	]
 	const offenders = findDrift(versions, (pkg) => pkg.version, target)
 	if (offenders.length > 0) {
@@ -325,7 +334,7 @@ function runVerify(target: string | undefined): void {
 	}
 	const v = target ?? all[0]?.version ?? UNVERSIONED
 	console.log(
-		`All ${all.length} package versions and the starter SDK/CLI dependencies at ${v}.`,
+		`All ${all.length} package versions and scaffold SDK/CLI dependencies at ${v}.`,
 	)
 }
 

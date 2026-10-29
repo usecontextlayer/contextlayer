@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 import { resolve } from "node:path"
-import { fileURLToPath } from "node:url"
 import { databaseSlugSchema } from "@usecontextlayer/shared/declaration"
 import { Argument, Command } from "commander"
 import { execa } from "execa"
@@ -20,6 +19,12 @@ import { configureGit, gitCredential } from "@/git-credential"
 import { inspectSlate, isNativeHelpRequest } from "@/inspection"
 import { ownerOptionsSchema } from "@/owner"
 import { version } from "@/package.json"
+import {
+	createSlateCheckout,
+	initOptionsSchema,
+	scaffoldKindSchema,
+	scaffoldSlate,
+} from "@/scaffold"
 import { dropSecret, secretNameSchema, secretOptionsSchema, setSecret } from "@/secrets"
 
 const program = new Command()
@@ -120,16 +125,42 @@ for (const kind of ["ci", "worker"] as const) {
 }
 
 program
+	.command("scaffold")
+	.description(
+		"Add editable source to the current slate; on conflict, write nothing and print the complete proposal for an authoring agent to integrate",
+	)
+	.addArgument(
+		new Argument("<kind>", "Source scaffold to add").choices(scaffoldKindSchema.options),
+	)
+	.action(async (kind: string) => {
+		if (!(await scaffoldSlate(scaffoldKindSchema.parse(kind), process.cwd())))
+			process.exitCode = 1
+	})
+
+program
 	.command("init <directory>")
 	.description(
-		"Create a private ContextLayer slate on main with React Router, Tailwind, and shadcn; requires login, a supported Node.js version, pnpm, and Git author identity; sets the Git remote and prints how to start and deploy the slate",
+		"Create a private slate with Git on main and a short AGENTS.md; requires login and Git author identity; optional app/MCP setup also requires pnpm and a supported Node.js version",
 	)
 	.option("--org <slug>", "Create the slate under an organization you belong to")
+	.option(
+		"--scaffold-app",
+		"Add the React Router, Tailwind, shadcn, and notes-database app starter; install its dependencies",
+	)
+	.option("--scaffold-public", "Add a minimal static HTML document in public/")
+	.option("--scaffold-agents", "Add an agent instructions.md and declaration skeleton")
+	.option(
+		"--scaffold-mcp",
+		"Add an MCP module, empty handler, declaration, and native Vite/Worker setup; install its dependencies",
+	)
+	.addHelpText(
+		"after",
+		"\nScaffold flags combine independently in app, public, agents, mcp order. A conflicting scaffold writes nothing and prints its complete proposal for authoring-agent integration. Without flags, no app, assets, agents, MCP, or package manifest is created.",
+	)
 	.hook("preAction", requireLogin)
-	.action(async (directory: string, options: { org?: string }) => {
-		const input = z
-			.object({ organization_slug: z.string().min(1).optional() })
-			.parse({ organization_slug: options.org })
+	.action(async (directory: string, rawOptions) => {
+		const options = initOptionsSchema.parse(rawOptions)
+		const input = { organization_slug: options.org }
 		const accessToken = await getAccessToken(env)
 		const gitIdentity = await execa("git", ["var", "GIT_AUTHOR_IDENT"], {
 			reject: false,
@@ -137,38 +168,20 @@ program
 		})
 		process.exitCode = gitIdentity.exitCode
 		if (gitIdentity.exitCode !== 0) return
-
-		const result = await execa(
-			process.execPath,
-			[
-				fileURLToPath(
-					new URL(
-						"./dist/cli.js",
-						import.meta.resolve("create-react-router/package.json"),
-					),
-				),
-				directory,
-				"--template",
-				fileURLToPath(new URL("./template.tar.gz", import.meta.url)),
-				"--package-manager",
-				"pnpm",
-				"--install",
-				"--git-init",
-				"--yes",
-			],
-			{
-				env: {
-					GIT_CONFIG_COUNT: "1",
-					GIT_CONFIG_KEY_0: "init.defaultBranch",
-					GIT_CONFIG_VALUE_0: "main",
-				},
-				reject: false,
-				stdio: "inherit",
-			},
+		const selected = scaffoldKindSchema.options.filter(
+			(kind) =>
+				options[
+					(
+						{
+							agents: "scaffoldAgents",
+							app: "scaffoldApp",
+							mcp: "scaffoldMcp",
+							public: "scaffoldPublic",
+						} as const
+					)[kind]
+				],
 		)
-		process.exitCode = result.exitCode
-		if (result.exitCode !== 0) return
-
+		const { dependencies } = await createSlateCheckout(directory, selected)
 		const response = await fetch(new URL("/api/slates", env.CTX_PLATFORM_URL), {
 			body: JSON.stringify(input),
 			headers: {
@@ -195,21 +208,19 @@ ContextLayer slate created: ${slate.id}
 Dashboard: ${new URL(`/dashboard/slates/${slate.id}`, env.CTX_PLATFORM_URL).href}
 Hosted URL: https://${slate.public_hostname}/ (available after deployment)
 
-Start locally:
-  cd '${directory.replaceAll("'", "'\\''")}'
-  pnpm dev
-Open the local URL printed by the development server.
+Checkout: '${directory.replaceAll("'", "'\\''")}'
+${dependencies ? "Dependencies and pnpm-lock.yaml are installed. Run pnpm dev in the checkout to develop locally." : "Edit AGENTS.md and add the source you need. Use ctx scaffold --help for optional starters."}
 
-Deploy the committed starter:
+Deploy the committed source:
   git push -u origin main
 
-Commit your own changes before subsequent pushes.
+Commit your own changes before subsequent pushes. Any scaffold proposal printed above still needs authoring-agent integration.
 
 Inspect CI runs and the published Worker:
   npx @usecontextlayer/cli ci ${slate.public_hostname} --help
   npx @usecontextlayer/cli worker ${slate.public_hostname} get --help
 
-See README.md for the development and connection workflow.
+Authoring and deployment: https://docs.usecontextlayer.com
 `)
 	})
 
@@ -380,10 +391,7 @@ secrets
 
 program
 	.command("db.codegen")
-	.argument(
-		"<slug>",
-		"Database declared in public/slate.json or agents/<name>/slate.json",
-	)
+	.argument("<slug>", "Database declared in app/slate.json or agents/<name>/slate.json")
 	.description("Generate databases/<slug>/types.ts from the migrated local database")
 	.addHelpText(
 		"after",
@@ -399,10 +407,10 @@ program
 				"code" in error &&
 				error.code === "ENOENT" &&
 				"path" in error &&
-				error.path === resolve("public/slate.json")
+				error.path === resolve("app/slate.json")
 			) {
 				command.error(
-					`Missing ${error.path}. Run pnpm db.codegen from the slate root containing public/slate.json.`,
+					`Missing ${error.path}. Add app/slate.json to declare the app resources.`,
 				)
 			}
 			throw error

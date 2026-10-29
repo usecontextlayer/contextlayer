@@ -12,22 +12,22 @@ From the checkout root, run:
 pnpm dev
 ```
 
-Open the local URL printed by the development server and add a note. The starter reads and writes its declared `notes` database. Edit `app/routes/home.tsx` to build your first page. Use `pnpm typecheck` and `pnpm build` for the checkout's normal TypeScript and production-build commands.
+This invokes `ctx dev`: the CLI starts trusted local resources, applies pending migrations, then starts the authored Vite app. Open the local URL printed by the development server and add a note. The starter reads and writes its declared `notes` database. Edit `app/routes/home.tsx` to build your first page. Use `pnpm typecheck` and `pnpm build` for the checkout's normal TypeScript and production-build commands.
 
 ## Use connected services
 
-Declare the connections your app needs in `public/slate.json`. Connect an account to ContextLayer in your browser, then assign the connected account to one of your app's declared connections. An already connected account can go directly to assignment. Command help supplies the supported operations:
+Declare the connections your app needs in `app/slate.json`. Connect an account to ContextLayer in your browser, then assign the connected account to one of your app's declared connections. An already connected account can go directly to assignment. Command help supplies the supported operations:
 
 ```sh
 npx @usecontextlayer/cli accounts --help
 npx @usecontextlayer/cli connections --help
 ```
 
-Local assignments are saved in ignored `.contextlayer/connections.json`. Restart `pnpm dev` after changing declarations or local assignments.
+Local assignments are saved in ignored `.contextlayer/connections.json`. Supply declared secrets through the startup process environment. Assigned connections use the saved developer login and registered slate; local databases and environment-only agents need neither. Restart `pnpm dev` after changing instructions, declarations, schedules, environment values or local assignments. Add agents under `agents/<name>` and declare shared database slugs in each consumer; they run through the same native stack and use this app's database. Docker is required when agents are present. `ctx dev` also runs in checkouts without an app or package manifest.
 
 ## Store slate data
 
-Declare database slugs in `public/slate.json` or `agents/<name>/slate.json`, following the [resource invariants](https://github.com/usecontextlayer/contextlayer/blob/main/ARCHITECTURE.md#resource-configuration-and-execution--principles). Local development persists SQLite state in ignored `.contextlayer/databases`.
+Declare database slugs in `app/slate.json` or `agents/<name>/slate.json`, following the [resource invariants](https://github.com/usecontextlayer/contextlayer/blob/main/ARCHITECTURE.md#resource-configuration-and-execution--principles). Local development persists SQLite state in ignored `.contextlayer/databases`.
 
 The starter's shared `notes` database has a native `databases/notes/kysely.config.ts`, explicitly authored migrations, and generated `types.ts`. Local startup applies the local checkout’s pending migrations before the app can query. To change the schema while development is running:
 
