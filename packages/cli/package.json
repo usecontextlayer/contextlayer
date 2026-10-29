@@ -3,11 +3,10 @@
 		"ctx": "./dist/cli.mjs"
 	},
 	"dependencies": {
-		"@anthropic-ai/claude-agent-sdk": "0.3.289",
 		"cf": "1.0.0-beta.23",
-		"create-react-router": "8.5.0",
 		"kysely": "0.29.5",
 		"kysely-codegen": "0.20.0",
+		"miniflare": "5.20261001.0-alpha",
 		"typescript": "5.9.3",
 		"vite": "^8.3.2",
 		"wrangler": "^4.146.0"
@@ -16,11 +15,15 @@
 	"devDependencies": {
 		"@clack/prompts": "^1.8.1",
 		"@cloudflare/workers-types": "^5.20261001.1",
+		"@composio/core": "^0.22.0",
+		"@hono/zod-openapi": "^1.6.3",
 		"@types/node": "^24.13.3",
 		"@usecontextlayer/shared": "workspace:*",
+		"agents": "0.26.0",
 		"axios": "1.20.0",
 		"commander": "^15.0.0",
 		"execa": "^10.0.1",
+		"hono": "^4.13.7",
 		"js-yaml": "4.3.2",
 		"openapi-client-axios": "7.9.1",
 		"openid-client": "^6.8.8",
@@ -57,7 +60,7 @@
 	},
 	"scripts": {
 		"build": "tsdown",
-		"dev:watch": "tsdown --watch templates",
+		"dev:watch": "tsdown --watch templates --watch local-runtime --watch ../shared/assets",
 		"test": "vitest run --project @usecontextlayer/cli",
 		"tsc": "tsc -b tsconfig.json"
 	},

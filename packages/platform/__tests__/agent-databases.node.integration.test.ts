@@ -73,7 +73,7 @@ for (const [mode, tool] of [
 		await createSlateProject(resolve(import.meta.dirname, "../../.."), directory)
 		await mkdir(join(directory, "agents/database"), { recursive: true })
 		await writeFile(
-			join(directory, "public/slate.json"),
+			join(directory, "app/slate.json"),
 			JSON.stringify({
 				connections: {},
 				databases: { drafts: { mode: "viewer" }, reports: { mode: "owner" } },

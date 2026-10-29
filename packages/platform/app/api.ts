@@ -1,11 +1,26 @@
 import { createRoute, OpenAPIHono, type RouteConfig, z } from "@hono/zod-openapi"
 import { createPolarCore, webhooks } from "@polar-sh/sdk/2026-10"
+import {
+	abortAgentJobRoute,
+	deleteAgentJobRoute,
+	getAgentJobInspectionRoute,
+	getAgentJobMessagesRoute,
+	getAgentJobOperationRoute,
+	getAgentJobResultRoute,
+	getAgentJobRoute,
+	getAgentJobUsageRoute,
+	getAgentRoute,
+	getAgentScheduleRoute,
+	listAgentJobSessionsRoute,
+	listAgentJobsRoute,
+	listAgentSchedulesRoute,
+	startAgentJobRoute,
+} from "@usecontextlayer/shared/agents-api"
 import { noCommitSchema } from "@usecontextlayer/shared/slate-resources"
 import {
 	recordSlateUsage,
 	resolvedSlateSchema,
 } from "@usecontextlayer/shared/slate-usage"
-import { secretRequiredSchema } from "@usecontextlayer/shared/tools"
 import { isAPIError } from "better-auth/api"
 import {
 	accountLinkSchema,
@@ -14,24 +29,6 @@ import {
 	personalAccountsQuerySchema,
 } from "@/accounts.schema"
 import { connectAccount, listAccounts, listPersonalAccounts } from "@/accounts.server"
-import {
-	agentJobCreationSchema,
-	agentJobEntrySchema,
-	agentJobInspectionSchema,
-	agentJobMessageSchema,
-	agentJobOperationSchema,
-	agentJobParamsSchema,
-	agentJobRequestSchema,
-	agentJobResultSchema,
-	agentJobSessionParamsSchema,
-	agentJobSessionSchema,
-	agentJobsQuerySchema,
-	agentJobUsageSchema,
-	agentParamsSchema,
-	agentRuntimeScheduleSchema,
-	agentScheduleParamsSchema,
-	agentSchema,
-} from "@/agents.schema"
 import {
 	abortAgentJob,
 	deleteAgentJob,
@@ -114,12 +111,21 @@ import {
 	updateSlateVisibility,
 } from "@/slates.server"
 import {
+	accountSessionToolSchema,
+	accountSessionToolsSchema,
 	accountToolCallSchema,
 	accountToolParamsSchema,
-	connectionRequiredSchema,
-	toolResultSchema,
+	accountToolResultSchema,
+	accountToolSessionParamsSchema,
+	accountToolSessionRequestSchema,
+	accountToolSessionSchema,
 } from "@/tools.schema"
-import { callAccountTool } from "@/tools.server"
+import {
+	callAccountTool,
+	callPersonalAccountSessionTool,
+	createPersonalAccountToolSession,
+	listPersonalAccountSessionTools,
+} from "@/tools.server"
 
 const security: NonNullable<RouteConfig["security"]> = [
 	{ bearerAuth: [] },
@@ -159,6 +165,11 @@ export function createApi() {
 		}
 		return c.body(null, 204)
 	})
+	api.openAPIRegistry.registerComponent(
+		"schemas",
+		"ComposioTool",
+		accountSessionToolSchema,
+	)
 	api.openAPIRegistry.registerComponent("securitySchemes", "bearerAuth", {
 		scheme: "bearer",
 		type: "http",
@@ -182,7 +193,7 @@ export function createApi() {
 	slateRouting.openapi(
 		createRoute({
 			description:
-				"Resolve a public hostname to a slate authorized for this caller. Private slates require the owning user or an organization member. The pathname identifies the requested slate path; /slate.json skips the execution billing check.",
+				"Resolve a public hostname to a slate authorized for this caller. Private slates require the owning user or an organization member. The pathname identifies the requested slate path.",
 			method: "get",
 			operationId: "resolveSlate",
 			path: "/resolve",
@@ -222,10 +233,8 @@ export function createApi() {
 				c.var.config.CTX_AUTH_ISSUER,
 			)
 			if (!result.allowed) return c.body(null, slateViewingErrorStatus[result.reason])
-			if (input.pathname !== "/slate.json") {
-				const billing = await checkSlateBilling(c.var.db, c.var.config, result.slate)
-				if (!billing.allowed) return c.text(billing.message, 402)
-			}
+			const billing = await checkSlateBilling(c.var.db, c.var.config, result.slate)
+			if (!billing.allowed) return c.text(billing.message, 402)
 			return c.json({ id: result.slate.id, owner: getSlateOwner(result.slate) }, 200)
 		},
 	)
@@ -635,136 +644,54 @@ export function createApi() {
 	slate.route("/", slateResources)
 
 	const agents = new OpenAPIHono<OwnerViewingEnv>()
-	agents.openapi(
-		createRoute({
-			description:
-				"Read an authored agent definition from the latest commit on main. Requires slate management permission because instructions are source.",
-			method: "get",
-			operationId: "getAgent",
-			path: "/",
-			request: {
-				params: agentParamsSchema,
-			},
-			responses: {
-				200: {
-					content: { "application/json": { schema: agentSchema } },
-					description: "The agent's instructions at the latest commit on main",
-				},
-				400: { description: "Invalid slate target or agent name" },
-				401: { description: "A valid ContextLayer login is required" },
-				403: {
-					description:
-						"Only the Owner or owning organization members may inspect agent source",
-				},
-				404: { description: "Slate or agent instructions not found" },
-			},
-			security,
-			summary: "Read an agent's instructions from the latest commit",
-			tags: ["Agents"],
-		}),
-		async (c) => {
-			const result = await getAgent(
-				c.env.ARTIFACTS,
-				c.var.slateAccess,
-				c.var.config.CTX_AUTH_ISSUER,
-				c.req.valid("param").name,
-			)
-			if (!result.allowed) {
-				const status = {
-					forbidden: 403,
-					"not-found": 404,
-					"sign-in-required": 401,
-				} as const
-				return c.body(null, status[result.reason])
-			}
-			return c.json(result.agent, 200)
-		},
-	)
-	agents.openapi(
-		createRoute({
-			description:
-				"Inspect native authored cron schedules in the app and current-user scopes available to this caller. Requires slate management permission. Schedule authoring and removal happen through Git and deployment; framework lifecycle callbacks are excluded.",
-			method: "get",
-			operationId: "listAgentSchedules",
-			path: "/schedules",
-			request: { params: agentParamsSchema },
-			responses: {
-				200: {
-					content: {
-						"application/json": { schema: z.array(agentRuntimeScheduleSchema) },
-					},
-					description: "Native provisioned authored cron schedule records",
-				},
-				400: { description: "Invalid slate target or agent name" },
-				401: { description: "A valid ContextLayer login is required" },
-				403: {
-					description:
-						"Only the Owner or owning organization members may inspect schedules",
-				},
-				404: { description: "Slate not found" },
-			},
-			security,
-			summary: "List an agent's provisioned schedules",
-			tags: ["Agents"],
-		}),
-		async (c) => {
-			const params = c.req.valid("param")
-			const result = await listAgentSchedules(
-				c.env.AGENTS,
-				c.var.slateAccess,
-				c.var.config.CTX_AUTH_ISSUER,
-				params.name,
-			)
-			if (!result.allowed) {
-				const status = { forbidden: 403, "sign-in-required": 401 } as const
-				return c.body(null, status[result.reason])
-			}
+	agents.openapi({ ...getAgentRoute, security }, async (c) => {
+		const result = await getAgent(
+			c.env.ARTIFACTS,
+			c.var.slateAccess,
+			c.var.config.CTX_AUTH_ISSUER,
+			c.req.valid("param").name,
+		)
+		if (!result.allowed) {
+			const status = {
+				forbidden: 403,
+				"not-found": 404,
+				"sign-in-required": 401,
+			} as const
+			return c.body(null, status[result.reason])
+		}
+		return c.json(result.agent, 200)
+	})
+	agents.openapi({ ...listAgentSchedulesRoute, security }, async (c) => {
+		const params = c.req.valid("param")
+		const result = await listAgentSchedules(
+			c.env.AGENTS,
+			c.var.slateAccess,
+			c.var.config.CTX_AUTH_ISSUER,
+			params.name,
+		)
+		if (!result.allowed) {
+			const status = { forbidden: 403, "sign-in-required": 401 } as const
+			return c.body(null, status[result.reason])
+		}
 
-			return c.json(result.schedules, 200)
-		},
-	)
-	agents.openapi(
-		createRoute({
-			description:
-				"Inspect one native authored schedule by scheduleId. Requires slate management permission.",
-			method: "get",
-			operationId: "getAgentSchedule",
-			path: "/schedules/{scheduleId}",
-			request: { params: agentScheduleParamsSchema },
-			responses: {
-				200: {
-					content: { "application/json": { schema: agentRuntimeScheduleSchema } },
-					description: "Native provisioned authored cron schedule records",
-				},
-				400: { description: "Invalid slate target, agent name, or schedule ID" },
-				401: { description: "A valid ContextLayer login is required" },
-				403: {
-					description:
-						"Only the Owner or owning organization members may inspect schedules",
-				},
-				404: { description: "Slate or schedule not found" },
-			},
-			security,
-			summary: "Get a provisioned agent schedule",
-			tags: ["Agents"],
-		}),
-		async (c) => {
-			const params = c.req.valid("param")
-			const result = await getAgentSchedule(
-				c.env.AGENTS,
-				c.var.slateAccess,
-				c.var.config.CTX_AUTH_ISSUER,
-				params.name,
-				params.scheduleId,
-			)
-			if (!result.allowed) {
-				const status = { forbidden: 403, "sign-in-required": 401 } as const
-				return c.body(null, status[result.reason])
-			}
-			if (!result.schedule) return c.body(null, 404)
-			return c.json(result.schedule, 200)
-		},
-	)
+		return c.json(result.schedules, 200)
+	})
+	agents.openapi({ ...getAgentScheduleRoute, security }, async (c) => {
+		const params = c.req.valid("param")
+		const result = await getAgentSchedule(
+			c.env.AGENTS,
+			c.var.slateAccess,
+			c.var.config.CTX_AUTH_ISSUER,
+			params.name,
+			params.scheduleId,
+		)
+		if (!result.allowed) {
+			const status = { forbidden: 403, "sign-in-required": 401 } as const
+			return c.body(null, status[result.reason])
+		}
+		if (!result.schedule) return c.body(null, 404)
+		return c.json(result.schedule, 200)
+	})
 
 	const jobs = new OpenAPIHono<OwnerViewingEnv>()
 	jobs.use("*", async (c, next) => {
@@ -772,475 +699,179 @@ export function createApi() {
 		if (c.var.slateAccess.slate.visibility === "public") return c.body(null, 403)
 		await next()
 	})
-	jobs.openapi(
-		createRoute({
-			description:
-				"Start a fresh hosted job on a private slate using the latest agent definition on main and the authenticated acting user. Returns after admission with the catalog job and native execution receipt, without waiting for an answer.",
-			method: "post",
-			operationId: "startAgentJob",
-			path: "/",
-			request: {
-				body: {
-					content: { "application/json": { schema: agentJobRequestSchema } },
-					required: true,
-				},
-				params: agentParamsSchema,
+	jobs.openapi({ ...startAgentJobRoute, security }, async (c) => {
+		const result = await startAgentJob(
+			c.var.db,
+			c.env.ARTIFACTS,
+			c.env.MEMBER_PROVISIONING,
+			c.env.AGENTS,
+			c.var.config,
+			c.var.slateAccess,
+			{ ...c.req.valid("json"), name: c.req.valid("param").name },
+		)
+		if (!result.allowed) {
+			if (result.reason === "secret-required")
+				return c.json({ name: result.name, reason: result.reason }, 409)
+			if (result.reason === "connection-required")
+				return c.json({ reason: result.reason, slug: result.slug }, 409)
+			return c.body(null, result.reason === "forbidden" ? 403 : 404)
+		}
+		c.header(
+			"Location",
+			`${new URL(c.req.url).pathname.replace(/\/$/, "")}/${result.creation.job.id}`,
+		)
+		return c.json(result.creation, 202)
+	})
+	jobs.openapi({ ...getAgentJobRoute, security }, async (c) => {
+		const { id, name } = c.req.valid("param")
+		const job = await getAgentJob(c.env.AGENTS, c.var.slateAccess, name, id)
+		if (!job) return c.body(null, 404)
+		return c.json(job, 200)
+	})
+	jobs.openapi({ ...getAgentJobOperationRoute, security }, async (c) => {
+		const { id, name } = c.req.valid("param")
+		const operation = await getAgentJobOperation(
+			c.env.AGENTS,
+			c.var.slateAccess,
+			name,
+			id,
+		)
+		if (!operation) return c.body(null, 404)
+		return c.json(operation, 200)
+	})
+	jobs.openapi({ ...getAgentJobResultRoute, security }, async (c) => {
+		const { id, name } = c.req.valid("param")
+		const operation = await getAgentJobResult(c.env.AGENTS, c.var.slateAccess, name, id)
+		if (!operation) return c.body(null, 404)
+		return c.json(operation, 200)
+	})
+	jobs.openapi({ ...listAgentJobSessionsRoute, security }, async (c) => {
+		const { id, name } = c.req.valid("param")
+		const result = await listAgentJobSessions(
+			c.env.AGENTS,
+			c.var.slateAccess,
+			c.var.config.CTX_AUTH_ISSUER,
+			name,
+			id,
+		)
+		if (!result.allowed) {
+			const status = {
+				forbidden: 403,
+				"not-found": 404,
+				"sign-in-required": 401,
+			} as const
+			return c.body(null, status[result.reason])
+		}
+		return c.json(result.sessions, 200)
+	})
+	jobs.openapi({ ...getAgentJobMessagesRoute, security }, async (c) => {
+		const { id, name, session } = c.req.valid("param")
+		const result = await getAgentJobMessages(
+			c.env.AGENTS,
+			c.var.slateAccess,
+			c.var.config.CTX_AUTH_ISSUER,
+			name,
+			id,
+			session,
+		)
+		if (!result.allowed) {
+			const status = {
+				forbidden: 403,
+				"not-found": 404,
+				"sign-in-required": 401,
+			} as const
+			return c.body(null, status[result.reason])
+		}
+		return c.json(result.messages, 200)
+	})
+	jobs.openapi({ ...getAgentJobUsageRoute, security }, async (c) => {
+		const { id, name } = c.req.valid("param")
+		const result = await getAgentJobUsage(
+			c.env.AGENTS,
+			c.var.slateAccess,
+			c.var.config.CTX_AUTH_ISSUER,
+			name,
+			id,
+		)
+		if (!result.allowed) {
+			const status = {
+				forbidden: 403,
+				"not-found": 404,
+				"sign-in-required": 401,
+			} as const
+			return c.body(null, status[result.reason])
+		}
+		return c.json(result.usage, 200)
+	})
+	jobs.openapi({ ...getAgentJobInspectionRoute, security }, async (c) => {
+		const { id, name } = c.req.valid("param")
+		const result = await getAgentJobInspection(
+			c.env.AGENTS,
+			c.var.slateAccess,
+			c.var.config.CTX_AUTH_ISSUER,
+			name,
+			id,
+		)
+		if (!result.allowed) {
+			const status = {
+				forbidden: 403,
+				"not-found": 404,
+				"sign-in-required": 401,
+			} as const
+			return c.body(null, status[result.reason])
+		}
+		return c.json(result.inspection, 200)
+	})
+	jobs.openapi({ ...abortAgentJobRoute, security }, async (c) => {
+		const { id, name } = c.req.valid("param")
+		const result = await abortAgentJob(
+			c.env.AGENTS,
+			c.var.slateAccess,
+			c.var.config.CTX_AUTH_ISSUER,
+			name,
+			id,
+		)
+		if (!result.allowed) {
+			const status = {
+				forbidden: 403,
+				"not-found": 404,
+				"sign-in-required": 401,
+			} as const
+			return c.body(null, status[result.reason])
+		}
+		return c.json(result.result, 200)
+	})
+	jobs.openapi({ ...deleteAgentJobRoute, security }, async (c) => {
+		const { id, name } = c.req.valid("param")
+		const result = await deleteAgentJob(
+			c.env.AGENTS,
+			c.var.slateAccess,
+			c.var.config.CTX_AUTH_ISSUER,
+			name,
+			id,
+		)
+		if (!result.allowed) {
+			const status = {
+				forbidden: 403,
+				"not-found": 404,
+				"sign-in-required": 401,
+			} as const
+			return c.body(null, status[result.reason])
+		}
+		return c.body(null, 204)
+	})
+	jobs.openapi({ ...listAgentJobsRoute, security }, async (c) =>
+		c.json(
+			{
+				jobs: await listAgentJobs(
+					c.env.AGENTS,
+					c.var.slateAccess,
+					c.req.valid("param").name,
+					c.req.valid("query").schedule,
+				),
 			},
-			responses: {
-				202: {
-					content: { "application/json": { schema: agentJobCreationSchema } },
-					description: "Native routed job and Pi submission receipt",
-					headers: {
-						Location: {
-							description: "The created job resource",
-							schema: { type: "string" },
-						},
-					},
-				},
-				400: { description: "Invalid slate target, agent name, or prompt" },
-				401: { description: "A valid ContextLayer login is required" },
-				403: {
-					description: "Slate viewing is forbidden or the slate is public",
-				},
-				404: { description: "Slate or deployed agent not found" },
-				409: {
-					content: {
-						"application/json": {
-							schema: z.union([connectionRequiredSchema, secretRequiredSchema]),
-						},
-					},
-					description: "A required connection assignment or personal secret is missing",
-				},
-			},
-			security,
-			summary: "Start an agent job with a prompt",
-			tags: ["Agent jobs"],
-		}),
-		async (c) => {
-			const result = await startAgentJob(
-				c.var.db,
-				c.env.ARTIFACTS,
-				c.env.MEMBER_PROVISIONING,
-				c.env.AGENTS,
-				c.var.config,
-				c.var.slateAccess,
-				{ ...c.req.valid("json"), name: c.req.valid("param").name },
-			)
-			if (!result.allowed) {
-				if (result.reason === "secret-required")
-					return c.json({ name: result.name, reason: result.reason }, 409)
-				if (result.reason === "connection-required")
-					return c.json({ reason: result.reason, slug: result.slug }, 409)
-				return c.body(null, result.reason === "forbidden" ? 403 : 404)
-			}
-			c.header(
-				"Location",
-				`${new URL(c.req.url).pathname.replace(/\/$/, "")}/${result.creation.job.id}`,
-			)
-			return c.json(result.creation, 202)
-		},
-	)
-	jobs.openapi(
-		createRoute({
-			description:
-				"Read one native catalog entry by job ID. Use the operation and result endpoints for execution state.",
-			method: "get",
-			operationId: "getAgentJob",
-			path: "/{id}",
-			request: { params: agentJobParamsSchema },
-			responses: {
-				200: {
-					content: { "application/json": { schema: agentJobEntrySchema } },
-					description: "Native job catalog entry with actor and trigger provenance",
-				},
-				400: { description: "Invalid slate target, agent name, or job ID" },
-				401: { description: "A valid ContextLayer login is required" },
-				403: { description: "Slate viewing is forbidden or the slate is public" },
-				404: { description: "Slate or agent job not found" },
-			},
-			security,
-			summary: "Get an agent job's catalog entry",
-			tags: ["Agent jobs"],
-		}),
-		async (c) => {
-			const { id, name } = c.req.valid("param")
-			const job = await getAgentJob(c.env.AGENTS, c.var.slateAccess, name, id)
-			if (!job) return c.body(null, 404)
-			return c.json(job, 200)
-		},
-	)
-	jobs.openapi(
-		createRoute({
-			description:
-				"Inspect the admitted native operation without waiting, including pending or settled state. This response contains no transcript.",
-			method: "get",
-			operationId: "getAgentJobOperation",
-			path: "/{id}/operation",
-			request: { params: agentJobParamsSchema },
-			responses: {
-				200: {
-					content: { "application/json": { schema: agentJobOperationSchema } },
-					description:
-						"Native Pi pending operation or settled result without the transcript",
-				},
-				400: { description: "Invalid slate target, agent name, or job ID" },
-				401: { description: "A valid ContextLayer login is required" },
-				403: { description: "Slate viewing is forbidden or the slate is public" },
-				404: { description: "Slate or agent job not found" },
-			},
-			security,
-			summary: "Get an agent job's current operation",
-			tags: ["Agent jobs"],
-		}),
-		async (c) => {
-			const { id, name } = c.req.valid("param")
-			const operation = await getAgentJobOperation(
-				c.env.AGENTS,
-				c.var.slateAccess,
-				name,
-				id,
-			)
-			if (!operation) return c.body(null, 404)
-			return c.json(operation, 200)
-		},
-	)
-	jobs.openapi(
-		createRoute({
-			description:
-				"Wait for the admitted native operation to settle and return its native result without a transcript. Use sessions and messages for execution detail.",
-			method: "get",
-			operationId: "getAgentJobResult",
-			path: "/{id}/result",
-			request: { params: agentJobParamsSchema },
-			responses: {
-				200: {
-					content: { "application/json": { schema: agentJobResultSchema } },
-					description: "Await the native Pi settled result without the transcript",
-				},
-				400: { description: "Invalid slate target, agent name, or job ID" },
-				401: { description: "A valid ContextLayer login is required" },
-				403: { description: "Slate viewing is forbidden or the slate is public" },
-				404: { description: "Slate or agent job not found" },
-			},
-			security,
-			summary: "Wait for an agent job's operation result",
-			tags: ["Agent jobs"],
-		}),
-		async (c) => {
-			const { id, name } = c.req.valid("param")
-			const operation = await getAgentJobResult(c.env.AGENTS, c.var.slateAccess, name, id)
-			if (!operation) return c.body(null, 404)
-			return c.json(operation, 200)
-		},
-	)
-	jobs.openapi(
-		createRoute({
-			description:
-				"Enumerate native execution sessions within this job. Requires slate management permission. Use the returned IDs with this job's messages operation.",
-			method: "get",
-			operationId: "listAgentJobSessions",
-			path: "/{id}/sessions",
-			request: { params: agentJobParamsSchema },
-			responses: {
-				200: {
-					content: { "application/json": { schema: z.array(agentJobSessionSchema) } },
-					description: "Native Pi sessions within this job",
-				},
-				400: { description: "Invalid slate target, agent name, or job ID" },
-				401: { description: "A valid ContextLayer login is required" },
-				403: {
-					description:
-						"Only the Owner or owning organization members may inspect execution",
-				},
-				404: { description: "Slate or agent job not found" },
-			},
-			security,
-			summary: "List the execution sessions within an agent job",
-			tags: ["Agent jobs"],
-		}),
-		async (c) => {
-			const { id, name } = c.req.valid("param")
-			const result = await listAgentJobSessions(
-				c.env.AGENTS,
-				c.var.slateAccess,
-				c.var.config.CTX_AUTH_ISSUER,
-				name,
-				id,
-			)
-			if (!result.allowed) {
-				const status = {
-					forbidden: 403,
-					"not-found": 404,
-					"sign-in-required": 401,
-				} as const
-				return c.body(null, status[result.reason])
-			}
-			return c.json(result.sessions, 200)
-		},
-	)
-	jobs.openapi(
-		createRoute({
-			description:
-				"Read the active transcript of an existing session in this job. Requires slate management permission. Missing jobs or sessions return HTTP 404.",
-			method: "get",
-			operationId: "getAgentJobMessages",
-			path: "/{id}/sessions/{session}/messages",
-			request: { params: agentJobSessionParamsSchema },
-			responses: {
-				200: {
-					content: { "application/json": { schema: z.array(agentJobMessageSchema) } },
-					description: "Native active transcript entries for this job session",
-				},
-				400: { description: "Invalid slate target, agent name, job ID, or session" },
-				401: { description: "A valid ContextLayer login is required" },
-				403: {
-					description:
-						"Only the Owner or owning organization members may inspect execution",
-				},
-				404: { description: "Slate, agent job, or Pi session not found" },
-			},
-			security,
-			summary: "Read the active transcript of an agent job session",
-			tags: ["Agent jobs"],
-		}),
-		async (c) => {
-			const { id, name, session } = c.req.valid("param")
-			const result = await getAgentJobMessages(
-				c.env.AGENTS,
-				c.var.slateAccess,
-				c.var.config.CTX_AUTH_ISSUER,
-				name,
-				id,
-				session,
-			)
-			if (!result.allowed) {
-				const status = {
-					forbidden: 403,
-					"not-found": 404,
-					"sign-in-required": 401,
-				} as const
-				return c.body(null, status[result.reason])
-			}
-			return c.json(result.messages, 200)
-		},
-	)
-	jobs.openapi(
-		createRoute({
-			description:
-				"Read native model and tool usage buckets for the job. Requires slate management permission.",
-			method: "get",
-			operationId: "getAgentJobUsage",
-			path: "/{id}/usage",
-			request: { params: agentJobParamsSchema },
-			responses: {
-				200: {
-					content: { "application/json": { schema: agentJobUsageSchema } },
-					description: "Native Pi model and tool usage across the job conversations",
-				},
-				400: { description: "Invalid slate target, agent name, or job ID" },
-				401: { description: "A valid ContextLayer login is required" },
-				403: {
-					description:
-						"Only the Owner or owning organization members may inspect execution",
-				},
-				404: { description: "Slate or agent job not found" },
-			},
-			security,
-			summary: "Get model and tool usage for an agent job",
-			tags: ["Agent jobs"],
-		}),
-		async (c) => {
-			const { id, name } = c.req.valid("param")
-			const result = await getAgentJobUsage(
-				c.env.AGENTS,
-				c.var.slateAccess,
-				c.var.config.CTX_AUTH_ISSUER,
-				name,
-				id,
-			)
-			if (!result.allowed) {
-				const status = {
-					forbidden: 403,
-					"not-found": 404,
-					"sign-in-required": 401,
-				} as const
-				return c.body(null, status[result.reason])
-			}
-			return c.json(result.usage, 200)
-		},
-	)
-	jobs.openapi(
-		createRoute({
-			description:
-				"Inspect live scheduling, unfinished tasks, and queued or placed submissions. Requires slate management permission.",
-			method: "get",
-			operationId: "getAgentJobInspection",
-			path: "/{id}/inspection",
-			request: { params: agentJobParamsSchema },
-			responses: {
-				200: {
-					content: { "application/json": { schema: agentJobInspectionSchema } },
-					description: "Native Pi scheduling, live tasks, and unfinished submissions",
-				},
-				400: { description: "Invalid slate target, agent name, or job ID" },
-				401: { description: "A valid ContextLayer login is required" },
-				403: {
-					description:
-						"Only the Owner or owning organization members may inspect execution",
-				},
-				404: { description: "Slate or agent job not found" },
-			},
-			security,
-			summary: "Inspect an agent job's live execution state",
-			tags: ["Agent jobs"],
-		}),
-		async (c) => {
-			const { id, name } = c.req.valid("param")
-			const result = await getAgentJobInspection(
-				c.env.AGENTS,
-				c.var.slateAccess,
-				c.var.config.CTX_AUTH_ISSUER,
-				name,
-				id,
-			)
-			if (!result.allowed) {
-				const status = {
-					forbidden: 403,
-					"not-found": 404,
-					"sign-in-required": 401,
-				} as const
-				return c.body(null, status[result.reason])
-			}
-			return c.json(result.inspection, 200)
-		},
-	)
-	jobs.openapi(
-		createRoute({
-			description:
-				"Abort the native pending operation and retain the job and execution records. Requires slate management permission. HTTP 200 contains the native boolean result, including false when nothing was aborted; a missing catalog entry returns HTTP 404.",
-			method: "delete",
-			operationId: "abortAgentJob",
-			path: "/{id}/operation",
-			request: { params: agentJobParamsSchema },
-			responses: {
-				200: {
-					content: { "application/json": { schema: z.boolean() } },
-					description:
-						"Native Pi abort result; false when the operation is already settled",
-				},
-				400: { description: "Invalid slate target, agent name, or job ID" },
-				401: { description: "A valid ContextLayer login is required" },
-				403: {
-					description: "Only the Owner or owning organization members may manage jobs",
-				},
-				404: { description: "Slate or agent job not found" },
-			},
-			security,
-			summary: "Abort an agent job's pending operation",
-			tags: ["Agent jobs"],
-		}),
-		async (c) => {
-			const { id, name } = c.req.valid("param")
-			const result = await abortAgentJob(
-				c.env.AGENTS,
-				c.var.slateAccess,
-				c.var.config.CTX_AUTH_ISSUER,
-				name,
-				id,
-			)
-			if (!result.allowed) {
-				const status = {
-					forbidden: 403,
-					"not-found": 404,
-					"sign-in-required": 401,
-				} as const
-				return c.body(null, status[result.reason])
-			}
-			return c.json(result.result, 200)
-		},
-	)
-	jobs.openapi(
-		createRoute({
-			description:
-				"Delete an owned job catalog entry and its native execution state, releasing its computer. Requires slate management permission. Deletion does not undo database writes or actions already performed by tools.",
-			method: "delete",
-			operationId: "deleteAgentJob",
-			path: "/{id}",
-			request: { params: agentJobParamsSchema },
-			responses: {
-				204: {
-					description: "Job catalog entry and independent execution object deleted",
-				},
-				400: { description: "Invalid slate target, agent name, or job ID" },
-				401: { description: "A valid ContextLayer login is required" },
-				403: {
-					description: "Only the Owner or owning organization members may manage jobs",
-				},
-				404: { description: "Slate or agent job not found" },
-			},
-			security,
-			summary: "Delete an agent job and its execution state",
-			tags: ["Agent jobs"],
-		}),
-		async (c) => {
-			const { id, name } = c.req.valid("param")
-			const result = await deleteAgentJob(
-				c.env.AGENTS,
-				c.var.slateAccess,
-				c.var.config.CTX_AUTH_ISSUER,
-				name,
-				id,
-			)
-			if (!result.allowed) {
-				const status = {
-					forbidden: 403,
-					"not-found": 404,
-					"sign-in-required": 401,
-				} as const
-				return c.body(null, status[result.reason])
-			}
-			return c.body(null, 204)
-		},
-	)
-	jobs.openapi(
-		createRoute({
-			description:
-				"List native catalog entries for this agent in the app and current-user scopes available to the caller, newest first by creation time and ID.",
-			method: "get",
-			operationId: "listAgentJobs",
-			path: "/",
-			request: { params: agentParamsSchema, query: agentJobsQuerySchema },
-			responses: {
-				200: {
-					content: {
-						"application/json": {
-							schema: z.object({ jobs: z.array(agentJobEntrySchema) }),
-						},
-					},
-					description:
-						"Native job catalog entries from the app and signed-in user's agent instances, merged newest first by createdAt (descending ID breaks ties). Execution state is available through individual job inspection.",
-				},
-				400: { description: "Invalid slate target or agent name" },
-				401: { description: "A valid ContextLayer login is required" },
-				403: { description: "Slate viewing is forbidden or the slate is public" },
-				404: { description: "Slate not found" },
-			},
-			security,
-			summary: "List an agent's jobs available to the caller",
-			tags: ["Agent jobs"],
-		}),
-		async (c) =>
-			c.json(
-				{
-					jobs: await listAgentJobs(
-						c.env.AGENTS,
-						c.var.slateAccess,
-						c.req.valid("param").name,
-						c.req.valid("query").schedule,
-					),
-				},
-				200,
-			),
+			200,
+		),
 	)
 	agents.route("/jobs", jobs)
 	slate.route("/agents/:name", agents)
@@ -1281,6 +912,209 @@ export function createApi() {
 			return c.json(result, 200)
 		},
 	)
+
+	accounts.openapi(
+		createRoute({
+			description:
+				"Create a native Composio session pinned to the signed-in developer's personal ACTIVE account and requested toolkit. Requires management and billing admission for the canonical slate. Session creation does not execute a tool or record tool usage.",
+			method: "post",
+			operationId: "createPersonalAccountToolSession",
+			path: "/{account_id}/sessions",
+			request: {
+				body: {
+					content: { "application/json": { schema: accountToolSessionRequestSchema } },
+					required: true,
+				},
+				params: accountToolParamsSchema,
+			},
+			responses: {
+				200: {
+					content: { "application/json": { schema: accountToolSessionSchema } },
+					description: "Create a personal account tool session",
+				},
+				400: { description: "Invalid account, session, or toolkit request" },
+				401: {
+					description: "A native web session or ContextLayer access token is required",
+				},
+				402: {
+					content: { "text/plain": { schema: z.string() } },
+					description: "The slate Owner needs a plan or has exhausted their Free clips",
+				},
+				403: {
+					description:
+						"Slate management or personal account/session authority is forbidden",
+				},
+				404: { description: "Slate not found" },
+			},
+			security,
+			summary: "Create a personal account tool session",
+			tags: ["Accounts"],
+		}),
+		async (c) => {
+			const result = await createPersonalAccountToolSession(
+				c.var.db,
+				c.var.config,
+				c.var.identity,
+				c.req.valid("param").account_id,
+				c.req.valid("json"),
+			)
+
+			if (!result.allowed) {
+				if (
+					result.reason === "subscription-required" ||
+					result.reason === "credits-exhausted"
+				)
+					return c.text(result.message, 402)
+				const status = {
+					forbidden: 403,
+					"not-found": 404,
+					"sign-in-required": 401,
+				} as const
+				return c.body(null, status[result.reason])
+			}
+
+			return c.json({ session_id: result.session.sessionId }, 200)
+		},
+	)
+
+	accounts.openapi(
+		createRoute({
+			description:
+				"Read native Composio tools from an existing personal account session. Revalidates the signed-in user, ACTIVE account, toolkit pinning, and slate management/billing before reading the catalog. Metadata discovery does not record tool usage.",
+			method: "get",
+			operationId: "listPersonalAccountSessionTools",
+			path: "/{account_id}/sessions/{session_id}/tools",
+			request: {
+				params: accountToolSessionParamsSchema,
+				query: accountToolSessionRequestSchema,
+			},
+			responses: {
+				200: {
+					content: { "application/json": { schema: accountSessionToolsSchema } },
+					description: "List a personal account session's tools",
+				},
+				400: { description: "Invalid account, session, or toolkit request" },
+				401: {
+					description: "A native web session or ContextLayer access token is required",
+				},
+				402: {
+					content: { "text/plain": { schema: z.string() } },
+					description: "The slate Owner needs a plan or has exhausted their Free clips",
+				},
+				403: {
+					description:
+						"Slate management or personal account/session authority is forbidden",
+				},
+				404: { description: "Slate not found" },
+			},
+			security,
+			summary: "List a personal account session's tools",
+			tags: ["Accounts"],
+		}),
+		async (c) => {
+			const result = await listPersonalAccountSessionTools(
+				c.var.db,
+				c.var.config,
+				c.var.identity,
+				c.req.valid("param").account_id,
+				c.req.valid("param").session_id,
+				c.req.valid("query"),
+			)
+
+			if (!result.allowed) {
+				if (
+					result.reason === "subscription-required" ||
+					result.reason === "credits-exhausted"
+				)
+					return c.text(result.message, 402)
+				const status = {
+					forbidden: 403,
+					"not-found": 404,
+					"sign-in-required": 401,
+				} as const
+				return c.body(null, status[result.reason])
+			}
+
+			return c.json(result.tools, 200)
+		},
+	)
+
+	accounts.openapi(
+		createRoute({
+			description:
+				"Execute a provider action in the same personal account session used for discovery. Revalidates native session configuration against the signed-in user, selected account and toolkit, with slate management and billing admission. Preserves the native Composio result including error, logId and data; provider execution records one tool call even when its result contains an error.",
+			method: "post",
+			operationId: "callPersonalAccountSessionTool",
+			path: "/{account_id}/sessions/{session_id}/tools/call",
+			request: {
+				body: {
+					content: { "application/json": { schema: accountToolCallSchema } },
+					required: true,
+				},
+				params: accountToolSessionParamsSchema,
+			},
+			responses: {
+				200: {
+					content: { "application/json": { schema: accountToolResultSchema } },
+					description: "Call a tool in a personal account session",
+				},
+				400: { description: "Invalid account, session, or toolkit request" },
+				401: {
+					description: "A native web session or ContextLayer access token is required",
+				},
+				402: {
+					content: { "text/plain": { schema: z.string() } },
+					description: "The slate Owner needs a plan or has exhausted their Free clips",
+				},
+				403: {
+					description:
+						"Slate management or personal account/session authority is forbidden",
+				},
+				404: { description: "Slate not found" },
+			},
+			security,
+			summary: "Call a tool in a personal account session",
+			tags: ["Accounts"],
+		}),
+		async (c) => {
+			const result = await callPersonalAccountSessionTool(
+				c.var.db,
+				c.var.config,
+				c.var.identity,
+				c.req.valid("param").account_id,
+				c.req.valid("param").session_id,
+				c.req.valid("json"),
+			)
+
+			if (!result.allowed) {
+				if (
+					result.reason === "subscription-required" ||
+					result.reason === "credits-exhausted"
+				)
+					return c.text(result.message, 402)
+				const status = {
+					forbidden: 403,
+					"not-found": 404,
+					"sign-in-required": 401,
+				} as const
+				return c.body(null, status[result.reason])
+			}
+
+			const polar = createPolarCore({
+				accessToken: c.var.config.POLAR_ACCESS_TOKEN,
+				environment: c.var.config.POLAR_ENVIRONMENT,
+			})
+			c.executionCtx.waitUntil(
+				recordSlateUsage(
+					polar,
+					{ id: result.slate.id, owner: getSlateOwner(result.slate) },
+					"tool_call",
+				),
+			)
+
+			return c.json(result.result, 200)
+		},
+	)
 	accounts.openapi(
 		createRoute({
 			description:
@@ -1297,7 +1131,7 @@ export function createApi() {
 			},
 			responses: {
 				200: {
-					content: { "application/json": { schema: toolResultSchema } },
+					content: { "application/json": { schema: accountToolResultSchema } },
 					description: "Tool result from the signed-in user's pinned connected account",
 				},
 				400: { description: "Invalid connected-account tool call" },

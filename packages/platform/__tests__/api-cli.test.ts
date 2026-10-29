@@ -1,9 +1,10 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises"
-import { createServer, type ServerResponse } from "node:http"
+import { createServer, type IncomingMessage, type ServerResponse } from "node:http"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi"
+import { listAgentJobsRoute } from "@usecontextlayer/shared/agents-api"
 import { execa } from "execa"
 import { test as base, expect } from "vitest"
 import { createApi } from "@/api"
@@ -16,7 +17,7 @@ const test = base.extend<{
 		document: OpenAPIDocument
 		stdin?: string
 		settings: Record<string, string>
-		respond?: (response: ServerResponse) => void
+		respond?: (response: ServerResponse, request: IncomingMessage) => void
 		run: (
 			...args: string[]
 		) => Promise<{ stdout: string; stderr: string; exitCode?: number }>
@@ -30,7 +31,7 @@ const test = base.extend<{
 			if (request.url === "/api/openapi.json") {
 				response.end(JSON.stringify(apiCli.document))
 			} else if (apiCli.respond) {
-				apiCli.respond(response)
+				apiCli.respond(response, request)
 			} else {
 				const chunks: Buffer[] = []
 				for await (const chunk of request) chunks.push(chunk)
@@ -81,7 +82,9 @@ const test = base.extend<{
 				security: [{ bearer: [] }],
 				servers: [{ url: `${settings.CTX_PLATFORM_URL}/transport` }],
 			}),
-			respond: undefined as ((response: ServerResponse) => void) | undefined,
+			respond: undefined as
+				| ((response: ServerResponse, request: IncomingMessage) => void)
+				| undefined,
 			run: (...args: string[]) =>
 				execa(process.execPath, [cliPath, ...args], {
 					env: settings,
@@ -301,4 +304,48 @@ test("token output and root help stay independent of API discovery", async ({
 	expect(discoveryResult.exitCode).toBe(1)
 	expect(discoveryResult.stdout).toBe("")
 	expect(discoveryResult.stderr).not.toBe("")
+})
+
+test("root API target discovers shared agent operations and invokes anonymous loopback without saved credentials", async ({
+	apiCli,
+}) => {
+	const localUrl = String(apiCli.settings.CTX_PLATFORM_URL)
+	apiCli.settings.CTX_PLATFORM_URL = "http://127.0.0.1:1"
+	await writeFile(
+		join(String(apiCli.settings.CTX_CONFIG_DIR), "auth.json"),
+		"invalid JSON",
+	)
+	const jobs = new OpenAPIHono()
+	jobs.openapi(listAgentJobsRoute, (c) => c.json({ jobs: [] }, 200))
+	const localApi = new OpenAPIHono().route("/slates/:target/agents/:name/jobs", jobs)
+	apiCli.document = localApi.getOpenAPI31Document({
+		info: { title: "Local agent contract", version: "1" },
+		openapi: "3.1.0",
+		servers: [{ url: "http://127.0.0.1:1/unselected" }],
+	})
+	const requests: { url: string | undefined; authorization: string | undefined }[] = []
+	apiCli.respond = (response, request) => {
+		requests.push({ authorization: request.headers.authorization, url: request.url })
+		response.end(JSON.stringify({ jobs: [] }))
+	}
+	const rootHelp = await apiCli.run("--help")
+	expect(rootHelp.exitCode, rootHelp.stderr).toBe(0)
+	expect(rootHelp.stdout).toContain("--api-url <url>")
+	const help = await apiCli.run("--api-url", localUrl, "api", "--help")
+	expect(help.exitCode, help.stderr).toBe(0)
+	expect(help.stdout).toContain("listAgentJobs")
+	expect(requests).toEqual([])
+	const result = await apiCli.run(
+		"--api-url",
+		localUrl,
+		"api",
+		"listAgentJobs",
+		"--params",
+		JSON.stringify({ name: "assistant", target: "local" }),
+	)
+	expect(result.exitCode, result.stderr).toBe(0)
+	expect(JSON.parse(result.stdout)).toMatchObject({ data: { jobs: [] }, status: 200 })
+	expect(requests).toEqual([
+		{ authorization: undefined, url: "/api/slates/local/agents/assistant/jobs" },
+	])
 })

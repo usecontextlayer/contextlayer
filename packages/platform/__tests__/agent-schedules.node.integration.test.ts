@@ -8,8 +8,8 @@ import { test } from "@tests/integration"
 import seed from "@usecontextlayer/dev-env/seed.json" with { type: "json" }
 import { createSlateProject } from "@usecontextlayer/dev-env/slate"
 import { accountsSchema } from "@usecontextlayer/shared/accounts"
+import { getAgentByName } from "@usecontextlayer/shared/agent-routing"
 import { slateResourcesSchema } from "@usecontextlayer/shared/slate-resources"
-import { getAgentByName } from "agents/routing"
 import { expect } from "vitest"
 import { z } from "zod"
 import { getAgentInstanceName } from "@/agent-instance"
@@ -86,9 +86,9 @@ for (const mode of ["default", "owner", "viewer"] as const) {
 		const { remote } = await repo.info()
 		const token = await repo.createToken("write")
 		await mkdir(join(directory, "agents/model"), { recursive: true })
-		await mkdir(join(directory, "public"))
+		await mkdir(join(directory, "app"))
 		await writeFile(
-			join(directory, "public/slate.json"),
+			join(directory, "app/slate.json"),
 			JSON.stringify({ connections: {} }),
 		)
 		await writeFile(
@@ -266,7 +266,7 @@ test("members' deployed cron jobs use viewer resources and retain results after 
 		await git("config", "user.email", "agent-test@example.com")
 		await git("remote", "add", "origin", remote)
 		await writeFile(
-			join(checkout, "public/slate.json"),
+			join(checkout, "app/slate.json"),
 			JSON.stringify({
 				connections: { mail: { mode: "viewer", toolkit: "gmail" } },
 				databases: { reports: { mode: "owner" } },
@@ -518,11 +518,8 @@ test("authored cron creates a fresh job and retains its result independently of 
 	const { remote } = await repo.info()
 	const token = await repo.createToken("write")
 	await mkdir(join(directory, "agents/brief/schedules"), { recursive: true })
-	await mkdir(join(directory, "public"))
-	await writeFile(
-		join(directory, "public/slate.json"),
-		JSON.stringify({ connections: {} }),
-	)
+	await mkdir(join(directory, "app"))
+	await writeFile(join(directory, "app/slate.json"), JSON.stringify({ connections: {} }))
 	await writeFile(
 		join(directory, "agents/brief/slate.json"),
 		JSON.stringify({

@@ -1,0 +1,22 @@
+{
+	"compatibility_date": "2026-10-02",
+	"compatibility_flags": ["nodejs_compat"],
+	"durable_objects": {
+		"bindings": [
+			{ "class_name": "SlateDatabase", "name": "DATABASE_STORAGE" },
+			{ "class_name": "SlateAgent", "name": "AGENTS" },
+			{ "class_name": "SlateAgentJob", "name": "AGENT_JOBS" },
+			{ "class_name": "Meridian", "name": "MERIDIAN" }
+		]
+	},
+	"main": "index.ts",
+	"migrations": [
+		{
+			"new_sqlite_classes": ["SlateDatabase", "SlateAgent", "SlateAgentJob", "Meridian"],
+			"tag": "v1"
+		}
+	],
+	"name": "ctx-local-resources",
+	"rules": [{ "fallthrough": true, "globs": ["**/*.wasm"], "type": "CompiledWasm" }],
+	"send_metrics": false
+}

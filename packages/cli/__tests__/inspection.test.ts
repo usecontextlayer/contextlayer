@@ -33,3 +33,39 @@ test("inspection launchers delegate to the shipped native client without a login
 		await rm(directory, { force: true, recursive: true })
 	}
 })
+
+test("CLI help exposes the generic API and rejects a separate local agent command", async () => {
+	const directory = await mkdtemp(join(tmpdir(), "ctx-agent-help-"))
+	try {
+		const cli = fileURLToPath(new URL("../dist/cli.mjs", import.meta.url))
+		const options = {
+			env: {
+				CTX_AUTH_CLIENT_ID: "help-only",
+				CTX_AUTH_ISSUER: "http://localhost:1/api/auth",
+				CTX_CONFIG_DIR: directory,
+				CTX_PLATFORM_URL: "http://localhost:1",
+			},
+			reject: false as const,
+		}
+		const help = await execa(process.execPath, [cli, "--help"], options)
+		expect(help.exitCode, help.stderr).toBe(0)
+		expect(help.stdout).toMatch(/^\s+api\s+Discover and invoke/m)
+		expect(help.stdout).not.toMatch(/^\s+agent(?:\s|$)/m)
+
+		const api = await execa(process.execPath, [cli, "help", "api"], options)
+		expect(api.exitCode, api.stderr).toBe(0)
+		expect(api.stdout).toContain(
+			"Discover and invoke the selected stack's live OpenAPI operations",
+		)
+
+		const agent = await execa(
+			process.execPath,
+			[cli, "agent", "local", "run", "agent", "hello"],
+			options,
+		)
+		expect(agent.exitCode).toBe(1)
+		expect(agent.stderr).toContain("unknown command 'agent'")
+	} finally {
+		await rm(directory, { force: true, recursive: true })
+	}
+})

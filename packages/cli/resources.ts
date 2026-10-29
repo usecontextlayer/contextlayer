@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto"
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { resolve } from "node:path"
-import { resourcesSchema } from "@usecontextlayer/shared/declaration"
+import { type Resources, resourcesSchema } from "@usecontextlayer/shared/declaration"
 import {
 	type LocalResourceConfiguration,
 	localResourceConfigurationSchema,
@@ -31,14 +31,15 @@ async function readLocalConnections(directory: string) {
 	return localConnectionsSchema.parse(contents === null ? {} : JSON.parse(contents))
 }
 
-export function getLocalResourcesWorkerName() {
-	return `ctx-local-resources-${createHash("sha256").update(process.cwd()).digest("hex").slice(0, 16)}`
+export function getLocalResourcesWorkerName(directory = process.cwd()) {
+	return `ctx-local-resources-${createHash("sha256").update(directory).digest("hex").slice(0, 16)}`
 }
 
 export async function prepareLocalResourceConfiguration(
 	directory = process.cwd(),
+	declared?: Resources,
 ): Promise<LocalResourceConfiguration> {
-	const resources = await readLocalResources(directory)
+	const resources = declared ?? (await readLocalResources(directory))
 	const assignments = new Map(Object.entries(await readLocalConnections(directory)))
 	return localResourceConfigurationSchema.parse({
 		connections: Object.fromEntries(

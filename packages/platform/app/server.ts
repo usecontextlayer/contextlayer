@@ -23,9 +23,10 @@ import { createGitApp } from "@/git.server"
 
 export { SlateDatabase } from "@usecontextlayer/shared/database-worker"
 export { SlateAgentJob } from "@/agent-job"
+export { AgentPreparation, AgentResources } from "@/agent-resources"
 export { SlateAgent } from "@/agent-runtime"
 export { Execution } from "@/execution.server"
-export { Meridian } from "@/meridian"
+export { Meridian, MeridianProfiles } from "@/meridian"
 export { Provisioning } from "@/provisioning.server"
 
 const publicDashboardPaths = ["/dashboard/chrome/slates/*", "/dashboard/__manifest"]

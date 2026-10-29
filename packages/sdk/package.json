@@ -38,10 +38,6 @@
 			"import": "./dist/html.js",
 			"types": "./dist/html.d.ts"
 		},
-		"./local": {
-			"import": "./dist/local.js",
-			"types": "./dist/local.d.ts"
-		},
 		"./react": {
 			"import": "./dist/react.js",
 			"types": "./dist/react.d.ts"

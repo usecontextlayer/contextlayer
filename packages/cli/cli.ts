@@ -5,7 +5,6 @@ import { Argument, Command } from "commander"
 import { execa } from "execa"
 import { z } from "zod"
 import { connectAccount, listAccounts } from "@/accounts"
-import { runLocalAgent } from "@/agents"
 import { addApiCommand } from "@/api"
 import { getAccessToken, getCurrentUser, LoginRequiredError, login } from "@/auth"
 import { formatAuthCommand } from "@/auth-command"
@@ -14,6 +13,7 @@ import {
 	connectionsCommandSchema,
 	listSlateConnections,
 } from "@/connections"
+import { addDevCommand } from "@/dev"
 import { env, envSchema, readCliCommand } from "@/env"
 import { configureGit, gitCredential } from "@/git-credential"
 import { inspectSlate, isNativeHelpRequest } from "@/inspection"
@@ -32,12 +32,17 @@ const program = new Command()
 	.description("ContextLayer CLI")
 	.version(version)
 	.enablePositionalOptions()
+	.option(
+		"--api-url <url>",
+		"API origin for live discovery and invocation; place before api",
+	)
 program.addHelpText(
 	"afterAll",
 	`\nEnvironment (current values):\n  CTX_PLATFORM_URL    ${env.CTX_PLATFORM_URL}\n  CTX_AUTH_ISSUER     ${env.CTX_AUTH_ISSUER}\n  CTX_AUTH_CLIENT_ID  ${env.CTX_AUTH_CLIENT_ID}\n  CTX_CONFIG_DIR      ${env.CTX_CONFIG_DIR}  Saved-login directory; one login per directory.\n  CTX_CLI_COMMAND     ${readCliCommand(env)}  CLI invocation used for Git registration and login repair.\n\nRun without a global install: npx @usecontextlayer/cli <command>`,
 )
 
 addApiCommand(program)
+addDevCommand(program)
 
 function addAuthOptions(command: Command) {
 	return command
@@ -331,25 +336,6 @@ program
 					`Unhandled connections operation: ${JSON.stringify(input satisfies never)}`,
 				)
 		}
-	})
-
-program
-	.command("agent")
-	.addArgument(new Argument("<target>", "Run from the checkout root").choices(["local"]))
-	.addArgument(new Argument("<operation>").choices(["run"]))
-	.argument("<name>", "Agent directory under agents/")
-	.argument("<prompt>", "Task to send as the user message")
-	.description(
-		"Run agents/<name>/instructions.md locally with Claude Agent SDK and native Claude authentication; Vite startup also requires ctx login when the app declares connections",
-	)
-	.action(async (_target, _operation, name, prompt) => {
-		const input = z
-			.object({
-				name: z.string().min(1),
-				prompt: z.string().min(1),
-			})
-			.parse({ name, prompt })
-		console.log(await runLocalAgent(input.name, input.prompt))
 	})
 
 const secrets = program

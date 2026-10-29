@@ -5,8 +5,8 @@ import { writeDatabase } from "@tests/database-project"
 import { test } from "@tests/integration"
 import { createSlateProject } from "@usecontextlayer/dev-env/slate"
 import { accountsSchema } from "@usecontextlayer/shared/accounts"
+import { getAgentByName } from "@usecontextlayer/shared/agent-routing"
 import { slateResourcesSchema } from "@usecontextlayer/shared/slate-resources"
-import { getAgentByName } from "agents/routing"
 import { execa } from "execa"
 import { expect } from "vitest"
 import { getAgentInstanceName } from "@/agent-instance"
@@ -50,10 +50,7 @@ test("chrome and API final assignments enable agent-only personal resources with
 		const checkout = join(directory, mode)
 		await createSlateProject(resolve(import.meta.dirname, "../../.."), checkout)
 		await mkdir(join(checkout, "agents/daily/schedules"), { recursive: true })
-		await writeFile(
-			join(checkout, "public/slate.json"),
-			JSON.stringify({ connections: {} }),
-		)
+		await writeFile(join(checkout, "app/slate.json"), JSON.stringify({ connections: {} }))
 		await writeFile(
 			join(checkout, "agents/daily/slate.json"),
 			JSON.stringify({

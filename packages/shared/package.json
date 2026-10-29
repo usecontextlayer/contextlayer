@@ -1,9 +1,18 @@
 {
 	"dependencies": {
+		"@cloudflare/sandbox": "1.0.1",
+		"@composio/core": "^0.22.0",
+		"@earendil-works/pi-ai": "1.3.0",
+		"@earendil-works/pi-codemode": "1.3.0",
+		"@earendil-works/pi-durable": "1.3.0",
+		"@earendil-works/pi-env": "1.3.0",
+		"@hono/zod-openapi": "^1.6.3",
 		"@modelcontextprotocol/core": "2.3.1",
 		"@polar-sh/sdk": "1.0.1",
+		"agents": "0.26.0",
 		"kysely": "0.29.5",
-		"zod": "^4.6.5"
+		"zod": "^4.6.5",
+		"zod-to-json-schema": "3.25.2"
 	},
 	"devDependencies": {
 		"@cloudflare/workers-types": "^5.20261001.1",
@@ -11,9 +20,53 @@
 		"vitest": "^4.1.11"
 	},
 	"exports": {
+		"./account-tools": {
+			"import": "./dist/account-tools.mjs",
+			"types": "./dist/account-tools.d.mts"
+		},
 		"./accounts": {
 			"import": "./dist/accounts.mjs",
 			"types": "./dist/accounts.d.mts"
+		},
+		"./agent-computer": {
+			"import": "./dist/agent-computer.mjs",
+			"types": "./dist/agent-computer.d.mts"
+		},
+		"./agent-job": {
+			"import": "./dist/agent-job.mjs",
+			"types": "./dist/agent-job.d.mts"
+		},
+		"./agent-operations": {
+			"import": "./dist/agent-operations.mjs",
+			"types": "./dist/agent-operations.d.mts"
+		},
+		"./agent-provider": {
+			"import": "./dist/agent-provider.mjs",
+			"types": "./dist/agent-provider.d.mts"
+		},
+		"./agent-resources": {
+			"import": "./dist/agent-resources.mjs",
+			"types": "./dist/agent-resources.d.mts"
+		},
+		"./agent-routing": {
+			"import": "./dist/agent-routing.mjs",
+			"types": "./dist/agent-routing.d.mts"
+		},
+		"./agent-runtime": {
+			"import": "./dist/agent-runtime.mjs",
+			"types": "./dist/agent-runtime.d.mts"
+		},
+		"./agent-tools": {
+			"import": "./dist/agent-tools.mjs",
+			"types": "./dist/agent-tools.d.mts"
+		},
+		"./agents": {
+			"import": "./dist/agents.mjs",
+			"types": "./dist/agents.d.mts"
+		},
+		"./agents-api": {
+			"import": "./dist/agents-api.mjs",
+			"types": "./dist/agents-api.d.mts"
 		},
 		"./chrome": {
 			"import": "./dist/chrome.mjs",
@@ -47,6 +100,10 @@
 			"import": "./dist/mcp.mjs",
 			"types": "./dist/mcp.d.mts"
 		},
+		"./meridian": {
+			"import": "./dist/meridian.mjs",
+			"types": "./dist/meridian.d.mts"
+		},
 		"./slate-connections": {
 			"import": "./dist/slate-connections.mjs",
 			"types": "./dist/slate-connections.d.mts"
@@ -62,6 +119,10 @@
 		"./slate-usage": {
 			"import": "./dist/slate-usage.mjs",
 			"types": "./dist/slate-usage.d.mts"
+		},
+		"./slates": {
+			"import": "./dist/slates.mjs",
+			"types": "./dist/slates.d.mts"
 		},
 		"./tools": {
 			"import": "./dist/tools.mjs",
