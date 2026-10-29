@@ -10,18 +10,18 @@ The platform for bespoke software.
 
 Build software around the way you work—with interfaces for people, agents that get things done, and connections to the tools you already use.
 
-We call these **slates**. A slate brings your app, agents, and resources together in one Git repo. It can be a tool for one person or a shared workspace for a team.
+We call these **slates**. A slate is a durable Git repo you can fill with an app, static files, agents, MCP tools, and resource declarations, in any combination. It can be a tool for one person or a shared workspace for a team.
 
 Think [Heroku](https://www.heroku.com/) for bespoke software: write React and TypeScript, define your agents, and deploy with Git. ContextLayer provides sign-in, connected accounts, databases, and scheduled execution.
 
 ## Build your first slate
 
-You'll need a Node.js release supported by the [CLI's engines field](packages/cli/package.json), [pnpm](https://pnpm.io/), and Git with your author identity configured.
+You'll need a Node.js release supported by the [CLI's engines field](packages/cli/package.json), [pnpm](https://pnpm.io/), and Git with your author identity configured. ContextLayer hosting requires an account.
 
 ```sh
 # Sign in, create a slate, and run it locally
 npx @usecontextlayer/cli login
-npx @usecontextlayer/cli init my-slate
+npx @usecontextlayer/cli init my-slate --scaffold-app
 cd my-slate
 pnpm dev
 ```
@@ -34,6 +34,10 @@ git add .
 git commit
 git push -u origin main
 ```
+
+This quickstart selects the app starter. Plain `init` creates an empty slate checkout with Git and a short `AGENTS.md`; add only the parts you need, by writing source or using scaffolding later. Use `npx @usecontextlayer/cli scaffold --help` for scaffolding and `init --help` for creation options.
+
+Run `npx @usecontextlayer/cli dev` in any checkout to start its local stack, including agents-only source without an app or package manifest. App and MCP dev scripts use the same command. Agents require Docker; apps and databases alone do not. Local inputs and working-tree edits take effect after restarting the stack.
 
 Initialization prints your dashboard link and hosted URL. The hosted URL becomes available after deployment succeeds. New slates are private; sign in to open yours.
 
@@ -52,7 +56,7 @@ The pieces live together:
 
 ```text
 app/                                  # Screens, loaders, and actions
-public/slate.json                     # Resources the app uses
+app/slate.json                         # Resources the app uses
 agents/follow-ups/instructions.md     # What the agent does
 agents/follow-ups/slate.json          # Resources the agent uses
 agents/follow-ups/schedules/daily.md  # Cron schedule and task prompt
@@ -63,7 +67,7 @@ Declare a resource with `viewer` mode to select the person using the slate, or `
 
 ## Connect it to your tools
 
-A Gmail connection in `public/slate.json` looks like this:
+A Gmail connection in `app/slate.json` looks like this:
 
 ```json
 {

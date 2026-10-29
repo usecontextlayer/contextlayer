@@ -10,24 +10,26 @@ Start with login, then create and run your slate:
 
 ```sh
 npx @usecontextlayer/cli login
-npx @usecontextlayer/cli init my-slate
+npx @usecontextlayer/cli init my-slate --scaffold-app
 cd my-slate
 pnpm dev
 ```
 
-Approve login in your browser. Initialization uses the complete starter bundled with the CLI and commits it on `main`, with local state already ignored. Open the local URL printed by the development server. Initialization prints your slate's dashboard link and hosted URL; the hosted URL becomes usable after a successful Git push deployment.
+Approve login in your browser. This quickstart selects the bundled app starter, installs its dependencies, and commits it with its lockfile on `main`, with local state already ignored. Plain initialization creates an empty Git checkout with a short `AGENTS.md`; app, public files, agents, and MCP source are optional. Open the local URL printed by the development server. Initialization prints your slate's dashboard link and hosted URL; the hosted URL becomes usable after a successful Git push deployment.
 
-The checkout's README explains local development, connections, and deployment. The [SDK guide](https://www.npmjs.com/package/@usecontextlayer/sdk) describes loaders, tools, and the shared app layout.
+Run `npx @usecontextlayer/cli dev` from a checkout to start its native local stack, including an empty checkout or agents without an app or package manifest. App and MCP scaffold dev scripts call the same command. Docker is required only when agents are present. Declared secrets come from the startup environment; assigned connections additionally use your saved login and registered slate. The CLI applies migrations before starting an authored Vite app, and apps and agents share the same persistent local databases. Restart after source or resource-input changes. Use `dev --help` for local API and authored-server options.
+
+The app starter's README explains local development, connections, and deployment. Use `npx @usecontextlayer/cli scaffold --help` to add source later. Integrate any printed conflict proposal with your authoring agent. When dependencies change, run `pnpm install` and commit `pnpm-lock.yaml` with the integrated source. The [scaffolding contract](https://github.com/usecontextlayer/contextlayer/blob/main/ARCHITECTURE.md#slate-source-scaffolding) explains source ownership and conflict handling. The [SDK guide](https://www.npmjs.com/package/@usecontextlayer/sdk) describes loaders, tools, and the shared app layout.
 
 Connect an account to ContextLayer in your browser, then assign the connected account to a connection declared by your slate. Already connected accounts can go directly to assignment.
 
-Command syntax and options live in the CLI's help:
+The generic API command discovers operations from the selected stack's live OpenAPI document. Its help describes API target selection and saved-login behavior. Command syntax and options live in the CLI's help:
 
 ```sh
 npx @usecontextlayer/cli --help
 ```
 
-The starter is already committed. Deploy it from the checkout’s `main` branch with `git push -u origin main`. After making changes, commit them before pushing:
+Initialization has already committed the checkout. Deploy it from `main` with `git push -u origin main`. After making changes, commit them before pushing:
 
 ```sh
 git add .

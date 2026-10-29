@@ -131,12 +131,12 @@ A slate created against the DevEnv is the ordinary development loop for the issu
 
 ```sh
 pnpm exec turbo run build --filter=@usecontextlayer/cli
-pnpm dev:ctx init ../my-slate
+pnpm dev:ctx init ../my-slate --scaffold-app
 ```
 
-The slate is registered in the local platform and appears in its dashboard. Use `pnpm dev:ctx init --help` for organization selection. Create slates outside this repository so they have an independent Git root and package-manager workspace. pnpm must work there too; a machine-wide mise default supplies it outside repo-local tool configuration, without `mise exec` or a CLI workaround.
+This loop selects the app starter; its dev script runs the public CLI local stack and then the authored app. Plain initialization creates an empty slate with Git and a short `AGENTS.md`; other authored parts can be added independently. The slate is registered in the local platform and appears in its dashboard. Use `pnpm dev:ctx init --help` for creation options and `scaffold --help` to add source later. Create slates outside this repository so they have an independent Git root and package-manager workspace. pnpm must work there too; a machine-wide mise default supplies it outside repo-local tool configuration, without `mise exec` or a CLI workaround.
 
-Run `pnpm exec turbo run dev:watch --filter=@usecontextlayer/cli` to rebuild the CLI and starter as their source changes. **Rebuilding does not update an existing slate's files; initialize a fresh slate to exercise starter edits.** Before running a slate against unpublished CLI or SDK changes, [install matching local packages](TESTING.md#verifying-unpublished-cli-and-sdk-in-a-slate-checkout). `dev:ctx` selects this workspace's CLI, but the slate's Vite integration uses its installed packages.
+Run `pnpm exec turbo run dev:watch --filter=@usecontextlayer/cli` to rebuild the CLI and bundled scaffolds as their source changes. **Rebuilding does not update an existing slate's files; initialize a fresh slate with the relevant scaffold to exercise its edits.** Before running a slate against unpublished CLI or SDK changes, [install matching local packages](TESTING.md#verifying-unpublished-cli-and-sdk-in-a-slate-checkout). `dev:ctx` selects this workspace's CLI, but the slate's Vite integration uses its installed packages.
 
 Commands that act on a slate checkout read the current directory. Run them from inside that checkout through this repository's DevEnv runner:
 
@@ -145,7 +145,7 @@ cd ../my-slate
 pnpm -C <path-to-this-checkout> dev:ctx connections local assign <slug> <account_id>
 ```
 
-Start the slate's own dev server inside a `dev:env` subshell so Vite finds the DevEnv's issuer, client and login:
+Start the slate's local stack inside a `dev:env` subshell so its trusted account gateway uses the DevEnv's issuer, client and login:
 
 ```sh
 (ctx_env=$(pnpm -C /path/to/contextlayer-checkout dev:env) && eval "$ctx_env" && pnpm dev)
@@ -157,13 +157,13 @@ Follow [Local login and assignment](docs/reference/sdk.mdx#local-login-and-assig
 
 Listing local requirements needs no Git metadata, login, running development server or platform request.
 
-Restart the slate's `pnpm dev` after declaration, assignment or secret changes, and when its startup access token expires. Keep the generated `workers/local-resources` files current with the CLI template when updating a development checkout. [Local verification](TESTING.md#local-slate-resources-and-agents) owns checks against the running app.
+Run `ctx dev` from any slate checkout, including agents-only or empty checkouts without a package manifest; app and MCP scaffolds expose it through `pnpm dev`. Docker is required when the checkout contains agents, and subscription access uses the shared Meridian container. Supply declared secret values through the local process environment; local execution does not borrow hosted vault values or ambient Claude CLI login. Database- and environment-only startup needs no ContextLayer login. Assigned connections use the saved developer credential and the real registered slate from Git origin. Restart after instruction, declaration, schedule, assignment or environment changes, and when the startup access token expires. The CLI starts infrastructure, applies pending Kysely migrations and provisions native schedules before starting an authored Vite consumer. [Local verification](TESTING.md#local-slate-resources-and-agents) owns checks against the running stack.
 
-### Running an agent locally
+### Running authored agents
 
-Build the CLI with `pnpm exec turbo run build tsc --filter=@usecontextlayer/cli`. From a slate checkout containing `agents/<name>/instructions.md`, run `pnpm -C <path-to-this-checkout> dev:ctx agent --help` for local-run commands. Claude Agent SDK uses native Claude authentication, so an existing Claude login or SDK-supported model credential must be available. The command starts and stops the slate's development server and uses its persisted `.contextlayer/databases` state. App connection declarations require the matching saved CLI login; declarations with only databases need no ContextLayer login.
+Keep agent instructions and declarations under `agents/<name>/`. The selected local or hosted stack's common agent API runs jobs through the same native Pi harness; use the [DevEnv command runner](#start-and-sign-in) when developing this repository. The CLI's generic API help owns discovery and invocation.
 
-[Local agent execution](ARCHITECTURE.md#local-agent-execution) owns instruction composition and settings isolation. Follow [local agent verification](TESTING.md#local-slate-resources-and-agents) to exercise changes.
+[Local agent execution](ARCHITECTURE.md#local-agent-execution) owns the common API and stack boundary. [Agent deployment](#deploying-and-inspecting-an-agent) owns publication, and [agent verification](TESTING.md#local-slate-resources-and-agents) owns real-task checks.
 
 ### Authored database development
 
@@ -274,7 +274,7 @@ Inspect background membership provisioning in `contextlayer-member-provisioning`
 
 ### Deploying and inspecting an agent
 
-Commit `agents/<name>/instructions.md` and keep `public/slate.json` and every `agents/<name>/slate.json` valid. Declare schedules in `agents/<name>/schedules/<prompt>.md` with YAML frontmatter such as `cron: "0 7 * * 1-5"` and the user prompt in the Markdown body. Cron is canonical five-field UTC. Push through the normal slate deployment workflow to publish changes and provision schedules.
+Commit `agents/<name>/instructions.md` and keep every `agents/<name>/slate.json` valid; keep `app/slate.json` valid when the slate includes `app/`. Hosted agents do not require an app or static files. Declare schedules in `agents/<name>/schedules/<prompt>.md` with YAML frontmatter such as `cron: "0 7 * * 1-5"` and the user prompt in the Markdown body. Cron is canonical five-field UTC. Push through the normal slate deployment workflow to publish changes and provision schedules.
 
 Follow platform guidance for [hosted model configuration](packages/platform/AGENTS.md#hosted-model-configuration), [Authored agents](ARCHITECTURE.md#authored-agents) for inspection and authorization semantics, and [model-test prerequisites](TESTING.md#provider-accounts-and-model-credentials) for verification.
 

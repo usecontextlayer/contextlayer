@@ -18,7 +18,7 @@ Use the shared entrypoints from `@usecontextlayer/shared/tools-worker` and `@use
 
 Preserve the shared `HostedExecution` [result and refusal contract](../../ARCHITECTURE.md#platform-tool-execution) through the shared entrypoints; do not translate its errors or setup Responses into a dispatcher-specific envelope. Private first use may establish membership through platform preparation; dispatcher must not implement that policy. Keep physical database namespace access and provisioning inside platform.
 
-Forward platform's billing decision before dispatch, including its 402 response body. Pass the actual incoming pathname so platform can apply its `/slate.json` billing exemption while retaining viewing authorization. Keep dispatcher free of billing admission policy; Polar's SDK here reports executed usage. Hosted capability calls receive platform's billing decision separately. Keep billing authorization independent of the post-response classification that determines whether executed work generates usage.
+Forward platform's billing decision before dispatch, including its 402 response body. Apply the decision to static and authored runtime requests without declaration-path exemptions. Keep dispatcher free of billing admission policy; Polar's SDK here reports executed usage. Hosted capability calls receive platform's billing decision separately. Keep billing authorization independent of the post-response classification that determines whether executed work generates usage.
 
 ## Slate usage
 
