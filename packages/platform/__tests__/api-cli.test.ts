@@ -156,14 +156,50 @@ test("describes the supplied contract without login or invocation", async ({
 	const describeResult = await apiCli.run("api", "request", "--describe")
 	expect(describeResult.exitCode, describeResult.stderr).toBe(0)
 	expect(JSON.parse(describeResult.stdout)).toMatchObject({
-		description: "Accept an opaque value",
-		method: "post",
-		operationId: "request",
-		path: "/values/{key}",
+		openapi: "3.1.0",
+		paths: {
+			"/values/{key}": {
+				post: {
+					description: "Accept an opaque value",
+					operationId: "request",
+				},
+			},
+		},
+		security: [{ bearer: [] }],
+		servers: [{ url: `${apiCli.settings.CTX_PLATFORM_URL}/transport` }],
 	})
 	const helpResult = await apiCli.run("api", "request", "--help")
 	expect(helpResult.exitCode).toBe(0)
 	expect(helpResult.stdout).toContain("Accept an opaque value")
+	expect(operationRequests).toBe(0)
+})
+
+test("describes native recursive tool schemas with their OpenAPI references intact", async ({
+	apiCli,
+}) => {
+	await rm(join(String(apiCli.settings.CTX_CONFIG_DIR), "auth.json"))
+	let operationRequests = 0
+	apiCli.respond = (response) => {
+		operationRequests++
+		response.statusCode = 500
+		response.end("Unexpected invocation")
+	}
+	apiCli.document = await (
+		await createApi().request(
+			new URL("/openapi.json", apiCli.settings.CTX_PLATFORM_URL).href,
+		)
+	).json()
+	const result = await apiCli.run("api", "listPersonalAccountSessionTools", "--describe")
+	expect(result.exitCode, result.stderr).toBe(0)
+	const described = JSON.parse(result.stdout)
+	const path = "/accounts/{account_id}/sessions/{session_id}/tools"
+	expect(Object.keys(described.paths)).toEqual([path])
+	expect(described.paths[path].get.operationId).toBe("listPersonalAccountSessionTools")
+	expect(
+		described.paths[path].get.responses["200"].content["application/json"].schema,
+	).toEqual({ items: { $ref: "#/components/schemas/ComposioTool" }, type: "array" })
+	expect(described.components).toEqual(apiCli.document.components)
+	expect(described.components.schemas.ComposioTool).toBeDefined()
 	expect(operationRequests).toBe(0)
 })
 

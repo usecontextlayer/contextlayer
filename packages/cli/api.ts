@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import type { Command } from "commander"
-import { OpenAPIClientAxios, type Parameters } from "openapi-client-axios"
+import { HttpMethod, OpenAPIClientAxios, type Parameters } from "openapi-client-axios"
 import { z } from "zod"
 import { getAccessToken, LoginRequiredError, MissingLoginError } from "@/auth"
 import { env } from "@/env"
@@ -57,12 +57,30 @@ export function addApiCommand(program: Command) {
 					)
 					.option(
 						"--describe",
-						"Print the resolved operation contract as JSON without invoking it",
+						"Print this operation's OpenAPI document as JSON without invoking it; preserve schema references",
 					)
 					.action(async (options, invoked: Command) => {
 						try {
 							if (options.describe) {
-								console.log(JSON.stringify(operation, null, 2))
+								const pathItem = api.document.paths?.[operation.path]
+								assert(pathItem)
+								const methods = new Set<string>(Object.values(HttpMethod))
+								console.log(
+									JSON.stringify(
+										{
+											...api.document,
+											paths: {
+												[operation.path]: Object.fromEntries(
+													Object.entries(pathItem).filter(
+														([key]) => key === operation.method || !methods.has(key),
+													),
+												),
+											},
+										},
+										null,
+										2,
+									),
+								)
 								return
 							}
 							const parsedOptions = optionsSchema.parse(options)
