@@ -76,8 +76,12 @@
 		"dev:watch": "CLOUDFLARE_ENV=test vite dev --host 127.0.0.1",
 		"start": "pnpm dev",
 		"test": "vitest run --config vitest.config.ts",
-		"test:integration:node": "doppler run --project platform --config dev -- vitest run --config vitest.integration.node.config.ts",
+		"test:integration:basic": "doppler run --project platform --config dev -- vitest run --config vitest.integration.basic.config.ts",
+		"test:integration:claude": "doppler run --project platform --config dev -- vitest run --config vitest.integration.claude.config.ts",
+		"test:integration:doppler": "doppler run --project platform --config dev -- vitest run --config vitest.integration.doppler.config.ts",
+		"test:integration:polar": "doppler run --project platform --config dev -- vitest run --config vitest.integration.polar.config.ts",
 		"test:integration:polar-webhooks": "doppler run --project platform --config dev -- vitest run --config vitest.integration.polar-webhooks.config.ts",
+		"test:integration:sandbox": "doppler run --project platform --config dev -- vitest run --config vitest.integration.sandbox.config.ts",
 		"tsc": "react-router typegen && tsc --noEmit"
 	},
 	"type": "module",

@@ -1,13 +1,14 @@
-import { configDefaults, defineConfig } from "vitest/config"
+import { defineConfig } from "vitest/config"
+// biome-ignore lint/style/noRestrictedImports: shared test configuration lives outside the package
+import { polarWebhooksIntegrationTestInclude } from "../../vitest.shared.ts"
 // biome-ignore lint/style/noRestrictedImports: shared test configuration lives outside the app alias.
-import nodeIntegration from "./vitest.integration.node.config.ts"
+import basicIntegration from "./vitest.integration.basic.config.ts"
 
 export default defineConfig({
-	...nodeIntegration,
+	...basicIntegration,
 	test: {
-		...nodeIntegration.test,
-		exclude: configDefaults.exclude,
-		include: ["**/billing-webhooks.node.integration.test.ts"],
+		...basicIntegration.test,
+		include: polarWebhooksIntegrationTestInclude,
 		name: "@usecontextlayer/platform:integration:polar-webhooks",
 	},
 })

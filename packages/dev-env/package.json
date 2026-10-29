@@ -74,7 +74,7 @@
 		"build": "tsdown",
 		"dev:watch": "tsdown --watch",
 		"test": "vitest run --config vitest.config.ts",
-		"test:integration:node": "vitest run --config vitest.integration.node.config.ts",
+		"test:integration:basic": "vitest run --config vitest.integration.basic.config.ts",
 		"tsc": "tsc -b tsconfig.json"
 	},
 	"type": "module",

@@ -14,21 +14,27 @@ Review test changes with [tests-pin-behavior](.agents/checks/tests-pin-behavior.
 
 ### Placement & Tiers
 
-Tests are sorted by a **filename suffix** along two orthogonal axes defined in `vitest.shared.ts`: the **runtime** (plain Node or Chromium) and the **tier** (unit = hermetic, runs on CI; integration = needs a real local prerequisite, opt-in only). **The unmarked name claims the default runtime: bare `*.test.ts(x)` runs in plain Node.** `.browser.` marks browser-coupled tests. Write a bare unit test unless it needs one of those runtimes or an integration prerequisite.
+Tests are sorted by a **filename suffix** defined in `vitest.shared.ts`. The **tier** separates unit tests (hermetic, run on CI) from integration tests (need a real local prerequisite, opt-in only). Unit tests are marked by **runtime**. **The unmarked name claims the default runtime: bare `*.test.ts(x)` runs in plain Node**, and `.browser.` marks browser-coupled tests. Integration tests are marked by **lane**: `<subject>.<lane>.integration.test.ts(x)`. Write a bare unit test unless it needs Chromium or an integration prerequisite.
 
 **All tests should be behavioral; integration is a dependency requirement, not a separate standard of assertion.** Choose integration when the promise requires a real service or runtime boundary: Postgres constraints need Postgres, and Worker bindings need the native Worker runtime. Logic observable through a hermetic public contract stays in the unit tier.
 
-| Filename | Runtime / tier | Turbo task | Per-package config | What belongs here |
+**An integration lane is one basket of capabilities.** Each lane runs as its own Vitest invocation, so its configuration can bound how many of its files run at once. That bound comes from the scarcest capability in its basket: the Docker VM's capacity for Build sandboxes, or a provider's rate limit. Every lane after basic includes the basic basket. Place a file in the lane whose basket covers what its cases need. When a file's cases need different baskets, split the file so each part lands in one lane, rather than carrying light cases into a constrained lane. A case that needs two constrained capabilities belongs in the lane with the tighter bound, whose basket then also carries the other capability.
+
+| Filename | Tier / lane | Turbo task | Per-package config | What belongs here |
 | --- | --- | --- | --- | --- |
 | `*.test.ts(x)` | Unit, Node | `test` | `vitest.config.ts` | Hermetic logic, local subprocesses/filesystem, and real Git fixtures over temporary directories |
 | `*.browser.test.ts(x)` | Unit, Chromium | `test` | Browser project in `vitest.config.ts` | DOM rendering, browser globals, storage, and browser-only modules |
-| `*.node.integration.test.ts(x)` | Node integration | `test:integration:node` | `vitest.integration.node.config.ts` | A real local service such as Postgres, or a real guest |
-| `*.browser.integration.test.ts(x)` | Browser integration | `test:integration:browser` | `vitest.integration.browser.config.ts` | A real browser with a real local service behind it |
+| `*.basic.integration.test.ts(x)` | Basic integration | `test:integration:basic` | `vitest.integration.basic.config.ts` | A real local service such as Postgres or the Worker harness, a real guest, the DevEnv and its connected accounts, and the remote Cloudflare test resources |
+| `*.sandbox.integration.test.ts(x)` | Sandbox integration | `test:integration:sandbox` | `vitest.integration.sandbox.config.ts` | Slate database provisioning that runs in Build sandboxes |
 | `*.claude.integration.test.ts(x)` | Claude integration | `test:integration:claude` | `vitest.integration.claude.config.ts` | Real Claude with its required credentials |
+| `*.polar.integration.test.ts(x)` | Polar integration | `test:integration:polar` | `vitest.integration.polar.config.ts` | Polar Sandbox calls and provider waits that spend its rate limit |
+| `*.doppler.integration.test.ts(x)` | Doppler integration, opt-in | `test:integration:doppler` | `vitest.integration.doppler.config.ts` | Writes to the development Owner vault, which need [authorization for each write](#secret-vault-writes) |
+| `*.polar-webhooks.integration.test.ts(x)` | Polar webhooks, opt-in | `test:integration:polar-webhooks` | `vitest.integration.polar-webhooks.config.ts` | Signed Polar delivery through a [task-owned relay](#polar-sandbox) |
+| `*.browser.integration.test.ts(x)` | Browser integration | `test:integration:browser` | `vitest.integration.browser.config.ts` | A real browser with a real local service behind it |
 
-**CI runs only the unit tier**, including any browser unit projects. The three integration tiers are opt-in/local-only; anything that must be covered in CI belongs in a unit test. Never move a test to a heavier tier for convenience and thereby give away its CI coverage.
+**CI runs only the unit tier**, including any browser unit projects. The integration lanes are opt-in/local-only; anything that must be covered in CI belongs in a unit test. Never move a test to a heavier tier for convenience and thereby give away its CI coverage.
 
-A package carries a tier's config and script only when it uses that tier. Unit configs exclude the integration markers through `unitTestExclude`; only a package that actually runs browser tests may exclude that runtime's marker from its Node unit project. Misplaced tests therefore run in Node and fail instead of silently disappearing. When adding the first test of a tier, add the matching per-package config and task using the includes exported by `vitest.shared.ts`.
+A package carries a lane's config and script only when it uses that lane. Unit configs exclude the integration markers through `unitTestExclude`; only a package that actually runs browser tests may exclude that runtime's marker from its Node unit project. Misplaced tests therefore run in Node and fail instead of silently disappearing. A file in the wrong integration lane still runs, but under the other lane's bound, so review lane placement whenever a file's prerequisites change. When adding the first test of a lane, add the matching per-package config and task using the includes exported by `vitest.shared.ts`.
 
 ### Assert on the Contract, Not the Inside
 
@@ -110,12 +116,12 @@ Run from the repository root, using Turbo for package-scoped work:
 pnpm test
 pnpm run test:integration
 pnpm exec turbo run test --filter=@usecontextlayer/shared...
-pnpm exec turbo run test:integration:node --filter=@usecontextlayer/platform -- <file>.node.integration.test.ts
+pnpm exec turbo run test:integration:basic --filter=@usecontextlayer/platform -- <file>.basic.integration.test.ts
 ```
 
-The root `test:integration` command requests all three integration tiers. Use `test:integration:node`, `test:integration:browser`, or `test:integration:claude` to select one tier; append `--testNamePattern '<case pattern>'` to a package invocation to select cases. Package scripts and Vitest configurations own the executable command/configuration details.
+The root `test:integration` command runs the default lanes together: basic, sandbox, claude, polar and browser. The opt-in doppler and polar-webhooks lanes run only through `test:integration:doppler` and `test:integration:polar-webhooks`. Use `test:integration:<lane>` to select one lane; append `--testNamePattern '<case pattern>'` to a package invocation to select cases. Package scripts and Vitest configurations own the executable command/configuration details.
 
-**Run one integration-suite invocation at a time. Finish builds before starting it:** fixtures read shared prebuilt output directories. Keep file parallelism enabled. If a failure suggests concurrency or parallelism flakiness, stop and discuss the affected test before changing it or retrying.
+**Run one integration-suite invocation at a time; the root command's lanes run alongside each other by design. Finish builds before starting it:** fixtures read shared prebuilt output directories. Keep file parallelism enabled. If a failure suggests concurrency or parallelism flakiness, stop and discuss the affected test before changing it or retrying.
 
 ### Shared environment
 
@@ -139,7 +145,7 @@ Model cases require usable credentials under the Owner selected by the authored 
 
 Use the development Owner vault selected by Doppler `platform/dev`, following [Owner vault configuration](packages/platform/AGENTS.md#owner-vault-configuration). Do not substitute the production customer vault. Viewer-secret presence reads and value loads also require vault access.
 
-**Live Doppler cases require authorization for each write, including cleanup.** Before running them, inspect the selected case and name its exact Owner, keys and resolved vault destination to the user. Approval for non-writing cases does not cover live writes. An interrupted run can leave secrets; inspect and agree further cleanup before writing again. Keep values, credentials and raw provider responses out of logs and failure diagnostics. Use `--testNamePattern non-writing` when only the non-writing cases are authorized; `--testNamePattern 'live Doppler'` selects the writing cases after authorization. CLI help owns input and Owner-selection syntax.
+**Live Doppler cases require authorization for each write, including cleanup.** They run only in the opt-in doppler lane, never in the default suite. Before running them, inspect the selected case and name its exact Owner, keys and resolved vault destination to the user. Approval for non-writing cases does not cover live writes. An interrupted run can leave secrets; inspect and agree further cleanup before writing again. Keep values, credentials and raw provider responses out of logs and failure diagnostics. Use `--testNamePattern non-writing` when only the non-writing cases are authorized; `--testNamePattern 'live Doppler'` selects the writing cases after authorization. CLI help owns input and Owner-selection syntax.
 
 ### Polar Sandbox
 
@@ -199,7 +205,7 @@ Use a slate checkout against the intended DevEnv and follow [unpublished package
 
 Direct POST requests to a React Router index action need the native `?index` query parameter that framework Form submissions supply. When changing local-resource integration, verify that the deployment build excludes the auxiliary Worker and local credentials.
 
-Verify local agent instruction behavior with a real task. For hosted jobs, deploy instructions and declarations and prepare their selected Owner's credentials and resource assignments before execution. Run the upstream [computer conformance suite](packages/platform/__tests__/computer.node.integration.test.ts) before real-model acceptance so a broken execution environment is not mistaken for model behavior. Record model output under the nondeterminism rule; a successful greeting does not establish connected-tool or database behavior.
+Verify local agent instruction behavior with a real task. For hosted jobs, deploy instructions and declarations and prepare their selected Owner's credentials and resource assignments before execution. Run the upstream [computer conformance suite](packages/platform/__tests__/computer.basic.integration.test.ts) before real-model acceptance so a broken execution environment is not mistaken for model behavior. Record model output under the nondeterminism rule; a successful greeting does not establish connected-tool or database behavior.
 
 ### Cross-site chrome and viewer sessions
 

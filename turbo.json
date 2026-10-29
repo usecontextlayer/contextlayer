@@ -54,6 +54,11 @@
 			"dependsOn": ["^build"],
 			"outputs": []
 		},
+		"test:integration:basic": {
+			"cache": false,
+			"dependsOn": ["^build"],
+			"outputs": []
+		},
 		"test:integration:browser": {
 			"cache": false,
 			"dependsOn": ["^build"],
@@ -67,12 +72,22 @@
 			// without adding it to cache keys.
 			"passThroughEnv": ["CLAUDE_CODE_OAUTH_TOKEN"]
 		},
-		"test:integration:node": {
+		"test:integration:doppler": {
+			"cache": false,
+			"dependsOn": ["^build"],
+			"outputs": []
+		},
+		"test:integration:polar": {
 			"cache": false,
 			"dependsOn": ["^build"],
 			"outputs": []
 		},
 		"test:integration:polar-webhooks": {
+			"cache": false,
+			"dependsOn": ["^build"],
+			"outputs": []
+		},
+		"test:integration:sandbox": {
 			"cache": false,
 			"dependsOn": ["^build"],
 			"outputs": []

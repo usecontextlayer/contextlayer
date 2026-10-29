@@ -20,7 +20,7 @@
 	"scripts": {
 		"build": "wrangler deploy --env=\"\" --dry-run --outdir dist",
 		"test": "vitest run --config vitest.config.ts",
-		"test:integration:node": "doppler run --project platform --config dev -- vitest run --config vitest.integration.node.config.ts",
+		"test:integration:basic": "doppler run --project platform --config dev -- vitest run --config vitest.integration.basic.config.ts",
 		"tsc": "tsc --noEmit"
 	},
 	"type": "module",

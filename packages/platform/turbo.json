@@ -20,7 +20,27 @@
 		"dev:watch": {
 			"passThroughEnv": ["CLOUDFLARE_*"]
 		},
-		"test:integration:node": {
+		"test:integration:basic": {
+			"cache": false,
+			"dependsOn": ["build", "@usecontextlayer/dispatcher#build"],
+			"passThroughEnv": ["CLOUDFLARE_*", "COMPOSIO_API_KEY", "POLAR_*"]
+		},
+		"test:integration:claude": {
+			"cache": false,
+			"dependsOn": ["build", "@usecontextlayer/dispatcher#build"],
+			"passThroughEnv": ["CLOUDFLARE_*", "COMPOSIO_API_KEY", "POLAR_*"]
+		},
+		"test:integration:doppler": {
+			"cache": false,
+			"dependsOn": ["build", "@usecontextlayer/dispatcher#build"],
+			"passThroughEnv": ["CLOUDFLARE_*", "COMPOSIO_API_KEY", "POLAR_*"]
+		},
+		"test:integration:polar": {
+			"cache": false,
+			"dependsOn": ["build", "@usecontextlayer/dispatcher#build"],
+			"passThroughEnv": ["CLOUDFLARE_*", "COMPOSIO_API_KEY", "POLAR_*"]
+		},
+		"test:integration:sandbox": {
 			"cache": false,
 			"dependsOn": ["build", "@usecontextlayer/dispatcher#build"],
 			"passThroughEnv": ["CLOUDFLARE_*", "COMPOSIO_API_KEY", "POLAR_*"]
