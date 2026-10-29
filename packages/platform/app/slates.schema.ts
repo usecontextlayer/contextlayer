@@ -1,5 +1,4 @@
 import { z } from "@hono/zod-openapi"
-import { slateTargetSchema as portableSlateTargetSchema } from "@usecontextlayer/shared/slates"
 import type { SlateId } from "@/database/models/public/Slate"
 import type { Owner } from "@/owner"
 
@@ -43,9 +42,10 @@ export const updateSlateVisibilityRequestSchema = z.strictObject({
 export type UpdateSlateVisibilityRequest = z.infer<
 	typeof updateSlateVisibilityRequestSchema
 >
-export const slateTargetSchema = portableSlateTargetSchema.transform((target) =>
-	"id" in target ? { id: target.id as SlateId } : target,
-)
+export const slateTargetSchema = z.union([
+	slateSchema.shape.id.transform((id) => ({ id })),
+	slateSchema.shape.public_hostname.transform((public_hostname) => ({ public_hostname })),
+])
 export type SlateTarget = z.infer<typeof slateTargetSchema>
 export const resolveSlateQuerySchema = z.object({
 	hostname: z.hostname().toLowerCase(),

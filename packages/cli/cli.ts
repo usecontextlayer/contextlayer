@@ -32,10 +32,6 @@ const program = new Command()
 	.description("ContextLayer CLI")
 	.version(version)
 	.enablePositionalOptions()
-	.option(
-		"--api-url <url>",
-		"API origin for live discovery and invocation; place before api",
-	)
 program.addHelpText(
 	"afterAll",
 	`\nEnvironment (current values):\n  CTX_PLATFORM_URL    ${env.CTX_PLATFORM_URL}\n  CTX_AUTH_ISSUER     ${env.CTX_AUTH_ISSUER}\n  CTX_AUTH_CLIENT_ID  ${env.CTX_AUTH_CLIENT_ID}\n  CTX_CONFIG_DIR      ${env.CTX_CONFIG_DIR}  Saved-login directory; one login per directory.\n  CTX_CLI_COMMAND     ${readCliCommand(env)}  CLI invocation used for Git registration and login repair.\n\nRun without a global install: npx @usecontextlayer/cli <command>`,

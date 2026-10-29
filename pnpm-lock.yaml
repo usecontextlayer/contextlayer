@@ -151,9 +151,6 @@ importers:
       '@composio/core':
         specifier: ^0.22.0
         version: 0.22.0(@aws-sdk/credential-provider-node@3.972.86)(@smithy/signature-v4@5.7.4)(ws@8.21.3)(zod@4.6.5)
-      '@hono/zod-openapi':
-        specifier: ^1.6.3
-        version: 1.6.3(hono@4.13.12)(zod@4.6.5)
       '@types/node':
         specifier: ^24.13.3
         version: 24.13.3

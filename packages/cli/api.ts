@@ -16,27 +16,24 @@ const inlineJsonSchema = z
 		}
 	})
 	.pipe(z.json())
-const rootOptionsSchema = z.object({ apiUrl: z.url().optional() })
 
 const optionsSchema = z.object({
 	json: inlineJsonSchema.optional(),
 	params: inlineJsonSchema.pipe(z.record(z.string(), z.json())).optional(),
 })
 const apiHelp =
-	"\nDiscovery requires a reachable API, but no login. Operation IDs and descriptions come from its OpenAPI document.\n\nCalls reuse the selected saved login and refresh it when needed. Public operations can run without login.\n\nInputs are inline JSON only; no file, @, or stdin expansion. Responses are JSON containing status, statusText, headers, and data. HTTP 4xx/5xx exit 1; other HTTP responses exit 0. Exit status follows HTTP status, not domain outcomes. Failures without an operation response go to stderr and exit nonzero."
+	"\nDiscovery requires a reachable platform, but no login. Operation IDs and descriptions come from its OpenAPI document.\n\nCalls reuse the selected saved login and refresh it when needed. Public operations can run without login.\n\nInputs are inline JSON only; no file, @, or stdin expansion. Responses are JSON containing status, statusText, headers, and data. HTTP 4xx/5xx exit 1; other HTTP responses exit 0. Exit status follows HTTP status, not domain outcomes. Failures without an operation response go to stderr and exit nonzero."
 
 export function addApiCommand(program: Command) {
 	const apiCommand = program
 		.command("api")
-		.description("Discover and invoke the selected stack's live OpenAPI operations")
+		.description("Discover and invoke the selected platform's live OpenAPI operations")
 		.addHelpText("after", apiHelp)
 	program.hook("preSubcommand", async (_parent, command) => {
 		if (command !== apiCommand) return
 		try {
-			const { apiUrl } = rootOptionsSchema.parse(program.opts())
 			const api = new OpenAPIClientAxios({
-				definition: new URL("/api/openapi.json", apiUrl ?? env.CTX_PLATFORM_URL).href,
-				...(apiUrl ? { withServer: { url: new URL("/api", apiUrl).href } } : {}),
+				definition: new URL("/api/openapi.json", env.CTX_PLATFORM_URL).href,
 			})
 			const client = await api.init()
 			for (const operation of api.getOperations()) {

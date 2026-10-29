@@ -161,9 +161,9 @@ Run `ctx dev` from any slate checkout, including agents-only or empty checkouts 
 
 ### Running authored agents
 
-Keep agent instructions and declarations under `agents/<name>/`. The selected local or hosted stack's common agent API runs jobs through the same native Pi harness; use the [DevEnv command runner](#start-and-sign-in) when developing this repository. The CLI's generic API help owns discovery and invocation.
+Keep agent instructions and declarations under `agents/<name>/`. The local and hosted stacks execute them through the same native Pi harness. `ctx dev` starts the local runtime and installs authored schedules; the CLI exposes no manual local task-submission interface. Use the [DevEnv command runner](#start-and-sign-in) when developing this repository. For hosted jobs, the CLI's generic API help owns discovery and invocation.
 
-[Local agent execution](ARCHITECTURE.md#local-agent-execution) owns the common API and stack boundary. [Agent deployment](#deploying-and-inspecting-an-agent) owns publication, and [agent verification](TESTING.md#local-slate-resources-and-agents) owns real-task checks.
+[Local agent execution](ARCHITECTURE.md#local-agent-execution) owns the shared runtime and stack boundary. [Agent deployment](#deploying-and-inspecting-an-agent) owns publication, and [agent verification](TESTING.md#local-slate-resources-and-agents) owns real-task checks.
 
 ### Authored database development
 

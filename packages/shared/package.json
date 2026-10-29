@@ -36,10 +36,6 @@
 			"import": "./dist/agent-job.mjs",
 			"types": "./dist/agent-job.d.mts"
 		},
-		"./agent-operations": {
-			"import": "./dist/agent-operations.mjs",
-			"types": "./dist/agent-operations.d.mts"
-		},
 		"./agent-provider": {
 			"import": "./dist/agent-provider.mjs",
 			"types": "./dist/agent-provider.d.mts"
@@ -63,10 +59,6 @@
 		"./agents": {
 			"import": "./dist/agents.mjs",
 			"types": "./dist/agents.d.mts"
-		},
-		"./agents-api": {
-			"import": "./dist/agents-api.mjs",
-			"types": "./dist/agents-api.d.mts"
 		},
 		"./chrome": {
 			"import": "./dist/chrome.mjs",
@@ -119,10 +111,6 @@
 		"./slate-usage": {
 			"import": "./dist/slate-usage.mjs",
 			"types": "./dist/slate-usage.d.mts"
-		},
-		"./slates": {
-			"import": "./dist/slates.mjs",
-			"types": "./dist/slates.d.mts"
 		},
 		"./tools": {
 			"import": "./dist/tools.mjs",

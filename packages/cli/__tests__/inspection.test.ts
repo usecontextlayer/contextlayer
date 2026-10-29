@@ -55,7 +55,7 @@ test("CLI help exposes the generic API and rejects a separate local agent comman
 		const api = await execa(process.execPath, [cli, "help", "api"], options)
 		expect(api.exitCode, api.stderr).toBe(0)
 		expect(api.stdout).toContain(
-			"Discover and invoke the selected stack's live OpenAPI operations",
+			"Discover and invoke the selected platform's live OpenAPI operations",
 		)
 
 		const agent = await execa(

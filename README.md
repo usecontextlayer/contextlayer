@@ -98,7 +98,7 @@ The [SDK guide](packages/sdk/README.md#call-connected-services) explains calling
 
 ## What else can a slate do?
 
-Agents can run on a schedule or through an HTTP API, with instructions and resource requirements committed alongside the app. See [authored agents](ARCHITECTURE.md#authored-agents) and [agent setup](DEVELOPING.md#deploying-and-inspecting-an-agent).
+Hosted agents can run on a schedule or through an HTTP API, with instructions and resource requirements committed alongside the app. See [authored agents](ARCHITECTURE.md#authored-agents) and [agent setup](DEVELOPING.md#deploying-and-inspecting-an-agent).
 
 Slates can also expose MCP tools and interactive views to MCP clients. Shared connections, databases, and secrets currently work in apps and agents; authored MCP handlers do not yet support them. See [MCP tools and views](ARCHITECTURE.md#authored-mcp-tools-and-views).
 

@@ -1,12 +1,11 @@
 import { WorkerEntrypoint } from "cloudflare:workers"
-import { OpenAPIHono } from "@hono/zod-openapi"
 import {
 	getAgentByName,
 	getAgentInstanceName,
 } from "@usecontextlayer/shared/agent-routing"
 import { agentScheduleSchema } from "@usecontextlayer/shared/agents"
 import { parseSkillFrontmatter } from "agents/skills"
-import { createLocalApi } from "@/local-runtime/api"
+import { Hono } from "hono"
 import { type LocalBindings, readSnapshot } from "@/local-runtime/env"
 
 export { SlateAgentJob } from "@usecontextlayer/shared/agent-job"
@@ -45,8 +44,7 @@ export class Provisioning extends WorkerEntrypoint<LocalBindings> {
 	}
 }
 
-const app = new OpenAPIHono<{ Bindings: LocalBindings }>()
-app.route("/api", createLocalApi())
+const app = new Hono<{ Bindings: LocalBindings }>()
 app.post("/__ctx/provision", async (c) => {
 	await (
 		c.executionCtx.exports as { Provisioning: Pick<Provisioning, "provision"> }

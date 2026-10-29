@@ -15,12 +15,12 @@ import { readLocalSnapshot } from "@/local-source"
 
 const portSchema = z.coerce.number().int().min(0).max(65535)
 const devOptionsSchema = z.object({
-	apiPort: portSchema.default(8787),
-	port: portSchema.optional(),
+	port: portSchema.default(8787),
+	vitePort: portSchema.optional(),
 })
 
 export async function startLocalStack(options: z.input<typeof devOptionsSchema> = {}) {
-	const { apiPort, port } = devOptionsSchema.parse(options)
+	const { port, vitePort } = devOptionsSchema.parse(options)
 	const directory = process.cwd()
 	const snapshot = await readLocalSnapshot(directory)
 	const { unstable_DevEnv, unstable_readConfig } = await import("wrangler")
@@ -52,7 +52,7 @@ export async function startLocalStack(options: z.input<typeof devOptionsSchema> 
 	if (!hasVite && existsSync(resolve(directory, "public")))
 		config.assets = {
 			directory: resolve(directory, "public"),
-			run_worker_first: ["/api/*", "/__ctx/*"],
+			run_worker_first: ["/__ctx/*"],
 		}
 	const devEnv = new unstable_DevEnv()
 	let app: ViteDevServer | undefined
@@ -72,7 +72,7 @@ export async function startLocalStack(options: z.input<typeof devOptionsSchema> 
 					persist: resolve(directory, ".contextlayer/databases"),
 					registry: getDefaultDevRegistryPath(),
 					remote: false,
-					server: { hostname: "127.0.0.1", port: apiPort },
+					server: { hostname: "127.0.0.1", port },
 					watch: false,
 				},
 				name: snapshot.scope,
@@ -109,7 +109,7 @@ export async function startLocalStack(options: z.input<typeof devOptionsSchema> 
 				root: directory,
 				server: {
 					host: "127.0.0.1",
-					...(port !== undefined ? { port, strictPort: true } : {}),
+					...(vitePort !== undefined ? { port: vitePort, strictPort: true } : {}),
 				},
 			})
 			await app.listen()
@@ -137,20 +137,17 @@ export function addDevCommand(program: Command) {
 			"Run this checkout's native local stack, then its authored Vite app or MCP server when present. Restart after source, declaration, assignment, or environment changes. Docker is required only for agents.",
 		)
 		.option(
-			"--api-port <port>",
-			"Loopback port for the local agent API and static files; 0 selects an available port",
+			"--port <port>",
+			"Loopback port for the local runtime and static files; 0 selects an available port",
 			"8787",
 		)
 		.option(
-			"--port <port>",
+			"--vite-port <port>",
 			"Loopback port for the authored Vite server; 0 selects an available port",
 		)
 		.action(async (options) => {
 			await using stack = await startLocalStack(options)
-			console.log(`Local slate API: ${new URL("/api", stack.url)}`)
-			console.log(
-				"Use target local with ctx --api-url <local-origin> api. Source: current working tree.",
-			)
+			console.log(`Local slate server: ${stack.url}`)
 			await new Promise<void>((resolve) => {
 				process.once("SIGINT", resolve)
 				process.once("SIGTERM", resolve)
