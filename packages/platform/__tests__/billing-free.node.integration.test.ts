@@ -107,10 +107,10 @@ test("Free subscriptions grant credits and exhaustion denies runtime access afte
 		const exhausted = await fetch(resolve("/"))
 		expect(exhausted.status).toBe(402)
 		const message = await exhausted.text()
-		expect(message).toContain("Free clips renew on")
-		expect(message).toContain("Free has no overage charges")
+		expect(message).toContain("Included clips renew on")
+		expect(message).toContain("This plan has no overage charges")
 		expect(message).toContain(
-			type === "team" ? "/settings/organizations" : "/settings/billing",
+			type === "team" ? `/organization/${externalId}/billing` : "/settings/billing",
 		)
 		expect((await fetch(resolve("/slate.json"))).status).toBe(200)
 	}
