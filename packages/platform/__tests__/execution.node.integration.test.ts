@@ -143,7 +143,7 @@ test("native resource capabilities enforce access and report exact slate-Owner t
 		const checkout = join(directory, slate.id)
 		await createSlateProject(resolve(import.meta.dirname, "../../.."), checkout)
 		await writeFile(
-			join(checkout, "public/slate.json"),
+			join(checkout, "app/slate.json"),
 			JSON.stringify({
 				connections: { mail: { mode: "viewer", toolkit: "gmail" } },
 				databases: { drafts: { mode: "viewer" }, reports: { mode: "owner" } },

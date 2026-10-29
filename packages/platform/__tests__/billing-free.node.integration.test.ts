@@ -112,6 +112,6 @@ test("Free subscriptions grant credits and exhaustion denies runtime access afte
 		expect(message).toContain(
 			type === "team" ? "/settings/organizations" : "/settings/billing",
 		)
-		expect((await fetch(resolve("/slate.json"))).status).toBe(200)
+		expect((await fetch(resolve("/slate.json"))).status).toBe(402)
 	}
 }, 300_000)

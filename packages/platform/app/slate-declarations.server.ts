@@ -46,7 +46,9 @@ export async function readSlateDeclarations(
 	)
 	const declarations: SlateDeclarations = {
 		agents: Object.fromEntries(agents),
-		app: await readDeclaration(repo, commit.hash, "public/slate.json"),
+	}
+	if (root.some((entry) => entry.name === "app" && entry.type === "tree")) {
+		declarations.app = await readDeclaration(repo, commit.hash, "app/slate.json")
 	}
 	return {
 		agentTrees,

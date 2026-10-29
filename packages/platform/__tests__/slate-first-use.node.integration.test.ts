@@ -6,9 +6,9 @@ import { writeDatabase } from "@tests/database-project"
 import { executionTest as test } from "@tests/integration"
 import { createSlateProject } from "@usecontextlayer/dev-env/slate"
 import { signInViewer } from "@usecontextlayer/dev-env/viewer"
+import { getAgentByName } from "@usecontextlayer/shared/agent-routing"
 import { databaseResultSchema } from "@usecontextlayer/shared/databases"
 import { slateResourcesSchema } from "@usecontextlayer/shared/slate-resources"
-import { getAgentByName } from "agents/routing"
 import { execa } from "execa"
 import { expect } from "vitest"
 import { getAgentInstanceName } from "@/agent-instance"
@@ -67,7 +67,7 @@ test("first use joins immediately and provisions personal data and schedules in 
 	await git("config", "user.email", "first-use@example.com")
 	await git("remote", "add", "origin", `${platform.origin}/git/${slate.id}`)
 	await writeFile(
-		join(checkout, "public/slate.json"),
+		join(checkout, "app/slate.json"),
 		JSON.stringify({
 			connections: {},
 			databases: { drafts: { mode: "viewer" }, reports: { mode: "owner" } },

@@ -8,11 +8,11 @@ import { executionTest as test } from "@tests/integration"
 import seed from "@usecontextlayer/dev-env/seed.json" with { type: "json" }
 import { createSlateProject } from "@usecontextlayer/dev-env/slate"
 import { signInViewer } from "@usecontextlayer/dev-env/viewer"
+import { getAgentByName } from "@usecontextlayer/shared/agent-routing"
 import {
 	type SlateResourceConfiguration,
 	slateResourcesSchema,
 } from "@usecontextlayer/shared/slate-resources"
-import { getAgentByName } from "agents/routing"
 import { expect } from "vitest"
 import { z } from "zod"
 import { getAgentInstanceName } from "@/agent-instance"
@@ -141,7 +141,7 @@ test("native CLI provisioning initializes owner and member databases and applies
 		for (const slug of ["drafts", "inbox", "reports"]) await writeDatabase(checkout, slug)
 		if (slate.id === joinedBeforeProvisioning.id) {
 			await writeFile(
-				join(checkout, "public/slate.json"),
+				join(checkout, "app/slate.json"),
 				JSON.stringify({ connections: {}, databases: { drafts: { mode: "viewer" } } }),
 			)
 			await git("add", ".")
@@ -150,7 +150,7 @@ test("native CLI provisioning initializes owner and member databases and applies
 			await firstUse(slate)
 		}
 		await writeFile(
-			join(checkout, "public/slate.json"),
+			join(checkout, "app/slate.json"),
 			JSON.stringify({
 				connections: {},
 				databases: { drafts: { mode: "viewer" }, reports: { mode: "owner" } },
@@ -280,7 +280,7 @@ export async function up(db: Kysely<unknown>) {
 `,
 		)
 		await writeFile(
-			join(checkout, "public/slate.json"),
+			join(checkout, "app/slate.json"),
 			JSON.stringify({
 				connections: {},
 				databases: {

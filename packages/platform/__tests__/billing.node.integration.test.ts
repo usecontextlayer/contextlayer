@@ -22,7 +22,7 @@ import { expect } from "vitest"
 import { checkSlateBilling, saveCustomerState } from "@/billing.server"
 import { slateSchema } from "@/slates.schema"
 
-test("Owner subscriptions gate execution while declaration access stays available", async ({
+test("Owner subscriptions gate execution at every pathname", async ({
 	db,
 	identity,
 	organization,
@@ -59,7 +59,7 @@ test("Owner subscriptions gate execution while declaration access stays availabl
 	const expectBlocked = async (slate: typeof personalSlate) => {
 		expect((await request(resolve(slate.public_hostname, "/"))).status).toBe(402)
 		expect((await request(resolve(slate.public_hostname, "/slate.json"))).status).toBe(
-			200,
+			402,
 		)
 	}
 	const slateWithoutPolarCustomer = slateSchema.parse(

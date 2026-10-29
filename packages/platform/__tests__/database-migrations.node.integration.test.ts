@@ -85,7 +85,7 @@ test("native sandbox CLI migrates its selected instances and preserves native fa
 		).stdout.trim()
 	await createSlateProject(resolve(import.meta.dirname, "../../.."), directory)
 	await writeFile(
-		join(directory, "public/slate.json"),
+		join(directory, "app/slate.json"),
 		JSON.stringify({ connections: {}, databases: { notes: { mode: "viewer" } } }),
 	)
 	await git("init", "-b", "main")

@@ -4,8 +4,8 @@ import { join, resolve } from "node:path"
 import { writeDatabase } from "@tests/database-project"
 import { test as base } from "@tests/integration"
 import { createSlateProject } from "@usecontextlayer/dev-env/slate"
+import { getAgentByName } from "@usecontextlayer/shared/agent-routing"
 import { slateResourcesSchema } from "@usecontextlayer/shared/slate-resources"
-import { getAgentByName } from "agents/routing"
 import { execa } from "execa"
 import { expect } from "vitest"
 import { z } from "zod"
@@ -39,7 +39,7 @@ const test = base.extend(
 		await createSlateProject(resolve(import.meta.dirname, "../../.."), directory)
 		await mkdir(join(directory, "agents/daily/schedules"), { recursive: true })
 		await writeFile(
-			join(directory, "public/slate.json"),
+			join(directory, "app/slate.json"),
 			JSON.stringify({ connections: {} }),
 		)
 		await writeFile(

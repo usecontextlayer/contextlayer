@@ -5,6 +5,7 @@ import { resourcesForConsumer } from "@usecontextlayer/shared/declaration"
 import type { LocalResourceConfiguration } from "@usecontextlayer/shared/slate-resources"
 import { afterEach, expect, expectTypeOf, test, vi } from "vitest"
 import { prepareLocalResourceConfiguration, saveLocalConnection } from "@/resources"
+import { readLocalResources } from "@/slate"
 
 const directories: string[] = []
 afterEach(async () => {
@@ -19,10 +20,10 @@ afterEach(async () => {
 async function createCheckout() {
 	const directory = await mkdtemp(join(tmpdir(), "ctx-local-resources-"))
 	directories.push(directory)
-	await mkdir(join(directory, "public"))
+	await mkdir(join(directory, "app"))
 	await mkdir(join(directory, "agents/summary"), { recursive: true })
 	await writeFile(
-		join(directory, "public/slate.json"),
+		join(directory, "app/slate.json"),
 		JSON.stringify({
 			connections: { mail: { mode: "viewer", toolkit: "gmail" } },
 			databases: { reports: { mode: "owner" } },
@@ -82,16 +83,15 @@ test("preserves saved assignments and reads only the given checkout's current de
 	expect(
 		(await prepareLocalResourceConfiguration(other)).connections.mail?.account_id,
 	).toBeNull()
-	await writeFile(
-		join(directory, "public/slate.json"),
-		JSON.stringify({ connections: {} }),
-	)
+	await writeFile(join(directory, "app/slate.json"), JSON.stringify({ connections: {} }))
 	await rm(join(directory, "agents/summary"), { recursive: true })
 	expect((await prepareLocalResourceConfiguration(directory)).connections).toEqual({})
 	await mkdir(join(directory, "child"))
-	await expect(
-		prepareLocalResourceConfiguration(join(directory, "child")),
-	).rejects.toMatchObject({ code: "ENOENT" })
+	expect(await prepareLocalResourceConfiguration(join(directory, "child"))).toEqual({
+		connections: {},
+		databases: {},
+		secrets: {},
+	})
 })
 
 test("rejects malformed assignments and database slugs that escape the local database root", async () => {
@@ -104,7 +104,7 @@ test("rejects malformed assignments and database slugs that escape the local dat
 	await expect(prepareLocalResourceConfiguration(directory)).rejects.toThrow()
 	await writeFile(join(directory, ".contextlayer/connections.json"), "{}")
 	await writeFile(
-		join(directory, "public/slate.json"),
+		join(directory, "app/slate.json"),
 		JSON.stringify({
 			connections: {},
 			databases: { "../outside": { mode: "owner" } },
@@ -115,3 +115,52 @@ test("rejects malformed assignments and database slugs that escape the local dat
 		code: "ENOENT",
 	})
 })
+
+test("an empty checkout ignores the former public declaration location", async () => {
+	const directory = await createCheckout()
+	await rm(join(directory, "app"), { recursive: true })
+	await rm(join(directory, "agents"), { recursive: true })
+	await mkdir(join(directory, "public"))
+	await writeFile(join(directory, "public/slate.json"), "malformed legacy declaration")
+	expect(await readLocalResources(directory)).toEqual({
+		connections: {},
+		databases: {},
+		secrets: {},
+	})
+})
+
+test("agent-only checkouts retain resources without an app consumer", async () => {
+	const directory = await createCheckout()
+	await rm(join(directory, "app"), { recursive: true })
+	const resources = await readLocalResources(directory)
+	const agent = { name: "summary", type: "agent" } as const
+	expect(resources).toEqual({
+		connections: {
+			mail: { consumers: [agent], mode: "viewer", toolkit: "gmail" },
+			repository: { consumers: [agent], mode: "owner", toolkit: "github" },
+		},
+		databases: { reports: { consumers: [agent], mode: "owner" } },
+		secrets: { CTX_LOCAL_TEST_SECRET: { consumers: [agent], mode: "owner" } },
+	})
+	expect(resourcesForConsumer(resources, { type: "app" })).toEqual({
+		connections: {},
+		databases: {},
+		secrets: {},
+	})
+})
+
+test.each(["app", "agents/summary"])(
+	"a present %s requires a readable, valid declaration",
+	async (source) => {
+		const directory = await createCheckout()
+		const declaration = join(directory, source, "slate.json")
+		await rm(declaration)
+		await expect(readLocalResources(directory)).rejects.toMatchObject({ code: "ENOENT" })
+		await writeFile(declaration, "{")
+		await expect(readLocalResources(directory)).rejects.toBeInstanceOf(SyntaxError)
+		await writeFile(declaration, JSON.stringify({ connections: { mail: {} } }))
+		await expect(readLocalResources(directory)).rejects.toMatchObject({
+			name: "ZodError",
+		})
+	},
+)

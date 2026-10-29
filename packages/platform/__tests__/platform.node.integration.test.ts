@@ -212,9 +212,9 @@ test("slate ownership protects viewing, listing, and native Git source access", 
 	let instructions = "You research companies and write concise briefs.\n"
 	await mkdir(join(dir, "agents/company-brief"), { recursive: true })
 	await writeFile(instructionsPath, instructions)
-	await mkdir(join(dir, "public"))
+	await mkdir(join(dir, "app"))
 	await writeFile(
-		join(dir, "public/slate.json"),
+		join(dir, "app/slate.json"),
 		JSON.stringify({
 			connections: {},
 			secrets: { CLAUDE_CODE_OAUTH_TOKEN: { mode: "owner" } },
@@ -227,7 +227,7 @@ test("slate ownership protects viewing, listing, and native Git source access", 
 			secrets: { CLAUDE_CODE_OAUTH_TOKEN: { mode: "owner" } },
 		}),
 	)
-	await git("add", "README.md", "hello.txt", "agents", "public/slate.json")
+	await git("add", "README.md", "hello.txt", "agents", "app/slate.json")
 	await git("-c", "commit.gpgsign=false", "commit", "-m", "First slate")
 	const revision = await git("rev-parse", "HEAD")
 	await git("push", `${origin}/git/${slateId}`, "main")
