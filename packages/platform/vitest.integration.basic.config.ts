@@ -11,6 +11,6 @@ export default defineConfig({
 		include: basicIntegrationTestInclude,
 		name: "@usecontextlayer/platform:integration:basic",
 		root: fileURLToPath(new URL(".", import.meta.url)),
-		testTimeout: 90_000,
+		testTimeout: 120_000,
 	},
 })

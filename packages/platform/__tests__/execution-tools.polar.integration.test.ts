@@ -222,7 +222,7 @@ test("native Tools capability enforces access and reports exact slate-Owner tool
 					.map((event) => ({ clips: event.metadata.clips, name: event.name }))
 					.sort((a, b) => a.name.localeCompare(b.name))
 			},
-			{ interval: 1000, timeout: 300_000 },
+			{ timeout: 300_000 },
 		)
 		.toEqual([{ clips: 1, name: "tool_call" }])
 })

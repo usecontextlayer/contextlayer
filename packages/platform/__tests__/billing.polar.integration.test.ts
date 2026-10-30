@@ -224,10 +224,7 @@ test("Free uses the saved balance until stale state is refreshed", async ({
 		product_id: env.POLAR_FREE_PRODUCT_ID,
 	})
 	await expect
-		.poll(() => getStateCustomers(polar)(customer.id), {
-			interval: 1000,
-			timeout: 60_000,
-		})
+		.poll(() => getStateCustomers(polar)(customer.id), { timeout: 60_000 })
 		.toMatchObject({
 			active_meters: expect.arrayContaining([
 				expect.objectContaining({ balance: clips, meter_id: env.POLAR_CLIPS_METER_ID }),
@@ -268,7 +265,7 @@ test("Free uses the saved balance until stale state is refreshed", async ({
 				(await getStateCustomers(polar)(customer.id)).active_meters.find(
 					(meter) => meter.meter_id === env.POLAR_CLIPS_METER_ID,
 				)?.balance,
-			{ interval: 1000, timeout: 60_000 },
+			{ timeout: 60_000 },
 		)
 		.toBe(0)
 	expect(await checkSlateBilling(db, invalidPolarTokenConfig, slate)).toEqual({

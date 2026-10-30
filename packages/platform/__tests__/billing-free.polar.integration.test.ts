@@ -70,7 +70,7 @@ test("Free subscriptions grant credits and exhaustion denies runtime access afte
 						product_id: state.active_subscriptions[0]?.product_id,
 					}
 				},
-				{ interval: 1000, timeout: 60_000 },
+				{ timeout: 60_000 },
 			)
 			.toEqual({ balance: clips, product_id: env.POLAR_FREE_PRODUCT_ID })
 		expect((await listPaymentMethodsCustomers(polar)(customer.id)).items).toEqual([])
@@ -96,7 +96,7 @@ test("Free subscriptions grant credits and exhaustion denies runtime access afte
 					(await getStateCustomers(polar)(customer.id)).active_meters.find(
 						(meter) => meter.meter_id === env.POLAR_CLIPS_METER_ID,
 					)?.balance,
-				{ interval: 1000, timeout: 60_000 },
+				{ timeout: 60_000 },
 			)
 			.toBe(0)
 		await db

@@ -149,7 +149,7 @@ test("real dispatch strips viewer credentials and reports exact slate-Owner requ
 						.map((event) => ({ clips: event.metadata.clips, name: event.name }))
 						.sort((a, b) => a.name.localeCompare(b.name))
 				},
-				{ interval: 1000, timeout: 300_000 },
+				{ timeout: 300_000 },
 			)
 			.toEqual([
 				{ clips: 3, name: "action_call" },

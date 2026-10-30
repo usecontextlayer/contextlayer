@@ -8,10 +8,13 @@ export default defineConfig({
 	...basicIntegration,
 	test: {
 		...basicIntegration.test,
+		// Polar Sandbox allows 100 requests per minute per organization and answers anything beyond
+		// with a 429, which the SDK does not retry. Every provider poll in this lane inherits this
+		// interval, so each costs 12 requests per minute; maxWorkers polling files at once, plus the
+		// billing gate's background reads from every lane, must stay under the limit.
+		expect: { poll: { interval: 5_000 } },
 		include: polarIntegrationTestInclude,
-		// Polar Sandbox allows 100 requests per minute per organization, and one file's 1-second
-		// provider poll already uses 60, so two files polling at once exceed the limit.
-		maxWorkers: 1,
+		maxWorkers: 3,
 		name: "@usecontextlayer/platform:integration:polar",
 	},
 })

@@ -8,7 +8,7 @@ patchedDependencies:
   '@cloudflare/ci@0.2.0': 249282ac3bf296579ee41bf217de6adb3cee5c73a3811f9808edfcf910be67e4
   '@cloudflare/vite-plugin@1.62.4': 36dce0131d509e6ee9a9f57b60f8199f2dd6999c8124fe54e4391ba9cc923dcc
   '@earendil-works/pi-env@1.3.0': b6b974cb9999c0b24f865f23ecc1e2019bf0bb738dfa5b056a9d0a2ef119900c
-  miniflare@5.20261001.0-alpha: c48ba0417c1d3ef7bdf77051fc1505278b6f5325f32aaa14c4dc766668e7f446
+  miniflare@5.20261001.0-alpha: 50ef4be55367d86f34429603759663ca021c06e44bec5e08a1ec0f4b9f21c342
   postgres: 3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935
   wrangler@4.146.0: 003bc61a6a869a3898c52abb2ad22a9a664c594572132dc4dfef520438468a68
 
@@ -8095,7 +8095,7 @@ snapshots:
   '@cloudflare/vite-plugin@1.62.4(patch_hash=36dce0131d509e6ee9a9f57b60f8199f2dd6999c8124fe54e4391ba9cc923dcc)(@types/node@24.13.3)(vite@8.3.2(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(wrangler@4.146.0(patch_hash=003bc61a6a869a3898c52abb2ad22a9a664c594572132dc4dfef520438468a68)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.13.3))':
     dependencies:
       '@cloudflare/unenv-preset': 2.16.2(unenv@2.0.0-rc.24)(workerd@1.20261001.1)
-      miniflare: 5.20261001.0-alpha(patch_hash=c48ba0417c1d3ef7bdf77051fc1505278b6f5325f32aaa14c4dc766668e7f446)(@types/node@24.13.3)
+      miniflare: 5.20261001.0-alpha(patch_hash=50ef4be55367d86f34429603759663ca021c06e44bec5e08a1ec0f4b9f21c342)(@types/node@24.13.3)
       unenv: 2.0.0-rc.24
       vite: 8.3.2(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0)
       workerd: 1.20261001.1
@@ -12077,7 +12077,7 @@ snapshots:
   mimic-response@3.1.0:
     optional: true
 
-  miniflare@5.20261001.0-alpha(patch_hash=c48ba0417c1d3ef7bdf77051fc1505278b6f5325f32aaa14c4dc766668e7f446)(@types/node@24.13.3):
+  miniflare@5.20261001.0-alpha(patch_hash=50ef4be55367d86f34429603759663ca021c06e44bec5e08a1ec0f4b9f21c342)(@types/node@24.13.3):
     dependencies:
       '@cspotcode/source-map-support': 0.8.1
       sharp: 0.35.4(@types/node@24.13.3)
@@ -13738,7 +13738,7 @@ snapshots:
       '@cloudflare/unenv-preset': 2.16.2(unenv@2.0.0-rc.24)(workerd@1.20261001.1)
       blake3-wasm: 2.1.5
       esbuild: 0.28.1
-      miniflare: 5.20261001.0-alpha(patch_hash=c48ba0417c1d3ef7bdf77051fc1505278b6f5325f32aaa14c4dc766668e7f446)(@types/node@24.13.3)
+      miniflare: 5.20261001.0-alpha(patch_hash=50ef4be55367d86f34429603759663ca021c06e44bec5e08a1ec0f4b9f21c342)(@types/node@24.13.3)
       path-to-regexp: 6.3.0
       unenv: 2.0.0-rc.24
       workerd: 1.20261001.1
