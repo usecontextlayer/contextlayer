@@ -286,13 +286,21 @@ export function handler({ value }: z.infer<typeof tool.inputSchema>) {
 				{
 					mimeType: "text/html;profile=mcp-app",
 					name: "tool",
-					path: "/mcp-ui/tool",
+					path: "/mcp-ui/tool/",
 					uri: "ui://tool/index.html",
 				},
 			])
-			const view = await deployed.fetch(`https://${slate.public_hostname}/mcp-ui/tool`)
+			const view = await deployed.fetch(`https://${slate.public_hostname}/mcp-ui/tool/`)
 			expect(view.status).toBe(200)
-			expect(await view.text()).toContain("compiled MCP-only View")
+			const html = await view.text()
+			expect(html).toContain("MCP-only View")
+			const script = html.match(/<script[^>]*src="([^"]+)"/)?.[1]
+			if (!script) throw new Error("Built MCP View must reference a script")
+			const asset = await deployed.fetch(
+				new URL(script, `https://${slate.public_hostname}`),
+			)
+			expect(asset.status).toBe(200)
+			expect(await asset.text()).toContain("compiled MCP-only View")
 			const result = await SLATES.get(slate.id, { props: { mcpTool: "tool" } }).fetch(
 				`https://${slate.public_hostname}/mcp`,
 				{

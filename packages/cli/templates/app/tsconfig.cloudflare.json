@@ -18,6 +18,7 @@
 		"app/**/.server/**/*",
 		"app/**/.client/**/*",
 		"components/**/*",
+		"mcp-ui/**/*",
 		"hooks/**/*",
 		"lib/**/*",
 		"workers/**/*",

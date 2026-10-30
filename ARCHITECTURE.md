@@ -365,7 +365,7 @@ Local Vite development and hosted Cloudflare publication must use native matchin
 
 An authored MCP tool has its own definition, execution handler and resource declaration. Web routes and MCP handlers are separate surfaces that may share slate modules. Views are separate artifacts, and several tools may reference the same View. MCP declarations use the shared schema, but the SDK build and dispatcher currently reject nonempty connections, databases or secrets. Resource execution is implemented for apps and agents.
 
-The SDK evaluates definitions during the authored build and produces the tool manifest and self-contained View assets. Trusted dispatch consumes those artifacts without importing or evaluating authored modules. Shared native MCP schemas and the canonical declaration schema validate the artifact.
+The SDK evaluates tool definitions during the authored build and produces the MCP manifest. Each mcp-ui/*/index.html contributes a native HTML entry to the same Vite client build as any app; Vite compiles shared browser modules, CSS and lazy imports into ordinary assets. The manifest records each View's built HTML path and stable ui:// resource URI. Trusted dispatch consumes those artifacts without importing or evaluating authored modules. Shared native MCP schemas and the canonical declaration schema validate the artifact.
 
 Slate creation registers the canonical MCP resource through web's trusted provisioning operation and returns successfully only after provisioning succeeds. Web owns the OAuth resource and allowed scopes; deployment and local setup must supply matching provisioning authority to the two services.
 
@@ -373,7 +373,7 @@ MCP follows the [OAuth resource and scope contract](#oauth-resources-and-scopes)
 
 Authorized calls use the native MCP SDK lifecycle and invoke the selected authored handler with validated arguments, without forwarding caller credentials. Trusted dispatch validates the result and records one tool execution under the [usage policy](#slate-owner-billing-access); discovery, resource reads and tool calls remain outside ordinary HTTP loader/action metering.
 
-The View receives inputs and results and requests tool calls through the host's MCP Apps bridge. It does not receive ContextLayer credentials or fetch the slate's cookie-gated web routes. Serving its self-contained HTML as an authenticated MCP resource keeps rendering separate from slate-origin navigation.
+The View receives inputs and results and requests tool calls through the host's MCP Apps bridge. It must not receive ContextLayer credentials or depend on fetching the slate's cookie-gated web routes. View builds produce externally hosted JavaScript and CSS; serving that output inside an MCP host requires an explicit resource CSP, asset-origin and access contract. The build integration does not grant cross-origin access or change private-slate authorization, and host-iframe delivery remains unimplemented.
 
 #### Local tools
 

@@ -4,8 +4,7 @@ import { dirname, join, relative, resolve } from "node:path"
 import { RESOURCE_MIME_TYPE } from "@modelcontextprotocol/ext-apps/server"
 import { declarationSchema } from "@usecontextlayer/shared/declaration"
 import { MCP_MANIFEST_PATH, mcpManifestSchema } from "@usecontextlayer/shared/mcp"
-import { build, createServer, createServerModuleRunner, type Plugin } from "vite"
-import { viteSingleFile } from "vite-plugin-singlefile"
+import { createServer, createServerModuleRunner, type Plugin } from "vite"
 import { z } from "zod"
 import type { McpToolModule } from "@/worker"
 
@@ -14,9 +13,10 @@ const resolvedClientEntry = `\0${clientEntry}`
 
 export function mcpApps(): Plugin {
 	let root: string
-	let compiled: ReturnType<typeof compile>
+	let views: string[]
+	let compiled: ReturnType<typeof compileManifest>
 
-	async function compile() {
+	async function compileManifest() {
 		const server = await createServer({
 			appType: "custom",
 			configFile: false,
@@ -46,45 +46,16 @@ export function mcpApps(): Plugin {
 					outputSchema: tool.outputSchema ? z.toJSONSchema(tool.outputSchema) : undefined,
 				})
 			}
-			const assets = []
-			const resources = []
-			for await (const file of glob("mcp-ui/*/index.html", { cwd: root })) {
+			const resources = views.map((file) => {
 				const name = relative("mcp-ui", dirname(file))
-				const result = await build({
-					build: { rolldownOptions: { input: join(root, file) }, write: false },
-					configFile: false,
-					plugins: [viteSingleFile()],
-					publicDir: false,
-					resolve: { tsconfigPaths: true },
-					root,
-				})
-				if (Array.isArray(result) || !("output" in result)) {
-					throw new Error("MCP View build must produce one bundle")
-				}
-				const html = result.output.find(
-					(asset) => asset.type === "asset" && asset.fileName.endsWith(".html"),
-				)
-				if (html?.type !== "asset") throw new Error(`${file}: missing built HTML`)
-				const path = `/mcp-ui/${name}`
-				assets.push({
-					fileName: `${path.slice(1)}.html`,
-					source: html.source,
-					type: "asset" as const,
-				})
-				resources.push({
+				return {
 					mimeType: RESOURCE_MIME_TYPE,
 					name,
-					path,
+					path: `/${dirname(file)}/`,
 					uri: `ui://${name}/index.html`,
-				})
-			}
-			const manifest = mcpManifestSchema.parse({ resources, tools })
-			assets.push({
-				fileName: MCP_MANIFEST_PATH.slice(1),
-				source: JSON.stringify(manifest),
-				type: "asset" as const,
+				}
 			})
-			return assets
+			return mcpManifestSchema.parse({ resources, tools })
 		} finally {
 			await runner.close()
 			await server.close()
@@ -96,16 +67,32 @@ export function mcpApps(): Plugin {
 			root = resolve(config.root ?? ".")
 		},
 		configEnvironment: {
-			handler(name, config) {
-				if (
-					name === "client" &&
-					config.input === undefined &&
-					!config.build?.rolldownOptions?.input &&
-					!config.build?.rollupOptions?.input &&
-					!existsSync(join(root, "index.html"))
-				) {
-					return { build: { rolldownOptions: { input: clientEntry } } }
+			async handler(name, config) {
+				if (name !== "client") return
+				views = []
+				for await (const file of glob("mcp-ui/*/index.html", { cwd: root }))
+					views.push(file)
+				const entries = [clientEntry, ...views.map((file) => resolve(root, file))]
+				config.build ??= {}
+				config.build.rolldownOptions ??= {}
+				const options = config.build.rolldownOptions
+				// Cloudflare decides whether to build the client from the bundler input.
+				options.input ??= config.input
+				if (!options.input && existsSync(join(root, "index.html"))) {
+					options.input = join(root, "index.html")
 				}
+				const input =
+					typeof options.input === "object" && !Array.isArray(options.input)
+						? Object.fromEntries(
+								entries.map((entry) => [
+									entry === clientEntry
+										? "contextlayer-mcp-assets"
+										: relative(root, entry),
+									entry,
+								]),
+							)
+						: entries
+				return { build: { rolldownOptions: { input } } }
 			},
 			order: "post",
 		},
@@ -114,8 +101,12 @@ export function mcpApps(): Plugin {
 		},
 		async generateBundle(_options, bundle) {
 			if (this.environment.config.consumer !== "client") return
-			compiled ??= compile()
-			for (const asset of await compiled) this.emitFile(asset)
+			compiled ??= compileManifest()
+			this.emitFile({
+				fileName: MCP_MANIFEST_PATH.slice(1),
+				source: JSON.stringify(await compiled),
+				type: "asset",
+			})
 			for (const [fileName, output] of Object.entries(bundle)) {
 				if (output.type === "chunk" && output.facadeModuleId === resolvedClientEntry) {
 					delete bundle[fileName]

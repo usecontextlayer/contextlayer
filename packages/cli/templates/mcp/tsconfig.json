@@ -12,6 +12,7 @@
 	},
 	"include": [
 		"mcp/**/*.ts",
+		"mcp-ui/**/*",
 		"workers/**/*.ts",
 		"vite.config.ts",
 		"worker-configuration.d.ts"
