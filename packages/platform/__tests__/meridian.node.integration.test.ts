@@ -1,10 +1,9 @@
 import assert from "node:assert/strict"
 import { createModels } from "@earendil-works/pi-ai/models"
 import { test } from "@tests/integration"
-import { createAgentProvider } from "@usecontextlayer/shared/agent-provider"
 import { expect } from "vitest"
+import { createAgentProvider } from "@/agent-provider"
 import type { AgentRun } from "@/agents.schema"
-import { loadSharedSecret, secretKey, secretKeyRef } from "@/secrets.server"
 
 test("subscription routing rejects an unknown Owner and declared API access takes precedence", async ({
 	platform,
@@ -14,20 +13,7 @@ test("subscription routing rejects an unknown Owner and declared API access take
 	let secrets: AgentRun["secrets"] = { CLAUDE_CODE_OAUTH_TOKEN: owner }
 	const models = createModels()
 	models.setProvider(
-		createAgentProvider(
-			() => ({
-				fetch: (input, init) => MERIDIAN.getByName("shared").fetch(input, init),
-				loadSecret: (name) => {
-					const owner = secrets[name]
-					assert(owner)
-					return loadSharedSecret(platform.env, owner, name)
-				},
-				subscriptionProfile: async () =>
-					secretKeyRef(secretKey(owner, "CLAUDE_CODE_OAUTH_TOKEN")),
-			}),
-			() => secrets,
-			crypto.randomUUID(),
-		),
+		createAgentProvider(platform.env, MERIDIAN, () => secrets, crypto.randomUUID()),
 	)
 	const model = models.getModel("anthropic", "claude-haiku-4-5")
 	assert(model)

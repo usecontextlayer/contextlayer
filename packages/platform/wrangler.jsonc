@@ -20,14 +20,14 @@
 			"class_name": "SlateAgentJob",
 			"images": {
 				"workspace": {
-					"dockerfile": "../shared/assets/Dockerfile"
+					"dockerfile": "./Dockerfile"
 				}
 			},
 			"scheduling_policy": "durable_object"
 		},
 		{
 			"class_name": "Meridian",
-			"image": "../shared/assets/Dockerfile.meridian",
+			"image": "./Dockerfile.meridian",
 			"instance_type": "lite",
 			"max_instances": 1,
 			"scheduling_policy": "default"
@@ -78,14 +78,14 @@
 					"class_name": "SlateAgentJob",
 					"images": {
 						"workspace": {
-							"dockerfile": "../shared/assets/Dockerfile"
+							"dockerfile": "./Dockerfile"
 						}
 					},
 					"scheduling_policy": "durable_object"
 				},
 				{
 					"class_name": "Meridian",
-					"image": "../shared/assets/Dockerfile.meridian",
+					"image": "./Dockerfile.meridian",
 					"instance_type": "lite",
 					"max_instances": 1,
 					"scheduling_policy": "default"

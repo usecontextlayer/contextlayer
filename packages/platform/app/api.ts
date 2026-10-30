@@ -114,22 +114,12 @@ import {
 	updateSlateVisibility,
 } from "@/slates.server"
 import {
-	accountSessionToolSchema,
-	accountSessionToolsSchema,
 	accountToolCallSchema,
 	accountToolParamsSchema,
-	accountToolResultSchema,
-	accountToolSessionParamsSchema,
-	accountToolSessionRequestSchema,
-	accountToolSessionSchema,
 	connectionRequiredSchema,
+	toolResultSchema,
 } from "@/tools.schema"
-import {
-	callAccountTool,
-	callPersonalAccountSessionTool,
-	createPersonalAccountToolSession,
-	listPersonalAccountSessionTools,
-} from "@/tools.server"
+import { callAccountTool } from "@/tools.server"
 
 const security: NonNullable<RouteConfig["security"]> = [
 	{ bearerAuth: [] },
@@ -169,11 +159,6 @@ export function createApi() {
 		}
 		return c.body(null, 204)
 	})
-	api.openAPIRegistry.registerComponent(
-		"schemas",
-		"ComposioTool",
-		accountSessionToolSchema,
-	)
 	api.openAPIRegistry.registerComponent("securitySchemes", "bearerAuth", {
 		scheme: "bearer",
 		type: "http",
@@ -1294,209 +1279,6 @@ export function createApi() {
 			return c.json(result, 200)
 		},
 	)
-
-	accounts.openapi(
-		createRoute({
-			description:
-				"Create a native Composio session pinned to the signed-in developer's personal ACTIVE account and requested toolkit. Requires management and billing admission for the canonical slate. Session creation does not execute a tool or record tool usage.",
-			method: "post",
-			operationId: "createPersonalAccountToolSession",
-			path: "/{account_id}/sessions",
-			request: {
-				body: {
-					content: { "application/json": { schema: accountToolSessionRequestSchema } },
-					required: true,
-				},
-				params: accountToolParamsSchema,
-			},
-			responses: {
-				200: {
-					content: { "application/json": { schema: accountToolSessionSchema } },
-					description: "Create a personal account tool session",
-				},
-				400: { description: "Invalid account, session, or toolkit request" },
-				401: {
-					description: "A native web session or ContextLayer access token is required",
-				},
-				402: {
-					content: { "text/plain": { schema: z.string() } },
-					description: "The slate Owner needs a plan or has exhausted their Free clips",
-				},
-				403: {
-					description:
-						"Slate management or personal account/session authority is forbidden",
-				},
-				404: { description: "Slate not found" },
-			},
-			security,
-			summary: "Create a personal account tool session",
-			tags: ["Accounts"],
-		}),
-		async (c) => {
-			const result = await createPersonalAccountToolSession(
-				c.var.db,
-				c.var.config,
-				c.var.identity,
-				c.req.valid("param").account_id,
-				c.req.valid("json"),
-			)
-
-			if (!result.allowed) {
-				if (
-					result.reason === "subscription-required" ||
-					result.reason === "credits-exhausted"
-				)
-					return c.text(result.message, 402)
-				const status = {
-					forbidden: 403,
-					"not-found": 404,
-					"sign-in-required": 401,
-				} as const
-				return c.body(null, status[result.reason])
-			}
-
-			return c.json({ session_id: result.session.sessionId }, 200)
-		},
-	)
-
-	accounts.openapi(
-		createRoute({
-			description:
-				"Read native Composio tools from an existing personal account session. Revalidates the signed-in user, ACTIVE account, toolkit pinning, and slate management/billing before reading the catalog. Metadata discovery does not record tool usage.",
-			method: "get",
-			operationId: "listPersonalAccountSessionTools",
-			path: "/{account_id}/sessions/{session_id}/tools",
-			request: {
-				params: accountToolSessionParamsSchema,
-				query: accountToolSessionRequestSchema,
-			},
-			responses: {
-				200: {
-					content: { "application/json": { schema: accountSessionToolsSchema } },
-					description: "List a personal account session's tools",
-				},
-				400: { description: "Invalid account, session, or toolkit request" },
-				401: {
-					description: "A native web session or ContextLayer access token is required",
-				},
-				402: {
-					content: { "text/plain": { schema: z.string() } },
-					description: "The slate Owner needs a plan or has exhausted their Free clips",
-				},
-				403: {
-					description:
-						"Slate management or personal account/session authority is forbidden",
-				},
-				404: { description: "Slate not found" },
-			},
-			security,
-			summary: "List a personal account session's tools",
-			tags: ["Accounts"],
-		}),
-		async (c) => {
-			const result = await listPersonalAccountSessionTools(
-				c.var.db,
-				c.var.config,
-				c.var.identity,
-				c.req.valid("param").account_id,
-				c.req.valid("param").session_id,
-				c.req.valid("query"),
-			)
-
-			if (!result.allowed) {
-				if (
-					result.reason === "subscription-required" ||
-					result.reason === "credits-exhausted"
-				)
-					return c.text(result.message, 402)
-				const status = {
-					forbidden: 403,
-					"not-found": 404,
-					"sign-in-required": 401,
-				} as const
-				return c.body(null, status[result.reason])
-			}
-
-			return c.json(result.tools, 200)
-		},
-	)
-
-	accounts.openapi(
-		createRoute({
-			description:
-				"Execute a provider action in the same personal account session used for discovery. Revalidates native session configuration against the signed-in user, selected account and toolkit, with slate management and billing admission. Preserves the native Composio result including error, logId and data; provider execution records one tool call even when its result contains an error.",
-			method: "post",
-			operationId: "callPersonalAccountSessionTool",
-			path: "/{account_id}/sessions/{session_id}/tools/call",
-			request: {
-				body: {
-					content: { "application/json": { schema: accountToolCallSchema } },
-					required: true,
-				},
-				params: accountToolSessionParamsSchema,
-			},
-			responses: {
-				200: {
-					content: { "application/json": { schema: accountToolResultSchema } },
-					description: "Call a tool in a personal account session",
-				},
-				400: { description: "Invalid account, session, or toolkit request" },
-				401: {
-					description: "A native web session or ContextLayer access token is required",
-				},
-				402: {
-					content: { "text/plain": { schema: z.string() } },
-					description: "The slate Owner needs a plan or has exhausted their Free clips",
-				},
-				403: {
-					description:
-						"Slate management or personal account/session authority is forbidden",
-				},
-				404: { description: "Slate not found" },
-			},
-			security,
-			summary: "Call a tool in a personal account session",
-			tags: ["Accounts"],
-		}),
-		async (c) => {
-			const result = await callPersonalAccountSessionTool(
-				c.var.db,
-				c.var.config,
-				c.var.identity,
-				c.req.valid("param").account_id,
-				c.req.valid("param").session_id,
-				c.req.valid("json"),
-			)
-
-			if (!result.allowed) {
-				if (
-					result.reason === "subscription-required" ||
-					result.reason === "credits-exhausted"
-				)
-					return c.text(result.message, 402)
-				const status = {
-					forbidden: 403,
-					"not-found": 404,
-					"sign-in-required": 401,
-				} as const
-				return c.body(null, status[result.reason])
-			}
-
-			const polar = createPolarCore({
-				accessToken: c.var.config.POLAR_ACCESS_TOKEN,
-				environment: c.var.config.POLAR_ENVIRONMENT,
-			})
-			c.executionCtx.waitUntil(
-				recordSlateUsage(
-					polar,
-					{ id: result.slate.id, owner: getSlateOwner(result.slate) },
-					"tool_call",
-				),
-			)
-
-			return c.json(result.result, 200)
-		},
-	)
 	accounts.openapi(
 		createRoute({
 			description:
@@ -1513,7 +1295,7 @@ export function createApi() {
 			},
 			responses: {
 				200: {
-					content: { "application/json": { schema: accountToolResultSchema } },
+					content: { "application/json": { schema: toolResultSchema } },
 					description: "Tool result from the signed-in user's pinned connected account",
 				},
 				400: { description: "Invalid connected-account tool call" },

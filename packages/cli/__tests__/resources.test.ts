@@ -4,11 +4,14 @@ import { join } from "node:path"
 import { resourcesForConsumer } from "@usecontextlayer/shared/declaration"
 import type { LocalResourceConfiguration } from "@usecontextlayer/shared/slate-resources"
 import { afterEach, expect, expectTypeOf, test, vi } from "vitest"
+import * as auth from "@/auth"
 import { prepareLocalResourceConfiguration, saveLocalConnection } from "@/resources"
 import { readLocalResources } from "@/slate"
+import { getLocalResourcesBindings } from "@/vite"
 
 const directories: string[] = []
 afterEach(async () => {
+	vi.restoreAllMocks()
 	vi.unstubAllEnvs()
 	await Promise.all(
 		directories
@@ -147,6 +150,35 @@ test("agent-only checkouts retain resources without an app consumer", async () =
 		databases: {},
 		secrets: {},
 	})
+})
+
+test.each(["empty", "agent-only"])(
+	"%s source does not request app resource bindings or a login",
+	async (source) => {
+		const directory = await createCheckout()
+		await rm(join(directory, "app"), { recursive: true })
+		if (source === "empty") await rm(join(directory, "agents"), { recursive: true })
+		vi.spyOn(process, "cwd").mockReturnValue(directory)
+		vi.spyOn(auth, "getAccessToken").mockRejectedValue(new Error("Login unavailable"))
+		expect(await getLocalResourcesBindings()).toBeUndefined()
+	},
+)
+
+test("an app with local databases needs no login for connections declared only by agents", async () => {
+	const directory = await createCheckout()
+	await writeFile(
+		join(directory, "app/slate.json"),
+		JSON.stringify({ connections: {}, databases: { reports: { mode: "owner" } } }),
+	)
+	vi.spyOn(process, "cwd").mockReturnValue(directory)
+	vi.spyOn(auth, "getAccessToken").mockRejectedValue(new Error("Login unavailable"))
+	const bindings = await getLocalResourcesBindings()
+	expect(bindings?.props).toBeUndefined()
+	expect(bindings?.databaseProps.databases.reports?.instance_name).toBe("reports")
+	expect(Object.keys(bindings?.configuration.connections ?? {})).toEqual([
+		"mail",
+		"repository",
+	])
 })
 
 test.each(["app", "agents/summary"])(

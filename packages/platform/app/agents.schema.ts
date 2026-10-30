@@ -1,14 +1,8 @@
 import type { Usage } from "@earendil-works/pi-ai"
 import type { UsageState } from "@earendil-works/pi-durable"
 import { z } from "@hono/zod-openapi"
-import {
-	type AgentJobMetadata,
-	agentJobMetadataSchema,
-	agentRunRequestSchema,
-	agentRunSchema as portableAgentRunSchema,
-	scheduledAgentRunSchema as portableScheduledAgentRunSchema,
-} from "@usecontextlayer/shared/agents"
 import { secretNameSchema } from "@usecontextlayer/shared/declaration"
+import { agentActorSchema } from "@usecontextlayer/shared/slate-provisioning"
 import { slateResourceConfigurationSchema } from "@usecontextlayer/shared/slate-resources"
 import { ownerSchema } from "@usecontextlayer/shared/slate-usage"
 import type { Schedule } from "agents"
@@ -22,21 +16,22 @@ import type { RoutedAgentEntry } from "agents/routing"
 
 import { slateSchema, slateTargetSchema } from "@/slates.schema"
 
-export type {
-	AgentActor,
-	AgentJobMetadata,
-	AgentJobTrigger,
-	AgentRunRequest,
-	AgentSchedule,
-} from "@usecontextlayer/shared/agents"
-export {
-	agentActorSchema,
-	agentJobMetadataSchema,
-	agentJobTriggerSchema,
-	agentRunRequestSchema,
-	agentScheduleSchema,
-	agentSchema,
-} from "@usecontextlayer/shared/agents"
+export type { AgentActor } from "@usecontextlayer/shared/slate-provisioning"
+export { agentActorSchema } from "@usecontextlayer/shared/slate-provisioning"
+
+export const agentSchema = z.object({
+	commit: z.string(),
+	instructions: z.string(),
+})
+
+export const agentRunRequestSchema = z.strictObject({
+	name: z.string().min(1).openapi({
+		description: "Agent directory name under agents/ in the pushed source.",
+	}),
+	prompt: z.string().min(1).openapi({
+		description: "User message for a fresh job, separate from its standing instructions.",
+	}),
+})
 
 export const agentParamsSchema = z.object({
 	name: agentRunRequestSchema.shape.name,
@@ -78,6 +73,17 @@ export const agentJobOperationSchema = z.union([
 	agentJobPendingSchema,
 	agentJobResultSchema,
 ])
+export const agentJobTriggerSchema = z.discriminatedUnion("type", [
+	z.object({ type: z.literal("api") }),
+	z.object({ schedule: z.string(), scheduleId: z.string(), type: z.literal("schedule") }),
+])
+export const agentJobMetadataSchema = z.object({
+	actor: agentActorSchema,
+	trigger: agentJobTriggerSchema,
+})
+export type AgentJobMetadata = z.infer<typeof agentJobMetadataSchema>
+export type AgentJobTrigger = z.infer<typeof agentJobTriggerSchema>
+
 export const agentJobEntrySchema = z.object({
 	createdAt: z
 		.number()
@@ -203,7 +209,20 @@ export const agentJobInspectionSchema = z
 			"Native HarnessInspection of live work: unfinished tasks and queued or placed submissions. May be empty after settlement; use messages for completed work.",
 	})
 
-export const scheduledAgentRunSchema = portableScheduledAgentRunSchema.extend({
+export const agentScheduleSchema = z.object({
+	cron: z
+		.string()
+		.trim()
+		.refine((cron) => cron.split(/\s+/).length === 5, {
+			message: "Use a five-field cron expression in UTC",
+		}),
+	name: z.string().min(1),
+	prompt: agentRunRequestSchema.shape.prompt,
+})
+
+export const scheduledAgentRunSchema = agentRunRequestSchema.extend({
+	actor: agentActorSchema,
+	schedule: agentScheduleSchema.shape.name,
 	slateId: slateSchema.shape.id,
 })
 
@@ -225,7 +244,9 @@ export const agentRuntimeScheduleSchema = z.object({
 	Extract<Schedule<z.infer<typeof scheduledAgentRunSchema>>, { type: "cron" }>
 >
 
-export const agentRunSchema = portableAgentRunSchema.extend({
+export const agentRunSchema = z.strictObject({
+	actor: agentActorSchema,
+	agent: agentSchema.extend({ name: agentRunRequestSchema.shape.name }),
 	connections: z.record(
 		z.string(),
 		z.object({
@@ -241,11 +262,14 @@ export const agentRunSchema = portableAgentRunSchema.extend({
 			owner: true,
 		}),
 	),
+	prompt: agentRunRequestSchema.shape.prompt,
 	secrets: z.record(secretNameSchema, ownerSchema),
 	slateId: slateSchema.shape.id,
 })
 
+export type AgentRunRequest = z.infer<typeof agentRunRequestSchema>
 export type AgentRun = z.infer<typeof agentRunSchema>
 export type AgentJobOperation = z.infer<typeof agentJobOperationSchema>
 export type AgentJobEntry = z.infer<typeof agentJobEntrySchema>
+export type AgentSchedule = z.infer<typeof agentScheduleSchema>
 export type ScheduledAgentRun = z.infer<typeof scheduledAgentRunSchema>

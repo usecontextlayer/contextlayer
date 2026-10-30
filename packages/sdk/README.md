@@ -13,8 +13,6 @@ pnpm dev
 
 This quickstart selects the app scaffold, which installs this package and configures local development. Plain initialization starts empty; use CLI scaffolding help when adding optional source later. Open the local URL printed by the development server. Initialization prints your dashboard link, hosted URL, and Git deployment steps; the hosted URL becomes usable after deployment succeeds. Use `npx @usecontextlayer/cli` for subsequent CLI commands. First-party `@usecontextlayer/*` packages are exempt from pnpm's release-age policy in generated checkouts.
 
-Run `npx @usecontextlayer/cli dev` from a checkout to start its native local stack, including an empty checkout or agents without an app or package manifest. App and MCP scaffold dev scripts call the same command. Docker is required only when agents are present. Declared secrets come from the startup environment; assigned connections additionally use your saved login and registered slate. The CLI applies migrations before starting an authored Vite app, and apps and agents share the same persistent local databases. Restart after source or resource-input changes. Use `dev --help` for local-server options.
-
 ## Local login and assignment
 
 See [Local login and assignment](https://docs.usecontextlayer.com/reference/sdk#local-login-and-assignment) for startup and restart prerequisites. Follow [Connect an account](https://docs.usecontextlayer.com/how-to/connect-an-account) for local and hosted setup.

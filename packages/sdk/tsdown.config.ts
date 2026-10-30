@@ -11,6 +11,7 @@ export default defineConfig({
 		"database-cli": "database-cli.ts",
 		html: "html.ts",
 		index: "index.ts",
+		local: "local.ts",
 		react: "react.tsx",
 		vite: "vite.ts",
 		worker: "worker.ts",

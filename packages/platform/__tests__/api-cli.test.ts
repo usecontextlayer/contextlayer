@@ -171,7 +171,7 @@ test("describes the supplied contract without login or invocation", async ({
 	expect(operationRequests).toBe(0)
 })
 
-test("describes native recursive tool schemas with their OpenAPI references intact", async ({
+test("describes recursive OpenAPI schemas with their references intact", async ({
 	apiCli,
 }) => {
 	await rm(join(String(apiCli.settings.CTX_CONFIG_DIR), "auth.json"))
@@ -181,22 +181,53 @@ test("describes native recursive tool schemas with their OpenAPI references inta
 		response.statusCode = 500
 		response.end("Unexpected invocation")
 	}
-	apiCli.document = await (
-		await createApi().request(
-			new URL("/openapi.json", apiCli.settings.CTX_PLATFORM_URL).href,
-		)
-	).json()
-	const result = await apiCli.run("api", "listPersonalAccountSessionTools", "--describe")
+	apiCli.document = {
+		...apiCli.document,
+		components: {
+			...apiCli.document.components,
+			schemas: {
+				RecursiveNode: {
+					properties: {
+						children: {
+							items: { $ref: "#/components/schemas/RecursiveNode" },
+							type: "array",
+						},
+					},
+					type: "object",
+				},
+			},
+		},
+		paths: {
+			"/recursive": {
+				get: {
+					operationId: "recursive",
+					responses: {
+						200: {
+							content: {
+								"application/json": {
+									schema: { $ref: "#/components/schemas/RecursiveNode" },
+								},
+							},
+							description: "A recursive value",
+						},
+					},
+				},
+			},
+		},
+	}
+	const result = await apiCli.run("api", "recursive", "--describe")
 	expect(result.exitCode, result.stderr).toBe(0)
 	const described = JSON.parse(result.stdout)
-	const path = "/accounts/{account_id}/sessions/{session_id}/tools"
+	const path = "/recursive"
 	expect(Object.keys(described.paths)).toEqual([path])
-	expect(described.paths[path].get.operationId).toBe("listPersonalAccountSessionTools")
+	expect(described.paths[path].get.operationId).toBe("recursive")
 	expect(
 		described.paths[path].get.responses["200"].content["application/json"].schema,
-	).toEqual({ items: { $ref: "#/components/schemas/ComposioTool" }, type: "array" })
+	).toEqual({ $ref: "#/components/schemas/RecursiveNode" })
 	expect(described.components).toEqual(apiCli.document.components)
-	expect(described.components.schemas.ComposioTool).toBeDefined()
+	expect(described.components.schemas.RecursiveNode.properties.children.items).toEqual({
+		$ref: "#/components/schemas/RecursiveNode",
+	})
 	expect(operationRequests).toBe(0)
 })
 

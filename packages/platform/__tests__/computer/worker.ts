@@ -3,7 +3,7 @@ import assert from "node:assert/strict"
 import { type ExecutionEnv, getOrThrow } from "@earendil-works/pi-durable/env"
 import { createEnvConformance } from "@earendil-works/pi-durable/testing"
 import { RemoteExecutionEnv } from "@earendil-works/pi-env/remote"
-import { createContainerConnection } from "@usecontextlayer/shared/agent-computer"
+import { createContainerConnection } from "@/agent-computer"
 
 export default {}
 

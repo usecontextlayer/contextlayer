@@ -8,11 +8,11 @@ import { executionTest as test } from "@tests/integration"
 import seed from "@usecontextlayer/dev-env/seed.json" with { type: "json" }
 import { createSlateProject } from "@usecontextlayer/dev-env/slate"
 import { signInViewer } from "@usecontextlayer/dev-env/viewer"
-import { getAgentByName } from "@usecontextlayer/shared/agent-routing"
 import {
 	type SlateResourceConfiguration,
 	slateResourcesSchema,
 } from "@usecontextlayer/shared/slate-resources"
+import { getAgentByName } from "agents/routing"
 import { expect } from "vitest"
 import { z } from "zod"
 import { getAgentInstanceName } from "@/agent-instance"

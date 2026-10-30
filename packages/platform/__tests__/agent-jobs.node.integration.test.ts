@@ -2,11 +2,9 @@ import { execFile as execFileCallback } from "node:child_process"
 import { mkdir, writeFile } from "node:fs/promises"
 import { promisify } from "node:util"
 import { AssistantEntry, ToolResultEntry, UserEntry } from "@earendil-works/pi-durable"
-import { test as admissionBase } from "@tests/database"
 import { test } from "@tests/integration"
-import type { Workers } from "@tests/workers"
 import { signInViewer } from "@usecontextlayer/dev-env/viewer"
-import { getAgentByName } from "@usecontextlayer/shared/agent-routing"
+import { getAgentByName } from "agents/routing"
 import { expect } from "vitest"
 import { z } from "zod"
 import { getAgentInstanceName } from "@/agent-instance"
@@ -22,36 +20,11 @@ import {
 	agentRunSchema,
 } from "@/agents.schema"
 import { startAgentRun } from "@/agents.server"
-import type { PlatformEnv } from "@/context"
 import { slateSchema } from "@/slates.schema"
 
 const execFile = promisify(execFileCallback)
 
-const admissionTest = admissionBase
-	.extend(
-		"workers",
-		({ databases }): Workers => [
-			{
-				configPath: new URL("../wrangler.jsonc", import.meta.url),
-				env: "test",
-				prebuiltWorkerDir: new URL("../build/server", import.meta.url),
-				secrets: { CTX_PLATFORM_DATABASE_URL: databases.urls.ctx_platform_test },
-			},
-			{
-				configPath: new URL("../../build/wrangler.jsonc", import.meta.url),
-				env: "test",
-			},
-		],
-	)
-	.extend("agents", async ({ harness }) => {
-		await harness.listen()
-		const { AGENTS } = await harness
-			.getWorker<PlatformEnv["Bindings"]>("contextlayer-platform-test")
-			.getEnv()
-		return AGENTS
-	})
-
-admissionTest("failed job admission leaves the catalog empty", async ({ agents }) => {
+test("failed job admission leaves the catalog empty", async ({ platform }) => {
 	const run = agentRunSchema.parse({
 		actor: { type: "app" },
 		agent: {
@@ -67,67 +40,15 @@ admissionTest("failed job admission leaves the catalog empty", async ({ agents }
 		},
 		slateId: crypto.randomUUID(),
 	})
-	await expect(startAgentRun(agents, run)).rejects.toThrow()
+	const { AGENTS } = await platform.worker.getEnv()
+	await expect(startAgentRun(AGENTS, run)).rejects.toThrow()
 	// Reacquire after rejected admission: a stub held across the failure can be invalid.
 	const agent = await getAgentByName(
-		agents,
+		AGENTS,
 		getAgentInstanceName(run.slateId, run.agent.name, run.actor),
 	)
 	expect(await agent.listJobs()).toEqual([])
 })
-
-admissionTest(
-	"fresh job admission persists a native receipt before provider refusal",
-	async ({ agents }) => {
-		const run = agentRunSchema.parse({
-			actor: { type: "app" },
-			agent: {
-				commit: "admission-fixture",
-				instructions: "Answer briefly.",
-				name: "admission-without-provider",
-			},
-			connections: {},
-			databases: {},
-			prompt: "Say hello.",
-			// Undeclared provider access must fail before transport, regardless of ambient credentials.
-			secrets: {},
-			slateId: crypto.randomUUID(),
-		})
-		const { job, receipt } = await startAgentRun(agents, run)
-		const agent = await getAgentByName(
-			agents,
-			getAgentInstanceName(run.slateId, run.agent.name, run.actor),
-		)
-		try {
-			expect(receipt.accepted).toBe(true)
-			expect(receipt.operationId.length).toBeGreaterThan(0)
-			expect(receipt.session.length).toBeGreaterThan(0)
-			expect(await agent.getJob(job.id)).toEqual(job)
-			const execution = await agent.resolveJob(job.id)
-			if (!execution) throw new Error("Expected the admitted job")
-			expect(await execution.result()).toEqual({
-				operationId: receipt.operationId,
-				reason: "model_error",
-				session: receipt.session,
-				status: "unanswered",
-			})
-			const messages = z
-				.array(agentJobMessageSchema)
-				.parse(await execution.messages(receipt.session))
-			const authErrors = messages
-				.flatMap((entry) => entry.model ?? [])
-				.filter((message) => message.role === "assistant")
-				.map((message) => message.errorMessage)
-			expect(authErrors, JSON.stringify(authErrors)).toContainEqual(
-				expect.stringContaining(
-					"API key auth failed for provider anthropic: Declare ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN",
-				),
-			)
-		} finally {
-			await agent.deleteJob(job.id)
-		}
-	},
-)
 
 test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
 	"API jobs using %s expose native Bash execution",

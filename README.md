@@ -37,8 +37,6 @@ git push -u origin main
 
 This quickstart selects the app starter. Plain `init` creates an empty slate checkout with Git and a short `AGENTS.md`; add only the parts you need, by writing source or using scaffolding later. Use `npx @usecontextlayer/cli scaffold --help` for scaffolding and `init --help` for creation options.
 
-Run `npx @usecontextlayer/cli dev` in any checkout to start its local stack, including agents-only source without an app or package manifest. App and MCP dev scripts use the same command. Agents require Docker; apps and databases alone do not. Local inputs and working-tree edits take effect after restarting the stack.
-
 Initialization prints your dashboard link and hosted URL. The hosted URL becomes available after deployment succeeds. New slates are private; sign in to open yours.
 
 - **Your existing tools** — read and write connected services such as Gmail and Slack without implementing provider OAuth in your app.
@@ -98,7 +96,7 @@ The [SDK guide](packages/sdk/README.md#call-connected-services) explains calling
 
 ## What else can a slate do?
 
-Hosted agents can run on a schedule or through an HTTP API, with instructions and resource requirements committed alongside the app. See [authored agents](ARCHITECTURE.md#authored-agents) and [agent setup](DEVELOPING.md#deploying-and-inspecting-an-agent).
+Hosted agents can run on a schedule or through an HTTP API, with instructions and resource requirements committed in the same slate. See [authored agents](ARCHITECTURE.md#authored-agents) and [agent setup](DEVELOPING.md#deploying-and-inspecting-an-agent).
 
 Slates can also expose MCP tools and interactive views to MCP clients. Shared connections, databases, and secrets currently work in apps and agents; authored MCP handlers do not yet support them. See [MCP tools and views](ARCHITECTURE.md#authored-mcp-tools-and-views).
 

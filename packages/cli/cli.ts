@@ -13,7 +13,6 @@ import {
 	connectionsCommandSchema,
 	listSlateConnections,
 } from "@/connections"
-import { addDevCommand } from "@/dev"
 import { env, envSchema, readCliCommand } from "@/env"
 import { configureGit, gitCredential } from "@/git-credential"
 import { inspectSlate, isNativeHelpRequest } from "@/inspection"
@@ -38,7 +37,6 @@ program.addHelpText(
 )
 
 addApiCommand(program)
-addDevCommand(program)
 
 function addAuthOptions(command: Command) {
 	return command

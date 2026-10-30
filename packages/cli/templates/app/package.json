@@ -39,7 +39,7 @@
 		"build": "react-router build",
 		"cf-typegen": "wrangler types",
 		"db.codegen": "ctx db.codegen",
-		"dev": "ctx dev",
+		"dev": "react-router dev",
 		"postinstall": "wrangler types",
 		"typecheck": "wrangler types && react-router typegen && tsc -b"
 	},

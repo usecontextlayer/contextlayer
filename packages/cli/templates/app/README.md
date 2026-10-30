@@ -12,7 +12,7 @@ From the checkout root, run:
 pnpm dev
 ```
 
-This invokes `ctx dev`: the CLI starts trusted local resources, applies pending migrations, then starts the authored Vite app. Open the local URL printed by the development server and add a note. The starter reads and writes its declared `notes` database. Edit `app/routes/home.tsx` to build your first page. Use `pnpm typecheck` and `pnpm build` for the checkout's normal TypeScript and production-build commands.
+This starts the React Router development server. The SDK prepares local app resources and applies pending database migrations. Open the local URL printed by the development server and add a note. The starter reads and writes its declared `notes` database. Edit `app/routes/home.tsx` to build your first page. Use `pnpm typecheck` and `pnpm build` for the checkout's normal TypeScript and production-build commands.
 
 ## Use connected services
 
@@ -23,7 +23,7 @@ npx @usecontextlayer/cli accounts --help
 npx @usecontextlayer/cli connections --help
 ```
 
-Local assignments are saved in ignored `.contextlayer/connections.json`. Supply declared secrets through the startup process environment. Assigned connections use the saved developer login and registered slate; local databases and environment-only agents need neither. Restart `pnpm dev` after changing instructions, declarations, schedules, environment values or local assignments. Add agents under `agents/<name>` and declare shared database slugs in each consumer; they run through the same native stack and use this app's database. Docker is required when agents are present. `ctx dev` also runs in checkouts without an app or package manifest.
+Local assignments are saved in ignored `.contextlayer/connections.json`. Assigned connections use the saved developer login and registered slate; local databases need neither. Restart `pnpm dev` after changing declarations, local assignments or secret inputs, and when its startup access token expires.
 
 ## Store slate data
 
@@ -44,7 +44,7 @@ pnpm db.codegen notes
 
 Commit migrations and generated `databases/notes/types.ts` together. The types come from the migrated local database; do not edit them by hand. Keep the development server running for migration and codegen commands. `pnpm exec kysely --help` provides the native migration and seed operations. For another declared database, give it its own config and migration directory, then select its slug with codegen.
 
-The route uses `database<DB>(context.get(databasesContext), "notes")` from the SDK for typed queries. Mutations return Kysely's affected-row counts and SQLite insert IDs; use `.returning()` to read inserted or updated rows instead. Direct SQL and agents' `database_query` use the same storage.
+The route uses `database<DB>(context.get(databasesContext), "notes")` from the SDK for typed queries. Mutations return Kysely's affected-row counts and SQLite insert IDs; use `.returning()` to read inserted or updated rows instead. Direct SQL uses the same app database capability. Hosted agents access their declared databases through `database_query`.
 
 Push committed changes to `main` for hosted provisioning. The pipeline builds the commit, runs its native Kysely migrations, then deploys it. New membership starts a background Workflow that initializes personal databases and then provisions schedules; requests continue while that work runs. Migration failure blocks deployment or provisioning; earlier successful SQL statements can remain applied. See [database ownership and provisioning](https://github.com/usecontextlayer/contextlayer/blob/main/ARCHITECTURE.md#slate-databases-and-authored-migrations) for its lifecycle.
 

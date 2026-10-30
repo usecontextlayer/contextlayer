@@ -4,7 +4,7 @@
 	"containers": [
 		{
 			"class_name": "ComputerConformance",
-			"images": { "workspace": { "dockerfile": "../../../shared/assets/Dockerfile" } },
+			"images": { "workspace": { "dockerfile": "../../Dockerfile" } },
 			"scheduling_policy": "durable_object"
 		}
 	],

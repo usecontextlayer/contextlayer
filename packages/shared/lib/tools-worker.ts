@@ -80,41 +80,32 @@ export class LocalTools extends WorkerEntrypoint<
 	LocalToolsProps
 > {
 	async call(slug: string, toolSlug: string, args: Record<string, unknown>) {
-		return callLocalTool(this.env.CTX_PLATFORM_URL, this.ctx.props, slug, toolSlug, args)
-	}
-}
-
-export async function callLocalTool(
-	platformUrl: string,
-	{ slateId, connections, credential }: LocalToolsProps,
-	slug: string,
-	toolSlug: string,
-	args: Record<string, unknown>,
-) {
-	const connection = new Map(Object.entries(connections)).get(slug)
-	if (!connection) throw new Error("not-declared")
-	if (connection.account_id === null) return connectionRequiredResponse(slug)
-	return executeToolRequest(
-		new Request(
-			new URL(
-				`/api/accounts/${encodeURIComponent(connection.account_id)}/tools/call`,
-				platformUrl,
-			),
-			{
-				body: JSON.stringify({
-					arguments: args,
-					slate_id: slateId,
-					tool: toolSlug,
-					toolkit: connection.toolkit,
-				}),
-				headers: {
-					authorization: `Bearer ${credential.token}`,
-					"content-type": "application/json",
+		const { slateId, connections, credential } = this.ctx.props
+		const connection = new Map(Object.entries(connections)).get(slug)
+		if (!connection) throw new Error("not-declared")
+		if (connection.account_id === null) return connectionRequiredResponse(slug)
+		return executeToolRequest(
+			new Request(
+				new URL(
+					`/api/accounts/${encodeURIComponent(connection.account_id)}/tools/call`,
+					this.env.CTX_PLATFORM_URL,
+				),
+				{
+					body: JSON.stringify({
+						arguments: args,
+						slate_id: slateId,
+						tool: toolSlug,
+						toolkit: connection.toolkit,
+					}),
+					headers: {
+						authorization: `Bearer ${credential.token}`,
+						"content-type": "application/json",
+					},
+					method: "POST",
 				},
-				method: "POST",
-			},
-		),
-	)
+			),
+		)
+	}
 }
 
 async function executeToolRequest(request: Request) {

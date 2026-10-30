@@ -1,5 +1,5 @@
-import { getAgentByName } from "@usecontextlayer/shared/agent-routing"
 import { resourcesForConsumer } from "@usecontextlayer/shared/declaration"
+import { getAgentByName } from "agents/routing"
 import { z } from "zod"
 import { getAgentInstanceName } from "@/agent-instance"
 import type { SlateAgent } from "@/agent-runtime"

@@ -1,12 +1,11 @@
-import { Composio } from "@composio/core"
 import { renderToolSignature } from "@earendil-works/pi-codemode"
 import { test } from "@tests/integration"
 import { accountsSchema } from "@usecontextlayer/shared/accounts"
-import { createAgentTools } from "@usecontextlayer/shared/agent-tools"
 import { toolResultSchema } from "@usecontextlayer/shared/tools"
 import { expect } from "vitest"
 import { z } from "zod"
 import { createAccountSession } from "@/accounts.server"
+import { createAgentTools } from "@/agent-tools"
 
 test("agent tools bind two Gmail namespaces to their connected accounts", async ({
 	platform,
@@ -28,24 +27,19 @@ test("agent tools bind two Gmail namespaces to their connected accounts", async 
 	const assignments = { personal_email: second, work_email: first }
 	for (const account of Object.values(assignments)) z.email().parse(account.display_name)
 	const { COMPOSIO_API_KEY } = await worker.getEnv()
-	const composio = new Composio({ apiKey: COMPOSIO_API_KEY })
-	const { extension } = createAgentTools(
+	const { extension } = await createAgentTools(
+		COMPOSIO_API_KEY,
 		await Promise.all(
-			Object.entries(assignments).map(async ([name, account]) => {
-				const session = await createAccountSession(
+			Object.entries(assignments).map(async ([name, account]) => ({
+				name,
+				session: await createAccountSession(
 					COMPOSIO_API_KEY,
 					{ id: webSession.user.id, type: "personal" },
 					account.id,
 					"gmail",
-				)
-				return {
-					actions: await composio.tools.getRawToolRouterSessionTools(session.sessionId),
-					execute: (tool: string, args: Record<string, unknown>) =>
-						session.execute(tool, args),
-					name,
-					toolkit: "gmail",
-				}
-			}),
+				),
+				toolkit: "gmail",
+			})),
 		),
 	)
 	for (const [slug, account] of Object.entries(assignments)) {
