@@ -76,7 +76,48 @@ Every MCP connection signs in; a browser session does not authenticate `/mcp`. T
 
 ## Attach a View, if the tool needs one
 
-The text-only tool above is complete without a View. To display an interface inside a compatible MCP client, add an HTML entry point at `mcp-ui/echo/index.html`:
+The text-only tool above is complete without a View. To display an interface inside a compatible MCP client, add an HTML entry point at `mcp-ui/echo/index.html`. That page can load TypeScript or TSX and import the same browser-compatible components, utilities and stylesheets as the app.
+
+This example uses React and React DOM, which the app starter includes. The View uses an ordinary React entry point; it does not need a React Router route.
+
+### Include the View in your TypeScript project
+
+In the app starter, add `mcp-ui/**/*` to the existing `include` array in `tsconfig.cloudflare.json`. Keep the other entries, including `components/**/*`. If your checkout uses a single `tsconfig.json`, add the View and shared component directories to that file instead.
+
+The React example needs `compilerOptions.jsx` set to `"react-jsx"`. Its `@/` imports use the root alias below, together with `resolve.tsconfigPaths: true` in Vite. The app starter already configures both; see [Vite and Worker configuration](/reference/sdk#vite-and-worker-configuration).
+
+```json tsconfig.json
+{
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["./*"]
+    }
+  }
+}
+```
+
+Merge these settings into your existing configuration. Including the View files lets TypeScript check them and lets Vite associate their imports with the project's path aliases.
+
+### Write a shared component
+
+Put presentation code in a component that both the app and the View can import:
+
+```tsx components/echo-card.tsx
+export function EchoCard({ value }: { value: string }) {
+  return (
+    <section>
+      <h1>Echo</h1>
+      <p>{value}</p>
+    </section>
+  )
+}
+```
+
+Shared browser code can import other components, utilities and CSS normally. Keep server-only modules, Worker bindings and request-scoped loaders out of these imports; pass the data a component needs through its props.
+
+### Load the View's TypeScript entry
+
+Create the HTML page with a mount point and a module script:
 
 ```html mcp-ui/echo/index.html
 <!doctype html>
@@ -87,13 +128,38 @@ The text-only tool above is complete without a View. To display an interface ins
     <title>Echo</title>
   </head>
   <body>
-    <h1>Echo</h1>
-    <p>This View is served by the slate. The tool returns its text in the client conversation.</p>
+    <div id="root"></div>
+    <script type="module" src="./main.tsx"></script>
   </body>
 </html>
 ```
 
-Then add this property to the exported `tool` definition:
+Then mount the shared component from the View's entry module:
+
+```tsx mcp-ui/echo/main.tsx
+import { createRoot } from "react-dom/client"
+import { EchoCard } from "@/components/echo-card"
+
+createRoot(document.getElementById("root")!).render(
+  <EchoCard value="Hello from the View" />
+)
+```
+
+An existing app route can import and render that same component:
+
+```tsx
+import { EchoCard } from "@/components/echo-card"
+
+export default function ExamplePage() {
+  return <EchoCard value="Hello from the app" />
+}
+```
+
+The View and app share source code, but run in separate browser contexts. Vite follows each entry's imports during compilation; you do not need to copy the component into `mcp-ui/` or publish it as a separate package.
+
+### Associate the View with the tool
+
+Add this property to the exported `tool` definition:
 
 ```ts
 _meta: { ui: { resourceUri: "ui://echo/index.html" } }
@@ -101,7 +167,7 @@ _meta: { ui: { resourceUri: "ui://echo/index.html" } }
 
 The resource URI identifies the matching HTML entry point. Several tools can reference the same View. Build and deploy again after adding or changing it.
 
-This minimal View displays static HTML. To display inputs or results, or request another tool call, use the client's MCP Apps bridge from the View. The client supplies the tool data through that bridge; it does not give the View ContextLayer credentials or the app's browser session. See [MCP Views](/core-concepts/slate/mcp#views) for the relationship between a tool, its resource URI, and its View.
+This example passes a fixed value to demonstrate shared UI. To display actual tool inputs or results, or request another tool call, use the client's MCP Apps bridge from the View. The client supplies the tool data through that bridge; it does not give the View ContextLayer credentials or the app's browser session. See [MCP Views](/core-concepts/slate/mcp#views) for the relationship between a tool, its resource URI, and its View.
 
 ## What the SDK builds
 
