@@ -41,7 +41,7 @@
 		"format.verify": "pnpm run biome.verify",
 		"ncu": "npx npm-check-updates --workspaces --root --cooldown 1d",
 		"test": "pnpm run check.workspace-references && npx turbo run test",
-		"test:integration": "pnpm run check.workspace-references && npx turbo run test:integration:basic test:integration:sandbox test:integration:claude test:integration:polar test:integration:browser",
+		"test:integration": "pnpm run check.workspace-references && npx turbo run test:integration:basic test:integration:sandbox test:integration:claude test:integration:polar test:integration:browser --continue=dependencies-successful",
 		"test:integration:basic": "pnpm run check.workspace-references && npx turbo run test:integration:basic",
 		"test:integration:browser": "pnpm run check.workspace-references && npx turbo run test:integration:browser",
 		"test:integration:claude": "pnpm run check.workspace-references && npx turbo run test:integration:claude",

@@ -119,7 +119,7 @@ pnpm exec turbo run test --filter=@usecontextlayer/shared...
 pnpm exec turbo run test:integration:basic --filter=@usecontextlayer/platform -- <file>.basic.integration.test.ts
 ```
 
-The root `test:integration` command runs the default lanes together: basic, sandbox, claude, polar and browser. The opt-in doppler and polar-webhooks lanes run only through `test:integration:doppler` and `test:integration:polar-webhooks`. Use `test:integration:<lane>` to select one lane; append `--testNamePattern '<case pattern>'` to a package invocation to select cases. Package scripts and Vitest configurations own the executable command/configuration details.
+The root `test:integration` command runs the default lanes together: basic, sandbox, claude, polar and browser. A failing lane does not cancel the others, because a cancelled lane loses its results and skips its harness teardown, leaving its containers behind. The opt-in doppler and polar-webhooks lanes run only through `test:integration:doppler` and `test:integration:polar-webhooks`. Use `test:integration:<lane>` to select one lane; append `--testNamePattern '<case pattern>'` to a package invocation to select cases. Package scripts and Vitest configurations own the executable command/configuration details.
 
 **Run one integration-suite invocation at a time; the root command's lanes run alongside each other by design. Finish builds before starting it:** fixtures read shared prebuilt output directories. Keep file parallelism enabled. If a failure suggests concurrency or parallelism flakiness, stop and discuss the affected test before changing it or retrying.
 
