@@ -63,7 +63,7 @@
 					}
 				]
 			},
-			// Bind the same remote store used by upload; a local bucket cannot restore its snapshots.
+			// Snapshot archives upload by bucket name; metadata uses this binding. Both must use the same remote store.
 			"r2_buckets": [
 				{
 					"binding": "BACKUP_BUCKET",

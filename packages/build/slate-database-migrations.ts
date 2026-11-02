@@ -1,5 +1,5 @@
 import type { WorkflowStep } from "cloudflare:workers"
-import { type DirectoryBackup, SandboxRunner } from "@cloudflare/ci/worker"
+import { SandboxRunner } from "@cloudflare/ci/worker"
 import { DATABASE_HOST } from "@usecontextlayer/shared/databases"
 import type { SlateProvisioning } from "@usecontextlayer/shared/slate-provisioning"
 import type { BuildBindings } from "@/env"
@@ -8,7 +8,6 @@ export async function migrateSlateDatabases(
 	env: BuildBindings,
 	step: WorkflowStep,
 	prepared: SlateProvisioning,
-	restore?: DirectoryBackup,
 ) {
 	if (prepared.databases.length === 0) return
 	await step.do(
@@ -23,18 +22,13 @@ export async function migrateSlateDatabases(
 				hostname: `database-${index}.${DATABASE_HOST}`,
 				index,
 			}))
-			// A restored workspace is the build's install of this exact commit. The runner's source overlay
-			// refreshes package.json mtimes, which pnpm's default pre-run check answers with a full reinstall.
-			const kysely = restore
-				? "pnpm --config.verify-deps-before-run=false exec kysely"
-				: "pnpm exec kysely"
 			const runner = new SandboxRunner(env)
 			const result = await runner.run({
 				command: [
-					...(restore ? [] : ["pnpm install --frozen-lockfile --ignore-scripts"]),
+					"pnpm install --frozen-lockfile --ignore-scripts",
 					...targets.flatMap(({ hostname, index, slug }) => [
 						`printf '%s\\n' ${shellQuote(`Migration ${index}: ${slug}`)}`,
-						`CTX_DATABASE_URL=${shellQuote(`http://${hostname}`)} ${kysely} --config ${shellQuote(`databases/${slug}/kysely.config.ts`)} migrate latest`,
+						`CTX_DATABASE_URL=${shellQuote(`http://${hostname}`)} pnpm exec kysely --config ${shellQuote(`databases/${slug}/kysely.config.ts`)} migrate latest`,
 					]),
 				].join(" && "),
 				createSnapshot: false,
@@ -45,7 +39,6 @@ export async function migrateSlateDatabases(
 						{ method: "database", params: { instanceName: instance_name } },
 					]),
 				),
-				restore,
 				source: {
 					kind: "git",
 					remote: info.remote,

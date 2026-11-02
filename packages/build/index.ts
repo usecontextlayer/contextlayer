@@ -10,12 +10,7 @@ import {
 	type CiParams,
 	type CloudflareArtifacts,
 } from "@cloudflare/ci"
-import {
-	CiSandbox,
-	type DirectoryBackup,
-	lookupSnapshotCache,
-	publishSnapshotCache,
-} from "@cloudflare/ci/worker"
+import { CiSandbox } from "@cloudflare/ci/worker"
 import { databaseStatementSchema } from "@usecontextlayer/shared/databases"
 import type { SlateProvisioning } from "@usecontextlayer/shared/slate-provisioning"
 import { artifactTransferEnv } from "@/artifact"
@@ -74,20 +69,13 @@ export class Build extends CIWorkflow<CloudflareArtifacts, BuildBindings> {
 		const prepared = await step.do("prepare slate", () =>
 			this.env.PROVISIONING.prepare(event.payload.repo, event.payload.sha),
 		)
-		const build = await ci.runner({
+		await ci.runner({
 			command:
 				'pnpm install --frozen-lockfile && pnpm build && /usr/local/bin/rclone copy ./build "$CTX_BUILD_ARTIFACT_PATH" --config /dev/null',
 			env: await artifactTransferEnv(this.env, event.instanceId, "object-read-write"),
 			name: "build",
 		})
-		await step.do("cache build workspace", () =>
-			publishSnapshotCache(this.env, {
-				...buildSnapshotCacheInput(prepared),
-				producedBySha: prepared.snapshot.commit,
-				snapshot: build.snapshot,
-			}),
-		)
-		await migrateSlateDatabases(this.env, step, prepared, build.snapshot)
+		await migrateSlateDatabases(this.env, step, prepared)
 		await step.do(
 			"deploy",
 			{
@@ -108,23 +96,9 @@ export class ProvisionSlateMember extends WorkflowEntrypoint<
 	SlateProvisioning
 > {
 	async run(event: WorkflowEvent<SlateProvisioning>, step: WorkflowStep) {
-		let restore: DirectoryBackup | undefined
-		if (event.payload.databases.length > 0) {
-			const cache = await step.do("find build workspace", () =>
-				lookupSnapshotCache(this.env, buildSnapshotCacheInput(event.payload)),
-			)
-			if (cache.status === "hit") restore = cache.snapshot
-		}
-		await migrateSlateDatabases(this.env, step, event.payload, restore)
+		await migrateSlateDatabases(this.env, step, event.payload)
 		await step.do("provision slate schedules", () =>
 			this.env.PROVISIONING.provisionSchedules(event.payload),
 		)
-	}
-}
-
-function buildSnapshotCacheInput(prepared: SlateProvisioning) {
-	return {
-		key: `build/${prepared.slate.id}/${prepared.snapshot.commit}`,
-		label: "build",
 	}
 }
