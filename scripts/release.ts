@@ -23,6 +23,7 @@ import path from "node:path"
 const PACKAGES_DIR = "packages"
 const LOCKFILE_PATH = "pnpm-lock.yaml"
 const SCAFFOLD_MANIFEST_PATHS = [
+	"packages/cli/templates/base/package.json",
 	"packages/cli/templates/app/package.json",
 	"packages/cli/templates/mcp/package.json",
 ]

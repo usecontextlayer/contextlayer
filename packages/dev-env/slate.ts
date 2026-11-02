@@ -1,4 +1,4 @@
-import { appendFile, mkdir } from "node:fs/promises"
+import { appendFile, cp, mkdir } from "node:fs/promises"
 import { join } from "node:path"
 import { execa } from "execa"
 
@@ -8,14 +8,22 @@ export async function createSlateProject(
 	{
 		installDependencies = false,
 		scaffold = "app",
-	}: { installDependencies?: boolean; scaffold?: "app" | "mcp" } = {},
+	}: {
+		installDependencies?: boolean
+		scaffold?: "app" | "mcp" | "public" | "agents" | "empty"
+	} = {},
 ) {
 	const packagesRoot = join(workspaceRoot, "packages")
 	const cli = join(packagesRoot, "cli")
 	await mkdir(checkout, { recursive: true })
-	await execa(process.execPath, [join(cli, "dist/cli.mjs"), "scaffold", scaffold], {
-		cwd: checkout,
-	})
+	if (scaffold !== "app" && scaffold !== "mcp") {
+		await cp(join(cli, "dist/templates/base"), checkout, { recursive: true })
+	}
+	if (scaffold !== "empty") {
+		await execa(process.execPath, [join(cli, "dist/cli.mjs"), "scaffold", scaffold], {
+			cwd: checkout,
+		})
+	}
 	const packages = join(checkout, "packages")
 	await mkdir(packages, { recursive: true })
 	await Promise.all(

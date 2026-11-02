@@ -139,7 +139,7 @@ program
 program
 	.command("init <directory>")
 	.description(
-		"Create a private slate with Git on main and a short AGENTS.md; requires login and Git author identity; optional app/MCP setup also requires pnpm and a supported Node.js version",
+		"Create a private slate with Git on main, a short AGENTS.md, and native build tooling; requires login, Git author identity, pnpm, and a supported Node.js version",
 	)
 	.option("--org <slug>", "Create the slate under an organization you belong to")
 	.option(
@@ -154,7 +154,7 @@ program
 	)
 	.addHelpText(
 		"after",
-		"\nScaffold flags combine independently in app, public, agents, mcp order. A conflicting scaffold writes nothing and prints its complete proposal for authoring-agent integration. Without flags, no app, assets, agents, MCP, or package manifest is created.",
+		"\nScaffold flags combine independently in app, public, agents, mcp order. A conflicting scaffold writes nothing and prints its complete proposal for authoring-agent integration. Without flags, only the authoring guide and package/Vite/Cloudflare build tooling are created; no app, public files, agents, or MCP tools.",
 	)
 	.hook("preAction", requireLogin)
 	.action(async (directory: string, rawOptions) => {
@@ -180,7 +180,7 @@ program
 					)[kind]
 				],
 		)
-		const { dependencies } = await createSlateCheckout(directory, selected)
+		await createSlateCheckout(directory, selected)
 		const response = await fetch(new URL("/api/slates", env.CTX_PLATFORM_URL), {
 			body: JSON.stringify(input),
 			headers: {
@@ -208,7 +208,8 @@ Dashboard: ${new URL(`/dashboard/slates/${slate.id}`, env.CTX_PLATFORM_URL).href
 Hosted URL: https://${slate.public_hostname}/ (available after deployment)
 
 Checkout: '${directory.replaceAll("'", "'\\''")}'
-${dependencies ? "Dependencies and pnpm-lock.yaml are installed. Run pnpm dev in the checkout to develop locally." : "Edit AGENTS.md and add the source you need. Use ctx scaffold --help for optional starters."}
+Dependencies and pnpm-lock.yaml are installed. Run pnpm build to prepare native Cloudflare output.
+${selected.includes("app") ? "Run pnpm dev in the checkout to develop the app locally." : "Add the source you need. Use ctx scaffold --help for optional starters."}
 
 Deploy the committed source:
   git push -u origin main

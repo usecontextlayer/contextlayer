@@ -15,7 +15,7 @@ cd my-slate
 pnpm dev
 ```
 
-Approve login in your browser. This quickstart selects the bundled app starter, installs its dependencies, and commits it with its lockfile on `main`, with local state already ignored. Plain initialization creates an empty Git checkout with a short `AGENTS.md`; app, public files, agents, and MCP source are optional. Open the local URL printed by the development server. Initialization prints your slate's dashboard link and hosted URL; the hosted URL becomes usable after a successful Git push deployment.
+Approve login in your browser. This quickstart selects the bundled app starter, installs its dependencies, and commits it with its lockfile on `main`, with local state already ignored. Plain initialization creates a Git checkout with a short `AGENTS.md`, ordinary Vite/Cloudflare build tooling, installed dependencies and a committed lockfile; app, public files, agents, and MCP source are optional. Open the local URL printed by the development server. Initialization prints your slate's dashboard link and hosted URL; the hosted URL becomes usable after a successful Git push deployment.
 
 The app starter's README explains local development, connections, and deployment. Use `npx @usecontextlayer/cli scaffold --help` to add source later. Integrate any printed conflict proposal with your authoring agent. When dependencies change, run `pnpm install` and commit `pnpm-lock.yaml` with the integrated source. The [scaffolding contract](https://github.com/usecontextlayer/contextlayer/blob/main/ARCHITECTURE.md#slate-source-scaffolding) explains source ownership and conflict handling. The [SDK guide](https://www.npmjs.com/package/@usecontextlayer/sdk) describes loaders, tools, and the shared app layout.
 

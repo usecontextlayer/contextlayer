@@ -95,24 +95,35 @@ export async function scaffoldSlate(kind: ScaffoldKind, directory: string) {
 	return true
 }
 
-export async function createSlateCheckout(directory: string, scaffolds: ScaffoldKind[]) {
+export async function initializeSlateSource(
+	directory: string,
+	scaffolds: ScaffoldKind[],
+) {
 	await mkdir(directory)
 	await writeFile(join(directory, "AGENTS.md"), orientation)
 	await execa("git", ["init", "--initial-branch=main"], {
 		cwd: directory,
 		stdio: "inherit",
 	})
-	let dependencies = false
-	for (const kind of scaffolds) {
-		if (await scaffoldSlate(kind, directory)) {
-			dependencies ||= kind === "app" || kind === "mcp"
+	for (const kind of scaffolds) await scaffoldSlate(kind, directory)
+	if (!(await existingEntry(join(directory, "package.json")))) {
+		const files = await proposedFiles(
+			fileURLToPath(new URL("./templates/base/", import.meta.url)),
+		)
+		for (const file of files) {
+			const destination = join(directory, file.path)
+			await mkdir(dirname(destination), { recursive: true })
+			await writeFile(destination, file.content, { flag: "wx" })
 		}
 	}
-	if (dependencies) await execa("pnpm", ["install"], { cwd: directory, stdio: "inherit" })
+}
+
+export async function createSlateCheckout(directory: string, scaffolds: ScaffoldKind[]) {
+	await initializeSlateSource(directory, scaffolds)
+	await execa("pnpm", ["install"], { cwd: directory, stdio: "inherit" })
 	await execa("git", ["add", "."], { cwd: directory, stdio: "inherit" })
 	await execa("git", ["commit", "-m", "Initialize ContextLayer slate"], {
 		cwd: directory,
 		stdio: "inherit",
 	})
-	return { dependencies }
 }

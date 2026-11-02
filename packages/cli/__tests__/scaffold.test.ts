@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url"
 import { declarationSchema } from "@usecontextlayer/shared/declaration"
 import { execa } from "execa"
 import { afterEach, beforeEach, expect, test, vi } from "vitest"
-import { createSlateCheckout } from "@/scaffold"
+import { initializeSlateSource } from "@/scaffold"
 
 const cli = fileURLToPath(new URL("../dist/cli.mjs", import.meta.url))
 const templates = fileURLToPath(new URL("../templates/", import.meta.url))
@@ -29,27 +29,46 @@ afterEach(async () => {
 	await rm(directory, { force: true, recursive: true })
 })
 
-test("an empty slate starts on main with only its short orientation committed", async () => {
+test("an empty slate starts on main with native build tooling and no authored parts", async () => {
 	const checkout = join(directory, "slate")
-	await createSlateCheckout(checkout, [])
+	await initializeSlateSource(checkout, [])
 	const git = (args: string[]) => execa("git", args, { cwd: checkout })
-	expect((await readdir(checkout)).sort()).toEqual([".git", "AGENTS.md"])
+	expect((await readdir(checkout)).sort()).toEqual([
+		".git",
+		".gitignore",
+		"AGENTS.md",
+		"package.json",
+		"pnpm-workspace.yaml",
+		"tsconfig.json",
+		"vite.config.ts",
+		"wrangler.jsonc",
+	])
 	expect((await git(["branch", "--show-current"])).stdout).toBe("main")
-	expect((await git(["ls-tree", "--name-only", "HEAD"])).stdout).toBe("AGENTS.md")
-	expect((await git(["status", "--porcelain"])).stdout).toBe("")
+	const manifest = JSON.parse(await readFile(join(checkout, "package.json"), "utf8"))
+	expect(manifest.scripts.build).toBe("vite build")
+	expect(manifest.dependencies["@usecontextlayer/sdk"]).toBeDefined()
+	expect(
+		JSON.parse(await readFile(join(checkout, "wrangler.jsonc"), "utf8")),
+	).not.toHaveProperty("main")
 	const orientation = await readFile(join(checkout, "AGENTS.md"), "utf8")
 	expect(orientation).toContain("https://docs.usecontextlayer.com")
 	expect(orientation.split("\n").length).toBeLessThan(10)
 })
 
-test("static and agent source combine without a package manifest", async () => {
+test("static and agent source share the same native build baseline", async () => {
 	const checkout = join(directory, "slate")
-	await createSlateCheckout(checkout, ["public", "agents"])
+	await initializeSlateSource(checkout, ["public", "agents"])
 	expect((await readdir(checkout)).sort()).toEqual([
 		".git",
+		".gitignore",
 		"AGENTS.md",
 		"agents",
+		"package.json",
+		"pnpm-workspace.yaml",
 		"public",
+		"tsconfig.json",
+		"vite.config.ts",
+		"wrangler.jsonc",
 	])
 	expect(await readFile(join(checkout, "public/index.html"), "utf8")).toContain(
 		"<body></body>",
@@ -59,8 +78,8 @@ test("static and agent source combine without a package manifest", async () => {
 			JSON.parse(await readFile(join(checkout, "agents/agent/slate.json"), "utf8")),
 		),
 	).toEqual({ connections: {}, databases: {}, secrets: {} })
-	expect((await execa("git", ["status", "--porcelain"], { cwd: checkout })).stdout).toBe(
-		"",
+	expect(await readFile(join(checkout, "vite.config.ts"), "utf8")).toBe(
+		await readFile(join(templates, "base/vite.config.ts"), "utf8"),
 	)
 })
 
