@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
-import { join, resolve } from "node:path"
+import { join } from "node:path"
 import { executionTest as base } from "@tests/integration"
-import { createSlateProject } from "@usecontextlayer/dev-env/slate"
+import { copySlateProject } from "@tests/slate-project"
 import { signInViewer } from "@usecontextlayer/dev-env/viewer"
 import { execa } from "execa"
 import { expect } from "vitest"
@@ -29,7 +29,7 @@ export const test = base.extend(
 			await ARTIFACTS.delete(slate.id)
 		})
 		const checkout = join(directory, "first-use")
-		await createSlateProject(resolve(import.meta.dirname, "../../.."), checkout)
+		await copySlateProject(checkout)
 		const execute = execa({
 			cwd: checkout,
 			env: {

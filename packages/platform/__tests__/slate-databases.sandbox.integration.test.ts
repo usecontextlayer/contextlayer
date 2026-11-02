@@ -1,12 +1,12 @@
 import assert from "node:assert/strict"
 import { execFile as execFileCallback } from "node:child_process"
 import { mkdir, writeFile } from "node:fs/promises"
-import { join, resolve } from "node:path"
+import { join } from "node:path"
 import { promisify } from "node:util"
 import { writeDatabase } from "@tests/database-project"
 import { test } from "@tests/integration"
+import { copySlateProject } from "@tests/slate-project"
 import seed from "@usecontextlayer/dev-env/seed.json" with { type: "json" }
-import { createSlateProject } from "@usecontextlayer/dev-env/slate"
 import { slateResourcesSchema } from "@usecontextlayer/shared/slate-resources"
 import { getAgentByName } from "agents/routing"
 import { expect } from "vitest"
@@ -82,7 +82,7 @@ test("reprovisioning migrates new databases, preserves owner data and replaces m
 		return resources
 	}
 	const checkout = join(dir, slate.id)
-	await createSlateProject(resolve(import.meta.dirname, "../../.."), checkout)
+	await copySlateProject(checkout)
 	await mkdir(join(checkout, "agents/daily-summary/schedules"), { recursive: true })
 	const git = async (...args: string[]) =>
 		(await execFile("git", args, { cwd: checkout, env: gitEnv })).stdout.trim()

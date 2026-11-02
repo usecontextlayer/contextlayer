@@ -1,11 +1,11 @@
 import assert from "node:assert/strict"
 import { randomUUID } from "node:crypto"
 import { writeFile } from "node:fs/promises"
-import { join, resolve } from "node:path"
+import { join } from "node:path"
 import { createPolarCore } from "@polar-sh/sdk/2026-10"
 import { listEvents } from "@polar-sh/sdk/2026-10/services/events"
 import { executionTest as test } from "@tests/integration"
-import { createSlateProject } from "@usecontextlayer/dev-env/slate"
+import { copySlateProject } from "@tests/slate-project"
 import { signInViewer } from "@usecontextlayer/dev-env/viewer"
 import { accountsSchema } from "@usecontextlayer/shared/accounts"
 import type {
@@ -122,7 +122,7 @@ test("native Tools capability enforces access and reports exact slate-Owner tool
 	).toEqual(refusal)
 
 	const checkout = join(directory, slate.id)
-	await createSlateProject(resolve(import.meta.dirname, "../../.."), checkout)
+	await copySlateProject(checkout)
 	await writeFile(
 		join(checkout, "public/slate.json"),
 		JSON.stringify({ connections: { mail: { mode: "viewer", toolkit: "gmail" } } }),

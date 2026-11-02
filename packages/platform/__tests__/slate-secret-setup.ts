@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises"
-import { join, resolve } from "node:path"
+import { join } from "node:path"
 import { test as base } from "@tests/integration"
-import { createSlateProject } from "@usecontextlayer/dev-env/slate"
+import { copySlateProject } from "@tests/slate-project"
 import { getAgentByName } from "agents/routing"
 import { execa } from "execa"
 import { expect } from "vitest"
@@ -30,7 +30,7 @@ export const test = base.extend(
 		onCleanup(async () => {
 			await ARTIFACTS.delete(slate.id)
 		})
-		await createSlateProject(resolve(import.meta.dirname, "../../.."), directory)
+		await copySlateProject(directory)
 		await mkdir(join(directory, "agents/daily/schedules"), { recursive: true })
 		await writeFile(
 			join(directory, "public/slate.json"),

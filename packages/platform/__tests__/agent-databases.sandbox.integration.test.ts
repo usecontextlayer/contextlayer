@@ -1,13 +1,13 @@
 import assert from "node:assert/strict"
 import { execFile as execFileCallback } from "node:child_process"
 import { mkdir, writeFile } from "node:fs/promises"
-import { join, resolve } from "node:path"
+import { join } from "node:path"
 import { promisify } from "node:util"
 import { ToolResultEntry } from "@earendil-works/pi-durable"
 import { writeDatabase } from "@tests/database-project"
 import { executionTest as test } from "@tests/integration"
+import { copySlateProject } from "@tests/slate-project"
 import seed from "@usecontextlayer/dev-env/seed.json" with { type: "json" }
-import { createSlateProject } from "@usecontextlayer/dev-env/slate"
 import { signInViewer } from "@usecontextlayer/dev-env/viewer"
 import { type Databases, databaseResultSchema } from "@usecontextlayer/shared/databases"
 import { slateResourcesSchema } from "@usecontextlayer/shared/slate-resources"
@@ -65,7 +65,7 @@ test("API jobs preserve owner and viewer database writes through Code Mode", asy
 	const repo = await ARTIFACTS.get(slate.id)
 	const { remote } = await repo.info()
 	const token = await repo.createToken("write")
-	await createSlateProject(resolve(import.meta.dirname, "../../.."), directory)
+	await copySlateProject(directory)
 	await mkdir(join(directory, "agents/database"), { recursive: true })
 	await writeFile(
 		join(directory, "public/slate.json"),

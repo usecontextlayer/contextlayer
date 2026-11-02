@@ -7,6 +7,7 @@ export default defineConfig({
 	resolve: { tsconfigPaths: true },
 	test: {
 		fileParallelism: true,
+		globalSetup: ["./__tests__/slate-project.setup.ts"],
 		hookTimeout: 300_000,
 		include: basicIntegrationTestInclude,
 		name: "@usecontextlayer/platform:integration:basic",

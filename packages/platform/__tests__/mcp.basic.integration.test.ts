@@ -1,10 +1,10 @@
 import { cp } from "node:fs/promises"
-import { join, resolve } from "node:path"
+import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client"
 import { dispatcherTest as base } from "@tests/integration"
+import { copySlateProject } from "@tests/slate-project"
 import { authorizeMcp } from "@usecontextlayer/dev-env/mcp"
-import { createSlateProject } from "@usecontextlayer/dev-env/slate"
 import { signInViewer } from "@usecontextlayer/dev-env/viewer"
 import { execa } from "execa"
 import { expect } from "vitest"
@@ -147,7 +147,7 @@ test("private organization member passes billing through slate-bound MCP authori
 test("discovers a View and invokes an authored Worker once through native MCP", {
 	timeout: 300_000,
 }, async ({ slate, directory, dispatcher, mcpHeaders }) => {
-	await createSlateProject(resolve(import.meta.dirname, "../../.."), directory, {
+	await copySlateProject(directory, {
 		installDependencies: true,
 	})
 	for (const source of ["mcp", "mcp-ui", "workers/mcp.ts"]) {

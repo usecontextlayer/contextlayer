@@ -1,12 +1,12 @@
 import { appendFile, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
-import { join, resolve } from "node:path"
+import { join } from "node:path"
 import type { CiParams, CiRunnerResult, CloudflareArtifacts } from "@cloudflare/ci"
 import type { CiBindings } from "@cloudflare/ci/worker"
 import { test as base } from "@tests/database"
 import { writeDatabase } from "@tests/database-project"
+import { copySlateProject } from "@tests/slate-project"
 import type { Workers } from "@tests/workers"
-import { createSlateProject } from "@usecontextlayer/dev-env/slate"
 import { execa } from "execa"
 import { expect } from "vitest"
 import { z } from "zod"
@@ -101,7 +101,7 @@ test("the build Workflow publishes a migrated slate and its workspace provisions
 			"--force",
 		])
 	})
-	await createSlateProject(resolve(import.meta.dirname, "../../.."), checkout)
+	await copySlateProject(checkout)
 	await writeFile(
 		join(checkout, "public/slate.json"),
 		JSON.stringify({

@@ -1,8 +1,8 @@
 import assert from "node:assert/strict"
 import { mkdir, writeFile } from "node:fs/promises"
-import { join, resolve } from "node:path"
+import { join } from "node:path"
 import { test } from "@tests/integration"
-import { createSlateProject } from "@usecontextlayer/dev-env/slate"
+import { copySlateProject } from "@tests/slate-project"
 import { accountsSchema } from "@usecontextlayer/shared/accounts"
 import { slateResourcesSchema } from "@usecontextlayer/shared/slate-resources"
 import { getAgentByName } from "agents/routing"
@@ -47,7 +47,7 @@ test("chrome and API final assignments provision agent-only personal schedules w
 				.where("slate_id", "=", slate.id)
 				.execute()
 		const checkout = join(directory, mode)
-		await createSlateProject(resolve(import.meta.dirname, "../../.."), checkout)
+		await copySlateProject(checkout)
 		await mkdir(join(checkout, "agents/daily/schedules"), { recursive: true })
 		await writeFile(
 			join(checkout, "public/slate.json"),
