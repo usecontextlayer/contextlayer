@@ -10,7 +10,7 @@ import { prepareSlateProvisioning } from "@/slate-provisioning.server"
 import { slateSchema } from "@/slates.schema"
 
 export class Provisioning extends WorkerEntrypoint<PlatformEnv["Bindings"]> {
-	async prepare(slateId: string, commit: string) {
+	async prepare(slateId: string, commitHash: string) {
 		const id = slateSchema.shape.id.parse(slateId)
 		const config = parseDatabaseEnv(this.env)
 		const db = createPlatformDb(config.CTX_PLATFORM_DATABASE_URL)
@@ -23,7 +23,10 @@ export class Provisioning extends WorkerEntrypoint<PlatformEnv["Bindings"]> {
 					.executeTakeFirstOrThrow(),
 			)
 			const members = await listSlateMembers(db, id)
-			const snapshot = await readSlateDeclarations(this.env.ARTIFACTS, id, commit)
+			using repo = await this.env.ARTIFACTS.get(id)
+			const commit = await repo.readCommit(commitHash)
+			if (!commit) throw new Error(`Slate commit not found: ${commitHash}`)
+			const snapshot = await readSlateDeclarations(repo, commit)
 			return prepareSlateProvisioning(
 				slate,
 				[

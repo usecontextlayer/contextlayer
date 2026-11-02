@@ -10,7 +10,7 @@
 		"types": ["node", "vite/client", "@cloudflare/workers-types"],
 		"verbatimModuleSyntax": false
 	},
-	"exclude": ["build", "node_modules", "__tests__/fixtures"],
+	"exclude": ["build", "build-test", "node_modules", "__tests__/fixtures"],
 	"extends": "../../tsconfig.base.json",
 	"include": ["**/*.ts", "**/*.tsx", ".react-router/types/**/*"],
 	"references": [

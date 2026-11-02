@@ -1,21 +1,5 @@
-diff --git a/wrangler-dist/cli.d.ts b/wrangler-dist/cli.d.ts
-index dfe491f1eb7dc2450d6147a0c22dfa88ab6924d8..e1c1444513520f69258dd393ad4323a756d3c081 100644
---- a/wrangler-dist/cli.d.ts
-+++ b/wrangler-dist/cli.d.ts
-@@ -1056,6 +1056,11 @@ type WorkerInput = {
-      * Wrangler environment to load from the config file.
-      */
-     env?: string;
-+    /**
-+     * Enables containers for this Worker, overriding `dev.enable_containers`.
-+     * When omitted, uses the Wrangler config value.
-+     */
-+    enableContainers?: boolean;
-     /**
-      * Avoids rebuilding a Worker in a Wrangler project each time the test
-      * harness starts or resets. Build the Worker once with
 diff --git a/wrangler-dist/cli.js b/wrangler-dist/cli.js
-index b682402e4763ef57d5a0898221d39227711e3e6f..2f3ae481a686ce49ae9aa34981be0bd87aec26cf 100644
+index b682402e4763ef57d5a0898221d39227711e3e6f..1bf6f9e09a48ba348cec0a4706ba14ad3d800230 100644
 --- a/wrangler-dist/cli.js
 +++ b/wrangler-dist/cli.js
 @@ -140206,17 +140206,6 @@ ${hint}`;
@@ -170,15 +154,7 @@ index b682402e4763ef57d5a0898221d39227711e3e6f..2f3ae481a686ce49ae9aa34981be0bd8
                }
              });
              const newContainerBuildId = generateContainerBuildId();
-@@ -370145,6 +370110,7 @@ function createTestHarness(options) {
-         dev: {
-           auth: serverAuthHook,
-           containerBuildId: generateContainerBuildId(),
-+          enableContainers: "configPath" in input ? input.enableContainers : void 0,
-           server: { hostname: "127.0.0.1", port: 0 },
-           logLevel: "none",
-           watch: false,
-@@ -370152,8 +370118,16 @@ function createTestHarness(options) {
+@@ -370152,8 +370117,16 @@ function createTestHarness(options) {
            inspector: false,
            registry: void 0,
            structuredLogsHandler: /* @__PURE__ */ __name((log2) => captureStructuredLog(log2), "structuredLogsHandler"),

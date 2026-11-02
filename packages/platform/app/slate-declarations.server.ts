@@ -17,18 +17,13 @@ export async function readLatestSlateDeclarations(
 	const [commit] = await repo.log({ limit: 1, ref: "main" })
 	if (!commit)
 		return { allowed: false, reason: noCommitSchema.shape.reason.value } as const
-	return readSlateDeclarations(artifacts, slateId, commit.hash)
+	return await readSlateDeclarations(repo, commit)
 }
 
 export async function readSlateDeclarations(
-	artifacts: Artifacts,
-	slateId: SlateId,
-	revision: string,
+	repo: ArtifactsRepo,
+	commit: ArtifactsCommitMetadata,
 ): Promise<SlateDeclarationSnapshot> {
-	using repo = await artifacts.get(slateId)
-	const commit = await repo.readCommit(revision)
-	if (!commit) throw new Error(`Slate commit not found: ${revision}`)
-
 	const root = (await repo.readTree(commit.treeHash)) as ArtifactsTreeEntry[]
 	const directory = root.find((entry) => entry.name === "agents" && entry.type === "tree")
 	const definitions = directory

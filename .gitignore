@@ -9,6 +9,8 @@ packages/*/node_modules/
 .doublecheck
 .superpowers
 dist/
+dist-test/
+build-test/
 dist-npm/
 dist-types/
 artifacts/

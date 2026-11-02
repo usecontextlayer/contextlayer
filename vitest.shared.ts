@@ -87,7 +87,6 @@ export const platformIntegrationTestConfig = {
 
 export const basicIntegrationTestConfig = {
 	include: basicIntegrationTestInclude,
-	provide: { containerWorkers: [] },
 } satisfies InlineConfig
 
 const polarPollingTestConfig = {
@@ -102,24 +101,20 @@ const polarPollingTestConfig = {
 export const polarIntegrationTestConfig = {
 	...polarPollingTestConfig,
 	include: polarIntegrationTestInclude,
-	provide: { containerWorkers: [] },
 } satisfies InlineConfig
 
 export const remoteIntegrationTestConfig = {
 	...polarPollingTestConfig,
 	include: remoteIntegrationTestInclude,
-	provide: { containerWorkers: ["build", "platform"] },
 } satisfies InlineConfig
 
 export const dopplerIntegrationTestConfig = {
 	include: dopplerIntegrationTestInclude,
-	provide: { containerWorkers: ["build", "platform"] },
 } satisfies InlineConfig
 
 export const polarWebhooksIntegrationTestConfig = {
 	...polarPollingTestConfig,
 	include: polarWebhooksIntegrationTestInclude,
-	provide: { containerWorkers: [] },
 } satisfies InlineConfig
 
 export const unitTestExclude = [

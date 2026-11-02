@@ -6,7 +6,8 @@ package=${2:?Specify platform, dispatcher, auth, build, or mcp-microsoft-planner
 shift 2
 
 case "$package" in
-  platform|dispatcher|auth|build|mcp-microsoft-planner-premium) ;;
+  platform) config_path=build/server/wrangler.json ;;
+  dispatcher|auth|build|mcp-microsoft-planner-premium) config_path=wrangler.jsonc ;;
   *) echo "Unknown Worker package: $package" >&2; exit 1 ;;
 esac
 
@@ -37,7 +38,7 @@ case "$phase" in
         import { writeFileSync } from "node:fs";
         import { unstable_readConfig } from "wrangler";
 
-        const config = unstable_readConfig({ env: "" }, { useRedirectIfAvailable: true });
+        const config = unstable_readConfig({ config: process.argv[2], env: "" });
         let input = "";
         for await (const chunk of process.stdin) input += chunk;
         const values = JSON.parse(input);
@@ -48,9 +49,9 @@ case "$phase" in
           return [name, values[name]];
         }));
         writeFileSync(process.argv[1], JSON.stringify(secrets), { mode: 0o600 });
-      ' "$secrets_file"
+      ' "$secrets_file" "$config_path"
 
-    pnpm --dir "packages/$package" exec wrangler deploy --env="" --secrets-file "$secrets_file" "$@"
+    pnpm --dir "packages/$package" exec wrangler deploy --config "$config_path" --env="" --secrets-file "$secrets_file" "$@"
     ;;
   *) echo "Unknown Cloudflare phase: $phase" >&2; exit 1 ;;
 esac

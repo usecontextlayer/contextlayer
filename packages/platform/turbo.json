@@ -2,10 +2,11 @@
 	"extends": ["//"],
 	"tasks": {
 		"build": {
-			"env": ["CLOUDFLARE_ENV"]
+			"env": ["CLOUDFLARE_ENV"],
+			"outputs": ["build/**"]
 		},
 		"build:test": {
-			"outputs": ["build/**"]
+			"outputs": ["build-test/**"]
 		},
 		"db.codegen": {
 			"cache": false,
