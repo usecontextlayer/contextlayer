@@ -3,8 +3,8 @@ import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client"
 import { dispatcherTest as base } from "@tests/integration"
-import { copySlateProject } from "@tests/slate-project"
 import { authorizeMcp } from "@usecontextlayer/dev-env/mcp"
+import { copySlateProject } from "@usecontextlayer/dev-env/slate"
 import { signInViewer } from "@usecontextlayer/dev-env/viewer"
 import { execa } from "execa"
 import { expect } from "vitest"
@@ -13,7 +13,7 @@ import { z } from "zod"
 import { slateSchema } from "@/slates.schema"
 
 const test = base
-	.extend("slate", async ({ identity, platform }, { onCleanup }) => {
+	.extend("slate", async ({ db, identity, platform }, { onCleanup }) => {
 		const created = await fetch(`${platform.origin}/api/slates`, {
 			headers: identity.headers,
 			method: "POST",
@@ -23,6 +23,7 @@ const test = base
 		const { ARTIFACTS } = await platform.worker.getEnv()
 		onCleanup(async () => {
 			await ARTIFACTS.delete(slate.id)
+			await db.deleteFrom("slate").where("id", "=", slate.id).execute()
 		})
 		return slate
 	})
@@ -47,11 +48,10 @@ test("native dispatcher and platform bind MCP to the slate and reject cookie fal
 	webEnv,
 	webSession,
 }) => {
-	const worker = dispatcher.worker
 	const headers = Object.fromEntries(mcpHeaders)
 	const resource = `https://${slate.public_hostname}/mcp`
 	const metadataUrl = `https://${slate.public_hostname}/.well-known/oauth-protected-resource/mcp`
-	const metadata = await worker.fetch(metadataUrl)
+	const metadata = await dispatcher.fetch(metadataUrl)
 	expect(metadata.status).toBe(200)
 	expect(await metadata.json()).toMatchObject({
 		authorization_servers: [serviceEnv.issuer],
@@ -65,7 +65,7 @@ test("native dispatcher and platform bind MCP to the slate and reject cookie fal
 			webHeaders: webSession.headers,
 		}),
 	)
-	const challenge = await worker.fetch(resource, { headers: viewerHeaders })
+	const challenge = await dispatcher.fetch(resource, { headers: viewerHeaders })
 	expect(challenge.status).toBe(401)
 	expect(challenge.headers.get("www-authenticate")).toContain(
 		`resource_metadata="${metadataUrl}"`,
@@ -88,8 +88,12 @@ test("native dispatcher and platform bind MCP to the slate and reject cookie fal
 		})
 		.returningAll()
 		.executeTakeFirstOrThrow()
+	await using rows = new AsyncDisposableStack()
+	rows.defer(async () => {
+		await db.deleteFrom("slate").where("id", "=", other.id).execute()
+	})
 	expect(
-		(await worker.fetch(`https://${other.public_hostname}/mcp`, { headers })).status,
+		(await dispatcher.fetch(`https://${other.public_hostname}/mcp`, { headers })).status,
 	).toBe(401)
 	expect((await platform.worker.fetch("/api/slates", { headers })).status).toBe(401)
 	expect(
@@ -104,6 +108,7 @@ test("native dispatcher and platform bind MCP to the slate and reject cookie fal
 
 test("private organization member passes billing through slate-bound MCP authorization", async ({
 	identity,
+	db,
 	organization,
 	platform,
 	serviceEnv,
@@ -120,6 +125,7 @@ test("private organization member passes billing through slate-bound MCP authori
 	await using resources = new AsyncDisposableStack()
 	resources.defer(async () => {
 		await ARTIFACTS.delete(slate.id)
+		await db.deleteFrom("slate").where("id", "=", slate.id).execute()
 	})
 	expect(slate).toMatchObject({
 		owner_organization_id: organization.id,
@@ -204,7 +210,7 @@ test("discovers a View and invokes an authored Worker once through native MCP", 
 	resources.defer(() => client.close())
 	await client.connect(
 		new StreamableHTTPClientTransport(new URL(`https://${slate.public_hostname}/mcp`), {
-			fetch: dispatcher.worker.fetch.bind(dispatcher.worker) as unknown as typeof fetch,
+			fetch: dispatcher.fetch.bind(dispatcher) as unknown as typeof fetch,
 			requestInit: { headers: mcpHeaders },
 		}),
 	)

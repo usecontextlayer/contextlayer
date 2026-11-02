@@ -69,7 +69,7 @@
 	"private": true,
 	"scripts": {
 		"build": "react-router build",
-		"build:test": "CLOUDFLARE_ENV=test pnpm run build",
+		"build:test": "CLOUDFLARE_ENV=test pnpm run build --mode test",
 		"build:test:computer": "wrangler deploy --cwd __tests__/computer --config wrangler.jsonc --dry-run --outdir ../../dist/computer",
 		"db.codegen": "node --import tsx app/manage.ts codegen",
 		"db.latest": "node --import tsx app/manage.ts latest",

@@ -9,6 +9,7 @@ import {
 	createCustomers,
 	deleteCustomers,
 	getStateCustomers,
+	listPaymentMethodsCustomers,
 } from "@polar-sh/sdk/2026-10/services/customers"
 import {
 	createDiscounts,
@@ -30,7 +31,11 @@ test("missing state is pulled for an active non-Free customer and reused while f
 		accessToken: env.POLAR_ACCESS_TOKEN,
 		environment: env.POLAR_ENVIRONMENT,
 	})
-	const products = await listProducts(polar)({ is_archived: false, is_recurring: true })
+	const products = await listProducts(polar)({
+		is_archived: false,
+		is_recurring: true,
+		visibility: ["public"],
+	})
 	const product = products.items.find((product) =>
 		product.prices.some(
 			(price) => price.amount_type === "fixed" && price.price_amount > 0,
@@ -171,6 +176,7 @@ test("Free uses the saved balance until stale state is refreshed", async ({
 				expect.objectContaining({ product_id: env.POLAR_FREE_PRODUCT_ID }),
 			],
 		})
+	expect((await listPaymentMethodsCustomers(polar)(customer.id)).items).toEqual([])
 	await saveCustomerState(db, await getStateCustomers(polar)(customer.id))
 	const slate = slateSchema.parse(
 		await db
@@ -220,6 +226,9 @@ test("Free uses the saved balance until stale state is refreshed", async ({
 		allowed: false,
 		message: expect.stringContaining("Free clips renew on"),
 		reason: "credits-exhausted",
+	})
+	expect(exhausted).toMatchObject({
+		message: expect.stringContaining("/settings/billing"),
 	})
 	expect(await checkSlateBilling(db, invalidPolarTokenConfig, slate)).toEqual(exhausted)
 }, 180_000)

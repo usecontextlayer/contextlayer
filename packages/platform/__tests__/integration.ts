@@ -4,11 +4,6 @@ import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { test as base } from "@tests/database"
 import {
-	buildWorkerConfig,
-	dispatcherWorkerConfig,
-	platformWorkerConfig,
-} from "@tests/workers"
-import {
 	readDevEnvCommandEnv,
 	readDevEnvIdentity,
 	readDevEnvServiceEnv,
@@ -18,20 +13,15 @@ import { readDevEnvPorts } from "@usecontextlayer/dev-env/ports"
 import seed from "@usecontextlayer/dev-env/seed.json" with { type: "json" }
 import { signInWeb } from "@usecontextlayer/dev-env/web"
 import type { SlateProvisioning } from "@usecontextlayer/shared/slate-provisioning"
-import type { HostedExecution } from "@usecontextlayer/shared/tools-worker"
-import type { TestHarnessOptions } from "wrangler"
 import type { PlatformEnv } from "@/context"
 import { createPlatformDb } from "@/database"
 import { parsePlatformEnv } from "@/env"
 import type { Provisioning } from "@/provisioning.server"
+// biome-ignore lint/style/noRestrictedImports: shared Worker fixtures live outside the package
+import * as workerFixtures from "../../../vitest.workers.ts"
 
 const root = resolve(import.meta.dirname, "../../..")
 const webRoot = resolve(root, "../web")
-
-type WorkerConfig = Pick<
-	Extract<TestHarnessOptions["workers"][number], { configPath: unknown }>,
-	"configPath" | "env" | "prebuiltWorkerDir" | "secrets"
->
 
 export const test = base
 	.extend("addresses", { scope: "file" }, () => readDevEnvPorts(root))
@@ -79,30 +69,37 @@ export const test = base
 		onCleanup(() => db.destroy())
 		return db
 	})
-	.extend("platformEnv", ({ databases, serviceEnv }) =>
+	.extend("platformEnv", { scope: "file" }, ({ databases, serviceEnv }) =>
 		parsePlatformEnv({
 			...serviceEnv.platformEnv,
 			CTX_PLATFORM_DATABASE_URL: databases.urls.ctx_platform_test,
 		}),
 	)
-	.extend("workers", ({ platformEnv }): WorkerConfig[] => [
-		{ ...platformWorkerConfig, secrets: platformEnv },
-		buildWorkerConfig,
-	])
+	.extend(
+		"platformWorkers",
+		{ scope: "file" },
+		({ platformEnv }): workerFixtures.Workers => [
+			{ ...workerFixtures.platformWorkerConfig, secrets: platformEnv },
+			workerFixtures.buildWorkerConfig,
+		],
+	)
+	.extend("workers", ({ platformWorkers }) => platformWorkers)
 	.extend("platform", async ({ platformEnv: env, workers, harness }) => {
 		const origin = (await harness.listen()).url.origin
 		if (
 			workers.some(
 				(worker) =>
 					"configPath" in worker &&
-					worker.configPath?.toString() === dispatcherWorkerConfig.configPath.toString(),
+					worker.configPath?.toString() ===
+						workerFixtures.dispatcherWorkerConfig.configPath.toString(),
 			)
 		) {
 			await harness.update((current) => ({
 				...current,
 				workers: current.workers.map((worker) =>
 					"configPath" in worker &&
-					worker.configPath?.toString() === dispatcherWorkerConfig.configPath.toString()
+					worker.configPath?.toString() ===
+						workerFixtures.dispatcherWorkerConfig.configPath.toString()
 						? { ...worker, secrets: { ...worker.secrets, CTX_PLATFORM_URL: origin } }
 						: worker,
 				),
@@ -114,41 +111,29 @@ export const test = base
 		...commandEnv,
 		CTX_PLATFORM_URL: platform.origin,
 	}))
-	.extend("provisioning", ({ platform }) => ({
-		harness: platform.harness,
-		worker: platform.harness.getWorker<{
-			PROVISIONING: Service<Provisioning>
+	.extend("buildWorker", ({ platform }) =>
+		platform.harness.getWorker<{
 			MEMBER_PROVISIONING: Workflow<SlateProvisioning>
+			PROVISIONING: Service<Provisioning>
 		}>("contextlayer-build-test"),
-	}))
+	)
 
 export const dispatcherTest = test
-	.extend("workers", ({ workers, serviceEnv }): WorkerConfig[] => [
-		...workers,
-		{
-			...dispatcherWorkerConfig,
-			secrets: {
-				CTX_PLATFORM_URL: serviceEnv.addresses.CTX_PLATFORM_URL.origin,
-				CTX_VIEWER_AUTH_URL: serviceEnv.addresses.CTX_VIEWER_AUTH_URL.origin,
-				POLAR_ACCESS_TOKEN: serviceEnv.polarEnv.POLAR_ACCESS_TOKEN,
-				POLAR_ENVIRONMENT: serviceEnv.polarEnv.POLAR_ENVIRONMENT,
+	.extend(
+		"workers",
+		({ platformWorkers, serviceEnv }): workerFixtures.Workers => [
+			...platformWorkers,
+			{
+				...workerFixtures.dispatcherWorkerConfig,
+				secrets: {
+					CTX_PLATFORM_URL: serviceEnv.addresses.CTX_PLATFORM_URL.origin,
+					CTX_VIEWER_AUTH_URL: serviceEnv.addresses.CTX_VIEWER_AUTH_URL.origin,
+					POLAR_ACCESS_TOKEN: serviceEnv.polarEnv.POLAR_ACCESS_TOKEN,
+					POLAR_ENVIRONMENT: serviceEnv.polarEnv.POLAR_ENVIRONMENT,
+				},
 			},
-		},
-	])
-	.extend("dispatcher", ({ platform }) => ({
-		harness: platform.harness,
-		worker: platform.harness.getWorker<{ EXECUTION: HostedExecution }>(
-			"contextlayer-dispatcher-test",
-		),
-	}))
-
-export const executionTest = test
-	.extend("workers", ({ workers }): WorkerConfig[] => [
-		...workers,
-		{
-			configPath: new URL("./fixtures/execution/wrangler.jsonc", import.meta.url),
-		},
-	])
-	.extend("execution", ({ platform }) => ({
-		worker: platform.harness.getWorker("contextlayer-execution-caller-test"),
-	}))
+		],
+	)
+	.extend("dispatcher", ({ platform }) =>
+		platform.harness.getWorker("contextlayer-dispatcher-test"),
+	)

@@ -36,5 +36,5 @@ test("non-writing: chrome lists agent-only personal secrets and rejects invalid 
 		}),
 	)
 	expect(await members()).toEqual([])
-	expect(await instance.listSchedules()).toEqual([])
+	expect(await instance.listAuthoredSchedules()).toEqual([])
 })

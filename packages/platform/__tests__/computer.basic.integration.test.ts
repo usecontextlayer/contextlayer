@@ -1,9 +1,13 @@
 import type { ComputerConformance } from "@tests/computer/worker"
-import { test as base } from "@tests/workers"
 import { expect } from "vitest"
+// biome-ignore lint/style/noRestrictedImports: shared Worker fixtures live outside the package
+import { test as base } from "../../../vitest.workers.ts"
 
 const test = base.extend("workers", [
-	{ configPath: new URL("./computer/wrangler.jsonc", import.meta.url) },
+	{
+		configPath: new URL("./computer/wrangler.jsonc", import.meta.url),
+		prebuiltWorkerDir: new URL("../dist/computer", import.meta.url),
+	},
 ])
 
 test("the attached Linux computer satisfies Pi's ExecutionEnv contract", async ({

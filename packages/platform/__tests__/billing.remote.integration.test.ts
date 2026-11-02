@@ -1,18 +1,16 @@
 import { randomUUID } from "node:crypto"
 import { test } from "@tests/integration"
+import seed from "@usecontextlayer/dev-env/seed.json" with { type: "json" }
 import { expect } from "vitest"
 import { slateSchema } from "@/slates.schema"
 
 test("Owner subscriptions gate execution while declaration access stays available", async ({
 	db,
-	identity,
-	organization,
 	platform,
 }) => {
 	const { origin } = platform
-	const { user } = identity
-	const personalOwner = user.id
-	const organizationOwner = organization.id
+	const personalOwner = seed.web.user.id
+	const organizationOwner = seed.web.organization.id
 	const request = (path: string, init?: RequestInit) => fetch(new URL(path, origin), init)
 	const [personalSlate, organizationSlate] = (
 		await db

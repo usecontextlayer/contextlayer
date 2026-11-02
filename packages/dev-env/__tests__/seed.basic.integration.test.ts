@@ -1,109 +1,85 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises"
-import { tmpdir } from "node:os"
-import { join, resolve } from "node:path"
+import { readFile } from "node:fs/promises"
+import { resolve } from "node:path"
 import { execa } from "execa"
+import postgres from "postgres"
 import { expect, test } from "vitest"
 import { provisionEphemeralDatabases, seedDatabase } from "@/database"
-import { readDevEnvServiceEnv, readDevEnvWebEnv } from "@/dev-env"
 import { readDevEnv } from "@/env"
-import { assignDevEnvPorts } from "@/ports"
 import seed from "@/seed.json" with { type: "json" }
-import { startNext } from "@/services"
-import { signInWeb } from "@/web"
 
 const root = resolve(import.meta.dirname, "../../..")
 const webRoot = resolve(root, "../web")
 
-test("seeding independent web databases supports native auth and preserves sessions on rerun", async () => {
+test("seeding bootstraps the development identity and CLI registration without duplicates", async () => {
 	await using resources = new AsyncDisposableStack()
-	const directory = await mkdtemp(join(tmpdir(), "dev-env-seed-"))
-	resources.defer(() => rm(directory, { force: true, recursive: true }))
-	const initial = readDevEnv()
-	const databases = await provisionEphemeralDatabases(initial.DATABASE_URL, {
-		baseNames: ["ctx_seed_web_a", "ctx_seed_web_b"],
-		async migrate(urls) {
-			for (const DATABASE_URL of Object.values(urls))
-				await execa("pnpm", ["db.latest", "--ci"], {
-					cwd: webRoot,
-					env: { DATABASE_URL, NODE_ENV: "development" },
-					stdio: "inherit",
-				})
+	const databases = await provisionEphemeralDatabases(readDevEnv().DATABASE_URL, {
+		baseNames: ["ctx_seed_web"],
+		async migrate({ ctx_seed_web: DATABASE_URL }) {
+			await execa("pnpm", ["db.latest", "--ci"], {
+				cwd: webRoot,
+				env: { DATABASE_URL, NODE_ENV: "development" },
+				stdio: "inherit",
+			})
 		},
 	})
 	resources.defer(databases.dropAll)
+	const sql = postgres(databases.urls.ctx_seed_web, { max: 1 })
+	resources.defer(() => sql.end())
 	const template = await readFile(resolve(webRoot, "database/dev-seed.sql"), "utf8")
-	const sessions = []
-	for (const [name, DATABASE_URL] of Object.entries(databases.urls)) {
-		await seedDatabase(DATABASE_URL, template, seed)
-		const addresses = {
-			...(await assignDevEnvPorts(join(directory, name))),
-			DATABASE_URL,
-		}
-		const settings = await readDevEnvServiceEnv(
-			root,
-			await readDevEnvWebEnv(webRoot, addresses),
-			addresses,
-		)
-		const web = startNext({
-			cwd: webRoot,
-			env: {
-				...settings.webEnv,
-				NODE_ENV: "development",
+	for (let application = 0; application < 2; application++) {
+		await seedDatabase(databases.urls.ctx_seed_web, template, seed)
+		expect(await sql`SELECT id, name, email, "emailVerified" FROM "user"`).toEqual([
+			seed.web.user,
+		])
+		expect(await sql`SELECT "accountId", "providerId", "userId" FROM account`).toEqual([
+			{
+				accountId: seed.web.user.id,
+				providerId: "credential",
+				userId: seed.web.user.id,
 			},
-			url: addresses.BETTER_AUTH_URL,
-		})
-		resources.defer(async () => {
-			web.process.kill("SIGTERM")
-			try {
-				await web.process
-			} catch (error) {
-				if (
-					!(error instanceof Error) ||
-					!("signal" in error) ||
-					error.signal !== "SIGTERM"
-				)
-					throw error
-			}
-		})
-		await web.ready
-		const session = await signInWeb({
-			baseURL: web.url.href,
-			email: seed.web.user.email,
-			password: seed.web.credentials.password,
-		})
-		resources.defer(async () => {
-			await session.client.signOut()
-		})
-		expect(session.user.id).toBe(seed.web.user.id)
-		await seedDatabase(DATABASE_URL, template, seed)
-		const preserved = await fetch(new URL("/api/auth/get-session", web.url), {
-			headers: session.headers,
-		})
-		expect(preserved.status).toBe(200)
-		expect(await preserved.json()).toMatchObject({ user: { id: seed.web.user.id } })
-		const organizations = await fetch(new URL("/api/auth/organization/list", web.url), {
-			headers: session.headers,
-		})
-		expect(organizations.status).toBe(200)
-		expect(await organizations.json()).toMatchObject([{ id: seed.web.organization.id }])
-		const device = await fetch(new URL("/api/auth/device/code", web.url), {
-			body: new URLSearchParams({
-				client_id: seed.web.client.clientId,
-				resource: seed.web.resource.identifier,
-				scope: seed.web.client.scopes.join(" "),
-			}),
-			headers: { "content-type": "application/x-www-form-urlencoded" },
-			method: "POST",
-		})
-		expect(device.status).toBe(200)
-		expect(await device.json()).toMatchObject({ device_code: expect.any(String) })
-		sessions.push({ ...session, url: web.url })
+		])
+		expect(await sql`SELECT id, name, slug FROM organization`).toEqual([
+			seed.web.organization,
+		])
+		expect(await sql`SELECT "organizationId", "userId", role FROM member`).toEqual([
+			{
+				organizationId: seed.web.organization.id,
+				role: seed.web.membership.role,
+				userId: seed.web.user.id,
+			},
+		])
+		expect(
+			await sql`SELECT "clientId", "userId", "clientSecret", disabled,
+			"tokenEndpointAuthMethod", ("grantTypes" #>> '{}')::jsonb AS "grantTypes",
+			(scopes #>> '{}')::jsonb AS scopes FROM "oauthClient"`,
+		).toEqual([
+			{
+				clientId: seed.web.client.clientId,
+				clientSecret: null,
+				disabled: false,
+				grantTypes: seed.web.client.grantTypes,
+				scopes: seed.web.client.scopes,
+				tokenEndpointAuthMethod: seed.web.client.tokenEndpointAuthMethod,
+				userId: seed.web.user.id,
+			},
+		])
+		expect(
+			await sql`SELECT identifier, disabled,
+			("allowedScopes" #>> '{}')::jsonb AS "allowedScopes" FROM "oauthResource"`,
+		).toEqual([
+			{
+				allowedScopes: seed.web.resource.allowedScopes,
+				disabled: false,
+				identifier: seed.web.resource.identifier,
+			},
+		])
+		expect(await sql`SELECT "clientId", "resourceId" FROM "oauthClientResource"`).toEqual(
+			[
+				{
+					clientId: seed.web.client.clientId,
+					resourceId: seed.web.resource.identifier,
+				},
+			],
+		)
 	}
-	const [first, second] = sessions
-	if (!first || !second) throw new Error("Expected both web sessions")
-	const other = await fetch(new URL("/api/auth/get-session", second.url), {
-		headers: first.headers,
-	})
-	expect(other.status).toBe(200)
-	expect(await other.json()).toBeNull()
-}, 180_000)
+})

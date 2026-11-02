@@ -4,7 +4,7 @@ import { expect } from "vitest"
 import { slateSchema } from "@/slates.schema"
 
 const test = base
-	.extend("slate", async ({ webSession, platform }, { onCleanup }) => {
+	.extend("slate", async ({ db, webSession, platform }, { onCleanup }) => {
 		const headers = new Headers(webSession.headers)
 		headers.set("origin", platform.origin)
 		headers.set("content-type", "application/json")
@@ -18,6 +18,7 @@ const test = base
 		const { ARTIFACTS } = await platform.worker.getEnv()
 		onCleanup(async () => {
 			await ARTIFACTS.delete(slate.id)
+			await db.deleteFrom("slate").where("id", "=", slate.id).execute()
 		})
 		return slate
 	})
@@ -151,9 +152,12 @@ test("native forms enforce CSRF while sessions and CLI tokens can update JSON di
 	})
 	expect(unpushed.status).toBe(409)
 	nativeHeaders.delete("origin")
-	for (const headers of [nativeHeaders, identity.headers]) {
+	for (const [headers, visibility] of [
+		[nativeHeaders, "public"],
+		[identity.headers, "private"],
+	] as const) {
 		const response = await fetch(update, {
-			body: JSON.stringify({ visibility: "private" }),
+			body: JSON.stringify({ visibility }),
 			headers: {
 				...Object.fromEntries(new Headers(headers)),
 				"content-type": "application/json",
@@ -161,37 +165,37 @@ test("native forms enforce CSRF while sessions and CLI tokens can update JSON di
 			method: "PATCH",
 		})
 		expect(response.status).toBe(200)
-		expect(await response.json()).toMatchObject({ id: slate.id, visibility: "private" })
+		expect(await response.json()).toMatchObject({ id: slate.id, visibility })
+		const saved = await fetch(update, { headers })
+		expect(saved.status).toBe(200)
+		expect(await saved.json()).toMatchObject({ id: slate.id, visibility })
 	}
 })
 
-test("native sessions and CLI tokens can manage slates and accept only scoped resource inputs", async ({
+test("native sessions and CLI tokens reject unscoped account and resource inputs", async ({
 	slate,
 	db,
 	identity,
 	platform: { origin },
 	webSession,
 }) => {
-	const slateWithoutPolarCustomer = await db
+	const otherSlate = await db
 		.insertInto("slate")
 		.values({
 			owner_user_id: crypto.randomUUID(),
-			public_hostname: "missing-customer.example.com",
+			public_hostname: `${crypto.randomUUID()}.example.com`,
 			visibility: "public",
 		})
 		.returningAll()
 		.executeTakeFirstOrThrow()
+	await using rows = new AsyncDisposableStack()
+	rows.defer(async () => {
+		await db.deleteFrom("slate").where("id", "=", otherSlate.id).execute()
+	})
 	for (const credentials of [webSession.headers, identity.headers]) {
 		const headers = new Headers(credentials)
 		headers.set("origin", origin)
 		headers.set("content-type", "application/json")
-		const response = await fetch(`${origin}/api/slates/${slate.id}`, {
-			body: JSON.stringify({ visibility: "private" }),
-			headers,
-			method: "PATCH",
-		})
-		expect(response.status).toBe(200)
-		expect(await response.json()).toMatchObject({ id: slate.id, visibility: "private" })
 		expect((await fetch(`${origin}/api/accounts`, { headers })).status).toBe(400)
 		expect(
 			(await fetch(`${origin}/api/accounts?toolkit=gmail&owner_id=other`, { headers }))
@@ -199,7 +203,7 @@ test("native sessions and CLI tokens can manage slates and accept only scoped re
 		).toBe(400)
 		const concreteCall = {
 			arguments: {},
-			slate_id: slateWithoutPolarCustomer.id,
+			slate_id: otherSlate.id,
 			tool: "READ",
 			toolkit: "gmail",
 		}
@@ -241,6 +245,7 @@ test("personal connected account execution requires permission to manage persona
 }) => {
 	const headers = new Headers(identity.headers)
 	headers.set("content-type", "application/json")
+	await using rows = new AsyncDisposableStack()
 	for (const owner of [
 		{ owner_organization_id: null, owner_user_id: crypto.randomUUID() },
 		{ owner_organization_id: crypto.randomUUID(), owner_user_id: null },
@@ -254,6 +259,9 @@ test("personal connected account execution requires permission to manage persona
 			})
 			.returning("id")
 			.executeTakeFirstOrThrow()
+		rows.defer(async () => {
+			await db.deleteFrom("slate").where("id", "=", slate.id).execute()
+		})
 		expect(
 			(
 				await fetch(`${origin}/api/accounts/ca_example/tools/call`, {

@@ -61,7 +61,7 @@ test("slate ownership protects viewing, listing, and native Git source access", 
 		await ARTIFACTS.delete(organizationSlate.id)
 	})
 	expect(organizationSlate.owner_user_id).toBeNull()
-	expect(organizationSlate.owner_organization_id).not.toBeNull()
+	expect(organizationSlate.owner_organization_id).toBe(organization.id)
 	expect(
 		await db
 			.selectFrom("slate_member")
@@ -109,8 +109,9 @@ test("slate ownership protects viewing, listing, and native Git source access", 
 		).toEqual({ visibility })
 		expect((await fetch(resolveUrl)).status).toBe(visibility === "public" ? 200 : 401)
 	}
-	expect((await fetch(refs)).status).toBe(401)
-	expect((await fetch(refs)).headers.get("WWW-Authenticate")).toContain("Bearer")
+	const unauthenticatedRefs = await fetch(refs)
+	expect(unauthenticatedRefs.status).toBe(401)
+	expect(unauthenticatedRefs.headers.get("WWW-Authenticate")).toContain("Bearer")
 	const connectionList = `${origin}/api/slates/${slate.id}/connections/list`
 	const agentUrl = `${origin}/api/slates/${slate.id}/agents/company-brief`
 	expect((await fetch(agentUrl)).status).toBe(401)

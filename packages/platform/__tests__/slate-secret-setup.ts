@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { test as base } from "@tests/integration"
-import { copySlateProject } from "@tests/slate-project"
+import { copySlateProject } from "@usecontextlayer/dev-env/slate"
 import { getAgentByName } from "agents/routing"
 import { execa } from "execa"
 import { expect } from "vitest"
@@ -29,6 +29,7 @@ export const test = base.extend(
 		const { ARTIFACTS, AGENTS } = await platform.worker.getEnv()
 		onCleanup(async () => {
 			await ARTIFACTS.delete(slate.id)
+			await db.deleteFrom("slate").where("id", "=", slate.id).execute()
 		})
 		await copySlateProject(directory)
 		await mkdir(join(directory, "agents/daily/schedules"), { recursive: true })

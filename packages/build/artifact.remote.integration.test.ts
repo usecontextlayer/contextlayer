@@ -13,9 +13,16 @@ test("R2 confines build credentials to their Workflow artifact prefix", async ()
 	assert(R2_ACCESS_KEY_ID, "R2_ACCESS_KEY_ID is required")
 	assert(R2_SECRET_ACCESS_KEY, "R2_SECRET_ACCESS_KEY is required")
 	const id = crypto.randomUUID()
-	const transfer = await artifactTransferEnv(
-		{ BACKUP_BUCKET_NAME, CLOUDFLARE_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY },
-		id,
+	const env = {
+		BACKUP_BUCKET_NAME,
+		CLOUDFLARE_ACCOUNT_ID,
+		R2_ACCESS_KEY_ID,
+		R2_SECRET_ACCESS_KEY,
+	}
+	const transfer = await artifactTransferEnv(env, id, "object-read-write")
+	const otherTransfer = await artifactTransferEnv(
+		env,
+		crypto.randomUUID(),
 		"object-read-write",
 	)
 	const author = new AwsClient({
@@ -31,9 +38,14 @@ test("R2 confines build credentials to their Workflow artifact prefix", async ()
 		secretAccessKey: R2_SECRET_ACCESS_KEY,
 		service: "s3",
 	})
-	const bucket = `${transfer.RCLONE_CONFIG_ARTIFACT_ENDPOINT}/${BACKUP_BUCKET_NAME}`
-	const allowed = `${bucket}/build-artifacts/${id}/probe.txt`
-	const outside = `${bucket}/build-artifacts/${crypto.randomUUID()}/probe.txt`
+	const allowed = new URL(
+		`${new URL(transfer.CTX_BUILD_ARTIFACT_PATH).pathname}probe.txt`,
+		transfer.RCLONE_CONFIG_ARTIFACT_ENDPOINT,
+	).href
+	const outside = new URL(
+		`${new URL(otherTransfer.CTX_BUILD_ARTIFACT_PATH).pathname}probe.txt`,
+		otherTransfer.RCLONE_CONFIG_ARTIFACT_ENDPOINT,
+	).href
 	await using resources = new AsyncDisposableStack()
 	for (const url of [allowed, outside]) {
 		resources.defer(async () => {

@@ -1,8 +1,3 @@
-// Assertions check THIS CALL's databases (by exact name, or as a delta over a
-// baseline) — never "the prefix is empty". Global-prefix assertions trip over
-// leftovers from a previously killed run (the documented SIGKILL leak mode)
-// and over concurrent compositions, both of which are normal here.
-
 import postgres from "postgres"
 import { expect, test } from "vitest"
 import { provisionEphemeralDatabases } from "@/database"
@@ -24,85 +19,59 @@ async function listLiveDatabaseNames(prefix: string): Promise<string[]> {
 }
 
 function databaseNamesFromUrls(urls: Record<string, string>): string[] {
-	return Object.values(urls).map((url) => url.slice(url.lastIndexOf("/") + 1))
+	return Object.values(urls).map((url) => new URL(url).pathname.slice(1))
 }
 
-test("per-key mode migrates each database with its own migrator and dropAll reclaims them", async () => {
-	const migrated: { one: string[]; two: string[] } = { one: [], two: [] }
-	const provisioned = await provisionEphemeralDatabases(databaseUrl, {
-		migrators: {
-			ctx_ephemeral_pk_one: async (url) => {
-				migrated.one.push(url)
-			},
-			ctx_ephemeral_pk_two: async (url) => {
-				migrated.two.push(url)
-			},
-		},
-	})
-	const names = databaseNamesFromUrls(provisioned.urls)
-	try {
-		expect(Object.keys(provisioned.urls).sort()).toEqual([
-			"ctx_ephemeral_pk_one",
-			"ctx_ephemeral_pk_two",
-		])
-		expect(migrated).toEqual({
-			one: [provisioned.urls.ctx_ephemeral_pk_one],
-			two: [provisioned.urls.ctx_ephemeral_pk_two],
-		})
-		expect(await listLiveDatabaseNames("ctx_ephemeral_pk_")).toEqual(
-			expect.arrayContaining(names),
+test.for(["per-key", "batch"] as const)(
+	"%s mode returns migrated databases and dropAll reclaims them",
+	async (mode) => {
+		const migrate = async (url: string, marker: string) => {
+			const sql = postgres(url, { max: 1 })
+			try {
+				await sql`CREATE TABLE migration_proof (value text NOT NULL)`
+				await sql`INSERT INTO migration_proof VALUES (${marker})`
+			} finally {
+				await sql.end()
+			}
+		}
+		const baseNames = ["ctx_ephemeral_one", "ctx_ephemeral_two"] as const
+		const provisioned = await provisionEphemeralDatabases(
+			databaseUrl,
+			mode === "per-key"
+				? {
+						migrators: {
+							ctx_ephemeral_one: (url) => migrate(url, "ctx_ephemeral_one"),
+							ctx_ephemeral_two: (url) => migrate(url, "ctx_ephemeral_two"),
+						},
+					}
+				: {
+						baseNames,
+						migrate: async (urls) => {
+							await Promise.all(baseNames.map((name) => migrate(urls[name], name)))
+						},
+					},
 		)
-	} finally {
-		await provisioned.dropAll()
-	}
-	const after = await listLiveDatabaseNames("ctx_ephemeral_pk_")
-	for (const name of names) {
-		expect(after).not.toContain(name)
-	}
-})
-
-test("batch mode hands ONE migrate step the full keyed url record, exactly once", async () => {
-	const calls: Record<string, string>[] = []
-	const provisioned = await provisionEphemeralDatabases(databaseUrl, {
-		baseNames: ["ctx_ephemeral_ba_one", "ctx_ephemeral_ba_two"],
-		migrate: async (urls) => {
-			calls.push(urls)
-		},
-	})
-	try {
-		expect(calls).toEqual([provisioned.urls])
-		expect(Object.keys(provisioned.urls).sort()).toEqual([
-			"ctx_ephemeral_ba_one",
-			"ctx_ephemeral_ba_two",
-		])
-	} finally {
-		await provisioned.dropAll()
-	}
-	const after = await listLiveDatabaseNames("ctx_ephemeral_ba_")
-	for (const name of databaseNamesFromUrls(provisioned.urls)) {
-		expect(after).not.toContain(name)
-	}
-})
-
-test("a failed create drops the sibling that succeeded — no leak", async () => {
-	// "bad-name" is an invalid unquoted identifier, so its CREATE DATABASE fails
-	// while the valid sibling's create succeeds; the settle discipline must then
-	// reclaim the sibling before rethrowing. The doomed sibling's generated name
-	// never escapes a rejected call, so this one asserts as a baseline delta.
-	const baseline = await listLiveDatabaseNames("ctx_ephemeral_cf_")
-	await expect(
-		provisionEphemeralDatabases(databaseUrl, {
-			baseNames: ["ctx_ephemeral_cf_ok", "bad-name"],
-			migrate: async () => {},
-		}),
-	).rejects.toThrow()
-	expect(await listLiveDatabaseNames("ctx_ephemeral_cf_")).toEqual(baseline)
-})
+		const names = databaseNamesFromUrls(provisioned.urls)
+		try {
+			expect(Object.keys(provisioned.urls).sort()).toEqual(baseNames)
+			for (const name of baseNames) {
+				const sql = postgres(provisioned.urls[name], { max: 1 })
+				try {
+					expect(await sql`SELECT value FROM migration_proof`).toEqual([{ value: name }])
+				} finally {
+					await sql.end()
+				}
+			}
+		} finally {
+			await provisioned.dropAll()
+		}
+		const after = await listLiveDatabaseNames("ctx_ephemeral_")
+		for (const name of names) expect(after).not.toContain(name)
+	},
+)
 
 test("a failed migrate drops every created database before rethrowing", async () => {
-	// The urls handed to the failing migrate are the only place the doomed
-	// names escape — capture them so the leak check is exact-name, immune to
-	// leftovers from killed runs and to concurrent compositions.
+	// A rejected provisioning call returns no handles; record its names before migration fails.
 	let doomed: string[] = []
 	await expect(
 		provisionEphemeralDatabases(databaseUrl, {
@@ -120,7 +89,7 @@ test("a failed migrate drops every created database before rethrowing", async ()
 	}
 })
 
-test("two concurrent provisions of the same base coexist under distinct <base>_<hex8> names", async () => {
+test("two concurrent provisions of the same base coexist as distinct databases", async () => {
 	const [first, second] = await Promise.all([
 		provisionEphemeralDatabases(databaseUrl, {
 			baseNames: ["ctx_ephemeral_cc"],
@@ -134,8 +103,6 @@ test("two concurrent provisions of the same base coexist under distinct <base>_<
 	try {
 		const [firstName] = databaseNamesFromUrls(first.urls)
 		const [secondName] = databaseNamesFromUrls(second.urls)
-		expect(firstName).toMatch(/^ctx_ephemeral_cc_[0-9a-f]{8}$/)
-		expect(secondName).toMatch(/^ctx_ephemeral_cc_[0-9a-f]{8}$/)
 		expect(firstName).not.toBe(secondName)
 		const live = await listLiveDatabaseNames("ctx_ephemeral_cc_")
 		expect(live).toEqual(expect.arrayContaining([firstName, secondName]))

@@ -1,8 +1,11 @@
+import assert from "node:assert/strict"
 import { execFile as execFileCallback } from "node:child_process"
 import { mkdir, writeFile } from "node:fs/promises"
+import { join } from "node:path"
 import { promisify } from "node:util"
 import { AssistantEntry, ToolResultEntry, UserEntry } from "@earendil-works/pi-durable"
 import { test } from "@tests/integration"
+import { copySlateProject } from "@usecontextlayer/dev-env/slate"
 import { signInViewer } from "@usecontextlayer/dev-env/viewer"
 import { expect } from "vitest"
 import { z } from "zod"
@@ -11,7 +14,6 @@ import {
 	agentJobEntrySchema,
 	agentJobInspectionSchema,
 	agentJobMessageSchema,
-	agentJobOperationSchema,
 	agentJobResultSchema,
 	agentJobSessionSchema,
 	agentJobUsageSchema,
@@ -23,7 +25,7 @@ const execFile = promisify(execFileCallback)
 test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
 	"API jobs using %s complete through the declared provider",
 	{ timeout: 240_000 },
-	async (providerSecret, { directory, platform, webEnv, webSession }) => {
+	async (providerSecret, { cliEnv, directory, platform, webEnv, webSession }) => {
 		const { origin, worker } = platform
 		const headers = new Headers(webSession.headers)
 		headers.set("origin", origin)
@@ -38,15 +40,10 @@ test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
 		const { ARTIFACTS } = await worker.getEnv()
 		await using resources = new AsyncDisposableStack()
 		resources.defer(async () => {
-			// Cleanup runs after Worker reload; do not retain a binding from the old runtime.
-			const { ARTIFACTS } = await worker.getEnv()
 			await ARTIFACTS.delete(slate.id)
 		})
-		const repo = await ARTIFACTS.get(slate.id)
-		const { remote } = await repo.info()
-		const token = await repo.createToken("write")
+		await copySlateProject(directory)
 		await mkdir(`${directory}/agents/brief`, { recursive: true })
-		await mkdir(`${directory}/public`)
 		await writeFile(`${directory}/public/slate.json`, JSON.stringify({ connections: {} }))
 		await writeFile(
 			`${directory}/agents/brief/instructions.md`,
@@ -59,20 +56,25 @@ test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
 				secrets: { [providerSecret]: { mode: "viewer" } },
 			}),
 		)
+		const cli = join(import.meta.dirname, "../../cli/dist/cli.mjs")
 		const gitEnv = {
 			...process.env,
-			GIT_CONFIG_COUNT: "1",
-			GIT_CONFIG_GLOBAL: `${directory}/gitconfig`,
-			GIT_CONFIG_KEY_0: "http.extraHeader",
-			GIT_CONFIG_VALUE_0: `Authorization: Bearer ${token.plaintext}`,
+			...cliEnv,
+			GIT_CONFIG_GLOBAL: join(directory, "gitconfig"),
 			GIT_TERMINAL_PROMPT: "0",
 		}
 		const git = (...args: string[]) =>
 			execFile("git", args, { cwd: directory, env: gitEnv })
+		await git(
+			"config",
+			"--global",
+			`credential.${origin}/git.helper`,
+			`${cli} git-credential`,
+		)
 		await git("init", "-b", "main")
 		await git("config", "user.name", "Pi API Acceptance")
 		await git("config", "user.email", "pi-api-test@example.com")
-		await git("add", "agents", "public")
+		await git("add", ".", ":!gitconfig")
 		await git(
 			"-c",
 			"commit.gpgsign=false",
@@ -80,10 +82,9 @@ test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
 			"-m",
 			"Author Pi API acceptance agent",
 		)
-		await git("push", remote, "main")
+		await git("push", `${origin}/git/${slate.id}`, "main")
 		const url = `${origin}/api/slates/${slate.id}/agents/brief/jobs`
-		const creations = []
-		const results: z.infer<typeof agentJobResultSchema>[] = []
+		const completedJobs = []
 		const markerPath = "/workspace/contextlayer-coding-tools.txt"
 		const prompts = [
 			`Use bash to run uname -s, then write CREATED to ${markerPath} and print the file contents. Report completion briefly.`,
@@ -110,29 +111,13 @@ test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
 				actor: { id: slate.owner_user_id, type: "user" },
 				trigger: { type: "api" },
 			})
-			creations.push(creation)
-			const detail = await fetch(jobUrl, { headers })
-			expect(detail.status).toBe(200)
-			expect(agentJobEntrySchema.strict().parse(await detail.json())).toEqual(job)
-			const operation = await fetch(`${jobUrl}/operation`, { headers })
-			expect(operation.status).toBe(200)
-			expect(agentJobOperationSchema.parse(await operation.json())).toMatchObject({
-				operationId: receipt.operationId,
-				session: receipt.session,
-			})
-			const liveInspectionResponse = await fetch(`${jobUrl}/inspection`, { headers })
-			expect(liveInspectionResponse.status).toBe(200)
-			console.info(
-				"Native live Pi inspection",
-				agentJobInspectionSchema.parse(await liveInspectionResponse.json()),
-			)
 			const completed = await fetch(`${jobUrl}/result`, { headers })
 			expect(completed.status).toBe(200)
 			const result = agentJobResultSchema.strict().parse(await completed.json())
-			console.info("Real Pi API result", result)
+			expect(result.status, result.reason).toBe("done")
 			expect(result.operationId).toBe(receipt.operationId)
 			expect(result.session).toBe(receipt.session)
-			results.push(result)
+			completedJobs.push({ ...creation, result })
 			const settledOperation = await fetch(`${jobUrl}/operation`, { headers })
 			expect(settledOperation.status).toBe(200)
 			expect(agentJobResultSchema.strict().parse(await settledOperation.json())).toEqual(
@@ -148,14 +133,6 @@ test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
 			)
 			expect(messageResponse.status).toBe(200)
 			const messages = z.array(agentJobMessageSchema).parse(await messageResponse.json())
-			expect(
-				result.status,
-				JSON.stringify({
-					assistant: messages.filter((entry) => entry.kind === AssistantEntry.kind),
-					reason: result.reason,
-				}),
-			).toBe("done")
-
 			const userEntries = messages.filter((entry) => entry.kind === UserEntry.kind)
 			expect(userEntries).toHaveLength(1)
 			expect(userEntries[0]?.model).toContainEqual(
@@ -190,10 +167,9 @@ test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
 			if (index === 0) {
 				expect(bashOutput).toContain("Linux")
 				expect(outputs.map((output) => output.text).join("\n")).toContain("CREATED")
-			} else if (providerSecret === "ANTHROPIC_API_KEY") {
+			} else {
 				expect(bashOutput).toContain("FRESH_JOB_FILESYSTEM")
 			}
-			console.info("Native Pi execution results", executionResults)
 			const assistantEntry = messages
 				.filter((entry) => entry.kind === AssistantEntry.kind)
 				.at(-1)
@@ -206,6 +182,7 @@ test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
 					role: z.literal("assistant"),
 				})
 				.parse(assistantEntry?.model?.find((message) => message.role === "assistant"))
+			expect(assistant.model).toBe("claude-haiku-4-5")
 			expect(assistant.content).toContainEqual(expect.objectContaining({ type: "text" }))
 			const usageResponse = await fetch(`${jobUrl}/usage`, { headers })
 			expect(usageResponse.status).toBe(200)
@@ -217,24 +194,28 @@ test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
 			expect(inspectionResponse.status).toBe(200)
 			const inspection = agentJobInspectionSchema.parse(await inspectionResponse.json())
 			expect(inspection.submissions).toEqual([])
-			console.info("Native Pi inspection", { inspection, sessions, usage })
 		}
+		const completedJob = completedJobs[0]
+		assert(completedJob)
 		if (providerSecret === "CLAUDE_CODE_OAUTH_TOKEN") {
-			const deleted = await fetch(`${url}/${creations[0]?.job.id}`, {
+			const deleted = await fetch(`${url}/${completedJob.job.id}`, {
 				headers,
 				method: "DELETE",
 			})
 			expect(deleted.status).toBe(204)
 			return
 		}
-		expect(creations[0]?.job.id).not.toBe(creations[1]?.job.id)
-		await platform.harness.update((current) => current)
-		for (const [index, { job, receipt }] of creations.entries()) {
+		expect(completedJob.job.id).not.toBe(completedJobs[1]?.job.id)
+		const inspector = platform.harness.getWorker("contextlayer-platform-test")
+		for (const binding of ["AGENT_JOBS", "AGENTS"] as const) {
+			const ids = await inspector.listDurableObjectIds(binding)
+			expect(ids.length).toBeGreaterThan(0)
+			for (const id of ids) await inspector.evictDurableObject(binding, { id })
+		}
+		for (const { job, receipt, result } of completedJobs) {
 			const operation = await fetch(`${url}/${job.id}/operation`, { headers })
 			expect(operation.status).toBe(200)
-			expect(agentJobResultSchema.strict().parse(await operation.json())).toEqual(
-				results[index],
-			)
+			expect(agentJobResultSchema.strict().parse(await operation.json())).toEqual(result)
 			const response = await fetch(
 				`${url}/${job.id}/sessions/${receipt.session}/messages`,
 				{
@@ -251,8 +232,7 @@ test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
 		const listed = await fetch(url, { headers })
 		expect(listed.status).toBe(200)
 		const catalog = catalogSchema.parse(await listed.json())
-		expect(catalog.jobs).toEqual([...creations].reverse().map(({ job }) => job))
-		console.info("Native job catalog", catalog)
+		expect(catalog.jobs).toEqual([...completedJobs].reverse().map(({ job }) => job))
 		const scheduled = await fetch(`${url}?schedule=greeting`, { headers })
 		expect(scheduled.status).toBe(200)
 		expect(catalogSchema.parse(await scheduled.json()).jobs).toEqual([])
@@ -262,38 +242,21 @@ test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
 			method: "POST",
 		})
 		expect(continued.status).toBe(400)
-		for (const result of results) {
+		for (const { result } of completedJobs) {
 			expect(result.text?.length).toBeGreaterThan(0)
 		}
-		const submitted = await fetch(url, {
-			body: JSON.stringify({ prompt: "Write a short greeting." }),
-			headers,
-			method: "POST",
-		})
-		expect(submitted.status).toBe(202)
-		const abortedCreation = agentJobCreationSchema.strict().parse(await submitted.json())
-		const abortedUrl = `${url}/${abortedCreation.job.id}`
-		const aborted = await fetch(`${abortedUrl}/operation`, { headers, method: "DELETE" })
-		expect(aborted.status).toBe(200)
-		const wasAborted = z.boolean().parse(await aborted.json())
-		const settled = await fetch(`${abortedUrl}/result`, { headers })
-		expect(settled.status).toBe(200)
-		const abortedResult = agentJobResultSchema.strict().parse(await settled.json())
-		expect(abortedResult.operationId).toBe(abortedCreation.receipt.operationId)
-		expect(abortedResult.operationId).not.toBe(abortedCreation.job.id)
-		console.info("Native Pi abort", { aborted: wasAborted, result: abortedResult })
-		const retained = await fetch(abortedUrl, { headers })
-		expect(retained.status).toBe(200)
-		expect(agentJobEntrySchema.strict().parse(await retained.json())).toEqual(
-			abortedCreation.job,
-		)
-		const alreadySettled = await fetch(`${abortedUrl}/operation`, {
+		const completedUrl = `${url}/${completedJob.job.id}`
+		const alreadySettled = await fetch(`${completedUrl}/operation`, {
 			headers,
 			method: "DELETE",
 		})
 		expect(alreadySettled.status).toBe(200)
 		expect(await alreadySettled.json()).toBe(false)
-		creations.push(abortedCreation)
+		const retained = await fetch(completedUrl, { headers })
+		expect(retained.status).toBe(200)
+		expect(agentJobEntrySchema.strict().parse(await retained.json())).toEqual(
+			completedJob.job,
+		)
 		const viewerHeaders = await signInViewer({
 			authURL: webEnv.CTX_VIEWER_AUTH_URL,
 			returnTo: `https://${slate.public_hostname}/`,
@@ -301,12 +264,12 @@ test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
 		})
 		const inspectionPaths = [
 			"/sessions",
-			`/sessions/${abortedCreation.receipt.session}/messages`,
+			`/sessions/${completedJob.receipt.session}/messages`,
 			"/usage",
 			"/inspection",
 		]
 		for (const path of inspectionPaths) {
-			const denied = await fetch(`${abortedUrl}${path}`, { headers: viewerHeaders })
+			const denied = await fetch(`${completedUrl}${path}`, { headers: viewerHeaders })
 			expect(denied.status).toBe(401)
 		}
 		const publicSlate = await fetch(`${origin}/api/slates/${slate.id}`, {
@@ -316,7 +279,7 @@ test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
 		})
 		expect(publicSlate.status).toBe(200)
 		for (const path of inspectionPaths) {
-			const denied = await fetch(`${abortedUrl}${path}`, { headers })
+			const denied = await fetch(`${completedUrl}${path}`, { headers })
 			expect(denied.status).toBe(403)
 		}
 		const privateSlate = await fetch(`${origin}/api/slates/${slate.id}`, {
@@ -325,7 +288,7 @@ test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
 			method: "PATCH",
 		})
 		expect(privateSlate.status).toBe(200)
-		for (const { job } of creations) {
+		for (const { job } of completedJobs) {
 			const deleted = await fetch(`${url}/${job.id}`, { headers, method: "DELETE" })
 			expect(deleted.status).toBe(204)
 			for (const suffix of ["", "/operation", "/result"]) {

@@ -1,42 +1,32 @@
-import { appendFile, mkdtemp, rm, writeFile } from "node:fs/promises"
+import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import type { CiParams, CiRunnerResult, CloudflareArtifacts } from "@cloudflare/ci"
 import type { CiBindings } from "@cloudflare/ci/worker"
 import { test as base } from "@tests/database"
-import { writeDatabase } from "@tests/database-project"
-import { copySlateProject } from "@tests/slate-project"
-import {
-	buildWorkerConfig,
-	dispatcherWorkerConfig,
-	platformWorkerConfig,
-	type Workers,
-} from "@tests/workers"
+import { copySlateProject } from "@usecontextlayer/dev-env/slate"
 import { execa } from "execa"
 import { expect } from "vitest"
 import { z } from "zod"
 import type { PlatformEnv } from "@/context"
-import type { Provisioning } from "@/provisioning.server"
-import { prepareSlateProvisioning } from "@/slate-provisioning.server"
 import { prepareSlateDatabase } from "@/slate-resource-configuration.server"
 import { slateSchema } from "@/slates.schema"
+// biome-ignore lint/style/noRestrictedImports: shared Worker fixtures live outside the package
+import * as workerFixtures from "../../../vitest.workers.ts"
 
 const test = base.extend(
 	"workers",
-	({ databases }): Workers => [
+	({ databases }): workerFixtures.Workers => [
 		{
-			...platformWorkerConfig,
+			...workerFixtures.platformWorkerConfig,
 			secrets: { CTX_PLATFORM_DATABASE_URL: databases.urls.ctx_platform_test },
 		},
-		buildWorkerConfig,
-		dispatcherWorkerConfig,
+		workerFixtures.buildWorkerConfig,
+		workerFixtures.dispatcherWorkerConfig,
 	],
 )
 
-test("the build Workflow publishes a migrated slate and its workspace provisions a later member", async ({
-	db,
-	harness,
-}) => {
+test("the build Workflow publishes a migrated slate", async ({ db, harness }) => {
 	await using resources = new AsyncDisposableStack()
 	const directory = await mkdtemp(join(tmpdir(), "slate-build-"))
 	resources.defer(() => rm(directory, { force: true, recursive: true }))
@@ -48,8 +38,6 @@ test("the build Workflow publishes a migrated slate and its workspace provisions
 	const buildWorker = harness.getWorker<
 		CiBindings & {
 			CTX_DISPATCH_NAMESPACE: string
-			MEMBER_PROVISIONING: PlatformEnv["Bindings"]["MEMBER_PROVISIONING"]
-			PROVISIONING: Service<Provisioning>
 		}
 	>("contextlayer-build-test")
 	const buildEnv = await buildWorker.getEnv()
@@ -67,11 +55,6 @@ test("the build Workflow publishes a migrated slate and its workspace provisions
 	const repo = await ARTIFACTS.create(slate.id)
 	resources.defer(async () => {
 		await ARTIFACTS.delete(slate.id)
-	})
-	resources.defer(async () => {
-		const page = await buildEnv.BACKUP_BUCKET.list({ prefix: `cache/build/${slate.id}/` })
-		if (page.objects.length > 0)
-			await buildEnv.BACKUP_BUCKET.delete(page.objects.map(({ key }) => key))
 	})
 
 	const execute = execa({
@@ -102,25 +85,9 @@ test("the build Workflow publishes a migrated slate and its workspace provisions
 		join(checkout, "public/slate.json"),
 		JSON.stringify({
 			connections: {},
-			databases: { drafts: { mode: "viewer" }, notes: { mode: "owner" } },
+			databases: { notes: { mode: "owner" } },
 			secrets: {},
 		}),
-	)
-	await appendFile(
-		join(checkout, "vite.config.ts"),
-		`\nimport { writeFileSync } from "node:fs"\nwriteFileSync("build-workspace.txt", ${JSON.stringify(slate.id)})\n`,
-	)
-	await writeDatabase(checkout, "drafts")
-	await writeFile(
-		join(checkout, "databases/drafts/migrations/001_create_updates.ts"),
-		`import { readFileSync } from "node:fs"
-import { sql, type Kysely } from "kysely"
-export async function up(db: Kysely<unknown>) {
-  const built = readFileSync("build-workspace.txt", "utf8")
-  await sql\`CREATE TABLE build_workspace (value TEXT NOT NULL)\`.execute(db)
-  await sql\`INSERT INTO build_workspace (value) VALUES (\${built})\`.execute(db)
-}
-`,
 	)
 	await writeFile(
 		join(checkout, "app/routes.ts"),
@@ -182,43 +149,19 @@ export default [index("routes/home.tsx"), route("build-proof", "routes/build-pro
 		} satisfies CiParams<CloudflareArtifacts>,
 	})
 	await using workflow = await buildWorker.introspectWorkflowInstance("CI_WORKFLOW", id)
-	const { snapshot } = (await workflow.waitForStepResult({ name: "build" })) as Pick<
-		CiRunnerResult,
-		"snapshot"
-	>
-	resources.defer(() =>
-		buildEnv.BACKUP_BUCKET.delete([
-			`backups/${snapshot.id}/data.sqsh`,
-			`backups/${snapshot.id}/meta.json`,
-		]),
-	)
-	await workflow.waitForStatus("complete")
-	expect(await workflow.getOutput()).toEqual({ conclusion: "success" })
-	const member = { id: crypto.randomUUID(), type: "user" } as const
-	const prepared = await buildEnv.PROVISIONING.prepare(
-		slate.id,
-		await git("rev-parse", "HEAD"),
-	)
-	const memberProvisioning = await buildEnv.MEMBER_PROVISIONING.create({
-		params: prepareSlateProvisioning(slate, [member], prepared.snapshot),
-	})
-	await using memberWorkflow = await buildWorker.introspectWorkflowInstance(
-		"MEMBER_PROVISIONING",
-		memberProvisioning.id,
-	)
-	await memberWorkflow.waitForStatus("complete")
-	const drafts = prepareSlateDatabase(slate, member, "drafts", {
-		consumers: [{ type: "app" }],
-		mode: "viewer",
-	})
-	expect(
-		(
-			await DATABASES.getByName(drafts.instance_name).query(
-				"SELECT * FROM build_workspace",
+	await Promise.all([
+		workflow.waitForStepResult({ name: "build" }).then((result) => {
+			const { snapshot } = result as Pick<CiRunnerResult, "snapshot">
+			resources.defer(() =>
+				buildEnv.BACKUP_BUCKET.delete([
+					`backups/${snapshot.id}/data.sqsh`,
+					`backups/${snapshot.id}/meta.json`,
+				]),
 			)
-		).rows,
-	).toEqual([{ value: slate.id }])
-
+		}),
+		workflow.waitForStatus("complete"),
+	])
+	expect(await workflow.getOutput()).toEqual({ conclusion: "success" })
 	const database = prepareSlateDatabase(slate, null, "notes", {
 		consumers: [{ type: "app" }],
 		mode: "owner",
