@@ -155,7 +155,7 @@ export function handler({ value }: z.infer<typeof tool.inputSchema>) {
 	await execa("pnpm", ["build"], { cwd: checkout, env: { NODE_ENV: undefined } })
 
 	expect(await readdir(checkout)).not.toContain("app")
-	expect(await readFile(join(checkout, "build/server/index.js"), "utf8")).not.toBe("")
+	expect(await readFile(join(checkout, "build/ssr/index.js"), "utf8")).not.toBe("")
 	const { manifest } = await verifyViews(checkout)
 	expect(manifest.tools).toEqual([
 		{

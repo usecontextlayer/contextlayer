@@ -97,8 +97,8 @@ test("the build Workflow publishes canonical app, MCP, public, empty, and agent-
 				"--force",
 			])
 		})
+		await createSlateProject(workspace, checkout, { scaffold: source })
 		if (source === "app") {
-			await createSlateProject(workspace, checkout)
 			await writeFile(
 				join(checkout, "app/routes.ts"),
 				`import { index, route, type RouteConfig } from "@react-router/dev/routes"
@@ -115,7 +115,6 @@ export default [index("routes/home.tsx"), route("build-proof", "routes/build-pro
 				`<p>Static app index ${slate.id}</p>`,
 			)
 		} else if (source === "mcp") {
-			await createSlateProject(workspace, checkout, { scaffold: "mcp" })
 			await writeFile(
 				join(checkout, "mcp/tool/index.ts"),
 				`import { z } from "zod"
@@ -144,11 +143,6 @@ export function handler({ value }: z.infer<typeof tool.inputSchema>) {
 				'document.documentElement.dataset.proof = "compiled MCP-only View"',
 			)
 		} else if (source === "public" || source === "agents") {
-			await execa(
-				process.execPath,
-				[join(workspace, "packages/cli/dist/cli.mjs"), "scaffold", source],
-				{ cwd: checkout },
-			)
 			if (source === "public") {
 				await mkdir(join(checkout, "public/.well-known"), { recursive: true })
 				await writeFile(
@@ -253,9 +247,7 @@ export function handler({ value }: z.infer<typeof tool.inputSchema>) {
 		const bindings = z
 			.array(z.object({ name: z.string(), type: z.string() }))
 			.parse(JSON.parse(stdout))
-		expect(bindings, source).toEqual(
-			source === "app" || source === "mcp" ? [{ name: "ASSETS", type: "assets" }] : [],
-		)
+		expect(bindings, source).toEqual([])
 		const deployed = SLATES.get(slate.id)
 		if (source === "app") {
 			const database = prepareSlateDatabase(slate, null, "notes", {
@@ -297,7 +289,7 @@ export function handler({ value }: z.infer<typeof tool.inputSchema>) {
 			const script = html.match(/<script[^>]*src="([^"]+)"/)?.[1]
 			if (!script) throw new Error("Built MCP View must reference a script")
 			const asset = await deployed.fetch(
-				new URL(script, `https://${slate.public_hostname}`),
+				new URL(script, `https://${slate.public_hostname}`).href,
 			)
 			expect(asset.status).toBe(200)
 			expect(await asset.text()).toContain("compiled MCP-only View")

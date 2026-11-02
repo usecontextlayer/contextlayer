@@ -1,6 +1,5 @@
 import { getSandbox } from "@cloudflare/sandbox"
 import { artifactTransferEnv } from "@/artifact"
-import { slateDeploymentConfig } from "@/deployment"
 import type { BuildBindings } from "@/env"
 
 export async function publishSlate(
@@ -25,22 +24,17 @@ export async function publishSlate(
 		if (!download.success) {
 			throw new Error(`Deployment artifact download failed: ${download.stderr}`)
 		}
-		await sandbox.mkdir("/tmp/slate-deploy/payload/client", { recursive: true })
-		const server = await sandbox.exists("/tmp/slate-deploy/payload/server/index.js")
-		await sandbox.writeFile("/tmp/slate-deploy/tsconfig.json", "{}")
-		await sandbox.writeFile(
-			"/tmp/slate-deploy/wrangler.json",
-			JSON.stringify(slateDeploymentConfig(slateId, commit, server.exists)),
-		)
 		const deployment = await sandbox.exec(
-			'/opt/contextlayer/node_modules/.bin/wrangler deploy --config ./wrangler.json --no-bundle --dispatch-namespace "$CTX_DISPATCH_NAMESPACE"',
+			'/opt/contextlayer/node_modules/.bin/wrangler deploy --no-bundle --no-autoconfig --name "$CTX_SLATE_ID" --tag "$CTX_BUILD_COMMIT" --dispatch-namespace "$CTX_DISPATCH_NAMESPACE"',
 			{
-				cwd: "/tmp/slate-deploy",
+				cwd: "/tmp/slate-deploy/payload",
 				env: {
 					CI: "true",
 					CLOUDFLARE_ACCOUNT_ID: env.CLOUDFLARE_ACCOUNT_ID,
 					CLOUDFLARE_API_TOKEN: env.CF_TOKEN,
+					CTX_BUILD_COMMIT: commit,
 					CTX_DISPATCH_NAMESPACE: env.CTX_DISPATCH_NAMESPACE,
+					CTX_SLATE_ID: slateId,
 					WRANGLER_SEND_METRICS: "false",
 				},
 				timeout: 600_000,
