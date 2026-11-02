@@ -6,7 +6,7 @@ import { join } from "node:path"
 import { promisify } from "node:util"
 import { test as base } from "@tests/database"
 import { copySlateProject } from "@tests/slate-project"
-import type { Workers } from "@tests/workers"
+import { buildWorkerConfig, platformWorkerConfig, type Workers } from "@tests/workers"
 import type { SlateProvisioning } from "@usecontextlayer/shared/slate-provisioning"
 import { expect } from "vitest"
 import type { PlatformEnv } from "@/context"
@@ -21,15 +21,10 @@ const test = base.extend(
 	"workers",
 	({ databases }): Workers => [
 		{
-			configPath: new URL("../wrangler.jsonc", import.meta.url),
-			env: "test",
-			prebuiltWorkerDir: new URL("../build/server", import.meta.url),
+			...platformWorkerConfig,
 			secrets: { CTX_PLATFORM_DATABASE_URL: databases.urls.ctx_platform_test },
 		},
-		{
-			configPath: new URL("../../build/wrangler.jsonc", import.meta.url),
-			env: "test",
-		},
+		buildWorkerConfig,
 	],
 )
 

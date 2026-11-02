@@ -4,6 +4,11 @@ import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { test as base } from "@tests/database"
 import {
+	buildWorkerConfig,
+	dispatcherWorkerConfig,
+	platformWorkerConfig,
+} from "@tests/workers"
+import {
 	readDevEnvCommandEnv,
 	readDevEnvIdentity,
 	readDevEnvServiceEnv,
@@ -22,7 +27,6 @@ import type { Provisioning } from "@/provisioning.server"
 
 const root = resolve(import.meta.dirname, "../../..")
 const webRoot = resolve(root, "../web")
-const dispatcherConfig = new URL("../../dispatcher/wrangler.jsonc", import.meta.url)
 
 type WorkerConfig = Pick<
 	Extract<TestHarnessOptions["workers"][number], { configPath: unknown }>,
@@ -82,17 +86,8 @@ export const test = base
 		}),
 	)
 	.extend("workers", ({ platformEnv }): WorkerConfig[] => [
-		{
-			configPath: new URL("../wrangler.jsonc", import.meta.url),
-			env: "test",
-			// React Router owns platform compilation; Wrangler must load its built Worker.
-			prebuiltWorkerDir: new URL("../build/server", import.meta.url),
-			secrets: platformEnv,
-		},
-		{
-			configPath: new URL("../../build/wrangler.jsonc", import.meta.url),
-			env: "test",
-		},
+		{ ...platformWorkerConfig, secrets: platformEnv },
+		buildWorkerConfig,
 	])
 	.extend("platform", async ({ platformEnv: env, workers, harness }) => {
 		const origin = (await harness.listen()).url.origin
@@ -100,14 +95,14 @@ export const test = base
 			workers.some(
 				(worker) =>
 					"configPath" in worker &&
-					worker.configPath?.toString() === dispatcherConfig.toString(),
+					worker.configPath?.toString() === dispatcherWorkerConfig.configPath.toString(),
 			)
 		) {
 			await harness.update((current) => ({
 				...current,
 				workers: current.workers.map((worker) =>
 					"configPath" in worker &&
-					worker.configPath?.toString() === dispatcherConfig.toString()
+					worker.configPath?.toString() === dispatcherWorkerConfig.configPath.toString()
 						? { ...worker, secrets: { ...worker.secrets, CTX_PLATFORM_URL: origin } }
 						: worker,
 				),
@@ -131,9 +126,7 @@ export const dispatcherTest = test
 	.extend("workers", ({ workers, serviceEnv }): WorkerConfig[] => [
 		...workers,
 		{
-			configPath: dispatcherConfig,
-			env: "test",
-			prebuiltWorkerDir: new URL("../../dispatcher/dist", import.meta.url),
+			...dispatcherWorkerConfig,
 			secrets: {
 				CTX_PLATFORM_URL: serviceEnv.addresses.CTX_PLATFORM_URL.origin,
 				CTX_VIEWER_AUTH_URL: serviceEnv.addresses.CTX_VIEWER_AUTH_URL.origin,

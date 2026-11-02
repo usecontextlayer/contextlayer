@@ -6,7 +6,12 @@ import type { CiBindings } from "@cloudflare/ci/worker"
 import { test as base } from "@tests/database"
 import { writeDatabase } from "@tests/database-project"
 import { copySlateProject } from "@tests/slate-project"
-import type { Workers } from "@tests/workers"
+import {
+	buildWorkerConfig,
+	dispatcherWorkerConfig,
+	platformWorkerConfig,
+	type Workers,
+} from "@tests/workers"
 import { execa } from "execa"
 import { expect } from "vitest"
 import { z } from "zod"
@@ -20,20 +25,11 @@ const test = base.extend(
 	"workers",
 	({ databases }): Workers => [
 		{
-			configPath: new URL("../wrangler.jsonc", import.meta.url),
-			env: "test",
-			prebuiltWorkerDir: new URL("../build/server", import.meta.url),
+			...platformWorkerConfig,
 			secrets: { CTX_PLATFORM_DATABASE_URL: databases.urls.ctx_platform_test },
 		},
-		{
-			configPath: new URL("../../build/wrangler.jsonc", import.meta.url),
-			env: "test",
-		},
-		{
-			configPath: new URL("../../dispatcher/wrangler.jsonc", import.meta.url),
-			env: "test",
-			prebuiltWorkerDir: new URL("../../dispatcher/dist", import.meta.url),
-		},
+		buildWorkerConfig,
+		dispatcherWorkerConfig,
 	],
 )
 
