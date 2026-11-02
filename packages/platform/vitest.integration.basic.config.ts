@@ -11,6 +11,7 @@ export default defineConfig({
 		hookTimeout: 300_000,
 		include: basicIntegrationTestInclude,
 		name: "@usecontextlayer/platform:integration:basic",
+		provide: { containerWorkers: [] },
 		root: fileURLToPath(new URL(".", import.meta.url)),
 		testTimeout: 120_000,
 	},

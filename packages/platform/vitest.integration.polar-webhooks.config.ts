@@ -10,5 +10,6 @@ export default defineConfig({
 		...basicIntegration.test,
 		include: polarWebhooksIntegrationTestInclude,
 		name: "@usecontextlayer/platform:integration:polar-webhooks",
+		provide: { containerWorkers: ["build", "platform"] },
 	},
 })

@@ -10,5 +10,6 @@ export default defineConfig({
 		...basicIntegration.test,
 		include: claudeIntegrationTestInclude,
 		name: "@usecontextlayer/platform:integration:claude",
+		provide: { containerWorkers: ["platform"] },
 	},
 })

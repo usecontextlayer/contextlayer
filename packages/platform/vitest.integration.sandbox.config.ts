@@ -13,5 +13,6 @@ export default defineConfig({
 		// three files at once the VM saturates and every sandbox's install and migration stretch together.
 		maxWorkers: 3,
 		name: "@usecontextlayer/platform:integration:sandbox",
+		provide: { containerWorkers: ["build", "platform"] },
 	},
 })

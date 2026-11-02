@@ -10,5 +10,6 @@ export default defineConfig({
 		...basicIntegration.test,
 		include: dopplerIntegrationTestInclude,
 		name: "@usecontextlayer/platform:integration:doppler",
+		provide: { containerWorkers: ["build", "platform"] },
 	},
 })
