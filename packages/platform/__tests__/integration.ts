@@ -79,32 +79,13 @@ export const test = base
 		"platformWorkers",
 		{ scope: "file" },
 		({ platformEnv }): workerFixtures.Workers => [
-			{ ...workerFixtures.platformWorkerConfig, secrets: platformEnv },
-			workerFixtures.buildWorkerConfig,
+			{ ...workerFixtures.platformWorker, secrets: platformEnv },
+			workerFixtures.buildWorker,
 		],
 	)
 	.extend("workers", ({ platformWorkers }) => platformWorkers)
-	.extend("platform", async ({ platformEnv: env, workers, harness }) => {
+	.extend("platform", async ({ platformEnv: env, harness }) => {
 		const origin = (await harness.listen()).url.origin
-		if (
-			workers.some(
-				(worker) =>
-					"configPath" in worker &&
-					worker.configPath?.toString() ===
-						workerFixtures.dispatcherWorkerConfig.configPath.toString(),
-			)
-		) {
-			await harness.update((current) => ({
-				...current,
-				workers: current.workers.map((worker) =>
-					"configPath" in worker &&
-					worker.configPath?.toString() ===
-						workerFixtures.dispatcherWorkerConfig.configPath.toString()
-						? { ...worker, secrets: { ...worker.secrets, CTX_PLATFORM_URL: origin } }
-						: worker,
-				),
-			}))
-		}
 		return { env, harness, origin, worker: harness.getWorker<PlatformEnv["Bindings"]>() }
 	})
 	.extend("cliEnv", ({ commandEnv, platform }) => ({
@@ -124,7 +105,7 @@ export const dispatcherTest = test
 		({ platformWorkers, serviceEnv }): workerFixtures.Workers => [
 			...platformWorkers,
 			{
-				...workerFixtures.dispatcherWorkerConfig,
+				...workerFixtures.dispatcherWorker,
 				secrets: {
 					CTX_PLATFORM_URL: serviceEnv.addresses.CTX_PLATFORM_URL.origin,
 					CTX_VIEWER_AUTH_URL: serviceEnv.addresses.CTX_VIEWER_AUTH_URL.origin,
@@ -134,6 +115,22 @@ export const dispatcherTest = test
 			},
 		],
 	)
+	.extend("platform", async ({ platform }) => {
+		await platform.harness.update((current) => ({
+			...current,
+			workers: current.workers.map((worker) =>
+				"configPath" in worker &&
+				worker.configPath?.toString() ===
+					workerFixtures.dispatcherWorker.configPath.toString()
+					? {
+							...worker,
+							secrets: { ...worker.secrets, CTX_PLATFORM_URL: platform.origin },
+						}
+					: worker,
+			),
+		}))
+		return platform
+	})
 	.extend("dispatcher", ({ platform }) =>
 		platform.harness.getWorker("contextlayer-dispatcher-test"),
 	)

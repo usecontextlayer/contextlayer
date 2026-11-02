@@ -19,7 +19,7 @@
 		},
 		"@usecontextlayer/platform#build:test:computer": {
 			"dependsOn": ["^build"],
-			"outputs": ["dist/computer/**"],
+			"outputs": ["dist-test/computer/**"],
 			"passThroughEnv": ["WRANGLER_CI_OVERRIDE_NETWORK_MODE_HOST"]
 		},
 		"//#format.verify": {

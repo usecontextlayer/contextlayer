@@ -278,25 +278,3 @@ test("personal connected account execution requires permission to manage persona
 		).toBe(403)
 	}
 })
-
-test("declaration resolution enforces private visibility and permits public access", async ({
-	slate,
-	db,
-	identity,
-	platform: { origin },
-}) => {
-	const resolve = `${origin}/api/slates/resolve?hostname=${slate.public_hostname}&pathname=/slate.json`
-	expect((await fetch(resolve)).status).toBe(401)
-	expect((await fetch(resolve, { headers: identity.headers })).status).toBe(200)
-	await db
-		.updateTable("slate")
-		.set({ visibility: "public" })
-		.where("id", "=", slate.id)
-		.execute()
-	const response = await fetch(resolve)
-	expect(response.status).toBe(200)
-	expect(await response.json()).toEqual({
-		id: slate.id,
-		owner: { id: identity.user.id, type: "personal" },
-	})
-})

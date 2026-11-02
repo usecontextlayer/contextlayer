@@ -6,11 +6,23 @@ import { getAgentByName } from "agents/routing"
 import { execa } from "execa"
 import { expect } from "vitest"
 import { getAgentInstanceName } from "@/agent-instance"
-import { slateSchema } from "@/slates.schema"
+import type { SlateAgent } from "@/agent-runtime"
+import { type Slate, slateSchema } from "@/slates.schema"
 
-export const test = base.extend(
-	"secretSlate",
-	async ({ db, directory, platform, webSession }, { onCleanup }) => {
+type SecretSlate = {
+	chromeHeaders: Headers
+	chromeUrl: URL
+	headers: Headers
+	instance: DurableObjectStub<SlateAgent>
+	members: () => Promise<{ user_id: string }[]>
+	names: readonly [string, string]
+	slate: Slate
+}
+
+export const test = base.extend<{ secretSlate: SecretSlate }>({
+	secretSlate: async ({ db, directory, platform, webSession }, use) => {
+		await using resources = new AsyncDisposableStack()
+		const { ARTIFACTS, AGENTS } = await platform.worker.getEnv()
 		const suffix = crypto.randomUUID().replaceAll("-", "").toUpperCase()
 		const names = [
 			`CTX_SLATE_SETUP_E2E_${suffix}_PRIMARY`,
@@ -26,10 +38,11 @@ export const test = base.extend(
 		})
 		expect(created.status, await created.clone().text()).toBe(201)
 		const slate = slateSchema.parse(await created.json())
-		const { ARTIFACTS, AGENTS } = await platform.worker.getEnv()
-		onCleanup(async () => {
-			await ARTIFACTS.delete(slate.id)
+		resources.defer(async () => {
 			await db.deleteFrom("slate").where("id", "=", slate.id).execute()
+		})
+		resources.defer(async () => {
+			await ARTIFACTS.delete(slate.id)
 		})
 		await copySlateProject(directory)
 		await mkdir(join(directory, "agents/daily/schedules"), { recursive: true })
@@ -82,7 +95,7 @@ export const test = base.extend(
 		const chromeHeaders = new Headers(webSession.headers)
 		chromeHeaders.set("origin", platform.origin)
 		chromeHeaders.set("accept", "text/html")
-		return {
+		await use({
 			chromeHeaders,
 			chromeUrl,
 			headers,
@@ -98,6 +111,6 @@ export const test = base.extend(
 					.execute(),
 			names,
 			slate,
-		}
+		})
 	},
-)
+})

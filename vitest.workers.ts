@@ -6,20 +6,20 @@ export interface Workers extends Array<TestHarnessOptions["workers"][number]> {}
 
 // Platform expects Vite's test output, already bundled and environment-selected.
 // The Wrangler projects below select "test" here and load their prebuilt scripts.
-export const platformWorkerConfig = {
+export const platformWorker = {
 	configPath: new URL(
 		"./packages/platform/build-test/server/wrangler.json",
 		import.meta.url,
 	),
 } satisfies Workers[number]
 
-export const buildWorkerConfig = {
+export const buildWorker = {
 	configPath: new URL("./packages/build/wrangler.jsonc", import.meta.url),
 	env: "test",
 	prebuiltWorkerDir: new URL("./packages/build/dist-test", import.meta.url),
 } satisfies Workers[number]
 
-export const dispatcherWorkerConfig = {
+export const dispatcherWorker = {
 	configPath: new URL("./packages/dispatcher/wrangler.jsonc", import.meta.url),
 	env: "test",
 	prebuiltWorkerDir: new URL("./packages/dispatcher/dist-test", import.meta.url),

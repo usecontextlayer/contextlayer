@@ -20,9 +20,6 @@
 			"cache": false,
 			"dependsOn": ["^build"]
 		},
-		"dev": {
-			"passThroughEnv": ["CLOUDFLARE_*", "!CLOUDFLARE_ENV"]
-		},
 		"dev:watch": {
 			"passThroughEnv": ["CLOUDFLARE_*"]
 		}

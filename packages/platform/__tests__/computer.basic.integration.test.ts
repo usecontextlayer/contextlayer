@@ -6,7 +6,7 @@ import { test as base } from "../../../vitest.workers.ts"
 const test = base.extend("workers", [
 	{
 		configPath: new URL("./computer/wrangler.jsonc", import.meta.url),
-		prebuiltWorkerDir: new URL("../dist/computer", import.meta.url),
+		prebuiltWorkerDir: new URL("../dist-test/computer", import.meta.url),
 	},
 ])
 

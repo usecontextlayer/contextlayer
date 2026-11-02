@@ -107,7 +107,14 @@ test("slate ownership protects viewing, listing, and native Git source access", 
 				.where("id", "=", slate.id)
 				.executeTakeFirstOrThrow(),
 		).toEqual({ visibility })
-		expect((await fetch(resolveUrl)).status).toBe(visibility === "public" ? 200 : 401)
+		const resolved = await fetch(resolveUrl)
+		expect(resolved.status).toBe(visibility === "public" ? 200 : 401)
+		if (visibility === "public") {
+			expect(await resolved.json()).toEqual({
+				id: slate.id,
+				owner: { id: user.id, type: "personal" },
+			})
+		}
 	}
 	const unauthenticatedRefs = await fetch(refs)
 	expect(unauthenticatedRefs.status).toBe(401)

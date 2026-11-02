@@ -24,10 +24,10 @@ const test = base.extend(
 	"workers",
 	({ databases }): workerFixtures.Workers => [
 		{
-			...workerFixtures.platformWorkerConfig,
+			...workerFixtures.platformWorker,
 			secrets: { CTX_PLATFORM_DATABASE_URL: databases.urls.ctx_platform_test },
 		},
-		workerFixtures.buildWorkerConfig,
+		workerFixtures.buildWorker,
 	],
 )
 
