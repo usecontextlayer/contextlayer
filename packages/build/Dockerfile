@@ -10,3 +10,10 @@ COPY --from=docker.io/node:22.23.4-bookworm-slim /usr/local/bin/node /usr/local/
 
 RUN npm install --global pnpm@11.22.0
 RUN mkdir -p /opt/contextlayer && pnpm --dir /opt/contextlayer add --save-exact --allow-build=esbuild --allow-build=workerd wrangler@4.152.0
+
+ARG PREFETCH_TEMPLATE_DEPENDENCIES=false
+# A tmpfs project would also put pnpm's store on tmpfs; only node_modules is disposable.
+RUN --mount=type=tmpfs,target=/tmp/template/node_modules \
+    --mount=type=bind,source=pnpm-lock.yaml,target=/tmp/template/pnpm-lock.yaml \
+    --mount=type=bind,source=pnpm-workspace.yaml,target=/tmp/template/pnpm-workspace.yaml \
+    if [ "$PREFETCH_TEMPLATE_DEPENDENCIES" = "true" ]; then pnpm --dir /tmp/template fetch; fi

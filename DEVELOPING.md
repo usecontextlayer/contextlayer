@@ -223,6 +223,14 @@ node --import tsx scripts/release.ts --help
 
 Main pushes run checks; version-tag pushes publish npm packages. Use the release ladder to keep the version, checked commit and release tag together. Tag publication requires successful checks for that exact commit and package versions matching the tag. The ladder commits and pushes; follow the machine's Git approval convention. GitHub receives `NPM_TOKEN` for publication and `FONTAWESOME_PACKAGE_TOKEN` for CI installation through Doppler sync. Package manifests own which packages publish. npm publication and service deployment have separate workflows, but the release ladder also pushes main and can therefore trigger [Workers Builds](#service-deployment). Twilio deployment remains separate.
 
+The committed `packages/cli/template/pnpm-lock.yaml` seeds the test Build image's pnpm store and is excluded from the CLI's bundled starter. Refresh it when useful, after any newly pinned CLI/SDK versions have been published:
+
+```sh
+pnpm --dir packages/cli/template install --lockfile-only --ignore-scripts --no-frozen-lockfile
+```
+
+Commit the refreshed lockfile. Refreshing is independent of the release ladder; each slate checkout's own lockfile determines its installed versions, and missing cached packages download normally.
+
 For public CLI onboarding and deployment, follow the [CLI README](packages/cli/README.md) and the generated checkout's README. Public setup uses `npx @usecontextlayer/cli` without a global installation.
 
 ## Service deployment

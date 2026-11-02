@@ -14,10 +14,15 @@ export default defineConfig({
 	format: ["esm"],
 	hooks: {
 		"build:done": () => {
-			execFileSync("tar", ["-czf", "dist/template.tar.gz", "template"], {
-				env: { ...process.env, COPYFILE_DISABLE: "1" },
-				stdio: "inherit",
-			})
+			// The image cache lockfile records the CLI's integrity and cannot ship inside that same CLI.
+			execFileSync(
+				"tar",
+				["--exclude=template/pnpm-lock.yaml", "-czf", "dist/template.tar.gz", "template"],
+				{
+					env: { ...process.env, COPYFILE_DISABLE: "1" },
+					stdio: "inherit",
+				},
+			)
 		},
 	},
 	outDir: "dist",
