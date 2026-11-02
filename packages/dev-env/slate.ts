@@ -1,5 +1,5 @@
-import { appendFile, mkdir } from "node:fs/promises"
-import { join } from "node:path"
+import { appendFile, cp, mkdir } from "node:fs/promises"
+import { join, resolve } from "node:path"
 import { execa } from "execa"
 
 export async function createSlateProject(
@@ -41,4 +41,14 @@ export async function createSlateProject(
 	await execa("pnpm", ["install", ...(installDependencies ? [] : ["--lockfile-only"])], {
 		cwd: checkout,
 	})
+}
+
+export async function copySlateProject(
+	checkout: string,
+	{ installDependencies = false }: { installDependencies?: boolean } = {},
+) {
+	await cp(resolve(import.meta.dirname, "../../../artifacts/slate-project"), checkout, {
+		recursive: true,
+	})
+	if (installDependencies) await execa("pnpm", ["install"], { cwd: checkout })
 }

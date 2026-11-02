@@ -1,15 +1,14 @@
+import { fileURLToPath } from "node:url"
 import { defineConfig } from "vitest/config"
 // biome-ignore lint/style/noRestrictedImports: shared test configuration lives outside the package
-import { dopplerIntegrationTestInclude } from "../../vitest.shared.ts"
-// biome-ignore lint/style/noRestrictedImports: shared test configuration lives outside the app alias.
-import basicIntegration from "./vitest.integration.basic.config.ts"
+import * as integration from "../../vitest.shared.ts"
 
 export default defineConfig({
-	...basicIntegration,
+	resolve: { tsconfigPaths: true },
 	test: {
-		...basicIntegration.test,
-		include: dopplerIntegrationTestInclude,
+		...integration.platformIntegrationTestConfig,
+		...integration.dopplerIntegrationTestConfig,
 		name: "@usecontextlayer/platform:integration:doppler",
-		provide: { containerWorkers: ["build", "platform"] },
+		root: fileURLToPath(new URL(".", import.meta.url)),
 	},
 })

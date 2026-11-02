@@ -1,18 +1,14 @@
 import { fileURLToPath } from "node:url"
 import { defineConfig } from "vitest/config"
 // biome-ignore lint/style/noRestrictedImports: shared test configuration lives outside the package
-import { basicIntegrationTestInclude } from "../../vitest.shared.ts"
+import * as integration from "../../vitest.shared.ts"
 
 export default defineConfig({
 	resolve: { tsconfigPaths: true },
 	test: {
-		fileParallelism: true,
-		globalSetup: ["./__tests__/slate-project.setup.ts"],
-		hookTimeout: 300_000,
-		include: basicIntegrationTestInclude,
+		...integration.platformIntegrationTestConfig,
+		...integration.basicIntegrationTestConfig,
 		name: "@usecontextlayer/platform:integration:basic",
-		provide: { containerWorkers: [] },
 		root: fileURLToPath(new URL(".", import.meta.url)),
-		testTimeout: 120_000,
 	},
 })

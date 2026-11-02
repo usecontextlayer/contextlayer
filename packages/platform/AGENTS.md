@@ -46,7 +46,7 @@ Use the [shared Worker deployment workflow](../../DEVELOPING.md#service-deployme
 
 ### Local runtime
 
-Use [DevEnv](../../DEVELOPING.md#devenv) for ordinary development with web, auth, dispatcher and Build. When running platform separately, `dev:watch` uses Cloudflare Vite with the source entrypoint; `dev` uses Wrangler with the compiled bundle and source Wrangler configuration. Run package tasks through the root [Turbo convention](../../DEVELOPING.md#workspace-commands). Both modes select `test`, run in workerd, and default to port 3010. There is no Node production server or `CTX_PLATFORM_PORT` setting.
+Use [DevEnv](../../DEVELOPING.md#devenv) for ordinary development with web, auth, dispatcher and Build. When running platform separately, `dev:watch` uses Cloudflare Vite with the source entrypoint; `dev` uses Wrangler with the compiled bundle and generated `build/server/wrangler.json`. Select `test` when preparing the build before starting compiled `dev`. Run package tasks through the root [Turbo convention](../../DEVELOPING.md#workspace-commands). Both modes run in workerd and default to port 3010. There is no Node production server or `CTX_PLATFORM_PORT` setting.
 
 Vite preview uses the bindings selected at build time; changing `CLOUDFLARE_ENV` only at preview startup does not select another namespace. The default `ARTIFACTS` and `SLATES` bindings select `contextlayer-prod`, so select the native `test` environment before building for local verification. Wrangler's `secrets.required` imports process configuration into Worker bindings.
 

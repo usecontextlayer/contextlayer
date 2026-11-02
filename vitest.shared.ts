@@ -1,4 +1,5 @@
 import { configDefaults } from "vitest/config"
+import type { InlineConfig } from "vitest/node"
 
 // Global git isolation for every test worker. Each package's vitest config imports
 // this module for the test taxonomy, so this body runs in the main vitest process at
@@ -21,8 +22,7 @@ process.env.GIT_TERMINAL_PROMPT = "0"
 //   *.test.ts(x)                            → unit, node             → `test`
 //   *.browser.test.ts(x)                    → unit, chromium         → `test`
 //   *.basic.integration.test.ts(x)          → services + harness     → `test:integration:basic`
-//   *.sandbox.integration.test.ts(x)        → basic + build sandbox  → `test:integration:sandbox`
-//   *.claude.integration.test.ts(x)         → basic + real claude    → `test:integration:claude`
+//   *.remote.integration.test.ts(x)         → remote Cloudflare     → `test:integration:remote`
 //   *.polar.integration.test.ts(x)          → basic + polar api      → `test:integration:polar`
 //   *.doppler.integration.test.ts(x)        → basic + vault writes   → `test:integration:doppler` (opt-in)
 //   *.polar-webhooks.integration.test.ts(x) → polar relay devenv     → `test:integration:polar-webhooks` (opt-in)
@@ -54,9 +54,9 @@ export const basicIntegrationTestInclude = [
 	"**/*.basic.integration.test.tsx",
 ]
 
-export const sandboxIntegrationTestInclude = [
-	"**/*.sandbox.integration.test.ts",
-	"**/*.sandbox.integration.test.tsx",
+export const remoteIntegrationTestInclude = [
+	"**/*.remote.integration.test.ts",
+	"**/*.remote.integration.test.tsx",
 ]
 
 export const polarIntegrationTestInclude = [
@@ -79,10 +79,48 @@ export const browserIntegrationTestInclude = [
 	"**/*.browser.integration.test.tsx",
 ]
 
-export const claudeIntegrationTestInclude = [
-	"**/*.claude.integration.test.ts",
-	"**/*.claude.integration.test.tsx",
-]
+export const platformIntegrationTestConfig = {
+	fileParallelism: true,
+	hookTimeout: 300_000,
+	testTimeout: 120_000,
+} satisfies InlineConfig
+
+export const basicIntegrationTestConfig = {
+	include: basicIntegrationTestInclude,
+	provide: { containerWorkers: [] },
+} satisfies InlineConfig
+
+const polarPollingTestConfig = {
+	// Polar Sandbox allows 100 requests per minute per organization and answers anything beyond
+	// with a 429, which the SDK does not retry. Every provider poll in these lanes inherits this
+	// interval, so each costs 12 requests per minute; maxWorkers polling files at once, plus the
+	// billing gate's background reads from every lane, must stay under the limit.
+	expect: { poll: { interval: 5_000 } },
+	maxWorkers: 3,
+} satisfies InlineConfig
+
+export const polarIntegrationTestConfig = {
+	...polarPollingTestConfig,
+	include: polarIntegrationTestInclude,
+	provide: { containerWorkers: [] },
+} satisfies InlineConfig
+
+export const remoteIntegrationTestConfig = {
+	...polarPollingTestConfig,
+	include: remoteIntegrationTestInclude,
+	provide: { containerWorkers: ["build", "platform"] },
+} satisfies InlineConfig
+
+export const dopplerIntegrationTestConfig = {
+	include: dopplerIntegrationTestInclude,
+	provide: { containerWorkers: ["build", "platform"] },
+} satisfies InlineConfig
+
+export const polarWebhooksIntegrationTestConfig = {
+	...polarPollingTestConfig,
+	include: polarWebhooksIntegrationTestInclude,
+	provide: { containerWorkers: [] },
+} satisfies InlineConfig
 
 export const unitTestExclude = [
 	...configDefaults.exclude,

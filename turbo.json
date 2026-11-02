@@ -17,8 +17,21 @@
 		"@usecontextlayer/cli#test": {
 			"dependsOn": ["build"]
 		},
+		"@usecontextlayer/platform#build:test:computer": {
+			"dependsOn": ["^build"],
+			"outputs": ["dist/computer/**"],
+			"passThroughEnv": ["WRANGLER_CI_OVERRIDE_NETWORK_MODE_HOST"]
+		},
 		"//#format.verify": {
 			"cache": false
+		},
+		"//#test:gen-slate-project": {
+			"dependsOn": [
+				"@usecontextlayer/cli#build",
+				"@usecontextlayer/dev-env#build",
+				"@usecontextlayer/sdk#build"
+			],
+			"outputs": ["artifacts/slate-project/**"]
 		},
 		"//#tsc.scripts": {
 			"dependsOn": ["^build"],
@@ -27,6 +40,11 @@
 		"build": {
 			"dependsOn": ["^build"],
 			"outputs": ["dist/**", "bin/**", "build/**", ".vercel/**"],
+			"passThroughEnv": ["WRANGLER_CI_OVERRIDE_NETWORK_MODE_HOST"]
+		},
+		"build:test": {
+			"dependsOn": ["^build"],
+			"outputs": ["dist/**"],
 			"passThroughEnv": ["WRANGLER_CI_OVERRIDE_NETWORK_MODE_HOST"]
 		},
 		"clean": {
@@ -56,41 +74,83 @@
 		},
 		"test:integration:basic": {
 			"cache": false,
-			"dependsOn": ["^build"],
+			"dependsOn": [
+				"//#test:gen-slate-project",
+				"^build",
+				"@usecontextlayer/platform#build:test",
+				"@usecontextlayer/build#build:test",
+				"@usecontextlayer/dispatcher#build:test",
+				"@usecontextlayer/platform#build:test:computer"
+			],
 			"outputs": []
 		},
 		"test:integration:browser": {
 			"cache": false,
-			"dependsOn": ["^build"],
+			"dependsOn": [
+				"//#test:gen-slate-project",
+				"^build",
+				"@usecontextlayer/platform#build:test",
+				"@usecontextlayer/build#build:test",
+				"@usecontextlayer/dispatcher#build:test",
+				"@usecontextlayer/platform#build:test:computer"
+			],
 			"outputs": []
-		},
-		"test:integration:claude": {
-			"cache": false,
-			"dependsOn": ["build"],
-			"outputs": [],
-			// Real Claude integration tests receive their runtime OAuth credential
-			// without adding it to cache keys.
-			"passThroughEnv": ["CLAUDE_CODE_OAUTH_TOKEN"]
 		},
 		"test:integration:doppler": {
 			"cache": false,
-			"dependsOn": ["^build"],
-			"outputs": []
+			"dependsOn": [
+				"//#test:gen-slate-project",
+				"^build",
+				"@usecontextlayer/platform#build:test",
+				"@usecontextlayer/build#build:test",
+				"@usecontextlayer/dispatcher#build:test",
+				"@usecontextlayer/platform#build:test:computer"
+			],
+			"outputs": [],
+			"passThroughEnv": ["CLOUDFLARE_*", "!CLOUDFLARE_ENV", "COMPOSIO_API_KEY", "POLAR_*"]
 		},
 		"test:integration:polar": {
 			"cache": false,
-			"dependsOn": ["^build"],
+			"dependsOn": [
+				"//#test:gen-slate-project",
+				"^build",
+				"@usecontextlayer/platform#build:test",
+				"@usecontextlayer/build#build:test",
+				"@usecontextlayer/dispatcher#build:test",
+				"@usecontextlayer/platform#build:test:computer"
+			],
 			"outputs": []
 		},
 		"test:integration:polar-webhooks": {
 			"cache": false,
-			"dependsOn": ["^build"],
+			"dependsOn": [
+				"//#test:gen-slate-project",
+				"^build",
+				"@usecontextlayer/platform#build:test",
+				"@usecontextlayer/build#build:test",
+				"@usecontextlayer/dispatcher#build:test",
+				"@usecontextlayer/platform#build:test:computer"
+			],
 			"outputs": []
 		},
-		"test:integration:sandbox": {
+		"test:integration:remote": {
 			"cache": false,
-			"dependsOn": ["^build"],
-			"outputs": []
+			"dependsOn": [
+				"//#test:gen-slate-project",
+				"^build",
+				"@usecontextlayer/platform#build:test",
+				"@usecontextlayer/build#build:test",
+				"@usecontextlayer/dispatcher#build:test",
+				"@usecontextlayer/platform#build:test:computer"
+			],
+			"outputs": [],
+			"passThroughEnv": [
+				"CLAUDE_CODE_OAUTH_TOKEN",
+				"CLOUDFLARE_*",
+				"!CLOUDFLARE_ENV",
+				"COMPOSIO_API_KEY",
+				"POLAR_*"
+			]
 		},
 		"tsc": {
 			"dependsOn": ["^build", "^tsc"],

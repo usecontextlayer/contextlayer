@@ -15,7 +15,6 @@ export default defineConfig({
 					devOnly: true,
 				},
 			],
-			config: { main: fileURLToPath(new URL("./app/server.ts", import.meta.url)) },
 			inspectorPort: 0,
 			viteEnvironment: { name: "ssr" },
 		}),

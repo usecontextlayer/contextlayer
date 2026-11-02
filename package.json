@@ -14,6 +14,7 @@
 		"turbo": "2.10.11",
 		"typescript": "latest",
 		"vitest": "^4.1.11",
+		"wrangler": "4.146.0",
 		"zod": "^4.4.3"
 	},
 	"engines": {
@@ -41,14 +42,14 @@
 		"format.verify": "pnpm run biome.verify",
 		"ncu": "npx npm-check-updates --workspaces --root --cooldown 1d",
 		"test": "pnpm run check.workspace-references && npx turbo run test",
-		"test:integration": "pnpm run check.workspace-references && npx turbo run test:integration:basic test:integration:sandbox test:integration:claude test:integration:polar test:integration:browser --continue=dependencies-successful",
+		"test:gen-slate-project": "node --import tsx scripts/gen-slate-project.ts",
+		"test:integration": "pnpm run check.workspace-references && npx turbo run test:integration:basic test:integration:remote test:integration:polar test:integration:browser --continue=dependencies-successful",
 		"test:integration:basic": "pnpm run check.workspace-references && npx turbo run test:integration:basic",
 		"test:integration:browser": "pnpm run check.workspace-references && npx turbo run test:integration:browser",
-		"test:integration:claude": "pnpm run check.workspace-references && npx turbo run test:integration:claude",
 		"test:integration:doppler": "pnpm run check.workspace-references && pnpm exec turbo run test:integration:doppler --filter=@usecontextlayer/platform",
 		"test:integration:polar": "pnpm run check.workspace-references && npx turbo run test:integration:polar",
 		"test:integration:polar-webhooks": "pnpm run check.workspace-references && pnpm exec turbo run test:integration:polar-webhooks --filter=@usecontextlayer/platform",
-		"test:integration:sandbox": "pnpm run check.workspace-references && npx turbo run test:integration:sandbox",
+		"test:integration:remote": "pnpm run check.workspace-references && npx turbo run test:integration:remote",
 		"tokei": "tokei . -e docs -e pnpm-lock.yaml",
 		"tsc": "npx turbo run tsc tsc.scripts",
 		"tsc.scripts": "npx tsc -p scripts/tsconfig.json"
