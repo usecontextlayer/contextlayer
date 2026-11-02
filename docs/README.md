@@ -14,6 +14,7 @@ For contribution rules, read [AGENTS.md](AGENTS.md) together with the repository
 | `how-to/` | Task-oriented walkthroughs. |
 | `reference/` | SDK contracts and integration details. |
 | `docs.json` | Site configuration, navigation, and the generated OpenAPI reference source. |
+| `.mintignore` | Excludes contributor-only `AGENTS.md` from the site while retaining it in the checkout. |
 | `logo/` and `favicon.png` | Shared site branding assets. |
 
 A page's path relative to this directory determines its URL. Its `title` and `description` live in YAML front matter. Add the page to `docs.json` when it should appear in the sidebar.

@@ -17,7 +17,9 @@ npx @usecontextlayer/cli api listSlates --help
 npx @usecontextlayer/cli api listSlates --describe
 ```
 
-The [API reference](/api-reference/slates/list-slates-the-caller-can-manage) uses the same contract. Read it before invoking an unfamiliar operation to understand its inputs, authorization, and result. Use the command's help for CLI input and output rules.
+Discovery reads the configured platform's live OpenAPI document and needs a reachable platform, but no login. `--describe` prints an OpenAPI document containing the selected operation, its path-level context, and document-level components and security definitions. Schema references remain as `$ref`, including recursive schemas. It does not invoke the operation.
+
+The [API reference](/api-reference/slates/list-slates-the-caller-can-manage) uses the platform's published contract. Read the selected operation's description before invoking it to understand its inputs, authorization, and result. Use the command's help for CLI input and output rules.
 
 ## Make a request and use its result
 

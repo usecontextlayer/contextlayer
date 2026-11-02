@@ -1,9 +1,9 @@
 ---
 title: "Agents"
-description: "Define an agent's instructions and resources, then run it as independent jobs through the API or a schedule."
+description: "Define an agent independently of an app, then run it as hosted jobs through the API or a schedule."
 ---
 
-An **agent** is a named set of standing instructions and resource requirements inside a [slate](/core-concepts/slate). ContextLayer runs those instructions as **jobs**. Each job receives a task prompt and has its own conversation and computer.
+An **agent** is a named set of standing instructions and resource requirements inside a [slate](/core-concepts/slate). ContextLayer runs those instructions as hosted **jobs**. Each job receives a task prompt and has its own conversation and computer. A slate can contain agents without an app or static files.
 
 | Concept | What you author or start | Example |
 | --- | --- | --- |
@@ -21,7 +21,9 @@ Start hosted jobs through the API or let a schedule start them. [Build an agent]
 | `agents/<name>/slate.json` | The resources the agent requires, in the same schema as the app's declaration |
 | `agents/<name>/schedules/<schedule>.md` | Optional: a prompt to run on a schedule |
 
-The agent's name is its directory name. Pushing `main` publishes it, and jobs read its instructions from the latest commit on `main`.
+The agent's name is its directory name. Use the agents scaffold for a minimal `agents/agent/` directory, then rename it and author its instructions and resources. Select it with `init --scaffold-agents` or add it later with `scaffold agents`; CLI help describes both commands. The scaffold supplies source, not a working agent or model credential. Writing the same files directly has the same effect.
+
+Every slate includes package and Vite/Cloudflare build tooling, even when it contains only agents. Keep that tooling and its lockfile when authoring an agent-only slate. Pushing `main` starts the normal deployment pipeline; jobs read instructions from the latest commit on `main`, while migrations and schedules are applied during successful deployment.
 
 An agent uses only the resources in its own declaration; it does not inherit the app's requirements. The app and agents share a namespace per resource kind. If both declare the same database slug, they refer to the same logical database and must agree on its mode. They use the same stored database when that mode selects the same Owner. Different people's viewer-mode databases remain separate. [Resources](/core-concepts/resources) explains declarations and modes.
 
@@ -42,7 +44,7 @@ The default model is `claude-haiku-4-5`. To choose another, declare an `ANTHROPI
 
 When a job starts, ContextLayer reads the agent's definition, resolves its declared resources for the job's actor, and starts a fresh conversation and Linux computer. The **actor** is the person or app the job acts for. The resolved resources stay fixed for that job.
 
-Jobs do not share conversations or computer files. They can share persistent resources: for example, a digest job can read the owner-mode notes database that the app writes to. A new job gets a fresh computer, but the database keeps its existing rows. Conversation and result records persist independently of the computer, so inspecting a completed job does not require its scratch files to remain available.
+Jobs do not share conversations or computer files. They can share persistent resources: for example, a digest job can read the owner-mode notes database that the app writes to. A new job gets a fresh computer, but the database keeps its existing rows. Conversation and result records persist independently of the computer, so inspecting a completed job does not require its scratch files to remain available. For the wider relationship between agents, interfaces, and shared data, see [How the parts work together](/core-concepts/slate#how-the-parts-work-together).
 
 Start a job with a prompt through the API: [Start an agent job with a prompt](https://docs.usecontextlayer.com/api-reference/agent-jobs/start-an-agent-job-with-a-prompt). A job you start acts for you. If the agent declares viewer-mode resources, your setup for them must be complete first.
 
@@ -69,7 +71,7 @@ Schedules are installed after each successful deployment. When a person first be
 
 Who a scheduled job acts for depends on the agent's own declaration:
 
-- An agent that declares **no viewer-mode resources** is **app-scoped**: each scheduled run acts for the app. An owner-mode shared-database digest can run once for the whole slate.
+- An agent that declares **no viewer-mode resources** is **app-scoped**: each scheduled run acts for the slate itself. This app actor does not require a UI app. An owner-mode shared-database digest can run once for the whole slate.
 - An agent that declares **any viewer-mode resource** is **member-scoped**: each scheduled run acts for a particular [slate member](/core-concepts/owners-and-viewers#slate-members), with schedules installed for the members. A personal-inbox digest can run separately for each member.
 
 Scope follows the agent's requirements, including its connections, databases, and secrets. The app's declaration does not determine an agent's scope.
@@ -82,8 +84,6 @@ Scope follows the agent's requirements, including its connections, databases, an
 
 The agent uses **Code Mode** to discover connection tools and coordinate calls in a short script. Connection tools are available through Code Mode; computer tools and `database_query` can also be called directly. A Code Mode script reaches the job's tools without gaining general computer or network access. The computer's lack of internet access does not prevent authorized connection tools from calling their external services.
 
-## Run an agent locally
+## Develop an agent
 
-The CLI's `agent` command runs an agent from the checkout with the Claude Agent SDK and your own Claude authentication; see `npx @usecontextlayer/cli agent --help`. This is a local development run, not a hosted job.
-
-It reads the checkout's instructions, works in the checkout, and uses `database_query` for the local databases. It does not use hosted jobs or hosted database contents. The command starts the development server, so it needs your CLI login when the app declares connections. See [Build an agent](/how-to/build-an-agent#try-it-locally) for the local workflow.
+Edit the agent's ordinary source files in your checkout, then push `main` and test execution through hosted jobs. Supply and verify its hosted resource assignments and model credentials independently of any app's local development settings. A local agent execution workflow is not available yet; `pnpm dev` in the app starter develops the React Router app. See [Build an agent](/how-to/build-an-agent) for the hosted workflow.

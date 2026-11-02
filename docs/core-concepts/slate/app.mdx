@@ -3,24 +3,28 @@ title: "App"
 description: "Build a slate's browser interface and use declared resources from React Router loaders and actions."
 ---
 
-The **app** is the interactive part of a [slate](/core-concepts/slate): the pages people open in a browser. It is a [React Router](https://reactrouter.com) app whose server code runs as a Cloudflare Worker.
+The **app** is an optional interactive part of a [slate](/core-concepts/slate): the pages people open in a browser. It is a [React Router](https://reactrouter.com) app whose server code runs as a Cloudflare Worker.
 
 React components render the interface. Route **loaders** read data for a page, and route **actions** handle submissions that change data. Loaders and actions use the ContextLayer SDK to call connected services and query databases. The browser receives the results your route returns.
 
+When combining an app with agents, static files, or MCP tools and Views, start with [How the parts work together](/core-concepts/slate#how-the-parts-work-together).
+
 ## The starter
 
-The CLI's `init` command creates the app from the starter bundled with the CLI, with Tailwind and shadcn/ui set up:
+Select the app scaffold when creating a slate, as in the [Quickstart](/quickstart), or add it to an existing checkout with `npx @usecontextlayer/cli scaffold app`. The bundled starter includes Tailwind and shadcn/ui plus a working notes page and database:
 
 - `app/routes/home.tsx` is the first screen. The starter's version is a small notes page that reads and writes the `notes` database.
 - `app/root.tsx` re-exports the SDK's document `Layout`, which mounts the [chrome](/core-concepts/slate#the-chrome) on the hosted slate. Keep this re-export when you edit the root. The root's error boundary shows setup guidance when a connection has no assigned account or a viewer-mode secret has no value.
-- `public/slate.json` is the app's declaration.
+- `app/slate.json` is the app's declaration.
 - `databases/notes/` holds the `notes` database's Kysely configuration, migrations and generated query types.
+
+If a scaffold conflicts with existing files, it prints the complete proposal for your coding agent to integrate. See [Add source incrementally](/core-concepts/slate#add-source-incrementally) for source ownership and dependency installation.
 
 ## Declare resources
 
-The app names the resources it requires in `public/slate.json`. ContextLayer uses this declaration to prepare the app's resource capabilities; the file does not contain account credentials, secret values, or database contents. The starter declares one database:
+The app names the resources it requires in `app/slate.json`. ContextLayer uses this declaration to prepare the app's resource capabilities; the file does not contain account credentials, secret values, or database contents. The starter declares one database:
 
-```json public/slate.json
+```json app/slate.json
 {
   "connections": {},
   "databases": {
@@ -30,19 +34,25 @@ The app names the resources it requires in `public/slate.json`. ContextLayer use
 }
 ```
 
+Every slate with `app/` requires a valid `app/slate.json`, even when the app needs no resources. The declaration is source configuration and is not served at `/slate.json`. A slate without `app/` needs no app declaration.
+
 `connections` is required, even when empty. Here, `notes` is the database slug that the app uses in queries, and `"mode": "owner"` selects the slate Owner's database for all viewers. A resource declared with `"mode": "viewer"` instead selects the current viewer's resource. [Resources](/core-concepts/resources) explains the declaration fields and ownership modes.
 
 ## Run locally
 
-From the checkout root, `pnpm dev` starts the development server; open the local URL it prints. Locally, the app uses your own resources:
+From the checkout root, the app starter's `pnpm dev` runs React Router's development server. The SDK prepares local app resources and applies pending database migrations before the app queries its databases. Open the local URL it prints. Locally, the app uses your own resources:
 
 - Connections use your personal accounts, whatever their declared mode. Assign them with the CLI's `connections` command (`npx @usecontextlayer/cli connections --help`). Local assignments are saved in `.contextlayer/connections.json`.
 - Secrets come from environment variables with the declared names.
 - Databases are stored in `.contextlayer/databases`.
 
-Restart `pnpm dev` after changing declarations, assignments, or secret values so startup can prepare the new configuration. When the app declares connections, the development server also needs your CLI login. The [account connection guide](/how-to/connect-an-account) walks through local assignments.
+Restart `pnpm dev` after changing declarations, assignments, or secret values, and when its startup access token expires, so startup can prepare the new configuration. When the app declares connections, the development server also needs your CLI login. The [account connection guide](/how-to/connect-an-account) walks through local assignments.
 
 Run `pnpm typecheck` to check the checkout's TypeScript and `pnpm build` to build it for production. Local database contents and environment values are not uploaded when you deploy.
+
+## Static files beside the app
+
+Vite copies `public/` files into the slate's static assets. They can coexist with app routes: a matching static file is served first, and the app handles unmatched requests. In particular, `public/index.html` serves `/` when present, ahead of the app's home route. Static files use the slate's viewing permissions; the directory name does not make a private slate public.
 
 ## Use connected services and databases
 
@@ -83,7 +93,7 @@ The `"notes"` argument to `database()` is a database slug. The `"notes"` argumen
 
 ### Call a connected service
 
-A connected-service call follows the same pattern. This excerpt assumes you have declared a Gmail connection named `work-email` in `public/slate.json` and assigned an account to it. Inside a route loader or action, obtain Tools and name that connection:
+A connected-service call follows the same pattern. This excerpt assumes you have declared a Gmail connection named `work-email` in `app/slate.json` and assigned an account to it. Inside a route loader or action, obtain Tools and name that connection:
 
 ```ts
 import { toolsContext } from "@usecontextlayer/sdk"

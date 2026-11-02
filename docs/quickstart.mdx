@@ -1,9 +1,9 @@
 ---
 title: "Quickstart"
-description: "Create a slate, run it locally, push it, and open the deployed slate."
+description: "Create a slate with the app starter, run it locally, and deploy it privately."
 ---
 
-Create a private slate, run its starter app locally, and deploy it to a hosted URL. Before you start, finish [Installation](/installation) so the required tools are available and the CLI is signed in.
+Create a private slate with the app starter, run it locally, and deploy it to a hosted URL. Plain initialization starts without authored parts; this walkthrough selects the app scaffold so you can try its notes page and database. Before you start, finish [Installation](/installation) so the required tools are available and the CLI is signed in.
 
 A person supplies the Git identity, chooses the slate's Owner, and signs in to view the private deployment. If a coding agent is following this guide, it should leave those choices and approvals to you.
 
@@ -12,10 +12,10 @@ A person supplies the Git identity, chooses the slate's Owner, and signs in to v
     Choose the slate's [Owner](/core-concepts/owners-and-viewers#owner) before running `init`: your personal Owner or an organization you belong to. If a coding agent is following this guide, it must ask you which Owner to use and wait for your answer before running the command. `init` uses your personal Owner by default; run `npx @usecontextlayer/cli init --help` for Owner-selection syntax.
 
     ```sh
-    npx @usecontextlayer/cli init my-slate
+    npx @usecontextlayer/cli init my-slate --scaffold-app
     ```
 
-    `init` creates a private slate and writes a starter app using React Router, Tailwind, and shadcn into `my-slate`. It installs the dependencies, commits the starter on `main`, and sets the checkout's Git remote to the slate's repository.
+    `init` creates a private slate. The `--scaffold-app` option adds the bundled React Router, Tailwind, shadcn, and notes-database starter to `my-slate`. Initialization installs dependencies, commits the source and `pnpm-lock.yaml` on `main`, and sets the checkout's Git remote to the slate's repository.
 
     Keep the two links it prints: the **dashboard link** opens the slate's management page, and the **hosted URL** opens the app after its first deployment.
 
@@ -31,11 +31,11 @@ A person supplies the Git identity, chooses the slate's Owner, and signs in to v
     pnpm dev
     ```
 
-    `pnpm dev` prints a local URL. Open it and create a note in the starter app. This exercises both the page and its `notes` database. The screen lives in `app/routes/home.tsx`; edit that file to start building your own app.
+    `pnpm dev` starts React Router's development server, prepares local app resources, applies pending database migrations, and prints a local URL. Open it and create a note in the starter app. This exercises both the page and its `notes` database. The screen lives in `app/routes/home.tsx`; edit that file to start building your own app.
 
     Local database contents stay local. Deployment applies your code and migrations to hosted storage; it does not upload the notes you create during development.
 
-    Give your coding agent the checkout's `AGENTS.md` for authoring instructions; `CLAUDE.md` imports it for Claude Code. Use the checkout's `README.md` for local development, connected services, databases, and deployment.
+    Give your coding agent the checkout's root `AGENTS.md` for orientation and the documentation link. The app's guidance lives in `app/AGENTS.md`; `app/CLAUDE.md` imports that file for Claude Code. Use the checkout's `README.md` for local development, connected services, databases, and deployment.
   </Step>
   <Step title="Deploy">
     To deploy the unchanged starter, push the commit that `init` already created:
@@ -65,13 +65,13 @@ A person supplies the Git identity, chooses the slate's Owner, and signs in to v
 
 <CardGroup cols={2}>
   <Card title="What a slate is" href="/core-concepts/slate">
-    The app, agents and MCPs in a slate, and the resources they declare.
+    Start empty, add source, and combine an app, static files, agents, and MCP tools.
   </Card>
   <Card title="Connect an account" href="/how-to/connect-an-account">
     Use Gmail, Slack and other services from your slate.
   </Card>
   <Card title="Build an agent" href="/how-to/build-an-agent">
-    Write instructions, give an agent resources, and run your first job.
+    Add an agent that summarizes the notes your app already stores.
   </Card>
   <Card title="Add a database" href="/how-to/add-a-database">
     Add another database, write its migration, and query it from the app.

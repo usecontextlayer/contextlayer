@@ -1,11 +1,20 @@
 ---
 title: "Expose MCP tools"
-description: "Author MCP tools and Views in a slate and connect an MCP client to the hosted slate's /mcp endpoint."
+description: "Deploy a text tool without an app, connect an MCP client, and author shared browser code for View builds."
 ---
 
-Add an `echo` tool to a slate, deploy it, and call it from a Model Context Protocol (MCP) client. The tool accepts a string and returns it as text. You can optionally attach a View that renders inside an MCP Apps-compatible client.
+Add an `echo` tool to a slate, deploy it, and call it from a Model Context Protocol (MCP) client. The tool accepts a string and returns it as text. It works without a React Router app or a View.
 
-Start from an existing slate checkout. Each tool lives in a directory under `mcp/`, and the hosted slate serves its tools at `/mcp`. The local development server does not serve that endpoint, so you will test the tool after deployment.
+After [CLI setup](/installation), create a slate with the minimal MCP scaffold:
+
+```sh
+npx @usecontextlayer/cli init my-mcp-slate --scaffold-mcp
+cd my-mcp-slate
+```
+
+For an existing checkout, use `scaffold mcp` and integrate its complete proposal if it conflicts with your source; `npx @usecontextlayer/cli scaffold --help` explains that behavior. Keep any app handling when merging the Worker configuration. Scaffolding adds ordinary files and does not register another component.
+
+Each tool lives under `mcp/`, and the hosted slate serves its tools at `/mcp`. The MCP scaffold includes the package/build configuration and Worker wiring, but its handler is empty. Replace that skeleton before calling it. Test tools after deployment; a local MCP invocation workflow is not available yet.
 
 <Note>
   MCP tools cannot use resources yet. An MCP declaration's `connections`, `databases` and `secrets` must be empty, and the build fails otherwise. Resource execution is implemented only for the app and agents.
@@ -15,7 +24,7 @@ Start from an existing slate checkout. Each tool lives in a directory under `mcp
 
 <Steps titleSize="h3">
   <Step title="Create the tool's declaration">
-    Create `mcp/echo/` and add a declaration next to the tool's code. It uses the same schema as the app's `public/slate.json`. This tool requires no resources:
+    Rename the scaffold's `mcp/tool/` directory to `mcp/echo/` and replace its declaration with the file below. Each tool has its own declaration; no app declaration is required for an MCP-only slate. This tool requires no resources:
 
     ```json mcp/echo/slate.json
     { "connections": {}, "databases": {}, "secrets": {} }
@@ -39,10 +48,10 @@ Start from an existing slate checkout. Each tool lives in a directory under `mcp
     }
     ```
 
-    The slate's Worker validates the arguments against `inputSchema` before it calls `handler`. The starter's `workers/app.ts` already passes every `mcp/*/index.ts` module to `createSlateWorker`; keep that wiring.
+    The slate's Worker validates the arguments against `inputSchema` before it calls `handler`. Both the app and MCP scaffolds' `workers/app.ts` pass every `mcp/*/index.ts` module to `createSlateWorker`; keep that wiring. The MCP-only Worker omits the optional React Router build handler.
   </Step>
   <Step title="Build and deploy">
-    `pnpm build` runs the MCP build along with the app's, so it reports a declaration or definition error before you push. Commit and push `main` to deploy; see [Deploy](/how-to/deploy).
+    Run `pnpm build` to compile the Worker and MCP catalog. The same MCP build hooks run with or without an app, so a declaration or definition error is reported before you push. Commit the completed tool, configuration, and lockfile, then push `main` to deploy; see [Deploy](/how-to/deploy).
   </Step>
 </Steps>
 
@@ -66,7 +75,7 @@ The slate's MCP endpoint is `https://<name>.contextlayer.xyz/mcp`. Replace `<nam
     { "value": "Hello from my slate" }
     ```
 
-    The result should contain the text `Hello from my slate`. If you attached a View and the client supports MCP Apps, it can also display that View.
+    The result should contain the text `Hello from my slate`. This completes the text-only tool workflow.
 
     The client's token is issued for this slate's `/mcp` endpoint with the `mcp:access` scope. It does not authorize another slate or the platform management API.
   </Step>
@@ -74,15 +83,19 @@ The slate's MCP endpoint is `https://<name>.contextlayer.xyz/mcp`. Replace `<nam
 
 Every MCP connection signs in; a browser session does not authenticate `/mcp`. The slate's viewing rule still applies: a private slate admits its owning user and members of its owning organization.
 
-## Attach a View, if the tool needs one
+## Build a View
 
-The text-only tool above is complete without a View. To display an interface inside a compatible MCP client, add an HTML entry point at `mcp-ui/echo/index.html`. That page can load TypeScript or TSX and import the same browser-compatible components, utilities and stylesheets as the app.
+A View begins with an HTML entry point at `mcp-ui/echo/index.html`. It can load TypeScript or TSX and import the same browser-compatible components, utilities, and stylesheets as other parts of the slate. Views build independently of tools and apps; you can associate a built View with a tool through its resource URI.
 
-This example uses React and React DOM, which the app starter includes. The View uses an ordinary React entry point; it does not need a React Router route.
+<Note>
+  This section demonstrates View compilation and shared browser code. Rendering the resulting external JavaScript and CSS inside an MCP host still needs resource CSP and asset-access support that is not implemented yet. Adding a View does not bypass private-slate authorization.
+</Note>
+
+The example uses React and React DOM. The app scaffold supplies their dependencies, types, and JSX configuration. The MCP-only scaffold includes the runtime libraries; add their TypeScript types and set `compilerOptions.jsx` to `"react-jsx"` before using TSX there. The View uses an ordinary React entry point and does not require a React Router route.
 
 ### Include the View in your TypeScript project
 
-In the app starter, add `mcp-ui/**/*` to the existing `include` array in `tsconfig.cloudflare.json`. Keep the other entries, including `components/**/*`. If your checkout uses a single `tsconfig.json`, add the View and shared component directories to that file instead.
+The app scaffold's `tsconfig.cloudflare.json` already includes `mcp-ui/**/*` and `components/**/*`. The MCP scaffold's `tsconfig.json` includes `mcp-ui/**/*`; add `components/**/*` when placing shared components there. In another TypeScript setup, include both the View and shared component directories without removing existing entries.
 
 The React example needs `compilerOptions.jsx` set to `"react-jsx"`. Its `@/` imports use the root alias below, together with `resolve.tsconfigPaths: true` in Vite. The app starter already configures both; see [Vite and Worker configuration](/reference/sdk#vite-and-worker-configuration).
 
@@ -165,12 +178,14 @@ Add this property to the exported `tool` definition:
 _meta: { ui: { resourceUri: "ui://echo/index.html" } }
 ```
 
-The resource URI identifies the matching HTML entry point. Several tools can reference the same View. Build and deploy again after adding or changing it.
+The resource URI identifies the matching HTML entry point. The generated catalog maps `ui://echo/index.html` to the built HTML at `/mcp-ui/echo/`. Several tools can reference the same View, and the View is built even when no tool references it. Run `pnpm build` after adding or changing View source.
 
 This example passes a fixed value to demonstrate shared UI. To display actual tool inputs or results, or request another tool call, use the client's MCP Apps bridge from the View. The client supplies the tool data through that bridge; it does not give the View ContextLayer credentials or the app's browser session. See [MCP Views](/core-concepts/slate/mcp#views) for the relationship between a tool, its resource URI, and its View.
 
 ## What the SDK builds
 
-During the build, the SDK's Vite integration evaluates each `mcp/<name>/index.ts`, validates its `slate.json`, and converts its Zod schemas to JSON Schema. It writes the tools and Views into a generated `/mcp.json` manifest among the slate's assets. It compiles each View into one HTML file with its scripts and styles inlined.
+During the build, the SDK's Vite integration evaluates each `mcp/<name>/index.ts`, validates its `slate.json`, and converts its Zod schemas to JSON Schema. It writes tool definitions and View resource paths into a generated `mcp.json` manifest among the slate's assets.
+
+Each View's HTML is an entry in the same Vite client compilation as any app entries. Vite follows shared imports, stylesheets, and dynamic imports and emits ordinary HTML, JavaScript chunks, and CSS. It does not inline everything into a single HTML file or run a separate build per View. `public/` files join that asset output through Vite's normal copying. The [MCP concept guide](/core-concepts/slate/mcp#views) explains resource identity and the current host-delivery boundary.
 
 ContextLayer reads the deployed manifest to list the slate's tools and serve its Views. Tool discovery does not import your authored modules. Each actual tool call runs your `handler` in the slate's Worker.

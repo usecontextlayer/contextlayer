@@ -3,12 +3,12 @@ title: "Installation"
 description: "Check the prerequisites and sign in to ContextLayer from the command line."
 ---
 
-Set up the required tools, check that the CLI runs, and sign in to the ContextLayer account you will use to create and manage slates. Run the CLI with `npx`; you do not need a global installation.
+Set up the required tools, check that the CLI runs, and sign in to the ContextLayer account you will use to create and manage slates. ContextLayer hosting requires an account. Run the published CLI with `npx`; you do not need a global installation.
 
 ## Prerequisites
 
 - A Node.js release supported by the [CLI's engines field](https://github.com/usecontextlayer/contextlayer/blob/main/packages/cli/package.json), to run the CLI.
-- [pnpm](https://pnpm.io/installation), to install a slate's dependencies.
+- [pnpm](https://pnpm.io/installation), to install a slate's dependencies and maintain its lockfile. Every slate includes package and build tooling, including one with no authored functionality yet.
 - Git, configured with your author name and email, to version and push the slate's code.
 
 Your Git author identity appears on commits and is separate from your ContextLayer login. If a coding agent is setting up Git for you, give it the name and email you want to use; it should not invent an identity.
@@ -19,7 +19,7 @@ Your Git author identity appears on commits and is separate from your ContextLay
 npx @usecontextlayer/cli --help
 ```
 
-The help output lists the available commands. Add `--help` to a command to see its arguments and options.
+The help output lists the available commands. Add `--help` to a command to see its arguments and options. Source scaffolding can run without a login; creating a hosted slate with `init` requires the sign-in below.
 
 ## Sign in
 

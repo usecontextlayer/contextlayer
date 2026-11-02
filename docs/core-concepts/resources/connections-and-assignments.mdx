@@ -11,7 +11,7 @@ For example, declare a Gmail connection named `work-email`, then assign a connec
 
 Declare a connection under `connections` in the consuming app or agent's `slate.json`:
 
-```json public/slate.json
+```json app/slate.json
 {
   "connections": {
     "work-email": {
@@ -28,7 +28,7 @@ Declare a connection under `connections` in the consuming app or agent's `slate.
 | Toolkit | `gmail` | The Composio integration whose tools are available. The assigned account must belong to this toolkit. |
 | Mode | `viewer` | The rule for selecting the account's Owner in hosted execution. `viewer` selects the acting person's account; `owner` selects the slate Owner's account. |
 
-An app uses `public/slate.json`; an agent uses `agents/<name>/slate.json`. Each must declare the connection it uses. See [resource modes](/core-concepts/resources#owner-mode-and-viewer-mode) for the ownership rules.
+An app uses `app/slate.json`; an agent uses `agents/<name>/slate.json`. Each must declare the connection it uses. See [resource modes](/core-concepts/resources#owner-mode-and-viewer-mode) for the ownership rules.
 
 The slug names the role the connection plays, while the toolkit names the provider. A slate can have both `work-email` and `support-email` connections using the `gmail` toolkit, with a different account assigned to each.
 
@@ -61,7 +61,7 @@ For example, an assignment saved by the CLI looks like this:
 }
 ```
 
-`ca_example` stands for the real account ID selected through the CLI. Restart `pnpm dev` after changing an assignment so local startup reads the new selection. Pushing the slate does not publish this file; configure the hosted assignment separately.
+`ca_example` stands for the real account ID selected through the CLI. Restart the app's `pnpm dev` after changing an assignment so local startup reads the new selection. Its connected-service calls use your saved developer login and require management access to the registered slate. Pushing the slate does not publish this file; configure the hosted assignment separately.
 
 Run `npx @usecontextlayer/cli connections --help` for its targets and arguments, and see [Connect an account](/how-to/connect-an-account) for the full steps.
 

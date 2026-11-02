@@ -38,7 +38,7 @@ Each declared resource has a mode that selects whose resource the hosted slate u
 
 A browser request acts for its viewer. A hosted job has a run actor selected when it starts; [Agents](/core-concepts/slate/agents#jobs) explains that selection.
 
-```json public/slate.json
+```json app/slate.json
 {
   "connections": {
     "work-email": {
@@ -56,11 +56,11 @@ A browser request acts for its viewer. A hosted job has a run actor selected whe
 
 In this example, `notes` is in owner mode, so viewers share the slate Owner's database. `work-email` is in viewer mode, so each viewer assigns one of their own Gmail accounts to it. Two people can work with the same notes while fetching email from different inboxes.
 
-Viewer-mode resources work only on private slates. These mode rules describe hosted execution. During local development, connections use the signed-in developer's personal accounts regardless of mode, secrets come from local environment variables, and databases use local storage. [Resources](/core-concepts/resources) explains that development boundary.
+Viewer-mode resources work only on private slates. These mode rules describe hosted execution. During local app development, connections use the signed-in developer's personal accounts regardless of mode, secrets come from local environment variables, and databases use local storage. [Resources](/core-concepts/resources) explains that development boundary.
 
 ## Viewers
 
-A **viewer** is someone using the hosted app or accessing the slate through an MCP client. The slate's visibility determines who is allowed to view it:
+A **viewer** is someone using the hosted app, reading its static files, or accessing the slate through an MCP client. The slate's visibility determines who is allowed to view it:
 
 | Slate | Who can view |
 | --- | --- |
@@ -74,7 +74,7 @@ The organization rule always uses the slate's owning organization, regardless of
 
 | Action | Who |
 | --- | --- |
-| Open the app and use its MCP tools | Viewers |
+| Open the app, read static files, and use MCP tools | Viewers |
 | Start agent jobs and read their results | Viewers of a private slate |
 | Assign an account to a viewer-mode connection, or save a viewer-mode secret | Viewers, each for themselves |
 | Assign an account to an owner-mode connection | The owning user, or members of the owning organization |

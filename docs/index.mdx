@@ -1,22 +1,25 @@
 ---
 title: "Overview"
-description: "Build, run, and deploy software that brings an app, agents, and MCP tools together in one Git repository."
+description: "Start with an empty slate, add the parts you need, and deploy from one Git repository."
 ---
 
-ContextLayer is a platform for building software around the way you work. You write TypeScript, React Router, and SQL in your editor, with your coding agent.
+ContextLayer is a platform for building software around the way you work. Write TypeScript, React, and SQL in your editor, with your coding agent, and let ContextLayer host the result.
 
-Your software lives in a **slate**: an app, agents, MCP tools, and declarations of the resources they need, kept together in one Git repository. Develop the slate locally, then push to deploy it. The repository holds code and resource declarations; connected-account credentials, secret values, and database contents live outside Git.
+Your software lives in a **slate**: a durable Git repository that starts without an app, static content, agents, or MCP tools. Add the parts you need, bit by bit, as ordinary editable source, then push to deploy them together. The repository holds code, build configuration, and resource declarations; connected-account credentials, secret values, and database contents live outside Git.
+
+You might begin with an app that stores notes, then add an agent that summarizes the notes people have already written. The agent works with data the app already stores, within the same slate. The [Slate guide](/core-concepts/slate#how-the-parts-work-together) explains how its parts work together through shared data, source code, and serving rules.
 
 ## What is in a slate
 
-A slate brings together several ways to use the same software:
+A slate can combine these parts, or contain just one:
 
 - The [**app**](/core-concepts/slate/app) is the browser interface people use to view information and take actions. It is built with React Router.
+- **Static files** in `public/` provide pages and assets with or without an app. They follow the slate's viewing permissions.
 - [**Agents**](/core-concepts/slate/agents) are named sets of standing instructions that run as hosted jobs, on demand or on a schedule.
-- [**MCPs**](/core-concepts/slate/mcp) expose tools and views to clients that support the Model Context Protocol.
+- [**MCP tools and Views**](/core-concepts/slate/mcp) provide tools for Model Context Protocol clients and browser UI source built alongside the rest of the slate.
 - [**Resources**](/core-concepts/resources) are the connections, databases, and secrets the app and agents use. Each app or agent declares its requirements in a `slate.json` file.
 
-For example, a customer-support slate might have a browser app for reviewing requests, an agent that prepares a daily summary, and an MCP tool that formats request details supplied by another assistant.
+Use scaffolding for a starting point, or write the source directly; the files have the same meaning either way. The [Slate guide](/core-concepts/slate#create-a-slate) explains starting empty and adding source.
 
 ## Connections, accounts, and assignments
 

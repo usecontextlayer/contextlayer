@@ -3,7 +3,7 @@ title: "Resources"
 description: "The connections, databases and secrets that a slate's app and agents declare in slate.json, and how owner and viewer mode select who supplies each one."
 ---
 
-A slate declares the resources its app and agents need. ContextLayer resolves those declarations into resources when the code runs.
+A slate declares the resources its app and agents need. Both are optional parts of the slate. ContextLayer resolves their declarations into resources when the code runs.
 
 | Resource | What it provides | How you refer to it |
 | --- | --- | --- |
@@ -13,15 +13,19 @@ A slate declares the resources its app and agents need. ContextLayer resolves th
 
 The declaration says what is required. Account assignments, secret values, and stored database contents are separate from the declaration and stay out of Git.
 
+If you are deciding how an app and agents should work with the same data, start with [How the parts work together](/core-concepts/slate#how-the-parts-work-together). The rules below explain which resources each consumer can use and whose data it selects.
+
 ## Declarations
 
 The app and each agent declare their own resource requirements in a file called `slate.json`. MCP tools use the same declaration format, with their resource collections currently required to remain empty:
 
 | Consumer | Declaration |
 | --- | --- |
-| The app | `public/slate.json` |
+| The app | `app/slate.json` |
 | An agent | `agents/<name>/slate.json` |
-| An MCP | `mcp/<name>/slate.json` |
+| An MCP tool | `mcp/<name>/slate.json` |
+
+When there is no `app/` directory, the slate needs no app declaration. When `app/` exists, `app/slate.json` must be readable and valid; each agent directory must likewise contain a valid declaration. A slate with no app or agents has no app or agent requirements. These files are authored source, not served metadata.
 
 Every declaration uses the same schema. For example, this `digest` agent needs a viewer's Gmail account, a shared notes database, and an API key supplied by the slate's Owner:
 
@@ -83,17 +87,19 @@ Assigning an owner-mode connection or saving an owner-mode secret requires autho
 
 Viewer-mode resources require a signed-in person on a private slate. Once setup for the whole slate is complete—every app and agent connection is assigned, and every viewer-mode secret is supplied—ContextLayer establishes that person's [slate membership](/core-concepts/owners-and-viewers#slate-members) through a setup change or first viewer-mode use. It then provisions their databases and schedules. No separate join step is needed. A public slate has no members and cannot use viewer-mode resources. A job acting for the app also has no person from whom to select a viewer-mode resource.
 
-An agent's own modes also determine who its scheduled runs act for. If the agent requires any viewer-mode resource, its schedules run for slate members. If it requires none, they run once for the app. In the `digest` example above, the viewer-mode Gmail connection makes scheduled jobs member-scoped, even though the notes database and API key use owner mode.
+An agent's own modes also determine who its scheduled runs act for. If the agent requires any viewer-mode resource, its schedules run for slate members. If it requires none, they run once for the app actor. That actor represents the slate and does not require an authored app. In the `digest` example above, the viewer-mode Gmail connection makes scheduled jobs member-scoped, even though the notes database and API key use owner mode.
 
-In local development, modes select no Owner. A checkout uses the developer's personal accounts for every connection, environment variables for secrets, and local databases. The declared modes apply when the slate runs hosted.
+In local app development, modes select no Owner. The app uses the developer's personal accounts for every connection, environment variables for secrets, and local databases. The declared modes apply when the slate runs hosted.
 
 ## Hosted and local configuration
 
 ContextLayer prepares hosted resource configuration from declarations in the latest commit on the slate's `main` branch. The deployed app is not the source of those declarations. Configure account assignments and supply secrets through the [chrome](/core-concepts/slate#the-chrome), the CLI, or the slate resource API, such as [List declared resources and their configuration](https://docs.usecontextlayer.com/api-reference/slate-resources/list-declared-resources-and-their-configuration). Before the first push to `main`, there are no hosted declarations to configure.
 
-A checkout reads its declarations from disk. Its account assignments and database state live under the ignored `.contextlayer/` directory, and its secret values come from environment variables. Local configuration does not change hosted configuration. Restart `pnpm dev` after changing declarations or local configuration so startup can prepare the new values.
+A checkout reads its declarations from disk. Its account assignments and database state live under the ignored `.contextlayer/` directory, and its secret values come from environment variables. Local configuration does not change hosted configuration. The app starter's `pnpm dev` runs React Router's development server, prepares its resource bindings, and applies pending local database migrations. Restart it after changing declarations or local configuration so startup can prepare the new values.
 
-| Input | Local development | Hosted execution |
+Local declaration listing needs no login or platform request. Calling connected services from the local app requires the saved developer login and a registered slate that the developer can manage. Local app databases need neither login nor registration. Local agent execution and local MCP invocation are not provided by this app development workflow.
+
+| Input | Local app development | Hosted execution |
 | --- | --- | --- |
 | Declarations | Files in the current checkout. | Committed declarations from `main`. |
 | Connection assignments | The checkout's `.contextlayer/connections.json`. | Assignments saved in ContextLayer for the selected Owner. |
