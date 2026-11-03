@@ -45,7 +45,7 @@ export class SlateAgentJob extends Agent<
 
 	private harness = new PiHarness({
 		defaults: { model: { id: "claude-haiku-4-5", provider: "anthropic" } },
-		harness: async ({ storage, context }) => {
+		harness: async ({ storage, context, onWake }) => {
 			this.piContext = context
 			const models = createModels()
 			models.setProvider(
@@ -132,6 +132,7 @@ export class SlateAgentJob extends Agent<
 						})
 					},
 					models,
+					onWake,
 					registry: this.registry,
 				},
 				context,

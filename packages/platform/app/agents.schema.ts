@@ -52,7 +52,10 @@ export const agentJobReceiptSchema = z.object({
 export const agentJobPendingSchema = z.object({
 	operationId: agentJobReceiptSchema.shape.operationId,
 	session: agentJobReceiptSchema.shape.session,
-	status: z.enum(["queued", "running"]),
+	status: z.enum(["queued", "running", "parked"]).openapi({
+		description:
+			"`parked` means Pi stopped retrying the task after repeated crash restarts without new progress.",
+	}),
 }) satisfies z.ZodType<PiPendingOperation>
 export const agentJobResultSchema = z.object({
 	operationId: agentJobReceiptSchema.shape.operationId,
