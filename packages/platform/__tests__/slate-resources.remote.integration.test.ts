@@ -100,7 +100,7 @@ test("declaration snapshots follow the selected revision's app and agent source"
 		return (await git("rev-parse", "HEAD")).stdout.trim()
 	}
 	const readSnapshot = async (revision: string) => {
-		using repo = await ARTIFACTS.get(slate.id)
+		const repo = await ARTIFACTS.get(slate.id)
 		const commit = await repo.readCommit(revision)
 		assert(commit)
 		return await readSlateDeclarations(repo, commit)
