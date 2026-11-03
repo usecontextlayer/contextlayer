@@ -60,7 +60,7 @@ importers:
         version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@24.19.2)(@vitest/browser-playwright@4.1.11)(msw@2.14.6(@types/node@24.19.2)(typescript@7.0.2))(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))
       wrangler:
         specifier: 4.146.0
-        version: 4.146.0(patch_hash=277cf7335176bb21073fb075e9ed8e2f27a0eb4386314d1c9ce15424f131d6a3)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.19.2)
+        version: 4.146.0(patch_hash=277cf7335176bb21073fb075e9ed8e2f27a0eb4386314d1c9ce15424f131d6a3)(@cloudflare/workers-types@5.20261102.1)(@types/node@24.19.2)
       zod:
         specifier: ^4.6.7
         version: 4.6.7
@@ -75,14 +75,14 @@ importers:
         version: 4.6.7
     devDependencies:
       '@cloudflare/workers-types':
-        specifier: ^5.20260730.1
-        version: 5.20261001.1
+        specifier: ^5.20261102.1
+        version: 5.20261102.1
       typescript:
         specifier: latest
         version: 7.0.2
       wrangler:
         specifier: ^4.146.0
-        version: 4.146.0(patch_hash=277cf7335176bb21073fb075e9ed8e2f27a0eb4386314d1c9ce15424f131d6a3)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.19.2)
+        version: 4.146.0(patch_hash=277cf7335176bb21073fb075e9ed8e2f27a0eb4386314d1c9ce15424f131d6a3)(@cloudflare/workers-types@5.20261102.1)(@types/node@24.19.2)
 
   packages/build:
     dependencies:
@@ -103,8 +103,8 @@ importers:
         version: 4.6.7
     devDependencies:
       '@cloudflare/workers-types':
-        specifier: ^5.20260730.1
-        version: 5.20261001.1
+        specifier: ^5.20261102.1
+        version: 5.20261102.1
       '@types/node':
         specifier: ^24.19.2
         version: 24.19.2
@@ -119,7 +119,7 @@ importers:
         version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@24.19.2)(@vitest/browser-playwright@4.1.11)(msw@2.14.6(@types/node@24.19.2)(typescript@7.0.2))(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))
       wrangler:
         specifier: 4.152.0
-        version: 4.152.0(@cloudflare/workers-types@5.20261001.1)(@types/node@24.19.2)
+        version: 4.152.0(@cloudflare/workers-types@5.20261102.1)(@types/node@24.19.2)
 
   packages/cli:
     dependencies:
@@ -146,14 +146,14 @@ importers:
         version: 8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0)
       wrangler:
         specifier: ^4.146.0
-        version: 4.146.0(patch_hash=277cf7335176bb21073fb075e9ed8e2f27a0eb4386314d1c9ce15424f131d6a3)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.19.2)
+        version: 4.146.0(patch_hash=277cf7335176bb21073fb075e9ed8e2f27a0eb4386314d1c9ce15424f131d6a3)(@cloudflare/workers-types@5.20261102.1)(@types/node@24.19.2)
     devDependencies:
       '@clack/prompts':
         specifier: ^1.8.1
         version: 1.8.1
       '@cloudflare/workers-types':
-        specifier: ^5.20261001.1
-        version: 5.20261001.1
+        specifier: ^5.20261102.1
+        version: 5.20261102.1
       '@types/node':
         specifier: ^24.19.2
         version: 24.19.2
@@ -217,7 +217,7 @@ importers:
     dependencies:
       '@better-auth/oauth-provider':
         specifier: 1.7.7
-        version: 1.7.7(@better-auth/core@1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.7))(jose@6.2.12)(kysely@0.29.8)(nanostores@1.5.4))(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(better-auth@1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.11)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261001.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.23.1)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@4.1.11))(better-call@1.4.0(zod@4.6.7))
+        version: 1.7.7(@better-auth/core@1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.7))(jose@6.2.12)(kysely@0.29.8)(nanostores@1.5.4))(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(better-auth@1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.11)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261102.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.23.1)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@4.1.11))(better-call@1.4.0(zod@4.6.7))
       '@polar-sh/cli':
         specifier: 3.0.0
         version: 3.0.0
@@ -229,7 +229,7 @@ importers:
         version: link:../db-infra
       better-auth:
         specifier: 1.7.7
-        version: 1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.11)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261001.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.23.1)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@4.1.11)
+        version: 1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.11)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261102.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.23.1)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@4.1.11)
       execa:
         specifier: ^10.2.1
         version: 10.2.1
@@ -293,8 +293,8 @@ importers:
         version: 4.6.7
     devDependencies:
       '@cloudflare/workers-types':
-        specifier: ^5.20260730.1
-        version: 5.20261001.1
+        specifier: ^5.20261102.1
+        version: 5.20261102.1
       typescript:
         specifier: latest
         version: 7.0.2
@@ -303,7 +303,7 @@ importers:
         version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@24.19.2)(@vitest/browser-playwright@4.1.11)(msw@2.14.6(@types/node@24.19.2)(typescript@7.0.2))(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))
       wrangler:
         specifier: ^4.146.0
-        version: 4.146.0(patch_hash=277cf7335176bb21073fb075e9ed8e2f27a0eb4386314d1c9ce15424f131d6a3)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.19.2)
+        version: 4.146.0(patch_hash=277cf7335176bb21073fb075e9ed8e2f27a0eb4386314d1c9ce15424f131d6a3)(@cloudflare/workers-types@5.20261102.1)(@types/node@24.19.2)
 
   packages/mcp-microsoft-planner-premium:
     dependencies:
@@ -324,8 +324,8 @@ importers:
         version: 4.6.7
     devDependencies:
       '@cloudflare/workers-types':
-        specifier: ^5.20260730.1
-        version: 5.20261001.1
+        specifier: ^5.20261102.1
+        version: 5.20261102.1
       '@modelcontextprotocol/client':
         specifier: 2.4.0
         version: 2.4.0
@@ -337,7 +337,7 @@ importers:
         version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@24.19.2)(@vitest/browser-playwright@4.1.11)(msw@2.14.6(@types/node@24.19.2)(typescript@7.0.2))(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))
       wrangler:
         specifier: ^4.146.0
-        version: 4.146.0(patch_hash=277cf7335176bb21073fb075e9ed8e2f27a0eb4386314d1c9ce15424f131d6a3)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.19.2)
+        version: 4.146.0(patch_hash=277cf7335176bb21073fb075e9ed8e2f27a0eb4386314d1c9ce15424f131d6a3)(@cloudflare/workers-types@5.20261102.1)(@types/node@24.19.2)
 
   packages/platform:
     dependencies:
@@ -349,13 +349,13 @@ importers:
         version: 1.9.0(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@better-auth-ui/core':
         specifier: 1.7.32
-        version: 1.7.32(c53685acea1ab2196e4315e97bbfe770)
+        version: 1.7.32(1e22d9070975ace0dd18b8eaf41d85d6)
       '@better-auth-ui/react':
         specifier: 1.7.32
-        version: 1.7.32(aafdf2b77782fb51c0aaa2ae075dcc1a)
+        version: 1.7.32(266b1b0e92ad0a8c8f4a5b63c3c45d14)
       '@better-auth/oauth-provider':
         specifier: 1.7.7
-        version: 1.7.7(@better-auth/core@1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.7))(jose@6.2.15)(kysely@0.29.8)(nanostores@1.5.4))(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(better-auth@1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.11)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261001.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.17.2)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@4.1.11))(better-call@1.4.0(zod@4.6.7))
+        version: 1.7.7(@better-auth/core@1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.7))(jose@6.2.15)(kysely@0.29.8)(nanostores@1.5.4))(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(better-auth@1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.11)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261102.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.17.2)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@4.1.11))(better-call@1.4.0(zod@4.6.7))
       '@cloudflare/sandbox':
         specifier: 1.0.3
         version: 1.0.3
@@ -406,7 +406,7 @@ importers:
         version: 0.26.0(cbed21af6431144e73693c594751cf47)
       better-auth:
         specifier: 1.7.7
-        version: 1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.11)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261001.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.17.2)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@4.1.11)
+        version: 1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.11)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261102.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.17.2)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@4.1.11)
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -439,7 +439,7 @@ importers:
         version: 8.5.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       react-router-hono-server:
         specifier: ^4.1.7
-        version: 4.1.7(@react-router/dev@8.5.1(react-router@8.5.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(supports-color@10.2.2)(typescript@7.0.2)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(wrangler@4.146.0(patch_hash=277cf7335176bb21073fb075e9ed8e2f27a0eb4386314d1c9ce15424f131d6a3)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.19.2)))(hono@4.13.16)(react-dom@19.3.1(react@19.3.1))(react-router@8.5.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(wrangler@4.146.0(patch_hash=277cf7335176bb21073fb075e9ed8e2f27a0eb4386314d1c9ce15424f131d6a3)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.19.2))(ws@8.21.3)
+        version: 4.1.7(@react-router/dev@8.5.1(react-router@8.5.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(supports-color@10.2.2)(typescript@7.0.2)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(wrangler@4.146.0(patch_hash=277cf7335176bb21073fb075e9ed8e2f27a0eb4386314d1c9ce15424f131d6a3)(@cloudflare/workers-types@5.20261102.1)(@types/node@24.19.2)))(hono@4.13.16)(react-dom@19.3.1(react@19.3.1))(react-router@8.5.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(wrangler@4.146.0(patch_hash=277cf7335176bb21073fb075e9ed8e2f27a0eb4386314d1c9ce15424f131d6a3)(@cloudflare/workers-types@5.20261102.1)(@types/node@24.19.2))(ws@8.21.3)
       shadcn:
         specifier: ^4.23.0
         version: 4.23.0(supports-color@10.2.2)
@@ -461,16 +461,16 @@ importers:
         version: 0.2.0(patch_hash=0b9be35d104f4efc0692488eef57a450befe9d622c613a79509383ece87f07d5)
       '@cloudflare/vite-plugin':
         specifier: ^1.62.4
-        version: 1.62.4(patch_hash=36dce0131d509e6ee9a9f57b60f8199f2dd6999c8124fe54e4391ba9cc923dcc)(@types/node@24.19.2)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(wrangler@4.146.0(patch_hash=277cf7335176bb21073fb075e9ed8e2f27a0eb4386314d1c9ce15424f131d6a3)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.19.2))
+        version: 1.62.4(patch_hash=36dce0131d509e6ee9a9f57b60f8199f2dd6999c8124fe54e4391ba9cc923dcc)(@types/node@24.19.2)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(wrangler@4.146.0(patch_hash=277cf7335176bb21073fb075e9ed8e2f27a0eb4386314d1c9ce15424f131d6a3)(@cloudflare/workers-types@5.20261102.1)(@types/node@24.19.2))
       '@cloudflare/workers-types':
-        specifier: ^5.20261001.1
-        version: 5.20261001.1
+        specifier: ^5.20261102.1
+        version: 5.20261102.1
       '@modelcontextprotocol/client':
         specifier: 2.4.0
         version: 2.4.0
       '@react-router/dev':
         specifier: ^8.5.1
-        version: 8.5.1(react-router@8.5.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(supports-color@10.2.2)(typescript@7.0.2)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(wrangler@4.146.0(patch_hash=277cf7335176bb21073fb075e9ed8e2f27a0eb4386314d1c9ce15424f131d6a3)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.19.2))
+        version: 8.5.1(react-router@8.5.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(supports-color@10.2.2)(typescript@7.0.2)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(wrangler@4.146.0(patch_hash=277cf7335176bb21073fb075e9ed8e2f27a0eb4386314d1c9ce15424f131d6a3)(@cloudflare/workers-types@5.20261102.1)(@types/node@24.19.2))
       '@tailwindcss/vite':
         specifier: ^4.3.3
         version: 4.3.3(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))
@@ -515,7 +515,7 @@ importers:
         version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@24.19.2)(@vitest/browser-playwright@4.1.11)(msw@2.14.6(@types/node@24.19.2)(typescript@7.0.2))(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))
       wrangler:
         specifier: ^4.146.0
-        version: 4.146.0(patch_hash=277cf7335176bb21073fb075e9ed8e2f27a0eb4386314d1c9ce15424f131d6a3)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.19.2)
+        version: 4.146.0(patch_hash=277cf7335176bb21073fb075e9ed8e2f27a0eb4386314d1c9ce15424f131d6a3)(@cloudflare/workers-types@5.20261102.1)(@types/node@24.19.2)
 
   packages/sdk:
     dependencies:
@@ -549,10 +549,10 @@ importers:
     devDependencies:
       '@cloudflare/vite-plugin':
         specifier: ^1.62.4
-        version: 1.62.4(patch_hash=36dce0131d509e6ee9a9f57b60f8199f2dd6999c8124fe54e4391ba9cc923dcc)(@types/node@24.19.2)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(wrangler@4.146.0(patch_hash=277cf7335176bb21073fb075e9ed8e2f27a0eb4386314d1c9ce15424f131d6a3)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.19.2))
+        version: 1.62.4(patch_hash=36dce0131d509e6ee9a9f57b60f8199f2dd6999c8124fe54e4391ba9cc923dcc)(@types/node@24.19.2)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(wrangler@4.146.0(patch_hash=277cf7335176bb21073fb075e9ed8e2f27a0eb4386314d1c9ce15424f131d6a3)(@cloudflare/workers-types@5.20261102.1)(@types/node@24.19.2))
       '@cloudflare/workers-types':
-        specifier: ^5.20261001.1
-        version: 5.20261001.1
+        specifier: ^5.20261102.1
+        version: 5.20261102.1
       '@types/node':
         specifier: ^24.19.2
         version: 24.19.2
@@ -603,8 +603,8 @@ importers:
         version: 4.6.7
     devDependencies:
       '@cloudflare/workers-types':
-        specifier: ^5.20261001.1
-        version: 5.20261001.1
+        specifier: ^5.20261102.1
+        version: 5.20261102.1
       tsdown:
         specifier: latest
         version: 0.23.4(tsx@4.23.15)(typescript@7.0.2)
@@ -1459,8 +1459,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@cloudflare/workers-types@5.20261001.1':
-    resolution: {integrity: sha512-o8Q1YbLge+dCWtwoNwmZcGQdtoknQMNtkZS2FQc0kIXRfztTCslKnRS+nWSIypVnGptuZBpppeZ9w9THsKBX2Q==}
+  '@cloudflare/workers-types@5.20261102.1':
+    resolution: {integrity: sha512-rRNznLGla+8vRdToTN/5M+AzlopILSLLZ3qo2L5Ku/dY792iOlX/K9ZLkLnLYji1jycv7+FB12hiE+fFjVgMrw==}
 
   '@composio/client@2.0.0-rc.8':
     resolution: {integrity: sha512-0C0Flmblx0Y3i6iGUY/MvST4aNXn3xEmPEA4wqZd3acm9x6u61/0i1LXCgBzFTTZEveK8YBFRu8Lpo/SMZwAFQ==}
@@ -3271,9 +3271,6 @@ packages:
 
   '@types/ms@2.1.0':
     resolution: {integrity: sha512-GsCCIZDE/p3i96vtEqx+7dBUGXrc7zeSK3wwPHIaRThS+9OhWIXRqzs4d6k1SVU8g91DrNRWxWUGhp5KXQb2VA==}
-
-  '@types/node@24.13.3':
-    resolution: {integrity: sha512-Dh8vAsV36ig5wa9OX4pXvMc9D3Veibfw2wix0CUwYODLD8nkj9UsLjASr49nPg+2eKzxhBV+v7L8pXvT4e639Q==}
 
   '@types/node@24.19.2':
     resolution: {integrity: sha512-93d49wCWJkCyN87MxLpNN6KXPCwFw7bVUg79mGUV1OS40JGWwVCr8n61DXCSqz7CV6/VfPkb7xec7uP2M+QHWQ==}
@@ -6751,9 +6748,6 @@ packages:
   unconfig-core@7.5.0:
     resolution: {integrity: sha512-Su3FauozOGP44ZmKdHy2oE6LPjk51M/TRRjHv2HNCWiDvfvCoxC2lno6jevMA91MYAdCdwP05QnWdWpSbncX/w==}
 
-  undici-types@7.18.2:
-    resolution: {integrity: sha512-AsuCzffGHJybSaRrmr5eHr81mwJU3kjw6M+uprWvCXiNeN9SOGwQ3Jn8jb8m3Z6izVgknn1R0FTCEAP2QrLY/w==}
-
   undici-types@7.24.6:
     resolution: {integrity: sha512-WRNW+sJgj5OBN4/0JpHFqtqzhpbnV0GuB+OozA9gCL7a993SmU+1JBZCzLNxYsbMfIeDL+lTsphD5jN5N+n0zg==}
 
@@ -7714,47 +7708,47 @@ snapshots:
     optionalDependencies:
       '@types/react': 19.3.0
 
-  '@better-auth-ui/core@1.7.32(c53685acea1ab2196e4315e97bbfe770)':
+  '@better-auth-ui/core@1.7.32(1e22d9070975ace0dd18b8eaf41d85d6)':
     dependencies:
-      '@better-auth/agent-auth': 0.6.2(@better-auth/core@1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.7))(jose@6.2.15)(kysely@0.29.8)(nanostores@1.5.4))(better-auth@1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.11)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261001.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.17.2)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@4.1.11))
+      '@better-auth/agent-auth': 0.6.2(@better-auth/core@1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.7))(jose@6.2.15)(kysely@0.29.8)(nanostores@1.5.4))(better-auth@1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.11)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261102.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.17.2)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@4.1.11))
       '@mikkelscheike/email-provider-links': 6.0.2
       '@tanstack/query-core': 5.105.1
-      better-auth: 1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.11)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261001.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.17.2)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@4.1.11)
+      better-auth: 1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.11)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261102.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.17.2)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@4.1.11)
       libphonenumber-js: 1.13.14
       uqr: 0.1.3
     optionalDependencies:
-      '@better-auth/api-key': 1.7.7(@better-auth/core@1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.7))(jose@6.2.15)(kysely@0.29.8)(nanostores@1.5.4))(@better-auth/utils@0.4.2)(better-auth@1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.11)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261001.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.17.2)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@4.1.11))(better-call@1.4.0(zod@4.6.7))
-      '@better-auth/oauth-provider': 1.7.7(@better-auth/core@1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.7))(jose@6.2.15)(kysely@0.29.8)(nanostores@1.5.4))(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(better-auth@1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.11)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261001.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.17.2)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@4.1.11))(better-call@1.4.0(zod@4.6.7))
-      '@better-auth/passkey': 1.7.7(@better-auth/core@1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.7))(jose@6.2.15)(kysely@0.29.8)(nanostores@1.5.4))(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(better-auth@1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.11)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261001.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.17.2)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@4.1.11))(better-call@1.4.0(zod@4.6.7))(nanostores@1.5.4)
+      '@better-auth/api-key': 1.7.7(@better-auth/core@1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.7))(jose@6.2.15)(kysely@0.29.8)(nanostores@1.5.4))(@better-auth/utils@0.4.2)(better-auth@1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.11)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261102.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.17.2)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@4.1.11))(better-call@1.4.0(zod@4.6.7))
+      '@better-auth/oauth-provider': 1.7.7(@better-auth/core@1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.7))(jose@6.2.15)(kysely@0.29.8)(nanostores@1.5.4))(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(better-auth@1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.11)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261102.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.17.2)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@4.1.11))(better-call@1.4.0(zod@4.6.7))
+      '@better-auth/passkey': 1.7.7(@better-auth/core@1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.7))(jose@6.2.15)(kysely@0.29.8)(nanostores@1.5.4))(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(better-auth@1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.11)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261102.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.17.2)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@4.1.11))(better-call@1.4.0(zod@4.6.7))(nanostores@1.5.4)
 
-  '@better-auth-ui/react@1.7.32(aafdf2b77782fb51c0aaa2ae075dcc1a)':
+  '@better-auth-ui/react@1.7.32(266b1b0e92ad0a8c8f4a5b63c3c45d14)':
     dependencies:
-      '@better-auth-ui/core': 1.7.32(c53685acea1ab2196e4315e97bbfe770)
-      '@better-auth/api-key': 1.7.7(@better-auth/core@1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.7))(jose@6.2.15)(kysely@0.29.8)(nanostores@1.5.4))(@better-auth/utils@0.4.2)(better-auth@1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.11)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261001.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.17.2)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@4.1.11))(better-call@1.4.0(zod@4.6.7))
-      '@better-auth/passkey': 1.7.7(@better-auth/core@1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.7))(jose@6.2.15)(kysely@0.29.8)(nanostores@1.5.4))(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(better-auth@1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.11)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261001.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.17.2)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@4.1.11))(better-call@1.4.0(zod@4.6.7))(nanostores@1.5.4)
+      '@better-auth-ui/core': 1.7.32(1e22d9070975ace0dd18b8eaf41d85d6)
+      '@better-auth/api-key': 1.7.7(@better-auth/core@1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.7))(jose@6.2.15)(kysely@0.29.8)(nanostores@1.5.4))(@better-auth/utils@0.4.2)(better-auth@1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.11)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261102.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.17.2)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@4.1.11))(better-call@1.4.0(zod@4.6.7))
+      '@better-auth/passkey': 1.7.7(@better-auth/core@1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.7))(jose@6.2.15)(kysely@0.29.8)(nanostores@1.5.4))(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(better-auth@1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.11)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261102.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.17.2)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@4.1.11))(better-call@1.4.0(zod@4.6.7))(nanostores@1.5.4)
       '@tanstack/query-core': 5.105.1
       '@tanstack/react-query': 5.105.1(@types/react@19.3.0)(react@19.3.1)
-      better-auth: 1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.11)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261001.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.17.2)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@4.1.11)
+      better-auth: 1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.11)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261102.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.17.2)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@4.1.11)
       cn: 0.5.2
       react: 19.3.1
       react-dom: 19.3.1(react@19.3.1)
       tailwindcss: 4.3.3
       zod: 4.6.7
 
-  '@better-auth/agent-auth@0.6.2(@better-auth/core@1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.7))(jose@6.2.15)(kysely@0.29.8)(nanostores@1.5.4))(better-auth@1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.11)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261001.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.17.2)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@4.1.11))':
+  '@better-auth/agent-auth@0.6.2(@better-auth/core@1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.7))(jose@6.2.15)(kysely@0.29.8)(nanostores@1.5.4))(better-auth@1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.11)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261102.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.17.2)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@4.1.11))':
     dependencies:
       '@better-auth/core': 1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.7))(jose@6.2.15)(kysely@0.29.8)(nanostores@1.5.4)
       '@simplewebauthn/server': 13.3.3
-      better-auth: 1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.11)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261001.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.17.2)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@4.1.11)
+      better-auth: 1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.11)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261102.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.17.2)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@4.1.11)
       better-call: 1.3.2(zod@4.6.7)
       jose: 6.2.15
       zod: 4.6.7
 
-  '@better-auth/api-key@1.7.7(@better-auth/core@1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.7))(jose@6.2.15)(kysely@0.29.8)(nanostores@1.5.4))(@better-auth/utils@0.4.2)(better-auth@1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.11)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261001.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.17.2)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@4.1.11))(better-call@1.4.0(zod@4.6.7))':
+  '@better-auth/api-key@1.7.7(@better-auth/core@1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.7))(jose@6.2.15)(kysely@0.29.8)(nanostores@1.5.4))(@better-auth/utils@0.4.2)(better-auth@1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.11)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261102.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.17.2)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@4.1.11))(better-call@1.4.0(zod@4.6.7))':
     dependencies:
       '@better-auth/core': 1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.7))(jose@6.2.15)(kysely@0.29.8)(nanostores@1.5.4)
       '@better-auth/utils': 0.4.2
-      better-auth: 1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.11)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261001.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.17.2)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@4.1.11)
+      better-auth: 1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.11)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261102.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.17.2)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@4.1.11)
       better-call: 1.4.0(zod@4.6.7)
       zod: 4.6.7
 
@@ -7786,19 +7780,19 @@ snapshots:
     optionalDependencies:
       '@opentelemetry/api': 1.9.1
 
-  '@better-auth/drizzle-adapter@1.7.7(@better-auth/core@1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.7))(jose@6.2.12)(kysely@0.29.8)(nanostores@1.5.4))(@better-auth/utils@0.4.2)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261001.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.23.1)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))':
+  '@better-auth/drizzle-adapter@1.7.7(@better-auth/core@1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.7))(jose@6.2.12)(kysely@0.29.8)(nanostores@1.5.4))(@better-auth/utils@0.4.2)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261102.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.23.1)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))':
     dependencies:
       '@better-auth/core': 1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.7))(jose@6.2.12)(kysely@0.29.8)(nanostores@1.5.4)
       '@better-auth/utils': 0.4.2
     optionalDependencies:
-      drizzle-orm: 0.45.3(@cloudflare/workers-types@5.20261001.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.23.1)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2)
+      drizzle-orm: 0.45.3(@cloudflare/workers-types@5.20261102.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.23.1)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2)
 
-  '@better-auth/drizzle-adapter@1.7.7(@better-auth/core@1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.7))(jose@6.2.15)(kysely@0.29.8)(nanostores@1.5.4))(@better-auth/utils@0.4.2)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261001.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.17.2)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))':
+  '@better-auth/drizzle-adapter@1.7.7(@better-auth/core@1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.7))(jose@6.2.15)(kysely@0.29.8)(nanostores@1.5.4))(@better-auth/utils@0.4.2)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261102.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.17.2)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))':
     dependencies:
       '@better-auth/core': 1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.7))(jose@6.2.15)(kysely@0.29.8)(nanostores@1.5.4)
       '@better-auth/utils': 0.4.2
     optionalDependencies:
-      drizzle-orm: 0.45.3(@cloudflare/workers-types@5.20261001.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.17.2)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2)
+      drizzle-orm: 0.45.3(@cloudflare/workers-types@5.20261102.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.17.2)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2)
 
   '@better-auth/kysely-adapter@1.7.7(@better-auth/core@1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.7))(jose@6.2.12)(kysely@0.29.8)(nanostores@1.5.4))(@better-auth/utils@0.4.2)(kysely@0.29.8)':
     dependencies:
@@ -7834,34 +7828,34 @@ snapshots:
       '@better-auth/core': 1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.7))(jose@6.2.15)(kysely@0.29.8)(nanostores@1.5.4)
       '@better-auth/utils': 0.4.2
 
-  '@better-auth/oauth-provider@1.7.7(@better-auth/core@1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.7))(jose@6.2.12)(kysely@0.29.8)(nanostores@1.5.4))(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(better-auth@1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.11)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261001.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.23.1)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@4.1.11))(better-call@1.4.0(zod@4.6.7))':
+  '@better-auth/oauth-provider@1.7.7(@better-auth/core@1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.7))(jose@6.2.12)(kysely@0.29.8)(nanostores@1.5.4))(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(better-auth@1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.11)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261102.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.23.1)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@4.1.11))(better-call@1.4.0(zod@4.6.7))':
     dependencies:
       '@better-auth/core': 1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.7))(jose@6.2.12)(kysely@0.29.8)(nanostores@1.5.4)
       '@better-auth/utils': 0.4.2
       '@better-fetch/fetch': 1.3.2
-      better-auth: 1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.11)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261001.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.23.1)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@4.1.11)
+      better-auth: 1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.11)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261102.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.23.1)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@4.1.11)
       better-call: 1.4.0(zod@4.6.7)
       jose: 6.2.12
       zod: 4.6.7
 
-  '@better-auth/oauth-provider@1.7.7(@better-auth/core@1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.7))(jose@6.2.15)(kysely@0.29.8)(nanostores@1.5.4))(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(better-auth@1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.11)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261001.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.17.2)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@4.1.11))(better-call@1.4.0(zod@4.6.7))':
+  '@better-auth/oauth-provider@1.7.7(@better-auth/core@1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.7))(jose@6.2.15)(kysely@0.29.8)(nanostores@1.5.4))(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(better-auth@1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.11)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261102.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.17.2)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@4.1.11))(better-call@1.4.0(zod@4.6.7))':
     dependencies:
       '@better-auth/core': 1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.7))(jose@6.2.15)(kysely@0.29.8)(nanostores@1.5.4)
       '@better-auth/utils': 0.4.2
       '@better-fetch/fetch': 1.3.2
-      better-auth: 1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.11)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261001.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.17.2)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@4.1.11)
+      better-auth: 1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.11)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261102.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.17.2)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@4.1.11)
       better-call: 1.4.0(zod@4.6.7)
       jose: 6.2.12
       zod: 4.6.7
 
-  '@better-auth/passkey@1.7.7(@better-auth/core@1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.7))(jose@6.2.15)(kysely@0.29.8)(nanostores@1.5.4))(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(better-auth@1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.11)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261001.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.17.2)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@4.1.11))(better-call@1.4.0(zod@4.6.7))(nanostores@1.5.4)':
+  '@better-auth/passkey@1.7.7(@better-auth/core@1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.7))(jose@6.2.15)(kysely@0.29.8)(nanostores@1.5.4))(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(better-auth@1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.11)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261102.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.17.2)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@4.1.11))(better-call@1.4.0(zod@4.6.7))(nanostores@1.5.4)':
     dependencies:
       '@better-auth/core': 1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.7))(jose@6.2.15)(kysely@0.29.8)(nanostores@1.5.4)
       '@better-auth/utils': 0.4.2
       '@better-fetch/fetch': 1.3.2
       '@simplewebauthn/browser': 13.3.0
       '@simplewebauthn/server': 13.3.3
-      better-auth: 1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.11)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261001.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.17.2)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@4.1.11)
+      better-auth: 1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.11)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261102.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.17.2)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@4.1.11)
       better-call: 1.4.0(zod@4.6.7)
       nanostores: 1.5.4
       zod: 4.6.7
@@ -8027,14 +8021,14 @@ snapshots:
     optionalDependencies:
       workerd: 1.20261019.1
 
-  '@cloudflare/vite-plugin@1.62.4(patch_hash=36dce0131d509e6ee9a9f57b60f8199f2dd6999c8124fe54e4391ba9cc923dcc)(@types/node@24.19.2)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(wrangler@4.146.0(patch_hash=277cf7335176bb21073fb075e9ed8e2f27a0eb4386314d1c9ce15424f131d6a3)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.19.2))':
+  '@cloudflare/vite-plugin@1.62.4(patch_hash=36dce0131d509e6ee9a9f57b60f8199f2dd6999c8124fe54e4391ba9cc923dcc)(@types/node@24.19.2)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(wrangler@4.146.0(patch_hash=277cf7335176bb21073fb075e9ed8e2f27a0eb4386314d1c9ce15424f131d6a3)(@cloudflare/workers-types@5.20261102.1)(@types/node@24.19.2))':
     dependencies:
       '@cloudflare/unenv-preset': 2.16.2(unenv@2.0.0-rc.24)(workerd@1.20261001.1)
       miniflare: 5.20261001.0-alpha(patch_hash=50ef4be55367d86f34429603759663ca021c06e44bec5e08a1ec0f4b9f21c342)(@types/node@24.19.2)
       unenv: 2.0.0-rc.24
       vite: 8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0)
       workerd: 1.20261001.1
-      wrangler: 4.146.0(patch_hash=277cf7335176bb21073fb075e9ed8e2f27a0eb4386314d1c9ce15424f131d6a3)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.19.2)
+      wrangler: 4.146.0(patch_hash=277cf7335176bb21073fb075e9ed8e2f27a0eb4386314d1c9ce15424f131d6a3)(@cloudflare/workers-types@5.20261102.1)(@types/node@24.19.2)
       ws: 8.21.0
     transitivePeerDependencies:
       - '@types/node'
@@ -8086,7 +8080,7 @@ snapshots:
   '@cloudflare/workerd-windows-64@1.20261023.1':
     optional: true
 
-  '@cloudflare/workers-types@5.20261001.1': {}
+  '@cloudflare/workers-types@5.20261102.1': {}
 
   '@composio/client@2.0.0-rc.8': {}
 
@@ -8608,13 +8602,13 @@ snapshots:
     dependencies:
       hono: 4.13.16
 
-  '@hono/vite-dev-server@0.26.1(hono@4.13.16)(wrangler@4.146.0(patch_hash=277cf7335176bb21073fb075e9ed8e2f27a0eb4386314d1c9ce15424f131d6a3)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.19.2))':
+  '@hono/vite-dev-server@0.26.1(hono@4.13.16)(wrangler@4.146.0(patch_hash=277cf7335176bb21073fb075e9ed8e2f27a0eb4386314d1c9ce15424f131d6a3)(@cloudflare/workers-types@5.20261102.1)(@types/node@24.19.2))':
     dependencies:
       '@hono/node-server': 1.19.17(hono@4.13.16)
       hono: 4.13.16
       minimatch: 9.0.9
     optionalDependencies:
-      wrangler: 4.146.0(patch_hash=277cf7335176bb21073fb075e9ed8e2f27a0eb4386314d1c9ce15424f131d6a3)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.19.2)
+      wrangler: 4.146.0(patch_hash=277cf7335176bb21073fb075e9ed8e2f27a0eb4386314d1c9ce15424f131d6a3)(@cloudflare/workers-types@5.20261102.1)(@types/node@24.19.2)
 
   '@hono/zod-openapi@1.6.3(hono@4.13.16)(zod@4.6.7)':
     dependencies:
@@ -9230,7 +9224,7 @@ snapshots:
     dependencies:
       quansync: 1.0.0
 
-  '@react-router/dev@8.5.1(react-router@8.5.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(supports-color@10.2.2)(typescript@7.0.2)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(wrangler@4.146.0(patch_hash=277cf7335176bb21073fb075e9ed8e2f27a0eb4386314d1c9ce15424f131d6a3)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.19.2))':
+  '@react-router/dev@8.5.1(react-router@8.5.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(supports-color@10.2.2)(typescript@7.0.2)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(wrangler@4.146.0(patch_hash=277cf7335176bb21073fb075e9ed8e2f27a0eb4386314d1c9ce15424f131d6a3)(@cloudflare/workers-types@5.20261102.1)(@types/node@24.19.2))':
     dependencies:
       '@babel/core': 7.29.7(supports-color@10.2.2)
       '@babel/generator': 7.29.8
@@ -9259,7 +9253,7 @@ snapshots:
       vite: 8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0)
     optionalDependencies:
       typescript: 7.0.2
-      wrangler: 4.146.0(patch_hash=277cf7335176bb21073fb075e9ed8e2f27a0eb4386314d1c9ce15424f131d6a3)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.19.2)
+      wrangler: 4.146.0(patch_hash=277cf7335176bb21073fb075e9ed8e2f27a0eb4386314d1c9ce15424f131d6a3)(@cloudflare/workers-types@5.20261102.1)(@types/node@24.19.2)
     transitivePeerDependencies:
       - babel-plugin-macros
       - supports-color
@@ -9560,11 +9554,6 @@ snapshots:
   '@types/ms@2.1.0':
     optional: true
 
-  '@types/node@24.13.3':
-    dependencies:
-      undici-types: 7.18.2
-    optional: true
-
   '@types/node@24.19.2':
     dependencies:
       undici-types: 7.24.6
@@ -9581,7 +9570,7 @@ snapshots:
 
   '@types/set-cookie-parser@2.4.10':
     dependencies:
-      '@types/node': 24.13.3
+      '@types/node': 24.19.2
     optional: true
 
   '@types/statuses@2.0.6':
@@ -9949,10 +9938,10 @@ snapshots:
 
   bath-es5@3.0.3: {}
 
-  better-auth@1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.11)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261001.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.17.2)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@4.1.11):
+  better-auth@1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.11)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261102.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.17.2)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@4.1.11):
     dependencies:
       '@better-auth/core': 1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.7))(jose@6.2.12)(kysely@0.29.8)(nanostores@1.5.4)
-      '@better-auth/drizzle-adapter': 1.7.7(@better-auth/core@1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.7))(jose@6.2.15)(kysely@0.29.8)(nanostores@1.5.4))(@better-auth/utils@0.4.2)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261001.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.17.2)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))
+      '@better-auth/drizzle-adapter': 1.7.7(@better-auth/core@1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.7))(jose@6.2.15)(kysely@0.29.8)(nanostores@1.5.4))(@better-auth/utils@0.4.2)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261102.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.17.2)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))
       '@better-auth/kysely-adapter': 1.7.7(@better-auth/core@1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.7))(jose@6.2.15)(kysely@0.29.8)(nanostores@1.5.4))(@better-auth/utils@0.4.2)(kysely@0.29.8)
       '@better-auth/memory-adapter': 1.7.7(@better-auth/core@1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.7))(jose@6.2.15)(kysely@0.29.8)(nanostores@1.5.4))(@better-auth/utils@0.4.2)
       '@better-auth/mongo-adapter': 1.7.7(@better-auth/core@1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.7))(jose@6.2.15)(kysely@0.29.8)(nanostores@1.5.4))(@better-auth/utils@0.4.2)
@@ -9970,7 +9959,7 @@ snapshots:
       zod: 4.6.7
     optionalDependencies:
       drizzle-kit: 0.31.11
-      drizzle-orm: 0.45.3(@cloudflare/workers-types@5.20261001.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.17.2)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2)
+      drizzle-orm: 0.45.3(@cloudflare/workers-types@5.20261102.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.17.2)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2)
       pg: 8.23.1
       react: 19.3.1
       react-dom: 19.3.1(react@19.3.1)
@@ -9978,10 +9967,10 @@ snapshots:
     transitivePeerDependencies:
       - '@opentelemetry/api'
 
-  better-auth@1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.11)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261001.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.23.1)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@4.1.11):
+  better-auth@1.7.7(@opentelemetry/api@1.9.1)(drizzle-kit@0.31.11)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261102.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.23.1)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@4.1.11):
     dependencies:
       '@better-auth/core': 1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.7))(jose@6.2.12)(kysely@0.29.8)(nanostores@1.5.4)
-      '@better-auth/drizzle-adapter': 1.7.7(@better-auth/core@1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.7))(jose@6.2.12)(kysely@0.29.8)(nanostores@1.5.4))(@better-auth/utils@0.4.2)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261001.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.23.1)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))
+      '@better-auth/drizzle-adapter': 1.7.7(@better-auth/core@1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.7))(jose@6.2.12)(kysely@0.29.8)(nanostores@1.5.4))(@better-auth/utils@0.4.2)(drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261102.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.23.1)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2))
       '@better-auth/kysely-adapter': 1.7.7(@better-auth/core@1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.7))(jose@6.2.12)(kysely@0.29.8)(nanostores@1.5.4))(@better-auth/utils@0.4.2)(kysely@0.29.8)
       '@better-auth/memory-adapter': 1.7.7(@better-auth/core@1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.7))(jose@6.2.12)(kysely@0.29.8)(nanostores@1.5.4))(@better-auth/utils@0.4.2)
       '@better-auth/mongo-adapter': 1.7.7(@better-auth/core@1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(@opentelemetry/api@1.9.1)(better-call@1.4.0(zod@4.6.7))(jose@6.2.12)(kysely@0.29.8)(nanostores@1.5.4))(@better-auth/utils@0.4.2)
@@ -9999,7 +9988,7 @@ snapshots:
       zod: 4.6.7
     optionalDependencies:
       drizzle-kit: 0.31.11
-      drizzle-orm: 0.45.3(@cloudflare/workers-types@5.20261001.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.23.1)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2)
+      drizzle-orm: 0.45.3(@cloudflare/workers-types@5.20261102.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.23.1)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2)
       pg: 8.23.1
       react: 19.3.1
       react-dom: 19.3.1(react@19.3.1)
@@ -10379,9 +10368,9 @@ snapshots:
       tsx: 4.23.15
     optional: true
 
-  drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261001.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.17.2)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2):
+  drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261102.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.17.2)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2):
     optionalDependencies:
-      '@cloudflare/workers-types': 5.20261001.1
+      '@cloudflare/workers-types': 5.20261102.1
       '@electric-sql/pglite': 0.5.8
       '@opentelemetry/api': 1.9.1
       knex: 3.1.0(pg@8.17.2)(supports-color@10.2.2)
@@ -10391,9 +10380,9 @@ snapshots:
       sql.js: 1.14.2
     optional: true
 
-  drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261001.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.23.1)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2):
+  drizzle-orm@0.45.3(@cloudflare/workers-types@5.20261102.1)(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.1)(knex@3.1.0(pg@8.23.1)(supports-color@10.2.2))(kysely@0.29.8)(pg@8.23.1)(postgres@3.4.9(patch_hash=3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935))(sql.js@1.14.2):
     optionalDependencies:
-      '@cloudflare/workers-types': 5.20261001.1
+      '@cloudflare/workers-types': 5.20261102.1
       '@electric-sql/pglite': 0.5.8
       '@opentelemetry/api': 1.9.1
       knex: 3.1.0(pg@8.23.1)(supports-color@10.2.2)
@@ -12458,12 +12447,12 @@ snapshots:
 
   react-refresh@0.18.0: {}
 
-  react-router-hono-server@4.1.7(@react-router/dev@8.5.1(react-router@8.5.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(supports-color@10.2.2)(typescript@7.0.2)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(wrangler@4.146.0(patch_hash=277cf7335176bb21073fb075e9ed8e2f27a0eb4386314d1c9ce15424f131d6a3)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.19.2)))(hono@4.13.16)(react-dom@19.3.1(react@19.3.1))(react-router@8.5.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(wrangler@4.146.0(patch_hash=277cf7335176bb21073fb075e9ed8e2f27a0eb4386314d1c9ce15424f131d6a3)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.19.2))(ws@8.21.3):
+  react-router-hono-server@4.1.7(@react-router/dev@8.5.1(react-router@8.5.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(supports-color@10.2.2)(typescript@7.0.2)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(wrangler@4.146.0(patch_hash=277cf7335176bb21073fb075e9ed8e2f27a0eb4386314d1c9ce15424f131d6a3)(@cloudflare/workers-types@5.20261102.1)(@types/node@24.19.2)))(hono@4.13.16)(react-dom@19.3.1(react@19.3.1))(react-router@8.5.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(wrangler@4.146.0(patch_hash=277cf7335176bb21073fb075e9ed8e2f27a0eb4386314d1c9ce15424f131d6a3)(@cloudflare/workers-types@5.20261102.1)(@types/node@24.19.2))(ws@8.21.3):
     dependencies:
       '@drizzle-team/brocli': 0.12.1
       '@hono/node-server': 2.1.5(hono@4.13.16)
-      '@hono/vite-dev-server': 0.26.1(hono@4.13.16)(wrangler@4.146.0(patch_hash=277cf7335176bb21073fb075e9ed8e2f27a0eb4386314d1c9ce15424f131d6a3)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.19.2))
-      '@react-router/dev': 8.5.1(react-router@8.5.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(supports-color@10.2.2)(typescript@7.0.2)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(wrangler@4.146.0(patch_hash=277cf7335176bb21073fb075e9ed8e2f27a0eb4386314d1c9ce15424f131d6a3)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.19.2))
+      '@hono/vite-dev-server': 0.26.1(hono@4.13.16)(wrangler@4.146.0(patch_hash=277cf7335176bb21073fb075e9ed8e2f27a0eb4386314d1c9ce15424f131d6a3)(@cloudflare/workers-types@5.20261102.1)(@types/node@24.19.2))
+      '@react-router/dev': 8.5.1(react-router@8.5.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(supports-color@10.2.2)(typescript@7.0.2)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(wrangler@4.146.0(patch_hash=277cf7335176bb21073fb075e9ed8e2f27a0eb4386314d1c9ce15424f131d6a3)(@cloudflare/workers-types@5.20261102.1)(@types/node@24.19.2))
       hono: 4.13.16
       react: 19.3.1
       react-dom: 19.3.1(react@19.3.1)
@@ -13317,9 +13306,6 @@ snapshots:
       '@quansync/fs': 1.0.0
       quansync: 1.0.0
 
-  undici-types@7.18.2:
-    optional: true
-
   undici-types@7.24.6: {}
 
   undici@7.29.0:
@@ -13522,7 +13508,7 @@ snapshots:
       '@cloudflare/workerd-linux-arm64': 1.20261023.1
       '@cloudflare/workerd-windows-64': 1.20261023.1
 
-  wrangler@4.146.0(patch_hash=277cf7335176bb21073fb075e9ed8e2f27a0eb4386314d1c9ce15424f131d6a3)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.19.2):
+  wrangler@4.146.0(patch_hash=277cf7335176bb21073fb075e9ed8e2f27a0eb4386314d1c9ce15424f131d6a3)(@cloudflare/workers-types@5.20261102.1)(@types/node@24.19.2):
     dependencies:
       '@cloudflare/kv-asset-handler': 0.5.0
       '@cloudflare/unenv-preset': 2.16.2(unenv@2.0.0-rc.24)(workerd@1.20261001.1)
@@ -13533,14 +13519,14 @@ snapshots:
       unenv: 2.0.0-rc.24
       workerd: 1.20261001.1
     optionalDependencies:
-      '@cloudflare/workers-types': 5.20261001.1
+      '@cloudflare/workers-types': 5.20261102.1
       fsevents: 2.3.3
     transitivePeerDependencies:
       - '@types/node'
       - bufferutil
       - utf-8-validate
 
-  wrangler@4.152.0(@cloudflare/workers-types@5.20261001.1)(@types/node@24.19.2):
+  wrangler@4.152.0(@cloudflare/workers-types@5.20261102.1)(@types/node@24.19.2):
     dependencies:
       '@cloudflare/kv-asset-handler': 0.5.0
       '@cloudflare/unenv-preset': 2.16.2(unenv@2.0.0-rc.24)(workerd@1.20261019.1)
@@ -13551,7 +13537,7 @@ snapshots:
       unenv: 2.0.0-rc.24
       workerd: 1.20261019.1
     optionalDependencies:
-      '@cloudflare/workers-types': 5.20261001.1
+      '@cloudflare/workers-types': 5.20261102.1
       fsevents: 2.3.3
     transitivePeerDependencies:
       - '@types/node'
