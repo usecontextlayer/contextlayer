@@ -8,7 +8,7 @@
 	},
 	"devDependencies": {
 		"@cloudflare/workers-types": "^5.20260730.1",
-		"@types/node": "^24.13.3",
+		"@types/node": "^24.19.2",
 		"aws4fetch": "1.0.20",
 		"typescript": "latest",
 		"vitest": "4.1.11",
