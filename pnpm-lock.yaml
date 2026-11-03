@@ -4,6 +4,9 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  '@cloudflare/ci>@cloudflare/sandbox': 0.12.14
+
 patchedDependencies:
   '@cloudflare/ci@0.2.0': 0b9be35d104f4efc0692488eef57a450befe9d622c613a79509383ece87f07d5
   '@cloudflare/vite-plugin@1.62.4': 36dce0131d509e6ee9a9f57b60f8199f2dd6999c8124fe54e4391ba9cc923dcc
@@ -89,8 +92,8 @@ importers:
         specifier: 0.2.0
         version: 0.2.0(patch_hash=0b9be35d104f4efc0692488eef57a450befe9d622c613a79509383ece87f07d5)
       '@cloudflare/sandbox':
-        specifier: 0.12.1
-        version: 0.12.1
+        specifier: 0.12.14
+        version: 0.12.14
       '@usecontextlayer/shared':
         specifier: workspace:*
         version: link:../shared
@@ -1332,8 +1335,8 @@ packages:
   '@cloudflare/runtime-types@0.1.19':
     resolution: {integrity: sha512-3ZQe25s1Uqo2HtWpz+ovBe0IhqS5od4Ja4Uf6z/hjTbdS9JJ2jnYxOcF6x3ioHuG2A7g3GK6e6ADtelMaCETzg==}
 
-  '@cloudflare/sandbox@0.12.1':
-    resolution: {integrity: sha512-P1ZmNDLYtuEY1ZUcAx0OgTol98VqS617LGd4nf1RTOjSV2yHLDAp59NI36/gg3/pxkHPgmAEyFIjH/ie8FoA7g==}
+  '@cloudflare/sandbox@0.12.14':
+    resolution: {integrity: sha512-Y+QaTgYtK3tfu2mz7q3Egn9Yzo1gFlmM5/+0tqHaXuXZBuPfEETQ1Dj4UeL/KWd+2KFefUlBdrLL6/uAMRUj9g==}
     peerDependencies:
       '@openai/agents': ^0.3.3
       '@opencode-ai/sdk': ^1.1.40
@@ -4738,10 +4741,6 @@ packages:
   headers-polyfill@5.0.1:
     resolution: {integrity: sha512-1TJ6Fih/b8h5TIcv+1+Hw0PDQWJTKDKzFZzcKOiW1wJza3XoAQlkCuXLbymPYB8+ZQyw8mHvdw560e8zVFIWyA==}
 
-  hono@4.13.12:
-    resolution: {integrity: sha512-6E2QDAc9Ick9Sq77ZrGS/dk2WUYni91aufTw6LJKpV7w8kW5/GxVUc650FOADOmlwg3K+f7Pun6XlV+pYmW6gw==}
-    engines: {node: '>=16.9.0'}
-
   hono@4.13.16:
     resolution: {integrity: sha512-AOLOEhvrV+iH92xXCnFr/5+3KjPKcI3xP63XJtX5spAnkznPdHijlIsUTpi7/9EhWqrTCekw5c5zh1K+YsVw7A==}
     engines: {node: '>=16.9.0'}
@@ -7905,7 +7904,7 @@ snapshots:
 
   '@cloudflare/ci@0.2.0(patch_hash=0b9be35d104f4efc0692488eef57a450befe9d622c613a79509383ece87f07d5)':
     dependencies:
-      '@cloudflare/sandbox': 0.12.1
+      '@cloudflare/sandbox': 0.12.14
       zod: 4.6.7
     transitivePeerDependencies:
       - '@openai/agents'
@@ -7939,12 +7938,12 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
-  '@cloudflare/sandbox@0.12.1':
+  '@cloudflare/sandbox@0.12.14':
     dependencies:
       '@cloudflare/containers': 0.3.7
       aws4fetch: 1.0.20
       capnweb: 0.8.0
-      hono: 4.13.12
+      hono: 4.13.16
 
   '@cloudflare/sandbox@1.0.3':
     dependencies:
@@ -10929,8 +10928,6 @@ snapshots:
       '@types/set-cookie-parser': 2.4.10
       set-cookie-parser: 3.1.2
     optional: true
-
-  hono@4.13.12: {}
 
   hono@4.13.16: {}
 

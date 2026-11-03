@@ -8,6 +8,10 @@ patchedDependencies:
   miniflare@5.20261001.0-alpha: patches/miniflare@5.20261001.0-alpha.patch
   wrangler@4.146.0: patches/wrangler@4.146.0.patch
 
+# @cloudflare/ci pins @cloudflare/sandbox exactly. Keep it on the same 0.12.x release as packages/build and its Dockerfile image, so the CiSandbox Durable Object, Build's own Sandbox calls and the container image run one SDK version. Revisit when @cloudflare/ci is upgraded.
+overrides:
+  '@cloudflare/ci>@cloudflare/sandbox': 0.12.14
+
 # Enforce the Node version floor declared in package.json.
 engineStrict: true
 

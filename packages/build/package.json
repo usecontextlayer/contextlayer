@@ -1,7 +1,7 @@
 {
 	"dependencies": {
 		"@cloudflare/ci": "0.2.0",
-		"@cloudflare/sandbox": "0.12.1",
+		"@cloudflare/sandbox": "0.12.14",
 		"@usecontextlayer/shared": "workspace:*",
 		"jose": "^6.2.15",
 		"zod": "^4.6.7"
