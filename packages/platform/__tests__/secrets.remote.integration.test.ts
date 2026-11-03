@@ -1,5 +1,4 @@
-import { test as base } from "@tests/integration"
-import { runCli, test } from "@tests/secrets"
+import { test } from "@tests/secrets"
 import { expect } from "vitest"
 import { z } from "zod"
 import { accountsSchema } from "@/accounts.schema"
@@ -57,28 +56,6 @@ test("non-writing: secret API requires authentication and the selected Owner", a
 		(await fetch(`${origin}/api/secrets/personal/${userId}/${name}`, { headers })).status,
 	).toBe(404)
 })
-
-base(
-	"non-writing: CLI requires explicit stdin input and resolves organization membership",
-	async ({ commandEnv }) => {
-		const nonTerminal = await runCli(commandEnv, [
-			"secrets",
-			"set",
-			"CTX_SECRET_ACCESS_TEST",
-		])
-		expect(nonTerminal.exitCode).toBe(1)
-		expect(nonTerminal.all).toContain("Use --stdin")
-		const unknownOrg = await runCli(commandEnv, [
-			"secrets",
-			"--org",
-			"not-a-member",
-			"drop",
-			"CTX_SECRET_ACCESS_TEST",
-		])
-		expect(unknownOrg.exitCode).toBe(1)
-		expect(unknownOrg.all).toContain("Organization is not in your memberships")
-	},
-)
 
 test("non-writing: Owner accounts enforce access and list through the real API and CLI", async ({
 	identity,

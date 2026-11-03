@@ -64,17 +64,15 @@ test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
 			GIT_TERMINAL_PROMPT: "0",
 		}
 		const git = (...args: string[]) =>
-			execFile("git", args, { cwd: directory, env: gitEnv })
-		await git(
-			"config",
-			"--global",
-			`credential.${origin}/git.helper`,
-			`${cli} git-credential`,
-		)
+			execFile(
+				"git",
+				["-c", `credential.${origin}/git.helper=${cli} git-credential`, ...args],
+				{ cwd: directory, env: gitEnv },
+			)
 		await git("init", "-b", "main")
 		await git("config", "user.name", "Pi API Acceptance")
 		await git("config", "user.email", "pi-api-test@example.com")
-		await git("add", ".", ":!gitconfig")
+		await git("add", ".")
 		await git(
 			"-c",
 			"commit.gpgsign=false",

@@ -113,13 +113,11 @@ test("hosted configuration uses pushed declarations independently of developer-l
 		GIT_TERMINAL_PROMPT: "0",
 	}
 	const git = async (...args: string[]) =>
-		execFile("git", args, { cwd: dir, env: gitEnv })
-	await git(
-		"config",
-		"--global",
-		`credential.${origin}/git.helper`,
-		`${cli} git-credential`,
-	)
+		execFile(
+			"git",
+			["-c", `credential.${origin}/git.helper=${cli} git-credential`, ...args],
+			{ cwd: dir, env: gitEnv },
+		)
 	await copySlateProject(dir)
 	await mkdir(join(dir, "agents/daily-summary"), { recursive: true })
 	const secretSuffix = crypto.randomUUID().replaceAll("-", "").toUpperCase()

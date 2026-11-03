@@ -16,13 +16,13 @@ import * as workerFixtures from "../../../vitest.workers.ts"
 
 const test = base.extend(
 	"workers",
-	({ databases }): workerFixtures.Workers => [
+	({ databases }): workerFixtures.WorkerConfigs => [
 		{
-			...workerFixtures.platformWorker,
+			...workerFixtures.platformWorkerConfig,
 			secrets: { CTX_PLATFORM_DATABASE_URL: databases.urls.ctx_platform_test },
 		},
-		workerFixtures.buildWorker,
-		workerFixtures.dispatcherWorker,
+		workerFixtures.buildWorkerConfig,
+		workerFixtures.dispatcherWorkerConfig,
 	],
 )
 
@@ -81,14 +81,6 @@ test("the build Workflow publishes a migrated slate", async ({ db, harness }) =>
 		])
 	})
 	await copySlateProject(checkout)
-	await writeFile(
-		join(checkout, "public/slate.json"),
-		JSON.stringify({
-			connections: {},
-			databases: { notes: { mode: "owner" } },
-			secrets: {},
-		}),
-	)
 	await writeFile(
 		join(checkout, "app/routes.ts"),
 		`import { index, route, type RouteConfig } from "@react-router/dev/routes"

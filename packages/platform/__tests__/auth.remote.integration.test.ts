@@ -1,26 +1,29 @@
 import { test as base } from "@tests/integration"
 import { signInViewer } from "@usecontextlayer/dev-env/viewer"
 import { expect } from "vitest"
-import { slateSchema } from "@/slates.schema"
+import { type Slate, slateSchema } from "@/slates.schema"
 
 const test = base
-	.extend("slate", async ({ db, webSession, platform }, { onCleanup }) => {
-		const headers = new Headers(webSession.headers)
-		headers.set("origin", platform.origin)
-		headers.set("content-type", "application/json")
-		const created = await fetch(`${platform.origin}/api/slates`, {
-			body: JSON.stringify({}),
-			headers,
-			method: "POST",
-		})
-		expect(created.status).toBe(201)
-		const slate = slateSchema.parse(await created.json())
-		const { ARTIFACTS } = await platform.worker.getEnv()
-		onCleanup(async () => {
-			await ARTIFACTS.delete(slate.id)
-			await db.deleteFrom("slate").where("id", "=", slate.id).execute()
-		})
-		return slate
+	.extend<{ slate: Slate }>({
+		slate: async ({ db, webSession, platform }, use) => {
+			await using resources = new AsyncDisposableStack()
+			const { ARTIFACTS } = await platform.worker.getEnv()
+			const headers = new Headers(webSession.headers)
+			headers.set("origin", platform.origin)
+			headers.set("content-type", "application/json")
+			const created = await fetch(`${platform.origin}/api/slates`, {
+				body: JSON.stringify({}),
+				headers,
+				method: "POST",
+			})
+			expect(created.status).toBe(201)
+			const slate = slateSchema.parse(await created.json())
+			resources.defer(async () => {
+				await ARTIFACTS.delete(slate.id)
+				await db.deleteFrom("slate").where("id", "=", slate.id).execute()
+			})
+			await use(slate)
+		},
 	})
 	.extend("viewerHeaders", ({ slate, webEnv, webSession }) =>
 		signInViewer({

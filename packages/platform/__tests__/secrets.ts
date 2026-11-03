@@ -3,7 +3,7 @@ import { test as base } from "@tests/integration"
 import { execa } from "execa"
 
 const cli = join(import.meta.dirname, "../../cli/dist/cli.mjs")
-export const runCli = (env: Record<string, string>, args: string[], input = "") =>
+export const runCliWithEnv = (env: Record<string, string>, args: string[], input = "") =>
 	execa(process.execPath, [cli, ...args], {
 		all: true,
 		env,
@@ -14,5 +14,5 @@ export const test = base.extend(
 	"runCli",
 	({ cliEnv }) =>
 		(args: string[], input = "") =>
-			runCli(cliEnv, args, input),
+			runCliWithEnv(cliEnv, args, input),
 )

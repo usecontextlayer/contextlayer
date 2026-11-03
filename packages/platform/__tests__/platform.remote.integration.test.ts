@@ -203,13 +203,13 @@ test("slate ownership protects viewing, listing, and native Git source access", 
 		GIT_TERMINAL_PROMPT: "0",
 	}
 	const git = async (...args: string[]) =>
-		(await execFile("git", args, { cwd: dir, env: gitEnv })).stdout.trim()
-	await git(
-		"config",
-		"--global",
-		`credential.${origin}/git.helper`,
-		`${cli} git-credential`,
-	)
+		(
+			await execFile(
+				"git",
+				["-c", `credential.${origin}/git.helper=${cli} git-credential`, ...args],
+				{ cwd: dir, env: gitEnv },
+			)
+		).stdout.trim()
 	await git("init", "-b", "main")
 	await git("remote", "add", "origin", gitUrl)
 	await git("config", "user.name", "Platform Test")
@@ -292,10 +292,7 @@ test("slate ownership protects viewing, listing, and native Git source access", 
 		commit: await git("rev-parse", "HEAD"),
 		instructions,
 	})
-	await execFile("git", ["pull", "--ff-only"], {
-		cwd: join(dir, "cloned"),
-		env: gitEnv,
-	})
+	await git("-C", join(dir, "cloned"), "pull", "--ff-only")
 	expect(await readFile(join(dir, "cloned", "hello.txt"), "utf8")).toBe(
 		"Updated ContextLayer\n",
 	)

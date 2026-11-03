@@ -7,6 +7,7 @@ const databaseUrl = readDevEnv().CTX_PLATFORM_DATABASE_URL
 const adminUrl = new URL(databaseUrl)
 adminUrl.pathname = "/postgres"
 
+// Other runs can share the prefix; only this run's exact names establish a leak.
 async function listLiveDatabaseNames(prefix: string): Promise<string[]> {
 	const admin = postgres(adminUrl.href, { max: 1 })
 	try {

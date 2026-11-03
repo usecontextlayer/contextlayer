@@ -224,7 +224,7 @@ test("Free uses the saved balance until stale state is refreshed", async ({
 	const exhausted = await checkSlateBilling(db, env, slate)
 	expect(exhausted).toMatchObject({
 		allowed: false,
-		message: expect.stringContaining("Free clips renew on"),
+		message: expect.stringContaining("Included clips renew on"),
 		reason: "credits-exhausted",
 	})
 	expect(exhausted).toMatchObject({

@@ -6,7 +6,6 @@ import { promisify } from "node:util"
 import { ToolResultEntry } from "@earendil-works/pi-durable"
 import { writeDatabase } from "@tests/database-project"
 import { test } from "@tests/integration"
-import seed from "@usecontextlayer/dev-env/seed.json" with { type: "json" }
 import { copySlateProject } from "@usecontextlayer/dev-env/slate"
 import { slateResourcesSchema } from "@usecontextlayer/shared/slate-resources"
 import { expect } from "vitest"
@@ -16,19 +15,18 @@ import {
 	agentJobMessageSchema,
 	agentJobResultSchema,
 } from "@/agents.schema"
-import { organizationSchema } from "@/auth.server"
 import { slateMemberSchema } from "@/slate-members.schema"
 import { slateSchema } from "@/slates.schema"
 
 const execFile = promisify(execFileCallback)
 
-test("API jobs execute Code Mode and preserve owner and viewer database writes", async ({
+test("API jobs execute a Code Mode database call and preserve owner and viewer writes", async ({
 	buildWorker,
 	cliEnv,
 	db,
 	directory,
+	organization,
 	platform,
-	webEnv,
 	webSession,
 }) => {
 	const { origin, worker } = platform
@@ -40,16 +38,6 @@ test("API jobs execute Code Mode and preserve owner and viewer database writes",
 		headers,
 		method: "POST",
 	})
-	const organizationsResponse = await fetch(
-		`${webEnv.BETTER_AUTH_URL}/api/platform/organizations`,
-		{ headers: webSession.headers },
-	)
-	expect(organizationsResponse.status).toBe(200)
-	const organization = z
-		.object({ organizations: z.array(organizationSchema) })
-		.parse(await organizationsResponse.json())
-		.organizations.find((item) => item.slug === seed.web.organization.slug)
-	assert(organization, "Initialize the DevEnv organization")
 	const created = await fetch(
 		`${origin}/api/slates`,
 		post({ organization_slug: organization.slug }),
@@ -92,26 +80,24 @@ test("API jobs execute Code Mode and preserve owner and viewer database writes",
 	}))
 	const cli = join(import.meta.dirname, "../../cli/dist/cli.mjs")
 	const git = (...args: string[]) =>
-		execFile("git", args, {
-			cwd: directory,
-			env: {
-				...process.env,
-				...cliEnv,
-				GIT_CONFIG_GLOBAL: join(directory, "gitconfig"),
-				GIT_TERMINAL_PROMPT: "0",
+		execFile(
+			"git",
+			["-c", `credential.${origin}/git.helper=${cli} git-credential`, ...args],
+			{
+				cwd: directory,
+				env: {
+					...process.env,
+					...cliEnv,
+					GIT_CONFIG_GLOBAL: join(directory, "gitconfig"),
+					GIT_TERMINAL_PROMPT: "0",
+				},
 			},
-		})
+		)
 	await git("init", "-b", "main")
 	await git("config", "user.name", "Pi Database Acceptance")
 	await git("config", "user.email", "pi-database-test@example.com")
 	await git("add", ".")
 	await git("-c", "commit.gpgsign=false", "commit", "-m", "Declare agent databases")
-	await git(
-		"config",
-		"--global",
-		`credential.${origin}/git.helper`,
-		`${cli} git-credential`,
-	)
 	await git("push", `${origin}/git/${slate.id}`, "main")
 	await db
 		.insertInto("slate_member")
@@ -183,6 +169,11 @@ test("API jobs execute Code Mode and preserve owner and viewer database writes",
 		.filter((message) => message.role === "toolResult" && message.toolName === "codemode")
 	expect(toolResults).toContainEqual(
 		expect.objectContaining({
+			details: expect.objectContaining({
+				calls: expect.arrayContaining([
+					expect.objectContaining({ name: "database_query", status: "ok" }),
+				]),
+			}),
 			isError: false,
 		}),
 	)

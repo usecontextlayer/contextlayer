@@ -73,8 +73,13 @@ test("authored cron jobs retain results after schedule removal and Durable Objec
 		GIT_CONFIG_GLOBAL: join(directory, "gitconfig"),
 		GIT_TERMINAL_PROMPT: "0",
 	}
+	const cli = join(import.meta.dirname, "../../cli/dist/cli.mjs")
 	const git = (...args: string[]) =>
-		execFile("git", args, { cwd: directory, env: gitEnv })
+		execFile(
+			"git",
+			["-c", `credential.${origin}/git.helper=${cli} git-credential`, ...args],
+			{ cwd: directory, env: gitEnv },
+		)
 	await git("init", "-b", "main")
 	await git("config", "user.name", "Pi Cron Acceptance")
 	await git("config", "user.email", "pi-cron-test@example.com")
@@ -85,12 +90,6 @@ test("authored cron jobs retain results after schedule removal and Durable Objec
 		"commit",
 		"-m",
 		"Author scheduled Pi acceptance agent",
-	)
-	await git(
-		"config",
-		"--global",
-		`credential.${origin}/git.helper`,
-		`${join(import.meta.dirname, "../../cli/dist/cli.mjs")} git-credential`,
 	)
 	await git("push", remote, "main")
 	const url = `${origin}/api/slates/${slate.id}/agents/brief/jobs`

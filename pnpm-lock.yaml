@@ -10,7 +10,7 @@ patchedDependencies:
   '@earendil-works/pi-env@1.3.0': b6b974cb9999c0b24f865f23ecc1e2019bf0bb738dfa5b056a9d0a2ef119900c
   miniflare@5.20261001.0-alpha: 50ef4be55367d86f34429603759663ca021c06e44bec5e08a1ec0f4b9f21c342
   postgres: 3c6ad14249311b1009d0b5dc63a6223155b601ddf5a35abede25e8e10d200935
-  wrangler@4.146.0: 49210b8635b23d582b7aa7f771c7b25db6ac4dbbc476aa72331e054688a1c64f
+  wrangler@4.146.0: f5f8425aa48bb4e4303d32bbce79b30eb507ee4465a708f6569c362a7204e933
 
 importers:
 
@@ -60,7 +60,7 @@ importers:
         version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(@vitest/browser-playwright@4.1.11)(msw@2.14.6(@types/node@24.13.3)(typescript@7.0.2))(vite@8.3.2(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))
       wrangler:
         specifier: 4.146.0
-        version: 4.146.0(patch_hash=49210b8635b23d582b7aa7f771c7b25db6ac4dbbc476aa72331e054688a1c64f)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.13.3)
+        version: 4.146.0(patch_hash=f5f8425aa48bb4e4303d32bbce79b30eb507ee4465a708f6569c362a7204e933)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.13.3)
       zod:
         specifier: ^4.4.3
         version: 4.6.5
@@ -82,7 +82,7 @@ importers:
         version: 7.0.2
       wrangler:
         specifier: ^4.146.0
-        version: 4.146.0(patch_hash=49210b8635b23d582b7aa7f771c7b25db6ac4dbbc476aa72331e054688a1c64f)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.13.3)
+        version: 4.146.0(patch_hash=f5f8425aa48bb4e4303d32bbce79b30eb507ee4465a708f6569c362a7204e933)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.13.3)
 
   packages/build:
     dependencies:
@@ -146,7 +146,7 @@ importers:
         version: 8.3.2(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0)
       wrangler:
         specifier: ^4.146.0
-        version: 4.146.0(patch_hash=49210b8635b23d582b7aa7f771c7b25db6ac4dbbc476aa72331e054688a1c64f)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.13.3)
+        version: 4.146.0(patch_hash=f5f8425aa48bb4e4303d32bbce79b30eb507ee4465a708f6569c362a7204e933)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.13.3)
     devDependencies:
       '@clack/prompts':
         specifier: ^1.8.1
@@ -303,7 +303,7 @@ importers:
         version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(@vitest/browser-playwright@4.1.11)(msw@2.14.6(@types/node@24.13.3)(typescript@7.0.2))(vite@8.3.2(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))
       wrangler:
         specifier: ^4.146.0
-        version: 4.146.0(patch_hash=49210b8635b23d582b7aa7f771c7b25db6ac4dbbc476aa72331e054688a1c64f)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.13.3)
+        version: 4.146.0(patch_hash=f5f8425aa48bb4e4303d32bbce79b30eb507ee4465a708f6569c362a7204e933)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.13.3)
 
   packages/mcp-microsoft-planner-premium:
     dependencies:
@@ -337,7 +337,7 @@ importers:
         version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(@vitest/browser-playwright@4.1.11)(msw@2.14.6(@types/node@24.13.3)(typescript@7.0.2))(vite@8.3.2(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))
       wrangler:
         specifier: ^4.146.0
-        version: 4.146.0(patch_hash=49210b8635b23d582b7aa7f771c7b25db6ac4dbbc476aa72331e054688a1c64f)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.13.3)
+        version: 4.146.0(patch_hash=f5f8425aa48bb4e4303d32bbce79b30eb507ee4465a708f6569c362a7204e933)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.13.3)
 
   packages/platform:
     dependencies:
@@ -439,7 +439,7 @@ importers:
         version: 8.4.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       react-router-hono-server:
         specifier: ^4.1.4
-        version: 4.1.4(@react-router/dev@8.4.0(react-router@8.4.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(supports-color@10.2.2)(typescript@7.0.2)(vite@8.3.2(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(wrangler@4.146.0(patch_hash=49210b8635b23d582b7aa7f771c7b25db6ac4dbbc476aa72331e054688a1c64f)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.13.3)))(hono@4.13.12)(react-dom@19.3.0(react@19.3.0))(react-router@8.4.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react@19.3.0)(vite@8.3.2(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(wrangler@4.146.0(patch_hash=49210b8635b23d582b7aa7f771c7b25db6ac4dbbc476aa72331e054688a1c64f)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.13.3))(ws@8.21.3)
+        version: 4.1.4(@react-router/dev@8.4.0(react-router@8.4.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(supports-color@10.2.2)(typescript@7.0.2)(vite@8.3.2(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(wrangler@4.146.0(patch_hash=f5f8425aa48bb4e4303d32bbce79b30eb507ee4465a708f6569c362a7204e933)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.13.3)))(hono@4.13.12)(react-dom@19.3.0(react@19.3.0))(react-router@8.4.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react@19.3.0)(vite@8.3.2(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(wrangler@4.146.0(patch_hash=f5f8425aa48bb4e4303d32bbce79b30eb507ee4465a708f6569c362a7204e933)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.13.3))(ws@8.21.3)
       shadcn:
         specifier: ^4.21.1
         version: 4.21.1(@cfworker/json-schema@4.1.1)(supports-color@10.2.2)(typescript@7.0.2)
@@ -461,7 +461,7 @@ importers:
         version: 0.2.0(patch_hash=0b9be35d104f4efc0692488eef57a450befe9d622c613a79509383ece87f07d5)
       '@cloudflare/vite-plugin':
         specifier: ^1.62.4
-        version: 1.62.4(patch_hash=36dce0131d509e6ee9a9f57b60f8199f2dd6999c8124fe54e4391ba9cc923dcc)(@types/node@24.13.3)(vite@8.3.2(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(wrangler@4.146.0(patch_hash=49210b8635b23d582b7aa7f771c7b25db6ac4dbbc476aa72331e054688a1c64f)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.13.3))
+        version: 1.62.4(patch_hash=36dce0131d509e6ee9a9f57b60f8199f2dd6999c8124fe54e4391ba9cc923dcc)(@types/node@24.13.3)(vite@8.3.2(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(wrangler@4.146.0(patch_hash=f5f8425aa48bb4e4303d32bbce79b30eb507ee4465a708f6569c362a7204e933)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.13.3))
       '@cloudflare/workers-types':
         specifier: ^5.20261001.1
         version: 5.20261001.1
@@ -470,7 +470,7 @@ importers:
         version: 2.3.1
       '@react-router/dev':
         specifier: ^8.4.0
-        version: 8.4.0(react-router@8.4.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(supports-color@10.2.2)(typescript@7.0.2)(vite@8.3.2(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(wrangler@4.146.0(patch_hash=49210b8635b23d582b7aa7f771c7b25db6ac4dbbc476aa72331e054688a1c64f)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.13.3))
+        version: 8.4.0(react-router@8.4.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(supports-color@10.2.2)(typescript@7.0.2)(vite@8.3.2(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(wrangler@4.146.0(patch_hash=f5f8425aa48bb4e4303d32bbce79b30eb507ee4465a708f6569c362a7204e933)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.13.3))
       '@tailwindcss/vite':
         specifier: ^4.3.3
         version: 4.3.3(vite@8.3.2(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))
@@ -515,7 +515,7 @@ importers:
         version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(@vitest/browser-playwright@4.1.11)(msw@2.14.6(@types/node@24.13.3)(typescript@7.0.2))(vite@8.3.2(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))
       wrangler:
         specifier: ^4.146.0
-        version: 4.146.0(patch_hash=49210b8635b23d582b7aa7f771c7b25db6ac4dbbc476aa72331e054688a1c64f)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.13.3)
+        version: 4.146.0(patch_hash=f5f8425aa48bb4e4303d32bbce79b30eb507ee4465a708f6569c362a7204e933)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.13.3)
 
   packages/sdk:
     dependencies:
@@ -549,7 +549,7 @@ importers:
     devDependencies:
       '@cloudflare/vite-plugin':
         specifier: ^1.62.4
-        version: 1.62.4(patch_hash=36dce0131d509e6ee9a9f57b60f8199f2dd6999c8124fe54e4391ba9cc923dcc)(@types/node@24.13.3)(vite@8.3.2(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(wrangler@4.146.0(patch_hash=49210b8635b23d582b7aa7f771c7b25db6ac4dbbc476aa72331e054688a1c64f)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.13.3))
+        version: 1.62.4(patch_hash=36dce0131d509e6ee9a9f57b60f8199f2dd6999c8124fe54e4391ba9cc923dcc)(@types/node@24.13.3)(vite@8.3.2(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(wrangler@4.146.0(patch_hash=f5f8425aa48bb4e4303d32bbce79b30eb507ee4465a708f6569c362a7204e933)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.13.3))
       '@cloudflare/workers-types':
         specifier: ^5.20261001.1
         version: 5.20261001.1
@@ -8095,14 +8095,14 @@ snapshots:
     optionalDependencies:
       workerd: 1.20261019.1
 
-  '@cloudflare/vite-plugin@1.62.4(patch_hash=36dce0131d509e6ee9a9f57b60f8199f2dd6999c8124fe54e4391ba9cc923dcc)(@types/node@24.13.3)(vite@8.3.2(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(wrangler@4.146.0(patch_hash=49210b8635b23d582b7aa7f771c7b25db6ac4dbbc476aa72331e054688a1c64f)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.13.3))':
+  '@cloudflare/vite-plugin@1.62.4(patch_hash=36dce0131d509e6ee9a9f57b60f8199f2dd6999c8124fe54e4391ba9cc923dcc)(@types/node@24.13.3)(vite@8.3.2(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(wrangler@4.146.0(patch_hash=f5f8425aa48bb4e4303d32bbce79b30eb507ee4465a708f6569c362a7204e933)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.13.3))':
     dependencies:
       '@cloudflare/unenv-preset': 2.16.2(unenv@2.0.0-rc.24)(workerd@1.20261001.1)
       miniflare: 5.20261001.0-alpha(patch_hash=50ef4be55367d86f34429603759663ca021c06e44bec5e08a1ec0f4b9f21c342)(@types/node@24.13.3)
       unenv: 2.0.0-rc.24
       vite: 8.3.2(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0)
       workerd: 1.20261001.1
-      wrangler: 4.146.0(patch_hash=49210b8635b23d582b7aa7f771c7b25db6ac4dbbc476aa72331e054688a1c64f)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.13.3)
+      wrangler: 4.146.0(patch_hash=f5f8425aa48bb4e4303d32bbce79b30eb507ee4465a708f6569c362a7204e933)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.13.3)
       ws: 8.21.0
     transitivePeerDependencies:
       - '@types/node'
@@ -8754,13 +8754,13 @@ snapshots:
     dependencies:
       hono: 4.13.12
 
-  '@hono/vite-dev-server@0.26.1(hono@4.13.12)(wrangler@4.146.0(patch_hash=49210b8635b23d582b7aa7f771c7b25db6ac4dbbc476aa72331e054688a1c64f)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.13.3))':
+  '@hono/vite-dev-server@0.26.1(hono@4.13.12)(wrangler@4.146.0(patch_hash=f5f8425aa48bb4e4303d32bbce79b30eb507ee4465a708f6569c362a7204e933)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.13.3))':
     dependencies:
       '@hono/node-server': 1.19.17(hono@4.13.12)
       hono: 4.13.12
       minimatch: 9.0.9
     optionalDependencies:
-      wrangler: 4.146.0(patch_hash=49210b8635b23d582b7aa7f771c7b25db6ac4dbbc476aa72331e054688a1c64f)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.13.3)
+      wrangler: 4.146.0(patch_hash=f5f8425aa48bb4e4303d32bbce79b30eb507ee4465a708f6569c362a7204e933)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.13.3)
 
   '@hono/zod-openapi@1.6.3(hono@4.13.12)(zod@4.6.5)':
     dependencies:
@@ -9391,7 +9391,7 @@ snapshots:
     dependencies:
       quansync: 1.0.0
 
-  '@react-router/dev@8.4.0(react-router@8.4.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(supports-color@10.2.2)(typescript@7.0.2)(vite@8.3.2(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(wrangler@4.146.0(patch_hash=49210b8635b23d582b7aa7f771c7b25db6ac4dbbc476aa72331e054688a1c64f)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.13.3))':
+  '@react-router/dev@8.4.0(react-router@8.4.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(supports-color@10.2.2)(typescript@7.0.2)(vite@8.3.2(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(wrangler@4.146.0(patch_hash=f5f8425aa48bb4e4303d32bbce79b30eb507ee4465a708f6569c362a7204e933)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.13.3))':
     dependencies:
       '@babel/core': 7.29.7(supports-color@10.2.2)
       '@babel/generator': 7.29.8
@@ -9420,7 +9420,7 @@ snapshots:
       vite: 8.3.2(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0)
     optionalDependencies:
       typescript: 7.0.2
-      wrangler: 4.146.0(patch_hash=49210b8635b23d582b7aa7f771c7b25db6ac4dbbc476aa72331e054688a1c64f)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.13.3)
+      wrangler: 4.146.0(patch_hash=f5f8425aa48bb4e4303d32bbce79b30eb507ee4465a708f6569c362a7204e933)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.13.3)
     transitivePeerDependencies:
       - babel-plugin-macros
       - supports-color
@@ -12640,12 +12640,12 @@ snapshots:
 
   react-refresh@0.18.0: {}
 
-  react-router-hono-server@4.1.4(@react-router/dev@8.4.0(react-router@8.4.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(supports-color@10.2.2)(typescript@7.0.2)(vite@8.3.2(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(wrangler@4.146.0(patch_hash=49210b8635b23d582b7aa7f771c7b25db6ac4dbbc476aa72331e054688a1c64f)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.13.3)))(hono@4.13.12)(react-dom@19.3.0(react@19.3.0))(react-router@8.4.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react@19.3.0)(vite@8.3.2(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(wrangler@4.146.0(patch_hash=49210b8635b23d582b7aa7f771c7b25db6ac4dbbc476aa72331e054688a1c64f)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.13.3))(ws@8.21.3):
+  react-router-hono-server@4.1.4(@react-router/dev@8.4.0(react-router@8.4.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(supports-color@10.2.2)(typescript@7.0.2)(vite@8.3.2(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(wrangler@4.146.0(patch_hash=f5f8425aa48bb4e4303d32bbce79b30eb507ee4465a708f6569c362a7204e933)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.13.3)))(hono@4.13.12)(react-dom@19.3.0(react@19.3.0))(react-router@8.4.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react@19.3.0)(vite@8.3.2(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(wrangler@4.146.0(patch_hash=f5f8425aa48bb4e4303d32bbce79b30eb507ee4465a708f6569c362a7204e933)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.13.3))(ws@8.21.3):
     dependencies:
       '@drizzle-team/brocli': 0.12.1
       '@hono/node-server': 2.1.1(hono@4.13.12)
-      '@hono/vite-dev-server': 0.26.1(hono@4.13.12)(wrangler@4.146.0(patch_hash=49210b8635b23d582b7aa7f771c7b25db6ac4dbbc476aa72331e054688a1c64f)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.13.3))
-      '@react-router/dev': 8.4.0(react-router@8.4.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(supports-color@10.2.2)(typescript@7.0.2)(vite@8.3.2(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(wrangler@4.146.0(patch_hash=49210b8635b23d582b7aa7f771c7b25db6ac4dbbc476aa72331e054688a1c64f)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.13.3))
+      '@hono/vite-dev-server': 0.26.1(hono@4.13.12)(wrangler@4.146.0(patch_hash=f5f8425aa48bb4e4303d32bbce79b30eb507ee4465a708f6569c362a7204e933)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.13.3))
+      '@react-router/dev': 8.4.0(react-router@8.4.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(supports-color@10.2.2)(typescript@7.0.2)(vite@8.3.2(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(wrangler@4.146.0(patch_hash=f5f8425aa48bb4e4303d32bbce79b30eb507ee4465a708f6569c362a7204e933)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.13.3))
       hono: 4.13.12
       react: 19.3.0
       react-dom: 19.3.0(react@19.3.0)
@@ -13735,7 +13735,7 @@ snapshots:
       '@cloudflare/workerd-linux-arm64': 1.20261023.1
       '@cloudflare/workerd-windows-64': 1.20261023.1
 
-  wrangler@4.146.0(patch_hash=49210b8635b23d582b7aa7f771c7b25db6ac4dbbc476aa72331e054688a1c64f)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.13.3):
+  wrangler@4.146.0(patch_hash=f5f8425aa48bb4e4303d32bbce79b30eb507ee4465a708f6569c362a7204e933)(@cloudflare/workers-types@5.20261001.1)(@types/node@24.13.3):
     dependencies:
       '@cloudflare/kv-asset-handler': 0.5.0
       '@cloudflare/unenv-preset': 2.16.2(unenv@2.0.0-rc.24)(workerd@1.20261001.1)

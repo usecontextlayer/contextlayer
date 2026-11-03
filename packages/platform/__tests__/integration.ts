@@ -76,14 +76,14 @@ export const test = base
 		}),
 	)
 	.extend(
-		"platformWorkers",
+		"platformWorkerConfigs",
 		{ scope: "file" },
-		({ platformEnv }): workerFixtures.Workers => [
-			{ ...workerFixtures.platformWorker, secrets: platformEnv },
-			workerFixtures.buildWorker,
+		({ platformEnv }): workerFixtures.WorkerConfigs => [
+			{ ...workerFixtures.platformWorkerConfig, secrets: platformEnv },
+			workerFixtures.buildWorkerConfig,
 		],
 	)
-	.extend("workers", ({ platformWorkers }) => platformWorkers)
+	.extend("workers", ({ platformWorkerConfigs }) => platformWorkerConfigs)
 	.extend("platform", async ({ platformEnv: env, harness }) => {
 		const origin = (await harness.listen()).url.origin
 		return { env, harness, origin, worker: harness.getWorker<PlatformEnv["Bindings"]>() }
@@ -102,10 +102,10 @@ export const test = base
 export const dispatcherTest = test
 	.extend(
 		"workers",
-		({ platformWorkers, serviceEnv }): workerFixtures.Workers => [
-			...platformWorkers,
+		({ platformWorkerConfigs, serviceEnv }): workerFixtures.WorkerConfigs => [
+			...platformWorkerConfigs,
 			{
-				...workerFixtures.dispatcherWorker,
+				...workerFixtures.dispatcherWorkerConfig,
 				secrets: {
 					CTX_PLATFORM_URL: serviceEnv.addresses.CTX_PLATFORM_URL.origin,
 					CTX_VIEWER_AUTH_URL: serviceEnv.addresses.CTX_VIEWER_AUTH_URL.origin,
@@ -121,7 +121,7 @@ export const dispatcherTest = test
 			workers: current.workers.map((worker) =>
 				"configPath" in worker &&
 				worker.configPath?.toString() ===
-					workerFixtures.dispatcherWorker.configPath.toString()
+					workerFixtures.dispatcherWorkerConfig.configPath.toString()
 					? {
 							...worker,
 							secrets: { ...worker.secrets, CTX_PLATFORM_URL: platform.origin },

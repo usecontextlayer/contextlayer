@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
-import { createPolarCore } from "@polar-sh/sdk/2026-10"
+import { createPolarCore, type models } from "@polar-sh/sdk/2026-10"
 import { listEvents } from "@polar-sh/sdk/2026-10/services/events"
 import { dispatcherTest as test } from "@tests/integration"
 import { signInViewer } from "@usecontextlayer/dev-env/viewer"
@@ -40,7 +40,6 @@ test("real dispatch strips viewer credentials and reports exact slate-Owner requ
 	const wrangler = fileURLToPath(
 		new URL("../node_modules/wrangler/bin/wrangler.js", import.meta.url),
 	)
-	const ownerId = organization.id
 	const created = await fetch(`${origin}/api/slates`, {
 		body: JSON.stringify({ organization_slug: organization.slug }),
 		headers: { ...headers, "content-type": "application/json" },
@@ -51,7 +50,10 @@ test("real dispatch strips viewer credentials and reports exact slate-Owner requ
 	resources.defer(async () => {
 		await ARTIFACTS.delete(slate.id)
 	})
-	expect(slate.owner_user_id ?? slate.owner_organization_id).toBe(ownerId)
+	expect(slate).toMatchObject({
+		owner_organization_id: organization.id,
+		owner_user_id: null,
+	})
 	const slateDir = join(directory, slate.id)
 	await mkdir(slateDir)
 	await writeFile(
@@ -131,22 +133,29 @@ test("real dispatch strips viewer credentials and reports exact slate-Owner requ
 			method,
 		})
 	}
+	let events: models.UserEvent[] = []
 	await expect
 		.poll(
 			async () => {
-				const events = await listEvents(polar)({
-					external_customer_id: ownerId,
+				const result = await listEvents(polar)({
 					metadata: { user_code_worker_id: slate.id },
 				})
-				return events.items
-					.filter((event) => event.source === "user")
-					.map((event) => ({ clips: event.metadata.clips, name: event.name }))
-					.sort((a, b) => a.name.localeCompare(b.name))
+				events = result.items.filter((event) => event.source === "user")
+				return events.length
 			},
 			{ timeout: 300_000 },
 		)
-		.toEqual([
-			{ clips: 3, name: "action_call" },
-			{ clips: 1, name: "loader_call" },
-		])
+		.toBeGreaterThanOrEqual(2)
+	expect(
+		events
+			.map((event) => ({
+				clips: event.metadata.clips,
+				external_customer_id: event.external_customer_id,
+				name: event.name,
+			}))
+			.sort((a, b) => a.name.localeCompare(b.name)),
+	).toEqual([
+		{ clips: 3, external_customer_id: organization.id, name: "action_call" },
+		{ clips: 1, external_customer_id: organization.id, name: "loader_call" },
+	])
 })
