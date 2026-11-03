@@ -22,17 +22,17 @@
 			"outputs": ["dist-test/computer/**"],
 			"passThroughEnv": ["WRANGLER_CI_OVERRIDE_NETWORK_MODE_HOST"]
 		},
-		"//#format.verify": {
-			"cache": false
-		},
-		"//#test:gen-slate-project": {
+		"//#build:test:slate-project": {
 			"dependsOn": [
 				"@usecontextlayer/cli#build",
 				"@usecontextlayer/dev-env#build",
 				"@usecontextlayer/sdk#build"
 			],
-			"inputs": ["scripts/gen-slate-project.ts"],
+			"inputs": ["scripts/generate-slate-project.ts"],
 			"outputs": ["artifacts/slate-project/**"]
+		},
+		"//#format.verify": {
+			"cache": false
 		},
 		"//#tsc.scripts": {
 			"dependsOn": ["^build"],
@@ -76,7 +76,7 @@
 		"test:integration:basic": {
 			"cache": false,
 			"dependsOn": [
-				"//#test:gen-slate-project",
+				"//#build:test:slate-project",
 				"^build",
 				"@usecontextlayer/platform#build:test",
 				"@usecontextlayer/build#build:test",
@@ -88,7 +88,7 @@
 		"test:integration:browser": {
 			"cache": false,
 			"dependsOn": [
-				"//#test:gen-slate-project",
+				"//#build:test:slate-project",
 				"^build",
 				"@usecontextlayer/platform#build:test",
 				"@usecontextlayer/build#build:test",
@@ -97,10 +97,10 @@
 			],
 			"outputs": []
 		},
-		"test:integration:doppler": {
+		"test:integration:doppler-writes": {
 			"cache": false,
 			"dependsOn": [
-				"//#test:gen-slate-project",
+				"//#build:test:slate-project",
 				"^build",
 				"@usecontextlayer/platform#build:test",
 				"@usecontextlayer/build#build:test",
@@ -113,7 +113,7 @@
 		"test:integration:polar": {
 			"cache": false,
 			"dependsOn": [
-				"//#test:gen-slate-project",
+				"//#build:test:slate-project",
 				"^build",
 				"@usecontextlayer/platform#build:test",
 				"@usecontextlayer/build#build:test",
@@ -125,7 +125,7 @@
 		"test:integration:polar-webhooks": {
 			"cache": false,
 			"dependsOn": [
-				"//#test:gen-slate-project",
+				"//#build:test:slate-project",
 				"^build",
 				"@usecontextlayer/platform#build:test",
 				"@usecontextlayer/build#build:test",
@@ -137,7 +137,7 @@
 		"test:integration:remote": {
 			"cache": false,
 			"dependsOn": [
-				"//#test:gen-slate-project",
+				"//#build:test:slate-project",
 				"^build",
 				"@usecontextlayer/platform#build:test",
 				"@usecontextlayer/build#build:test",
@@ -145,6 +145,8 @@
 				"@usecontextlayer/platform#build:test:computer"
 			],
 			"outputs": [],
+			// An inherited CLOUDFLARE_ENV would reselect an environment in Platform's generated test
+			// config, which Vite already flattened; the doppler-writes lane excludes it for the same reason.
 			"passThroughEnv": ["CLAUDE_CODE_OAUTH_TOKEN", "CLOUDFLARE_*", "!CLOUDFLARE_ENV"]
 		},
 		"tsc": {

@@ -22,12 +22,12 @@ const execFile = promisify(execFileCallback)
 
 const test = base.extend(
 	"workers",
-	({ databases }): workerFixtures.WorkerConfigs => [
+	({ databases }): workerFixtures.WorkerInputs => [
 		{
-			...workerFixtures.platformWorkerConfig,
+			...workerFixtures.platformWorkerInput,
 			secrets: { CTX_PLATFORM_DATABASE_URL: databases.urls.ctx_platform_test },
 		},
-		workerFixtures.buildWorkerConfig,
+		workerFixtures.buildWorkerInput,
 	],
 )
 

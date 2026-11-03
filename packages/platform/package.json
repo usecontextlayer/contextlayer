@@ -77,7 +77,7 @@
 		"dev:watch": "CLOUDFLARE_ENV=test vite dev --host 127.0.0.1",
 		"test": "vitest run --config vitest.config.ts",
 		"test:integration:basic": "vitest run --config vitest.integration.basic.config.ts",
-		"test:integration:doppler": "doppler run --project platform --config dev -- vitest run --config vitest.integration.doppler.config.ts",
+		"test:integration:doppler-writes": "doppler run --project platform --config dev -- vitest run --config vitest.integration.doppler-writes.config.ts",
 		"test:integration:polar": "vitest run --config vitest.integration.polar.config.ts",
 		"test:integration:polar-webhooks": "vitest run --config vitest.integration.polar-webhooks.config.ts",
 		"test:integration:remote": "doppler run --project platform --config dev -- vitest run --config vitest.integration.remote.config.ts",

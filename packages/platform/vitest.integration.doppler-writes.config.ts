@@ -7,8 +7,8 @@ export default defineConfig({
 	resolve: { tsconfigPaths: true },
 	test: {
 		...integration.platformIntegrationTestConfig,
-		...integration.dopplerIntegrationTestConfig,
-		name: "@usecontextlayer/platform:integration:doppler",
+		...integration.dopplerWritesIntegrationTestConfig,
+		name: "@usecontextlayer/platform:integration:doppler-writes",
 		root: fileURLToPath(new URL(".", import.meta.url)),
 	},
 })

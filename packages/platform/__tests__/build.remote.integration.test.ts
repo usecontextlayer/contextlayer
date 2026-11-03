@@ -16,17 +16,20 @@ import * as workerFixtures from "../../../vitest.workers.ts"
 
 const test = base.extend(
 	"workers",
-	({ databases }): workerFixtures.WorkerConfigs => [
+	({ databases }): workerFixtures.WorkerInputs => [
 		{
-			...workerFixtures.platformWorkerConfig,
+			...workerFixtures.platformWorkerInput,
 			secrets: { CTX_PLATFORM_DATABASE_URL: databases.urls.ctx_platform_test },
 		},
-		workerFixtures.buildWorkerConfig,
-		workerFixtures.dispatcherWorkerConfig,
+		workerFixtures.buildWorkerInput,
+		workerFixtures.dispatcherWorkerInput,
 	],
 )
 
-test("the build Workflow publishes a migrated slate", async ({ db, harness }) => {
+test("the build Workflow publishes a migrated slate with platform-owned bindings", async ({
+	db,
+	harness,
+}) => {
 	await using resources = new AsyncDisposableStack()
 	const directory = await mkdtemp(join(tmpdir(), "slate-build-"))
 	resources.defer(() => rm(directory, { force: true, recursive: true }))

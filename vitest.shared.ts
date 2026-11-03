@@ -13,20 +13,9 @@ process.env.GIT_CONFIG_GLOBAL = "/dev/null"
 process.env.GIT_CONFIG_SYSTEM = "/dev/null"
 process.env.GIT_TERMINAL_PROMPT = "0"
 
-// Test taxonomy. The filename declares what the config can't infer. Unit tests
-// (hermetic, run on CI) are marked by RUNTIME: node or a real chromium.
-// Integration tests (need real prerequisites, opt-in only) are marked by
-// LANE: one basket of capabilities, run as its own vitest invocation so its
-// config can bound how many of its files run at once.
-//
-//   *.test.ts(x)                            → unit, node             → `test`
-//   *.browser.test.ts(x)                    → unit, chromium         → `test`
-//   *.basic.integration.test.ts(x)          → services + harness     → `test:integration:basic`
-//   *.remote.integration.test.ts(x)         → remote Cloudflare     → `test:integration:remote`
-//   *.polar.integration.test.ts(x)          → basic + polar api      → `test:integration:polar`
-//   *.doppler.integration.test.ts(x)        → remote + vault writes  → `test:integration:doppler` (opt-in)
-//   *.polar-webhooks.integration.test.ts(x) → polar relay devenv     → `test:integration:polar-webhooks` (opt-in)
-//   *.browser.integration.test.ts(x)        → chromium + service     → `test:integration:browser`
+// Test taxonomy. The filename declares what the config can't infer: a unit test's
+// runtime, or an integration test's lane. TESTING.md's "Placement & Tiers" owns the
+// tiers, each lane's basket and the filename table; the configs below select files.
 //
 // The unmarked unit name claims the default runtime: bare `*.test.ts(x)` runs
 // in plain node, in every package. `.browser.` is one marked exception — for a
@@ -61,10 +50,11 @@ export const basicIntegrationTestConfig = {
 } satisfies InlineConfig
 
 const polarPollingTestConfig = {
-	// Polar Sandbox allows 100 requests per minute per organization and answers anything beyond
-	// with a 429, which the SDK does not retry. Every provider poll in these lanes inherits this
-	// interval, so each costs 12 requests per minute; maxWorkers polling files at once, plus the
-	// billing gate's background reads from every lane, must stay under the limit.
+	// Polar Sandbox allows 100 requests per minute per organization; beyond that a request gets
+	// a 429 and fails. Every provider poll in these lanes inherits this interval, so each costs
+	// 12 requests per minute. Lanes composing this policy share that budget when they run
+	// together (root `test:integration` runs remote and polar at once): their maxWorkers polling
+	// files combined, plus `checkSlateBilling`'s Customer State reads, must stay under it.
 	expect: { poll: { interval: 5_000 } },
 	maxWorkers: 3,
 } satisfies InlineConfig
@@ -79,8 +69,11 @@ export const remoteIntegrationTestConfig = {
 	include: ["**/*.remote.integration.test.ts", "**/*.remote.integration.test.tsx"],
 } satisfies InlineConfig
 
-export const dopplerIntegrationTestConfig = {
-	include: ["**/*.doppler.integration.test.ts", "**/*.doppler.integration.test.tsx"],
+export const dopplerWritesIntegrationTestConfig = {
+	include: [
+		"**/*.doppler-writes.integration.test.ts",
+		"**/*.doppler-writes.integration.test.tsx",
+	],
 } satisfies InlineConfig
 
 export const polarWebhooksIntegrationTestConfig = {

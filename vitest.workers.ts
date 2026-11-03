@@ -2,31 +2,31 @@ import { test as base } from "vitest"
 import { createTestHarness, type TestHarnessOptions } from "wrangler"
 
 // A named interface keeps private Miniflare types out of inferred fixture declarations.
-export interface WorkerConfigs extends Array<TestHarnessOptions["workers"][number]> {}
+export interface WorkerInputs extends Array<TestHarnessOptions["workers"][number]> {}
 
-// Platform expects Vite's test output, already bundled and environment-selected.
-// The Wrangler projects below select "test" here and load their prebuilt scripts.
-export const platformWorkerConfig = {
+// Platform's input is Vite's test output, already bundled and environment-selected,
+// so unlike the Wrangler projects below it takes no `env` or `prebuiltWorkerDir`.
+export const platformWorkerInput = {
 	configPath: new URL(
 		"./packages/platform/build-test/server/wrangler.json",
 		import.meta.url,
 	),
-} satisfies WorkerConfigs[number]
+} satisfies WorkerInputs[number]
 
-export const buildWorkerConfig = {
+export const buildWorkerInput = {
 	configPath: new URL("./packages/build/wrangler.jsonc", import.meta.url),
 	env: "test",
 	prebuiltWorkerDir: new URL("./packages/build/dist-test", import.meta.url),
-} satisfies WorkerConfigs[number]
+} satisfies WorkerInputs[number]
 
-export const dispatcherWorkerConfig = {
+export const dispatcherWorkerInput = {
 	configPath: new URL("./packages/dispatcher/wrangler.jsonc", import.meta.url),
 	env: "test",
 	prebuiltWorkerDir: new URL("./packages/dispatcher/dist-test", import.meta.url),
-} satisfies WorkerConfigs[number]
+} satisfies WorkerInputs[number]
 
 export const test = base
-	.extend("workers", { scope: "file" }, [] as WorkerConfigs)
+	.extend("workers", { scope: "file" }, [] as WorkerInputs)
 	.extend("harness", ({ workers, task, onTestFinished }) => {
 		const harness = createTestHarness({ workers })
 		// Fixture teardown stops at the first cleanup error. onTestFinished still runs,
