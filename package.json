@@ -22,7 +22,7 @@
 	},
 	"license": "BUSL-1.1",
 	"name": "@usecontextlayer",
-	"packageManager": "pnpm@11.22.0",
+	"packageManager": "pnpm@12.16.1",
 	"private": true,
 	"scripts": {
 		"biome.fix": "./node_modules/.bin/biome check --fix --error-on-warnings .",

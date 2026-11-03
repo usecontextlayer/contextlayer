@@ -3,7 +3,7 @@ FROM node:24-trixie-slim
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates curl git \
     && rm -rf /var/lib/apt/lists/*
-RUN npm install --global pnpm@11.22.0
+RUN npm install --global pnpm@12.16.1
 WORKDIR /opt/meridian
 RUN pnpm add --save-exact --allow-build=@rynfar/meridian --allow-build=@anthropic-ai/claude-code @rynfar/meridian@1.83.1
 COPY --from=sandbox /usr/local/bin/sandbox-shim /usr/local/bin/sandbox-shim

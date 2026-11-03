@@ -9,7 +9,7 @@ ENV JAVASCRIPT_POOL_MIN_SIZE=0 PYTHON_POOL_MIN_SIZE=0 TYPESCRIPT_POOL_MIN_SIZE=0
 COPY --from=docker.io/rclone/rclone:1.75.2 /usr/local/bin/rclone /usr/local/bin/rclone
 COPY --from=docker.io/node:22.23.4-bookworm-slim /usr/local/bin/node /usr/local/bin/node
 
-RUN npm install --global pnpm@11.22.0
+RUN npm install --global pnpm@12.16.1
 RUN mkdir -p /opt/contextlayer && pnpm --dir /opt/contextlayer add --save-exact --allow-build=esbuild --allow-build=workerd wrangler@4.152.0
 
 # A shell condition cannot remove bind-mount inputs; exclude them through stage selection.
