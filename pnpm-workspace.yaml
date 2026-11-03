@@ -48,3 +48,8 @@ permissions:
     skills: true
   "@better-auth-ui/react":
     skills: true
+
+# pnpm links approved dependency skills into the skills store only; skills-sync builds the .claude/skills view from the store.
+skills:
+  dirs:
+    - .agents/skills

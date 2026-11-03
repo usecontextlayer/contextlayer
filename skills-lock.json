@@ -1,53 +1,53 @@
 {
-	"skills": {
-		"add-icon": {
-			"computedHash": "303d28d273fbe0093905b9838bb000bde0ab11a783088f31530ac671ae1ea26c",
-			"skillPath": "plugins/icons/skills/add-icon/SKILL.md",
-			"source": "FortAwesome/fontawesome-agent-tools",
-			"sourceType": "github"
-		},
-		"fa-help": {
-			"computedHash": "d836a3da615a946e922cf9aaea0b615b1e8cebc4cbbbe79b996f0252e410acaa",
-			"skillPath": "plugins/icons/skills/fa-help/SKILL.md",
-			"source": "FortAwesome/fontawesome-agent-tools",
-			"sourceType": "github"
-		},
-		"sentry-cli": {
-			"computedHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-			"skillPath": "packages/cli/.cursor/skills/sentry-cli/SKILL.md",
-			"source": "getsentry/cli",
-			"sourceType": "github"
-		},
-		"sentry-debug-issue": {
-			"computedHash": "09fc7477ec7ca9f7f5afaf08f552fbf88b1220520a20300e575380ccac29865d",
-			"skillPath": "skills/sentry-debug-issue/SKILL.md",
-			"source": "getsentry/plugin-claude",
-			"sourceType": "github"
-		},
-		"sentry-instrument": {
-			"computedHash": "5e64905d390bd39d4a70bdf088d955351bbecb96fe76f3396ddf01dfb165279c",
-			"skillPath": "skills/sentry-instrument/SKILL.md",
-			"source": "getsentry/plugin-claude",
-			"sourceType": "github"
-		},
-		"setup-fa": {
-			"computedHash": "8fdd94c77411bbfe5ccd459f9aa0251bd35835f63643465a6222ee3884b4ae90",
-			"skillPath": "plugins/icons/skills/setup-fa/SKILL.md",
-			"source": "FortAwesome/fontawesome-agent-tools",
-			"sourceType": "github"
-		},
-		"shadcn": {
-			"computedHash": "f615de216e085a84e31593ad0fa9062232adc40cd87b7c7ab2b8e49abf6500be",
-			"skillPath": "skills/shadcn/SKILL.md",
-			"source": "shadcn/ui",
-			"sourceType": "github"
-		},
-		"suggest-icon": {
-			"computedHash": "9ea2bf4321c84e131d8f97978f4d54d59ce68659e22c5e250a6d4c7a195967cb",
-			"skillPath": "plugins/icons/skills/suggest-icon/SKILL.md",
-			"source": "FortAwesome/fontawesome-agent-tools",
-			"sourceType": "github"
-		}
-	},
-	"version": 1
+  "version": 1,
+  "skills": {
+    "add-icon": {
+      "computedHash": "303d28d273fbe0093905b9838bb000bde0ab11a783088f31530ac671ae1ea26c",
+      "skillPath": "plugins/icons/skills/add-icon/SKILL.md",
+      "source": "FortAwesome/fontawesome-agent-tools",
+      "sourceType": "github"
+    },
+    "fa-help": {
+      "computedHash": "d836a3da615a946e922cf9aaea0b615b1e8cebc4cbbbe79b996f0252e410acaa",
+      "skillPath": "plugins/icons/skills/fa-help/SKILL.md",
+      "source": "FortAwesome/fontawesome-agent-tools",
+      "sourceType": "github"
+    },
+    "sentry-cli": {
+      "computedHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "skillPath": "packages/cli/.cursor/skills/sentry-cli/SKILL.md",
+      "source": "getsentry/cli",
+      "sourceType": "github"
+    },
+    "sentry-debug-issue": {
+      "computedHash": "0556c5f5e9bafd6bdcd9b09b2fa74313795d3d68064560d4d0d3bd420bf8e704",
+      "skillPath": "skills/sentry-debug-issue/SKILL.md",
+      "source": "getsentry/plugin-claude",
+      "sourceType": "github"
+    },
+    "sentry-instrument": {
+      "computedHash": "257566b856dd78cce6b168f10da7cf0d0c0803bfd8714080b9de48a207ac5c22",
+      "skillPath": "skills/sentry-instrument/SKILL.md",
+      "source": "getsentry/plugin-claude",
+      "sourceType": "github"
+    },
+    "setup-fa": {
+      "computedHash": "8fdd94c77411bbfe5ccd459f9aa0251bd35835f63643465a6222ee3884b4ae90",
+      "skillPath": "plugins/icons/skills/setup-fa/SKILL.md",
+      "source": "FortAwesome/fontawesome-agent-tools",
+      "sourceType": "github"
+    },
+    "shadcn": {
+      "computedHash": "b864a958765563321f485a96f4d59c0bb6539f4286ab6d8b8b66895b7ebd302d",
+      "skillPath": "skills/shadcn/SKILL.md",
+      "source": "shadcn/ui",
+      "sourceType": "github"
+    },
+    "suggest-icon": {
+      "computedHash": "9ea2bf4321c84e131d8f97978f4d54d59ce68659e22c5e250a6d4c7a195967cb",
+      "skillPath": "plugins/icons/skills/suggest-icon/SKILL.md",
+      "source": "FortAwesome/fontawesome-agent-tools",
+      "sourceType": "github"
+    }
+  }
 }
