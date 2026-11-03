@@ -13,7 +13,6 @@
 		{
 			"class_name": "CiSandbox",
 			"image": "./Dockerfile",
-			"image_build_context": ".",
 			"instance_type": "standard-4",
 			"max_instances": 10
 		}

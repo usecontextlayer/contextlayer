@@ -1,7 +1,5 @@
-import { execFile as execFileCallback } from "node:child_process"
 import { mkdir, rm, writeFile } from "node:fs/promises"
 import { join } from "node:path"
-import { promisify } from "node:util"
 import { UserEntry } from "@earendil-works/pi-durable"
 import { test } from "@tests/integration"
 import { copySlateProject } from "@usecontextlayer/dev-env/slate"
@@ -17,11 +15,9 @@ import {
 } from "@/agents.schema"
 import { slateSchema } from "@/slates.schema"
 
-const execFile = promisify(execFileCallback)
-
 test("authored cron jobs retain results after schedule removal and Durable Object eviction", async ({
 	buildWorker,
-	cliEnv,
+	git,
 	directory,
 	platform,
 	webSession,
@@ -67,19 +63,6 @@ test("authored cron jobs retain results after schedule removal and Durable Objec
 		join(directory, "agents/brief/schedules/greeting.md"),
 		`---\ncron: "${cron}"\n---\n${prompt}\n`,
 	)
-	const gitEnv = {
-		...process.env,
-		...cliEnv,
-		GIT_CONFIG_GLOBAL: join(directory, "gitconfig"),
-		GIT_TERMINAL_PROMPT: "0",
-	}
-	const cli = join(import.meta.dirname, "../../cli/dist/cli.mjs")
-	const git = (...args: string[]) =>
-		execFile(
-			"git",
-			["-c", `credential.${origin}/git.helper=${cli} git-credential`, ...args],
-			{ cwd: directory, env: gitEnv },
-		)
 	await git("init", "-b", "main")
 	await git("config", "user.name", "Pi Cron Acceptance")
 	await git("config", "user.email", "pi-cron-test@example.com")
@@ -211,11 +194,10 @@ test("authored cron jobs retain results after schedule removal and Durable Objec
 	const listed = await fetch(url, { headers })
 	expect(listed.status).toBe(200)
 	expect(catalogSchema.parse(await listed.json()).jobs).toContainEqual(entry)
-	const inspector = platform.harness.getWorker("contextlayer-platform-test")
-	for (const binding of ["AGENT_JOBS", "AGENTS"] as const) {
-		const ids = await inspector.listDurableObjectIds(binding)
+	for (const className of ["SlateAgentJob", "SlateAgent"] as const) {
+		const ids = await worker.listDurableObjectIds(className)
 		expect(ids.length).toBeGreaterThan(0)
-		for (const id of ids) await inspector.evictDurableObject(binding, { id })
+		for (const id of ids) await worker.evictDurableObject(className, { id })
 	}
 	const retainedResult = await fetch(`${url}/${jobId}/result`, { headers })
 	expect(retainedResult.status).toBe(200)

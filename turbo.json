@@ -108,7 +108,7 @@
 				"@usecontextlayer/platform#build:test:computer"
 			],
 			"outputs": [],
-			"passThroughEnv": ["CLOUDFLARE_*", "!CLOUDFLARE_ENV", "COMPOSIO_API_KEY", "POLAR_*"]
+			"passThroughEnv": ["CLOUDFLARE_*", "!CLOUDFLARE_ENV"]
 		},
 		"test:integration:polar": {
 			"cache": false,
@@ -145,13 +145,7 @@
 				"@usecontextlayer/platform#build:test:computer"
 			],
 			"outputs": [],
-			"passThroughEnv": [
-				"CLAUDE_CODE_OAUTH_TOKEN",
-				"CLOUDFLARE_*",
-				"!CLOUDFLARE_ENV",
-				"COMPOSIO_API_KEY",
-				"POLAR_*"
-			]
+			"passThroughEnv": ["CLAUDE_CODE_OAUTH_TOKEN", "CLOUDFLARE_*", "!CLOUDFLARE_ENV"]
 		},
 		"tsc": {
 			"dependsOn": ["^build", "^tsc"],

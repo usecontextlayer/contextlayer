@@ -1,8 +1,5 @@
 import assert from "node:assert/strict"
-import { execFile as execFileCallback } from "node:child_process"
 import { mkdir, writeFile } from "node:fs/promises"
-import { join } from "node:path"
-import { promisify } from "node:util"
 import { AssistantEntry, ToolResultEntry, UserEntry } from "@earendil-works/pi-durable"
 import { test } from "@tests/integration"
 import { copySlateProject } from "@usecontextlayer/dev-env/slate"
@@ -20,12 +17,10 @@ import {
 } from "@/agents.schema"
 import { slateSchema } from "@/slates.schema"
 
-const execFile = promisify(execFileCallback)
-
 test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
 	"API jobs using %s complete through the declared provider",
 	{ timeout: 240_000 },
-	async (providerSecret, { cliEnv, directory, platform, webEnv, webSession }) => {
+	async (providerSecret, { directory, git, platform, webEnv, webSession }) => {
 		const { origin, worker } = platform
 		const headers = new Headers(webSession.headers)
 		headers.set("origin", origin)
@@ -56,19 +51,6 @@ test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
 				secrets: { [providerSecret]: { mode: "viewer" } },
 			}),
 		)
-		const cli = join(import.meta.dirname, "../../cli/dist/cli.mjs")
-		const gitEnv = {
-			...process.env,
-			...cliEnv,
-			GIT_CONFIG_GLOBAL: join(directory, "gitconfig"),
-			GIT_TERMINAL_PROMPT: "0",
-		}
-		const git = (...args: string[]) =>
-			execFile(
-				"git",
-				["-c", `credential.${origin}/git.helper=${cli} git-credential`, ...args],
-				{ cwd: directory, env: gitEnv },
-			)
 		await git("init", "-b", "main")
 		await git("config", "user.name", "Pi API Acceptance")
 		await git("config", "user.email", "pi-api-test@example.com")
@@ -204,11 +186,10 @@ test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
 			return
 		}
 		expect(completedJob.job.id).not.toBe(completedJobs[1]?.job.id)
-		const inspector = platform.harness.getWorker("contextlayer-platform-test")
-		for (const binding of ["AGENT_JOBS", "AGENTS"] as const) {
-			const ids = await inspector.listDurableObjectIds(binding)
+		for (const className of ["SlateAgentJob", "SlateAgent"] as const) {
+			const ids = await worker.listDurableObjectIds(className)
 			expect(ids.length).toBeGreaterThan(0)
-			for (const id of ids) await inspector.evictDurableObject(binding, { id })
+			for (const id of ids) await worker.evictDurableObject(className, { id })
 		}
 		for (const { job, receipt, result } of completedJobs) {
 			const operation = await fetch(`${url}/${job.id}/operation`, { headers })

@@ -1,7 +1,9 @@
 import assert from "node:assert/strict"
+import { execFile as execFileCallback } from "node:child_process"
 import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
+import { promisify } from "node:util"
 import { test as base } from "@tests/database"
 import {
 	readDevEnvCommandEnv,
@@ -22,6 +24,11 @@ import * as workerFixtures from "../../../vitest.workers.ts"
 
 const root = resolve(import.meta.dirname, "../../..")
 const webRoot = resolve(root, "../web")
+const execFile = promisify(execFileCallback)
+// Introspection uses the named Worker exports; the generated default handler stays opaque.
+type PlatformWorkerModule = Omit<typeof import("@/server"), "default"> & {
+	default: object
+}
 
 export const test = base
 	.extend("addresses", { scope: "file" }, () => readDevEnvPorts(root))
@@ -76,22 +83,36 @@ export const test = base
 		}),
 	)
 	.extend(
-		"platformWorkerConfigs",
+		"baseWorkerConfigs",
 		{ scope: "file" },
 		({ platformEnv }): workerFixtures.WorkerConfigs => [
 			{ ...workerFixtures.platformWorkerConfig, secrets: platformEnv },
 			workerFixtures.buildWorkerConfig,
 		],
 	)
-	.extend("workers", ({ platformWorkerConfigs }) => platformWorkerConfigs)
+	.extend("workers", ({ baseWorkerConfigs }) => baseWorkerConfigs)
 	.extend("platform", async ({ platformEnv: env, harness }) => {
 		const origin = (await harness.listen()).url.origin
-		return { env, harness, origin, worker: harness.getWorker<PlatformEnv["Bindings"]>() }
+		return {
+			env,
+			harness,
+			origin,
+			worker: harness.getWorker<PlatformEnv["Bindings"], PlatformWorkerModule>(),
+		}
 	})
 	.extend("cliEnv", ({ commandEnv, platform }) => ({
 		...commandEnv,
 		CTX_PLATFORM_URL: platform.origin,
 	}))
+	.extend("git", ({ cliEnv, directory, platform }) => {
+		const cli = join(import.meta.dirname, "../../cli/dist/cli.mjs")
+		return (...args: string[]) =>
+			execFile(
+				"git",
+				["-c", `credential.${platform.origin}/git.helper=${cli} git-credential`, ...args],
+				{ cwd: directory, env: { ...process.env, ...cliEnv } },
+			)
+	})
 	.extend("buildWorker", ({ platform }) =>
 		platform.harness.getWorker<{
 			MEMBER_PROVISIONING: Workflow<SlateProvisioning>
@@ -100,10 +121,11 @@ export const test = base
 	)
 
 export const dispatcherTest = test
+	// Keep the named base: extending file-scoped `workers` from itself omits Dispatcher.
 	.extend(
 		"workers",
-		({ platformWorkerConfigs, serviceEnv }): workerFixtures.WorkerConfigs => [
-			...platformWorkerConfigs,
+		({ baseWorkerConfigs, serviceEnv }): workerFixtures.WorkerConfigs => [
+			...baseWorkerConfigs,
 			{
 				...workerFixtures.dispatcherWorkerConfig,
 				secrets: {

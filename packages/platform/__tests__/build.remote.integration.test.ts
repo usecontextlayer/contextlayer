@@ -98,10 +98,8 @@ export default [index("routes/home.tsx"), route("build-proof", "routes/build-pro
 				cwd: checkout,
 				env: {
 					GIT_CONFIG_COUNT: "1",
-					GIT_CONFIG_GLOBAL: join(directory, "gitconfig"),
 					GIT_CONFIG_KEY_0: "http.extraHeader",
 					GIT_CONFIG_VALUE_0: `Authorization: Bearer ${repo.token}`,
-					GIT_TERMINAL_PROMPT: "0",
 				},
 			})
 		).stdout.trim()

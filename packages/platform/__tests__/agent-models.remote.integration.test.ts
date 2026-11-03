@@ -1,7 +1,5 @@
-import { execFile as execFileCallback } from "node:child_process"
 import { mkdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
-import { promisify } from "node:util"
 import { AssistantEntry } from "@earendil-works/pi-durable"
 import { test } from "@tests/integration"
 import { copySlateProject } from "@usecontextlayer/dev-env/slate"
@@ -17,10 +15,8 @@ import {
 import { loadSharedSecret } from "@/secrets.server"
 import { slateSchema } from "@/slates.schema"
 
-const execFile = promisify(execFileCallback)
-
 test("API jobs honor a declared non-default Owner model", async ({
-	cliEnv,
+	git,
 	directory,
 	organization,
 	platform,
@@ -67,21 +63,6 @@ test("API jobs honor a declared non-default Owner model", async ({
 		join(directory, "agents/model/instructions.md"),
 		"Answer briefly without using tools.\n",
 	)
-	const cli = join(import.meta.dirname, "../../cli/dist/cli.mjs")
-	const git = (...args: string[]) =>
-		execFile(
-			"git",
-			["-c", `credential.${origin}/git.helper=${cli} git-credential`, ...args],
-			{
-				cwd: directory,
-				env: {
-					...process.env,
-					...cliEnv,
-					GIT_CONFIG_GLOBAL: join(directory, "gitconfig"),
-					GIT_TERMINAL_PROMPT: "0",
-				},
-			},
-		)
 	await git("init", "-b", "main")
 	await git("config", "user.name", "Pi Model Acceptance")
 	await git("config", "user.email", "pi-model-test@example.com")

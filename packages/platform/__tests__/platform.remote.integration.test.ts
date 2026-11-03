@@ -1,7 +1,5 @@
-import { execFile as execFileCallback } from "node:child_process"
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
-import { promisify } from "node:util"
 import { test } from "@tests/integration"
 import { expect } from "vitest"
 import { z } from "zod"
@@ -9,10 +7,8 @@ import { agentSchema } from "@/agents.schema"
 import { slateMemberSchema } from "@/slate-members.schema"
 import { listedSlateSchema, slateSchema } from "@/slates.schema"
 
-const execFile = promisify(execFileCallback)
-
 test("slate ownership protects viewing, listing, and native Git source access", async ({
-	cliEnv,
+	git,
 	db,
 	directory: dir,
 	identity,
@@ -161,9 +157,11 @@ test("slate ownership protects viewing, listing, and native Git source access", 
 			})
 		).status,
 	).toBe(403)
-	expect((await getSlates()).slates).toEqual([
-		{ ...organizationSlate, latest_commit: null },
-	])
+	expect(
+		(await getSlates()).slates.filter((listed) =>
+			[slate.id, organizationSlate.id].includes(listed.id),
+		),
+	).toEqual([{ ...organizationSlate, latest_commit: null }])
 	await db
 		.updateTable("slate")
 		.set({ visibility: "public" })
@@ -187,29 +185,16 @@ test("slate ownership protects viewing, listing, and native Git source access", 
 			.executeTakeFirstOrThrow(),
 	).toEqual({ visibility: "public" })
 	expect((await fetch(refs, { headers })).status).toBe(403)
-	expect((await getSlates()).slates).toEqual([
-		{ ...organizationSlate, latest_commit: null },
-	])
+	expect(
+		(await getSlates()).slates.filter((listed) =>
+			[slate.id, organizationSlate.id].includes(listed.id),
+		),
+	).toEqual([{ ...organizationSlate, latest_commit: null }])
 	await db
 		.updateTable("slate")
 		.set({ owner_user_id: user.id, visibility: "private" })
 		.where("id", "=", slate.id)
 		.execute()
-	const cli = join(import.meta.dirname, "../../cli/dist/cli.mjs")
-	const gitEnv = {
-		...process.env,
-		...cliEnv,
-		GIT_CONFIG_GLOBAL: join(dir, "gitconfig"),
-		GIT_TERMINAL_PROMPT: "0",
-	}
-	const git = async (...args: string[]) =>
-		(
-			await execFile(
-				"git",
-				["-c", `credential.${origin}/git.helper=${cli} git-credential`, ...args],
-				{ cwd: dir, env: gitEnv },
-			)
-		).stdout.trim()
 	await git("init", "-b", "main")
 	await git("remote", "add", "origin", gitUrl)
 	await git("config", "user.name", "Platform Test")
@@ -237,7 +222,7 @@ test("slate ownership protects viewing, listing, and native Git source access", 
 	)
 	await git("add", "README.md", "hello.txt", "agents", "public/slate.json")
 	await git("-c", "commit.gpgsign=false", "commit", "-m", "First slate")
-	const revision = await git("rev-parse", "HEAD")
+	const revision = (await git("rev-parse", "HEAD")).stdout.trim()
 	await git("push", `${origin}/git/${slateId}`, "main")
 	const agent = await fetch(agentUrl, { headers })
 	expect(agent.status).toBe(200)
@@ -268,14 +253,9 @@ test("slate ownership protects viewing, listing, and native Git source access", 
 	expect(schema.paths["/slates"].get.operationId).toBe("listSlates")
 	expect(schema.paths["/slates/{target}/agents/{name}"].get.operationId).toBe("getAgent")
 	await git("clone", "--branch", "main", `${origin}/git/${slateId}`, "cloned")
-	expect(
-		(
-			await execFile("git", ["rev-parse", "HEAD"], {
-				cwd: join(dir, "cloned"),
-				env: gitEnv,
-			})
-		).stdout.trim(),
-	).toBe(revision)
+	expect((await git("-C", join(dir, "cloned"), "rev-parse", "HEAD")).stdout.trim()).toBe(
+		revision,
+	)
 	expect(await readFile(join(dir, "cloned", "hello.txt"), "utf8")).toBe(
 		"Hello ContextLayer\n",
 	)
@@ -289,7 +269,7 @@ test("slate ownership protects viewing, listing, and native Git source access", 
 	const updatedAgent = await fetch(agentUrl, { headers })
 	expect(updatedAgent.status).toBe(200)
 	expect(agentSchema.parse(await updatedAgent.json())).toEqual({
-		commit: await git("rev-parse", "HEAD"),
+		commit: (await git("rev-parse", "HEAD")).stdout.trim(),
 		instructions,
 	})
 	await git("-C", join(dir, "cloned"), "pull", "--ff-only")

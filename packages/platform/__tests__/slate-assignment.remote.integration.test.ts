@@ -45,15 +45,14 @@ test("chrome completes agent-only setup and repeated API assignment preserves it
 			.select("user_id")
 			.where("slate_id", "=", slate.id)
 			.execute()
-	const checkout = directory
-	await copySlateProject(checkout)
-	await mkdir(join(checkout, "agents/daily/schedules"), { recursive: true })
+	await copySlateProject(directory)
+	await mkdir(join(directory, "agents/daily/schedules"), { recursive: true })
 	await writeFile(
-		join(checkout, "public/slate.json"),
+		join(directory, "public/slate.json"),
 		JSON.stringify({ connections: {} }),
 	)
 	await writeFile(
-		join(checkout, "agents/daily/slate.json"),
+		join(directory, "agents/daily/slate.json"),
 		JSON.stringify({
 			connections: {
 				primary: { mode: "viewer", toolkit: "gmail" },
@@ -62,15 +61,15 @@ test("chrome completes agent-only setup and repeated API assignment preserves it
 		}),
 	)
 	await writeFile(
-		join(checkout, "agents/daily/instructions.md"),
+		join(directory, "agents/daily/instructions.md"),
 		"Summarize the assigned mailboxes.\n",
 	)
 	await writeFile(
-		join(checkout, "agents/daily/schedules/daily.md"),
+		join(directory, "agents/daily/schedules/daily.md"),
 		'---\ncron: "0 0 1 1 *"\n---\nSummarize the assigned mailboxes.\n',
 	)
 	const execute = execa({
-		cwd: checkout,
+		cwd: directory,
 		env: {
 			GIT_CONFIG_COUNT: "2",
 			GIT_CONFIG_KEY_0: "http.extraHeader",

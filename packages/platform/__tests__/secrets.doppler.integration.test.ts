@@ -5,8 +5,7 @@ import { parseSharedSecretsEnv } from "@/env"
 import type { Owner } from "@/owner"
 import { secretKey } from "@/secrets.server"
 
-// Writes reach the configured shared vault, outside the test database.
-// Cleanup stays inside the body so the platform is alive when test-owned keys are dropped.
+// Dropping the isolated test database cannot remove shared-vault keys; the creating test owns cleanup.
 test("live Doppler: CLI/API save, replace, isolate Owners, and drop with no values in output", async ({
 	identity,
 	organization,

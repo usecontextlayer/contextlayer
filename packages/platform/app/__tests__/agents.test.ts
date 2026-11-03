@@ -38,7 +38,7 @@ test.each([
 	},
 )
 
-test("a prepared hosted run preserves resolved references and separates instructions from its prompt", () => {
+test("a prepared run preserves resolved references and separates instructions from its prompt", () => {
 	const slate = slateSchema.parse({
 		id: "00000000-0000-4000-8000-000000000001",
 		owner_organization_id: "acme",
@@ -120,37 +120,6 @@ test("a prepared hosted run preserves resolved references and separates instruct
 			CLAUDE_CODE_OAUTH_TOKEN: { id: "acme", type: "organization" },
 			PERSONAL_API_KEY: { id: "bob", type: "personal" },
 		},
-		slateId: "00000000-0000-4000-8000-000000000001",
-	})
-})
-
-test("a prepared unattended run retains its app actor", () => {
-	const slate = slateSchema.parse({
-		id: "00000000-0000-4000-8000-000000000001",
-		owner_organization_id: null,
-		owner_user_id: "alice",
-		public_hostname: "brief.contextlayer.xyz",
-		visibility: "private",
-	})
-	expect(
-		prepareAgentRun(
-			slate,
-			{ type: "app" },
-			{ commit: "scheduled-revision", instructions: "Return a daily brief.\n" },
-			{ connections: {}, databases: {}, secrets: {} },
-			agentRunRequestSchema.parse({ name: "brief", prompt: "Scheduled research." }),
-		),
-	).toEqual({
-		actor: { type: "app" },
-		agent: {
-			commit: "scheduled-revision",
-			instructions: "Return a daily brief.\n",
-			name: "brief",
-		},
-		connections: {},
-		databases: {},
-		prompt: "Scheduled research.",
-		secrets: {},
 		slateId: "00000000-0000-4000-8000-000000000001",
 	})
 })

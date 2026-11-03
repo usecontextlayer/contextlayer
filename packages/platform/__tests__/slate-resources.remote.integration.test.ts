@@ -72,6 +72,7 @@ test("hosted configuration uses pushed declarations independently of developer-l
 	cliEnv,
 	db,
 	directory: dir,
+	git,
 	identity,
 	platform,
 }) => {
@@ -106,18 +107,6 @@ test("hosted configuration uses pushed declarations independently of developer-l
 				...cliEnv,
 			},
 		})
-	const gitEnv = {
-		...process.env,
-		...cliEnv,
-		GIT_CONFIG_GLOBAL: join(dir, "gitconfig"),
-		GIT_TERMINAL_PROMPT: "0",
-	}
-	const git = async (...args: string[]) =>
-		execFile(
-			"git",
-			["-c", `credential.${origin}/git.helper=${cli} git-credential`, ...args],
-			{ cwd: dir, env: gitEnv },
-		)
 	await copySlateProject(dir)
 	await mkdir(join(dir, "agents/daily-summary"), { recursive: true })
 	const secretSuffix = crypto.randomUUID().replaceAll("-", "").toUpperCase()

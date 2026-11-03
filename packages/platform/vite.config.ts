@@ -15,6 +15,7 @@ export default defineConfig(({ mode }) => ({
 					devOnly: true,
 				},
 			],
+			// Idle Node retention timers otherwise prevent persistence tests from evicting Durable Objects.
 			config:
 				mode === "test"
 					? { compatibility_flags: ["no_nodejs_global_timers"] }

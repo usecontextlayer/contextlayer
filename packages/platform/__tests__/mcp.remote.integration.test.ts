@@ -10,22 +10,25 @@ import { execa } from "execa"
 import { expect } from "vitest"
 import { experimental_patchConfig, unstable_readConfig } from "wrangler"
 import { z } from "zod"
-import { slateSchema } from "@/slates.schema"
+import { type Slate, slateSchema } from "@/slates.schema"
 
 const test = base
-	.extend("slate", async ({ db, identity, platform }, { onCleanup }) => {
-		const created = await fetch(`${platform.origin}/api/slates`, {
-			headers: identity.headers,
-			method: "POST",
-		})
-		expect(created.status).toBe(201)
-		const slate = slateSchema.parse(await created.json())
-		const { ARTIFACTS } = await platform.worker.getEnv()
-		onCleanup(async () => {
-			await ARTIFACTS.delete(slate.id)
-			await db.deleteFrom("slate").where("id", "=", slate.id).execute()
-		})
-		return slate
+	.extend<{ slate: Slate }>({
+		slate: async ({ db, identity, platform }, use) => {
+			await using resources = new AsyncDisposableStack()
+			const { ARTIFACTS } = await platform.worker.getEnv()
+			const created = await fetch(`${platform.origin}/api/slates`, {
+				headers: identity.headers,
+				method: "POST",
+			})
+			expect(created.status).toBe(201)
+			const slate = slateSchema.parse(await created.json())
+			resources.defer(async () => {
+				await ARTIFACTS.delete(slate.id)
+				await db.deleteFrom("slate").where("id", "=", slate.id).execute()
+			})
+			await use(slate)
+		},
 	})
 	.extend("mcpHeaders", ({ slate, serviceEnv, webSession }) =>
 		authorizeMcp({

@@ -15,7 +15,7 @@ process.env.GIT_TERMINAL_PROMPT = "0"
 
 // Test taxonomy. The filename declares what the config can't infer. Unit tests
 // (hermetic, run on CI) are marked by RUNTIME: node or a real chromium.
-// Integration tests (need real local prerequisites, opt-in only) are marked by
+// Integration tests (need real prerequisites, opt-in only) are marked by
 // LANE: one basket of capabilities, run as its own vitest invocation so its
 // config can bound how many of its files run at once.
 //
@@ -24,7 +24,7 @@ process.env.GIT_TERMINAL_PROMPT = "0"
 //   *.basic.integration.test.ts(x)          → services + harness     → `test:integration:basic`
 //   *.remote.integration.test.ts(x)         → remote Cloudflare     → `test:integration:remote`
 //   *.polar.integration.test.ts(x)          → basic + polar api      → `test:integration:polar`
-//   *.doppler.integration.test.ts(x)        → basic + vault writes   → `test:integration:doppler` (opt-in)
+//   *.doppler.integration.test.ts(x)        → remote + vault writes  → `test:integration:doppler` (opt-in)
 //   *.polar-webhooks.integration.test.ts(x) → polar relay devenv     → `test:integration:polar-webhooks` (opt-in)
 //   *.browser.integration.test.ts(x)        → chromium + service     → `test:integration:browser`
 //
@@ -49,36 +49,7 @@ export const unitTestInclude = ["**/*.test.ts", "**/*.test.tsx"]
 
 export const browserUnitTestInclude = ["**/*.browser.test.ts", "**/*.browser.test.tsx"]
 
-export const basicIntegrationTestInclude = [
-	"**/*.basic.integration.test.ts",
-	"**/*.basic.integration.test.tsx",
-]
-
-export const remoteIntegrationTestInclude = [
-	"**/*.remote.integration.test.ts",
-	"**/*.remote.integration.test.tsx",
-]
-
-export const polarIntegrationTestInclude = [
-	"**/*.polar.integration.test.ts",
-	"**/*.polar.integration.test.tsx",
-]
-
-export const dopplerIntegrationTestInclude = [
-	"**/*.doppler.integration.test.ts",
-	"**/*.doppler.integration.test.tsx",
-]
-
-export const polarWebhooksIntegrationTestInclude = [
-	"**/*.polar-webhooks.integration.test.ts",
-	"**/*.polar-webhooks.integration.test.tsx",
-]
-
-export const browserIntegrationTestInclude = [
-	"**/*.browser.integration.test.ts",
-	"**/*.browser.integration.test.tsx",
-]
-
+// These bounds include real database and Worker setup plus remote provider waits.
 export const platformIntegrationTestConfig = {
 	fileParallelism: true,
 	hookTimeout: 300_000,
@@ -86,7 +57,7 @@ export const platformIntegrationTestConfig = {
 } satisfies InlineConfig
 
 export const basicIntegrationTestConfig = {
-	include: basicIntegrationTestInclude,
+	include: ["**/*.basic.integration.test.ts", "**/*.basic.integration.test.tsx"],
 } satisfies InlineConfig
 
 const polarPollingTestConfig = {
@@ -100,21 +71,28 @@ const polarPollingTestConfig = {
 
 export const polarIntegrationTestConfig = {
 	...polarPollingTestConfig,
-	include: polarIntegrationTestInclude,
+	include: ["**/*.polar.integration.test.ts", "**/*.polar.integration.test.tsx"],
 } satisfies InlineConfig
 
 export const remoteIntegrationTestConfig = {
 	...polarPollingTestConfig,
-	include: remoteIntegrationTestInclude,
+	include: ["**/*.remote.integration.test.ts", "**/*.remote.integration.test.tsx"],
 } satisfies InlineConfig
 
 export const dopplerIntegrationTestConfig = {
-	include: dopplerIntegrationTestInclude,
+	include: ["**/*.doppler.integration.test.ts", "**/*.doppler.integration.test.tsx"],
 } satisfies InlineConfig
 
 export const polarWebhooksIntegrationTestConfig = {
 	...polarPollingTestConfig,
-	include: polarWebhooksIntegrationTestInclude,
+	include: [
+		"**/*.polar-webhooks.integration.test.ts",
+		"**/*.polar-webhooks.integration.test.tsx",
+	],
+} satisfies InlineConfig
+
+export const browserIntegrationTestConfig = {
+	include: ["**/*.browser.integration.test.ts", "**/*.browser.integration.test.tsx"],
 } satisfies InlineConfig
 
 export const unitTestExclude = [

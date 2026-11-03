@@ -1,8 +1,6 @@
 import assert from "node:assert/strict"
-import { execFile as execFileCallback } from "node:child_process"
 import { mkdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
-import { promisify } from "node:util"
 import { ToolResultEntry } from "@earendil-works/pi-durable"
 import { writeDatabase } from "@tests/database-project"
 import { test } from "@tests/integration"
@@ -18,11 +16,9 @@ import {
 import { slateMemberSchema } from "@/slate-members.schema"
 import { slateSchema } from "@/slates.schema"
 
-const execFile = promisify(execFileCallback)
-
 test("API jobs execute a Code Mode database call and preserve owner and viewer writes", async ({
 	buildWorker,
-	cliEnv,
+	git,
 	db,
 	directory,
 	organization,
@@ -78,21 +74,6 @@ test("API jobs execute a Code Mode database call and preserve owner and viewer w
 		slug,
 		sql,
 	}))
-	const cli = join(import.meta.dirname, "../../cli/dist/cli.mjs")
-	const git = (...args: string[]) =>
-		execFile(
-			"git",
-			["-c", `credential.${origin}/git.helper=${cli} git-credential`, ...args],
-			{
-				cwd: directory,
-				env: {
-					...process.env,
-					...cliEnv,
-					GIT_CONFIG_GLOBAL: join(directory, "gitconfig"),
-					GIT_TERMINAL_PROMPT: "0",
-				},
-			},
-		)
 	await git("init", "-b", "main")
 	await git("config", "user.name", "Pi Database Acceptance")
 	await git("config", "user.email", "pi-database-test@example.com")
