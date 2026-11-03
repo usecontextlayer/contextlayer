@@ -1,6 +1,6 @@
 {
 	"devDependencies": {
-		"@biomejs/biome": "^2.5.9",
+		"@biomejs/biome": "^2.6.4",
 		"@polar-sh/sdk": "1.0.2",
 		"@tailwindcss/node": "^4.3.3",
 		"@tailwindcss/oxide": "^4.3.3",
