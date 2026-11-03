@@ -1,21 +1,21 @@
 {
 	"devDependencies": {
 		"@biomejs/biome": "^2.5.9",
-		"@polar-sh/sdk": "1.0.1",
+		"@polar-sh/sdk": "1.0.2",
 		"@tailwindcss/node": "^4.3.3",
 		"@tailwindcss/oxide": "^4.3.3",
 		"@types/node": "^24.13.3",
 		"@usecontextlayer/dev-env": "workspace:*",
-		"execa": "^10.0.1",
+		"execa": "^10.2.1",
 		"tree-sitter": "^0.25.1",
 		"tree-sitter-typescript": "^0.23.2",
 		"tsdown": "latest",
 		"tsx": "latest",
-		"turbo": "2.10.11",
+		"turbo": "2.11.10",
 		"typescript": "latest",
 		"vitest": "^4.1.11",
 		"wrangler": "4.146.0",
-		"zod": "^4.4.3"
+		"zod": "^4.6.7"
 	},
 	"engines": {
 		"node": ">=24.0.0"
