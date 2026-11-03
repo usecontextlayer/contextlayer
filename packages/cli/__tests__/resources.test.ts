@@ -125,7 +125,7 @@ test("an empty checkout ignores the former public declaration location", async (
 	await rm(join(directory, "agents"), { recursive: true })
 	await mkdir(join(directory, "public"))
 	await writeFile(join(directory, "public/slate.json"), "malformed legacy declaration")
-	expect(await readLocalResources(directory)).toEqual({
+	await expect(readLocalResources(directory)).resolves.toEqual({
 		connections: {},
 		databases: {},
 		secrets: {},
@@ -160,7 +160,7 @@ test.each(["empty", "agent-only"])(
 		if (source === "empty") await rm(join(directory, "agents"), { recursive: true })
 		vi.spyOn(process, "cwd").mockReturnValue(directory)
 		vi.spyOn(auth, "getAccessToken").mockRejectedValue(new Error("Login unavailable"))
-		expect(await getLocalResourcesBindings()).toBeUndefined()
+		await expect(getLocalResourcesBindings()).resolves.toBeUndefined()
 	},
 )
 
@@ -172,13 +172,16 @@ test("an app with local databases needs no login for connections declared only b
 	)
 	vi.spyOn(process, "cwd").mockReturnValue(directory)
 	vi.spyOn(auth, "getAccessToken").mockRejectedValue(new Error("Login unavailable"))
-	const bindings = await getLocalResourcesBindings()
-	expect(bindings?.props).toBeUndefined()
-	expect(bindings?.databaseProps.databases.reports?.instance_name).toBe("reports")
-	expect(Object.keys(bindings?.configuration.connections ?? {})).toEqual([
-		"mail",
-		"repository",
-	])
+	await expect(getLocalResourcesBindings()).resolves.toMatchObject({
+		configuration: {
+			connections: {
+				mail: { toolkit: "gmail" },
+				repository: { toolkit: "github" },
+			},
+		},
+		databaseProps: { databases: { reports: { instance_name: "reports" } } },
+		props: undefined,
+	})
 })
 
 test.each(["app", "agents/summary"])(
@@ -190,7 +193,7 @@ test.each(["app", "agents/summary"])(
 		await expect(readLocalResources(directory)).rejects.toMatchObject({ code: "ENOENT" })
 		await writeFile(declaration, "{")
 		await expect(readLocalResources(directory)).rejects.toBeInstanceOf(SyntaxError)
-		await writeFile(declaration, JSON.stringify({ connections: { mail: {} } }))
+		await writeFile(declaration, JSON.stringify({ connections: { invalid: {} } }))
 		await expect(readLocalResources(directory)).rejects.toMatchObject({
 			name: "ZodError",
 		})

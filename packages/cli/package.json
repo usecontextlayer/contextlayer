@@ -37,6 +37,10 @@
 			"import": "./dist/database.mjs",
 			"types": "./dist/database.d.mts"
 		},
+		"./scaffold": {
+			"import": "./dist/scaffold.mjs",
+			"types": "./dist/scaffold.d.mts"
+		},
 		"./vite": {
 			"import": "./dist/vite.mjs",
 			"types": "./dist/vite.d.mts"

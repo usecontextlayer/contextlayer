@@ -1,4 +1,5 @@
 import { configDefaults } from "vitest/config"
+import type { InlineConfig } from "vitest/node"
 
 // Global git isolation for every test worker. Each package's vitest config imports
 // this module for the test taxonomy, so this body runs in the main vitest process at
@@ -12,16 +13,9 @@ process.env.GIT_CONFIG_GLOBAL = "/dev/null"
 process.env.GIT_CONFIG_SYSTEM = "/dev/null"
 process.env.GIT_TERMINAL_PROMPT = "0"
 
-// Test taxonomy. The filename declares what the config can't infer, along two
-// orthogonal axes: the RUNTIME (node or a real chromium) and the TIER
-// (unit = hermetic + runs on CI vs
-// integration = needs a real local prerequisite, opt-in only):
-//
-//   *.test.ts(x)                    → unit, node       → `test`
-//   *.browser.test.ts(x)            → unit, chromium   → `test`
-//   *.node.integration.test.ts(x)   → node + service   → `test:integration:node`
-//   *.browser.integration.test.ts(x) → chromium + service → `test:integration:browser`
-//   *.claude.integration.test.ts(x) → real claude      → `test:integration:claude`
+// Test taxonomy. The filename declares what the config can't infer: a unit test's
+// runtime, or an integration test's lane. TESTING.md's "Placement & Tiers" owns the
+// tiers, each lane's basket and the filename table; the configs below select files.
 //
 // The unmarked unit name claims the default runtime: bare `*.test.ts(x)` runs
 // in plain node, in every package. `.browser.` is one marked exception — for a
@@ -44,20 +38,55 @@ export const unitTestInclude = ["**/*.test.ts", "**/*.test.tsx"]
 
 export const browserUnitTestInclude = ["**/*.browser.test.ts", "**/*.browser.test.tsx"]
 
-export const nodeIntegrationTestInclude = [
-	"**/*.node.integration.test.ts",
-	"**/*.node.integration.test.tsx",
-]
+// These bounds include real database and Worker setup plus remote provider waits.
+export const platformIntegrationTestConfig = {
+	fileParallelism: true,
+	hookTimeout: 300_000,
+	testTimeout: 120_000,
+} satisfies InlineConfig
 
-export const browserIntegrationTestInclude = [
-	"**/*.browser.integration.test.ts",
-	"**/*.browser.integration.test.tsx",
-]
+export const basicIntegrationTestConfig = {
+	include: ["**/*.basic.integration.test.ts", "**/*.basic.integration.test.tsx"],
+} satisfies InlineConfig
 
-export const claudeIntegrationTestInclude = [
-	"**/*.claude.integration.test.ts",
-	"**/*.claude.integration.test.tsx",
-]
+const polarPollingTestConfig = {
+	// Polar Sandbox allows 100 requests per minute per organization; beyond that a request gets
+	// a 429 and fails. Every provider poll in these lanes inherits this interval, so each costs
+	// 12 requests per minute. Lanes composing this policy share that budget when they run
+	// together (root `test:integration` runs remote and polar at once): their maxWorkers polling
+	// files combined, plus `checkSlateBilling`'s Customer State reads, must stay under it.
+	expect: { poll: { interval: 5_000 } },
+	maxWorkers: 3,
+} satisfies InlineConfig
+
+export const polarIntegrationTestConfig = {
+	...polarPollingTestConfig,
+	include: ["**/*.polar.integration.test.ts", "**/*.polar.integration.test.tsx"],
+} satisfies InlineConfig
+
+export const remoteIntegrationTestConfig = {
+	...polarPollingTestConfig,
+	include: ["**/*.remote.integration.test.ts", "**/*.remote.integration.test.tsx"],
+} satisfies InlineConfig
+
+export const dopplerWritesIntegrationTestConfig = {
+	include: [
+		"**/*.doppler-writes.integration.test.ts",
+		"**/*.doppler-writes.integration.test.tsx",
+	],
+} satisfies InlineConfig
+
+export const polarWebhooksIntegrationTestConfig = {
+	...polarPollingTestConfig,
+	include: [
+		"**/*.polar-webhooks.integration.test.ts",
+		"**/*.polar-webhooks.integration.test.tsx",
+	],
+} satisfies InlineConfig
+
+export const browserIntegrationTestConfig = {
+	include: ["**/*.browser.integration.test.ts", "**/*.browser.integration.test.tsx"],
+} satisfies InlineConfig
 
 export const unitTestExclude = [
 	...configDefaults.exclude,

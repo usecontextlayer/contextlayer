@@ -31,8 +31,8 @@ async function readLocalConnections(directory: string) {
 	return localConnectionsSchema.parse(contents === null ? {} : JSON.parse(contents))
 }
 
-export function getLocalResourcesWorkerName(directory = process.cwd()) {
-	return `ctx-local-resources-${createHash("sha256").update(directory).digest("hex").slice(0, 16)}`
+export function getLocalResourcesWorkerName() {
+	return `ctx-local-resources-${createHash("sha256").update(process.cwd()).digest("hex").slice(0, 16)}`
 }
 
 export async function prepareLocalResourceConfiguration(

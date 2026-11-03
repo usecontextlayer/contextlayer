@@ -43,6 +43,8 @@
 				{
 					"class_name": "CiSandbox",
 					"image": "./Dockerfile",
+					"image_build_context": "../cli/templates/app",
+					"image_vars": { "PREFETCH_TEMPLATE_DEPENDENCIES": "true" },
 					"instance_type": "standard-4",
 					"max_instances": 10
 				}
@@ -60,7 +62,7 @@
 					}
 				]
 			},
-			// Bind the same remote store used by upload; a local bucket cannot restore its snapshots.
+			// Snapshot archives upload by bucket name; metadata uses this binding. Both must use the same remote store.
 			"r2_buckets": [
 				{
 					"binding": "BACKUP_BUCKET",

@@ -69,13 +69,13 @@ export class Build extends CIWorkflow<CloudflareArtifacts, BuildBindings> {
 		const prepared = await step.do("prepare slate", () =>
 			this.env.PROVISIONING.prepare(event.payload.repo, event.payload.sha),
 		)
-		const build = await ci.runner({
+		await ci.runner({
 			command:
 				'pnpm install --frozen-lockfile && pnpm build && /usr/local/bin/rclone copy ./build "$CTX_BUILD_ARTIFACT_PATH"build --config /dev/null && /usr/local/bin/rclone copy ./.wrangler/deploy "$CTX_BUILD_ARTIFACT_PATH".wrangler/deploy --config /dev/null',
 			env: await artifactTransferEnv(this.env, event.instanceId, "object-read-write"),
 			name: "build",
 		})
-		await migrateSlateDatabases(this.env, step, prepared, build.snapshot)
+		await migrateSlateDatabases(this.env, step, prepared)
 		await step.do(
 			"deploy",
 			{

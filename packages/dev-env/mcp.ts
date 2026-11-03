@@ -44,6 +44,14 @@ export async function authorizeMcp({
 		query: Object.fromEntries(authorizationURL.searchParams),
 	})
 	const consentURL = new URL(authorization.url, issuer)
+	const authorizationError = consentURL.searchParams.get("error")
+	if (authorizationError !== null) {
+		const description = consentURL.searchParams.get("error_description")
+		throw new oauth.AuthorizationResponseError(
+			`MCP authorization failed: ${authorizationError}${description ? `: ${description}` : ""}`,
+			{ cause: consentURL.searchParams },
+		)
+	}
 	const consent = await client.oauth2.consent({
 		accept: true,
 		oauth_query: consentURL.searchParams.toString(),

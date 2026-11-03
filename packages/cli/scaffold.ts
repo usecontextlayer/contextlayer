@@ -99,8 +99,8 @@ export async function initializeSlateSource(
 	directory: string,
 	scaffolds: ScaffoldKind[],
 ) {
-	await mkdir(directory)
-	await writeFile(join(directory, "AGENTS.md"), orientation)
+	await mkdir(directory, { recursive: true })
+	await writeFile(join(directory, "AGENTS.md"), orientation, { flag: "wx" })
 	await execa("git", ["init", "--initial-branch=main"], {
 		cwd: directory,
 		stdio: "inherit",
@@ -119,6 +119,7 @@ export async function initializeSlateSource(
 }
 
 export async function createSlateCheckout(directory: string, scaffolds: ScaffoldKind[]) {
+	await mkdir(directory)
 	await initializeSlateSource(directory, scaffolds)
 	await execa("pnpm", ["install"], { cwd: directory, stdio: "inherit" })
 	await execa("git", ["add", "."], { cwd: directory, stdio: "inherit" })

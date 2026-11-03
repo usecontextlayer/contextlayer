@@ -1,29 +1,20 @@
 import { appendFile, cp, mkdir } from "node:fs/promises"
-import { join } from "node:path"
+import { join, resolve } from "node:path"
+import { initializeSlateSource, type ScaffoldKind } from "@usecontextlayer/cli/scaffold"
 import { execa } from "execa"
+
+type SlateProjectOptions = {
+	installDependencies?: boolean
+	scaffold?: ScaffoldKind | "empty"
+}
 
 export async function createSlateProject(
 	workspaceRoot: string,
 	checkout: string,
-	{
-		installDependencies = false,
-		scaffold = "app",
-	}: {
-		installDependencies?: boolean
-		scaffold?: "app" | "mcp" | "public" | "agents" | "empty"
-	} = {},
+	{ installDependencies = false, scaffold = "app" }: SlateProjectOptions = {},
 ) {
+	await initializeSlateSource(checkout, scaffold === "empty" ? [] : [scaffold])
 	const packagesRoot = join(workspaceRoot, "packages")
-	const cli = join(packagesRoot, "cli")
-	await mkdir(checkout, { recursive: true })
-	if (scaffold !== "app" && scaffold !== "mcp") {
-		await cp(join(cli, "dist/templates/base"), checkout, { recursive: true })
-	}
-	if (scaffold !== "empty") {
-		await execa(process.execPath, [join(cli, "dist/cli.mjs"), "scaffold", scaffold], {
-			cwd: checkout,
-		})
-	}
 	const packages = join(checkout, "packages")
 	await mkdir(packages, { recursive: true })
 	await Promise.all(
@@ -40,4 +31,16 @@ export async function createSlateProject(
 	await execa("pnpm", ["install", ...(installDependencies ? [] : ["--lockfile-only"])], {
 		cwd: checkout,
 	})
+}
+
+export async function copySlateProject(
+	checkout: string,
+	{ installDependencies = false, scaffold = "app" }: SlateProjectOptions = {},
+) {
+	await cp(
+		resolve(import.meta.dirname, "../../../artifacts/slate-project", scaffold),
+		checkout,
+		{ recursive: true },
+	)
+	if (installDependencies) await execa("pnpm", ["install"], { cwd: checkout })
 }

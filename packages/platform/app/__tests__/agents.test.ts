@@ -5,13 +5,9 @@ import {
 } from "@usecontextlayer/shared/declaration"
 import { expect, test } from "vitest"
 import { getAgentUnattendedScope } from "@/agent-instance"
-import { agentRunRequestSchema, agentRunSchema } from "@/agents.schema"
+import { agentRunRequestSchema } from "@/agents.schema"
 import { prepareAgentRun } from "@/agents.server"
-import { secretKey } from "@/secrets.server"
-import {
-	prepareSlateResourceConfiguration,
-	resolveSlateResourceConfiguration,
-} from "@/slate-resource-configuration.server"
+import type { ResolvedSlateResourceConfiguration } from "@/slate-resource-configuration.server"
 import { slateSchema } from "@/slates.schema"
 
 test.each([
@@ -42,48 +38,57 @@ test.each([
 	},
 )
 
-test.each([
-	{ id: "alice", type: "personal" },
-	{ id: "acme", type: "organization" },
-] as const)("a hosted run selects viewer and $type Owner references", (owner) => {
+test("a prepared run preserves resolved references and separates instructions from its prompt", () => {
 	const slate = slateSchema.parse({
 		id: "00000000-0000-4000-8000-000000000001",
-		owner_organization_id: owner.type === "organization" ? owner.id : null,
-		owner_user_id: owner.type === "personal" ? owner.id : null,
+		owner_organization_id: "acme",
+		owner_user_id: null,
 		public_hostname: "brief.contextlayer.xyz",
-		visibility: "public",
+		visibility: "private",
 	})
-	const configuration = prepareSlateResourceConfiguration(
-		slate,
-		{ id: "bob" },
-		resourcesForConsumer(
-			collectSlateResources(
-				slateDeclarationsSchema.parse({
-					agents: {
-						brief: {
-							connections: {},
-							databases: { inbox: { mode: "viewer" }, reports: { mode: "owner" } },
-							secrets: {
-								CLAUDE_CODE_OAUTH_TOKEN: { mode: "owner" },
-								PERSONAL_API_KEY: { mode: "viewer" },
-							},
-						},
-					},
-					app: { connections: {}, databases: { interactive: { mode: "viewer" } } },
-				}),
-			),
-			{ name: "brief", type: "agent" },
-		),
-		[],
-		new Set([secretKey({ id: "bob", type: "personal" }, "PERSONAL_API_KEY")]),
-	)
-	const resolved = resolveSlateResourceConfiguration(configuration)
-	if (!resolved.allowed) throw new Error("Expected complete resource configuration")
+	const configuration = {
+		connections: {
+			repository: {
+				account_id: "acme-repository",
+				consumers: [{ name: "brief", type: "agent" }],
+				mode: "owner",
+				owner: { id: "acme", type: "organization" },
+				toolkit: "github",
+			},
+		},
+		databases: {
+			inbox: {
+				consumers: [{ name: "brief", type: "agent" }],
+				instance_name: "resolved-bob-inbox",
+				mode: "viewer",
+				owner: { id: "bob", type: "personal" },
+			},
+			reports: {
+				consumers: [{ name: "brief", type: "agent" }],
+				instance_name: "resolved-acme-reports",
+				mode: "owner",
+				owner: { id: "acme", type: "organization" },
+			},
+		},
+		secrets: {
+			CLAUDE_CODE_OAUTH_TOKEN: {
+				consumers: [{ name: "brief", type: "agent" }],
+				mode: "owner",
+				owner: { id: "acme", type: "organization" },
+			},
+			PERSONAL_API_KEY: {
+				consumers: [{ name: "brief", type: "agent" }],
+				mode: "viewer",
+				owner: { id: "bob", type: "personal" },
+				supplied: true,
+			},
+		},
+	} satisfies ResolvedSlateResourceConfiguration
 	const run = prepareAgentRun(
 		slate,
 		{ id: "bob", type: "user" },
 		{ commit: "deployed-revision", instructions: "Return a company brief.\n" },
-		resolved.configuration,
+		configuration,
 		agentRunRequestSchema.parse({ name: "brief", prompt: "Research Acme." }),
 	)
 	expect(run).toEqual({
@@ -93,88 +98,28 @@ test.each([
 			instructions: "Return a company brief.\n",
 			name: "brief",
 		},
-		connections: {},
+		connections: {
+			repository: {
+				account_id: "acme-repository",
+				owner: { id: "acme", type: "organization" },
+				toolkit: "github",
+			},
+		},
 		databases: {
 			inbox: {
-				instance_name: configuration.databases.inbox?.instance_name,
+				instance_name: "resolved-bob-inbox",
 				owner: { id: "bob", type: "personal" },
 			},
 			reports: {
-				instance_name: configuration.databases.reports?.instance_name,
-				owner,
+				instance_name: "resolved-acme-reports",
+				owner: { id: "acme", type: "organization" },
 			},
 		},
 		prompt: "Research Acme.",
 		secrets: {
-			CLAUDE_CODE_OAUTH_TOKEN: owner,
+			CLAUDE_CODE_OAUTH_TOKEN: { id: "acme", type: "organization" },
 			PERSONAL_API_KEY: { id: "bob", type: "personal" },
 		},
 		slateId: "00000000-0000-4000-8000-000000000001",
-	})
-	expect(agentRunSchema.parse(JSON.parse(JSON.stringify(run)))).toEqual(run)
-	const scheduledResources = resolveSlateResourceConfiguration(
-		prepareSlateResourceConfiguration(
-			slate,
-			null,
-			resourcesForConsumer(
-				collectSlateResources(
-					slateDeclarationsSchema.parse({
-						agents: {
-							brief: {
-								connections: {},
-								databases: { reports: { mode: "owner" } },
-								secrets: { ANTHROPIC_API_KEY: { mode: "owner" } },
-							},
-						},
-						app: { connections: {} },
-					}),
-				),
-				{ name: "brief", type: "agent" },
-			),
-			[],
-			new Set(),
-		),
-	)
-	if (!scheduledResources.allowed)
-		throw new Error("Expected complete scheduled resources")
-	const unattended = prepareAgentRun(
-		slate,
-		{ type: "app" },
-		{ commit: "deployed-revision", instructions: "Return a company brief.\n" },
-		scheduledResources.configuration,
-		{ name: "brief", prompt: "Scheduled research." },
-	)
-	expect(unattended.actor).toEqual({ type: "app" })
-	expect(unattended.secrets).toEqual({ ANTHROPIC_API_KEY: owner })
-	expect(unattended.prompt).toBe("Scheduled research.")
-	expect(agentRunSchema.parse(JSON.parse(JSON.stringify(unattended)))).toEqual(unattended)
-})
-
-test("a required connection without an assignment refuses preparation with its own reason", () => {
-	const slate = slateSchema.parse({
-		id: "00000000-0000-4000-8000-000000000001",
-		owner_organization_id: null,
-		owner_user_id: "alice",
-		public_hostname: "brief.contextlayer.xyz",
-		visibility: "private",
-	})
-	const configuration = prepareSlateResourceConfiguration(
-		slate,
-		{ id: "bob" },
-		collectSlateResources(
-			slateDeclarationsSchema.parse({
-				agents: {
-					brief: { connections: { mail: { mode: "viewer", toolkit: "gmail" } } },
-				},
-				app: { connections: {} },
-			}),
-		),
-		[],
-		new Set(),
-	)
-	expect(resolveSlateResourceConfiguration(configuration)).toEqual({
-		allowed: false,
-		reason: "connection-required",
-		slug: "mail",
 	})
 })

@@ -9,12 +9,17 @@ export default defineConfig({
 		auth: "auth-public.ts",
 		cli: "cli.ts",
 		database: "database.ts",
+		scaffold: "scaffold.ts",
 		vite: "vite.ts",
 	},
 	format: ["esm"],
 	hooks: {
 		"build:done": () => {
-			cpSync("templates", "dist/templates", { recursive: true })
+			// The image cache lockfile records this CLI's integrity and must not ship inside it.
+			cpSync("templates", "dist/templates", {
+				filter: (source) => source !== "templates/app/pnpm-lock.yaml",
+				recursive: true,
+			})
 		},
 	},
 	outDir: "dist",

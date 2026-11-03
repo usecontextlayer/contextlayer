@@ -7,7 +7,7 @@ export type BuildBindings = CiBindings & {
 	CTX_DISPATCH_NAMESPACE: string
 	DATABASES: DurableObjectNamespace<SlateDatabase>
 	PROVISIONING: {
-		prepare(slateId: string, commit: string): Promise<SlateProvisioning>
+		prepare(slateId: string, commitHash: string): Promise<SlateProvisioning>
 		provisionSchedules(prepared: SlateProvisioning): Promise<void>
 	}
 }

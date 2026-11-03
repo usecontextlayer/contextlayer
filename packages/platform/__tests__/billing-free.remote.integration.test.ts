@@ -1,0 +1,113 @@
+import assert from "node:assert/strict"
+import { randomUUID } from "node:crypto"
+import { createPolarCore } from "@polar-sh/sdk/2026-10"
+import {
+	createCustomers,
+	deleteCustomers,
+	getStateCustomers,
+	listPaymentMethodsCustomers,
+} from "@polar-sh/sdk/2026-10/services/customers"
+import { ingestEvents } from "@polar-sh/sdk/2026-10/services/events"
+import { getProducts } from "@polar-sh/sdk/2026-10/services/products"
+import { createSubscriptions } from "@polar-sh/sdk/2026-10/services/subscriptions"
+import { test } from "@tests/integration"
+import { expect } from "vitest"
+import { slateSchema } from "@/slates.schema"
+
+test("Free subscriptions grant credits and exhaustion denies runtime access after state refresh", async ({
+	db,
+	platform: { env, origin },
+}) => {
+	const polar = createPolarCore({
+		accessToken: env.POLAR_ACCESS_TOKEN,
+		environment: env.POLAR_ENVIRONMENT,
+	})
+	const freeProduct = await getProducts(polar)(env.POLAR_FREE_PRODUCT_ID)
+	const clipsBenefit = freeProduct.benefits.find(
+		(benefit) =>
+			benefit.type === "meter_credit" &&
+			benefit.properties.meter_id === env.POLAR_CLIPS_METER_ID,
+	)
+	assert(
+		clipsBenefit?.type === "meter_credit",
+		"The Free product must grant Clips credits",
+	)
+	const clips = clipsBenefit.properties.units
+	await using scenario = new AsyncDisposableStack()
+	const externalId = randomUUID()
+	const customer = await createCustomers(polar)({
+		email: `${externalId}@usecontextlayer.com`,
+		external_id: externalId,
+		name: "ContextLayer Free billing proof (team)",
+		type: "team",
+	})
+	scenario.defer(() => deleteCustomers(polar)(customer.id))
+	await createSubscriptions(polar)({
+		customer_id: customer.id,
+		product_id: env.POLAR_FREE_PRODUCT_ID,
+	})
+	const slate = slateSchema.parse(
+		await db
+			.insertInto("slate")
+			.values({
+				owner_organization_id: externalId,
+				owner_user_id: null,
+				public_hostname: `team-${randomUUID().slice(0, 8)}.example.com`,
+				visibility: "public",
+			})
+			.returningAll()
+			.executeTakeFirstOrThrow(),
+	)
+	await expect
+		.poll(
+			async () => {
+				const state = await getStateCustomers(polar)(customer.id)
+				return {
+					balance: state.active_meters.find(
+						(meter) => meter.meter_id === env.POLAR_CLIPS_METER_ID,
+					)?.balance,
+					product_id: state.active_subscriptions[0]?.product_id,
+				}
+			},
+			{ timeout: 60_000 },
+		)
+		.toEqual({ balance: clips, product_id: env.POLAR_FREE_PRODUCT_ID })
+	expect((await listPaymentMethodsCustomers(polar)(customer.id)).items).toEqual([])
+	const resolve = (pathname: string) =>
+		new URL(
+			`/api/slates/resolve?${new URLSearchParams({ hostname: slate.public_hostname, pathname })}`,
+			origin,
+		)
+	expect((await fetch(resolve("/"))).status).toBe(200)
+	const usage = await ingestEvents(polar)({
+		events: [
+			{
+				external_customer_id: externalId,
+				metadata: { clips, user_code_worker_id: slate.id },
+				name: "tool_call",
+			},
+		],
+	})
+	expect(usage.inserted).toBe(1)
+	await expect
+		.poll(
+			async () =>
+				(await getStateCustomers(polar)(customer.id)).active_meters.find(
+					(meter) => meter.meter_id === env.POLAR_CLIPS_METER_ID,
+				)?.balance,
+			{ timeout: 60_000 },
+		)
+		.toBe(0)
+	await db
+		.updateTable("polar_customer_state")
+		.set({ refreshed_at: new Date(Date.now() - 2 * 60 * 60 * 1000) })
+		.where("external_id", "=", externalId)
+		.execute()
+	const exhausted = await fetch(resolve("/"))
+	expect(exhausted.status).toBe(402)
+	const message = await exhausted.text()
+	expect(message).toContain("Included clips renew on")
+	expect(message).toContain("This plan has no overage charges")
+	expect(message).toContain(`/organization/${externalId}/billing`)
+	expect((await fetch(resolve("/slate.json"))).status).toBe(402)
+}, 300_000)

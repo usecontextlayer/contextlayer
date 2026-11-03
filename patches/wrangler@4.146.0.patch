@@ -1,5 +1,5 @@
 diff --git a/wrangler-dist/cli.js b/wrangler-dist/cli.js
-index b682402e4763ef57d5a0898221d39227711e3e6f..65bd14ebba7dfa4fd4995d32b34e3383354e8866 100644
+index b682402e4763ef57d5a0898221d39227711e3e6f..44e3c0669dd25fde67194892128ed034c3106e09 100644
 --- a/wrangler-dist/cli.js
 +++ b/wrangler-dist/cli.js
 @@ -140206,17 +140206,6 @@ ${hint}`;
@@ -64,7 +64,9 @@ index b682402e4763ef57d5a0898221d39227711e3e6f..65bd14ebba7dfa4fd4995d32b34e3383
      __name(generateContainerBuildId, "generateContainerBuildId");
      __name5(generateContainerBuildId, "generateContainerBuildId");
      __name(getDockerSocketFromContext, "getDockerSocketFromContext");
-@@ -364638,15 +364610,15 @@ var init_LocalRuntimeController = __esm({
+@@ -364636,17 +364608,17 @@ var init_LocalRuntimeController = __esm({
+       }
+       #remoteProxySessionData = null;
        // Set of container images that have been seen in the current dev session.
 -      // This is used to clean up containers at the end of the dev session.
 +      // This is used to remove image tags at the end of the dev session.
@@ -84,7 +86,7 @@ index b682402e4763ef57d5a0898221d39227711e3e6f..65bd14ebba7dfa4fd4995d32b34e3383
        }
        /**
         * Surfaces uncaught Worker exceptions as typed `runtimeError` events
-@@ -364827,25 +364799,20 @@ var init_LocalRuntimeController = __esm({
+@@ -364827,30 +364799,33 @@ var init_LocalRuntimeController = __esm({
        }
        onPreviewTokenExpired(_5) {
        }
@@ -108,18 +110,39 @@ index b682402e4763ef57d5a0898221d39227711e3e6f..65bd14ebba7dfa4fd4995d32b34e3383
 -        process.off("exit", this.cleanupContainers);
 -        this.cleanupContainers();
 -        if (this.#mf) {
-+        process.off("exit", this.removeContainerImages);
-+        if (this.mf) {
-           logger2.log(source_default.dim("\u2394 Shutting down local server..."));
-         }
+-          logger2.log(source_default.dim("\u2394 Shutting down local server..."));
+-        }
 -        await this.#mf?.dispose();
-+        await this.mf?.dispose();
-         this.#mf = void 0;
-+        this.removeContainerImages();
-         if (this.#remoteProxySessionData) {
-           logger2.log(source_default.dim("\u2394 Shutting down remote connection..."));
-         }
-@@ -365107,10 +365074,6 @@ var init_MultiworkerRuntimeController = __esm({
+-        this.#mf = void 0;
+-        if (this.#remoteProxySessionData) {
+-          logger2.log(source_default.dim("\u2394 Shutting down remote connection..."));
+-        }
+-        await this.#remoteProxySessionData?.session?.dispose();
+-        this.#remoteProxySessionData = null;
++        process.off("exit", this.removeContainerImages);
++        const cleanup = new AsyncDisposableStack();
++        cleanup.defer(async () => {
++          if (this.#remoteProxySessionData) {
++            logger2.log(source_default.dim("\u2394 Shutting down remote connection..."));
++          }
++          const session = this.#remoteProxySessionData?.session;
++          this.#remoteProxySessionData = null;
++          await session?.dispose();
++        });
++        cleanup.defer(() => this.removeContainerImages());
++        cleanup.defer(async () => {
++          const mf = this.mf;
++          this.#mf = void 0;
++          if (mf) {
++            logger2.log(source_default.dim("\u2394 Shutting down local server..."));
++          }
++          await mf?.dispose();
++        });
++        await cleanup.disposeAsync();
+         logger2.debug("LocalRuntimeController teardown complete");
+       }, "#teardown");
+       async teardown() {
+@@ -365107,10 +365082,6 @@ var init_MultiworkerRuntimeController = __esm({
        }
        #teardown = /* @__PURE__ */ __name(async () => {
          logger2.debug("MultiworkerRuntimeController teardown beginning...");
@@ -130,20 +153,22 @@ index b682402e4763ef57d5a0898221d39227711e3e6f..65bd14ebba7dfa4fd4995d32b34e3383
          this.#mf = void 0;
          if (this.#remoteProxySessionsData.size > 0) {
            logger2.log(source_default.dim("\u2394 Shutting down remote connections..."));
-@@ -365124,8 +365087,10 @@ var init_MultiworkerRuntimeController = __esm({
+@@ -365124,8 +365095,12 @@ var init_MultiworkerRuntimeController = __esm({
          logger2.debug("MultiworkerRuntimeController teardown complete");
        }, "#teardown");
        async teardown() {
 -        await super.teardown();
 -        return this.#mutex.runWith(this.#teardown);
 +        return this.#mutex.runWith(async () => {
-+          await super.teardown();
-+          await this.#teardown();
++          const cleanup = new AsyncDisposableStack();
++          cleanup.defer(this.#teardown);
++          cleanup.defer(() => super.teardown());
++          await cleanup.disposeAsync();
 +        });
        }
      };
    }
-@@ -365293,7 +365258,7 @@ function registerDevHotKeys(devEnvs, args, options = {}) {
+@@ -365293,7 +365268,7 @@ function registerDevHotKeys(devEnvs, args, options = {}) {
              });
              devEnv.runtimes.map((runtime) => {
                if (runtime instanceof LocalRuntimeController) {
@@ -152,7 +177,7 @@ index b682402e4763ef57d5a0898221d39227711e3e6f..65bd14ebba7dfa4fd4995d32b34e3383
                }
              });
              const newContainerBuildId = generateContainerBuildId();
-@@ -370152,8 +370117,16 @@ function createTestHarness(options) {
+@@ -370152,8 +370127,16 @@ function createTestHarness(options) {
            inspector: false,
            registry: void 0,
            structuredLogsHandler: /* @__PURE__ */ __name((log2) => captureStructuredLog(log2), "structuredLogsHandler"),
@@ -161,7 +186,7 @@ index b682402e4763ef57d5a0898221d39227711e3e6f..65bd14ebba7dfa4fd4995d32b34e3383
 +          outboundService: /* @__PURE__ */ __name(async (request4) => {
 +            const response = await globalThis.fetch(request4.url, request4);
 +            if (response.body !== null && response.headers.get("content-encoding")?.trim().toLowerCase() === "gzip") {
-+              // Node fetch decoded the body but retained its compressed wire headers.
++              // Decoded bodies must not retain compressed wire headers: streamed responses otherwise fail decompression in workerd.
 +              const decoded = new Response(response.body, response);
 +              decoded.headers.delete("content-encoding");
 +              decoded.headers.delete("content-length");

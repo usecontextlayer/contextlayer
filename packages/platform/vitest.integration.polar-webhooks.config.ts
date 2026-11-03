@@ -1,13 +1,14 @@
-import { configDefaults, defineConfig } from "vitest/config"
-// biome-ignore lint/style/noRestrictedImports: shared test configuration lives outside the app alias.
-import nodeIntegration from "./vitest.integration.node.config.ts"
+import { fileURLToPath } from "node:url"
+import { defineConfig } from "vitest/config"
+// biome-ignore lint/style/noRestrictedImports: shared test configuration lives outside the package
+import * as integration from "../../vitest.shared.ts"
 
 export default defineConfig({
-	...nodeIntegration,
+	resolve: { tsconfigPaths: true },
 	test: {
-		...nodeIntegration.test,
-		exclude: configDefaults.exclude,
-		include: ["**/billing-webhooks.node.integration.test.ts"],
+		...integration.platformIntegrationTestConfig,
+		...integration.polarWebhooksIntegrationTestConfig,
 		name: "@usecontextlayer/platform:integration:polar-webhooks",
+		root: fileURLToPath(new URL(".", import.meta.url)),
 	},
 })

@@ -1,0 +1,211 @@
+import { mkdir, rm, writeFile } from "node:fs/promises"
+import { join } from "node:path"
+import { UserEntry } from "@earendil-works/pi-durable"
+import { test } from "@tests/integration"
+import { copySlateProject } from "@usecontextlayer/dev-env/slate"
+import { expect } from "vitest"
+import { z } from "zod"
+import {
+	type AgentJobEntry,
+	agentJobEntrySchema,
+	agentJobMessageSchema,
+	agentJobResultSchema,
+	agentJobSessionSchema,
+	agentRuntimeScheduleSchema,
+} from "@/agents.schema"
+import { slateSchema } from "@/slates.schema"
+
+test("authored cron jobs retain results after schedule removal and Durable Object eviction", async ({
+	buildWorker,
+	git,
+	directory,
+	platform,
+	webSession,
+}) => {
+	const { origin, worker } = platform
+	const headers = new Headers(webSession.headers)
+	headers.set("origin", origin)
+	headers.set("content-type", "application/json")
+	const created = await fetch(`${origin}/api/slates`, {
+		body: JSON.stringify({}),
+		headers,
+		method: "POST",
+	})
+	expect(created.status).toBe(201)
+	const slate = slateSchema.parse(await created.json())
+	const { ARTIFACTS } = await worker.getEnv()
+	await using resources = new AsyncDisposableStack()
+	resources.defer(async () => {
+		await ARTIFACTS.delete(slate.id)
+	})
+	const remote = `${origin}/git/${slate.id}`
+	await copySlateProject(directory)
+	await mkdir(join(directory, "agents/brief/schedules"), { recursive: true })
+	await writeFile(join(directory, "app/slate.json"), JSON.stringify({ connections: {} }))
+	await writeFile(
+		join(directory, "agents/brief/slate.json"),
+		JSON.stringify({
+			connections: {},
+			secrets: { ANTHROPIC_API_KEY: { mode: "owner" } },
+		}),
+	)
+	await writeFile(
+		join(directory, "agents/brief/instructions.md"),
+		"Answer briefly without using tools.\n",
+	)
+	// A recurring minute cannot be missed while the repository or runtime is preparing.
+	const cron = "* * * * *"
+	const prompt = "Say hello in one sentence."
+	await writeFile(
+		join(directory, "agents/brief/schedules/greeting.md"),
+		`---\ncron: "${cron}"\n---\n${prompt}\n`,
+	)
+	await git("init", "-b", "main")
+	await git("config", "user.name", "Pi Cron Acceptance")
+	await git("config", "user.email", "pi-cron-test@example.com")
+	await git("add", ".")
+	await git(
+		"-c",
+		"commit.gpgsign=false",
+		"commit",
+		"-m",
+		"Author scheduled Pi acceptance agent",
+	)
+	await git("push", remote, "main")
+	const url = `${origin}/api/slates/${slate.id}/agents/brief/jobs`
+	const catalogSchema = z.object({ jobs: z.array(agentJobEntrySchema.strict()) }).strict()
+	const before = await fetch(url, { headers })
+	expect(before.status).toBe(200)
+	expect(catalogSchema.parse(await before.json()).jobs).toEqual([])
+	const { MEMBER_PROVISIONING, PROVISIONING } = await buildWorker.getEnv()
+	const commit = (await git("rev-parse", "HEAD")).stdout.trim()
+	await writeFile(
+		join(directory, "agents/brief/schedules/greeting.md"),
+		'---\ncron: "0 0 1 1 *"\n---\nThis prompt belongs to a later push.\n',
+	)
+	await git("add", "agents")
+	await git("-c", "commit.gpgsign=false", "commit", "-m", "Push a later schedule")
+	await git("push", remote, "main")
+	const prepared = await PROVISIONING.prepare(slate.id, commit)
+	{
+		await using workflow = await buildWorker.introspectWorkflowInstance(
+			"MEMBER_PROVISIONING",
+			(await MEMBER_PROVISIONING.create({ params: prepared })).id,
+		)
+		await workflow.waitForStatus("complete")
+	}
+	const scheduleUrl = `${origin}/api/slates/${slate.id}/agents/brief/schedules`
+	const scheduled = await fetch(scheduleUrl, { headers })
+	expect(scheduled.status).toBe(200)
+	const schedules = z.array(agentRuntimeScheduleSchema).parse(await scheduled.json())
+	expect(schedules).toHaveLength(1)
+	const schedule = schedules[0]
+	if (!schedule) throw new Error("Expected the authored native cron schedule")
+	expect(schedule).toMatchObject({
+		callback: "runScheduled",
+		cron,
+		payload: {
+			actor: { type: "app" },
+			name: "brief",
+			prompt: expect.stringContaining(prompt),
+			schedule: "greeting",
+			slateId: slate.id,
+		},
+		type: "cron",
+	})
+	const scheduleDetail = await fetch(`${scheduleUrl}/${schedule.id}`, { headers })
+	expect(scheduleDetail.status).toBe(200)
+	expect(agentRuntimeScheduleSchema.parse(await scheduleDetail.json())).toEqual(schedule)
+	let entry: AgentJobEntry | undefined
+	await expect
+		.poll(
+			async () => {
+				const response = await fetch(url, { headers })
+				expect(response.status).toBe(200)
+				entry = catalogSchema.parse(await response.json()).jobs[0]
+				return entry !== undefined
+			},
+			{ interval: 1000, timeout: 180_000 },
+		)
+		.toBe(true)
+	if (!entry) throw new Error("Expected a cron-created job catalog entry")
+	const jobId = entry.id
+	await rm(join(directory, "agents/brief/schedules/greeting.md"))
+	await git("add", "agents")
+	await git(
+		"-c",
+		"commit.gpgsign=false",
+		"commit",
+		"-m",
+		"Remove the dispatched schedule",
+	)
+	await git("push", remote, "main")
+	await PROVISIONING.provisionSchedules(
+		await PROVISIONING.prepare(slate.id, (await git("rev-parse", "HEAD")).stdout.trim()),
+	)
+	const removed = await fetch(`${scheduleUrl}/${schedule.id}`, { headers })
+	expect(removed.status).toBe(404)
+	expect(entry.metadata).toEqual({
+		actor: { type: "app" },
+		trigger: { schedule: "greeting", scheduleId: schedule.id, type: "schedule" },
+	})
+	const detail = await fetch(`${url}/${jobId}`, { headers })
+	expect(detail.status).toBe(200)
+	expect(agentJobEntrySchema.strict().parse(await detail.json())).toEqual(entry)
+	const matching = await fetch(`${url}?schedule=greeting`, { headers })
+	expect(matching.status).toBe(200)
+	expect(catalogSchema.parse(await matching.json()).jobs).toContainEqual(entry)
+	const other = await fetch(`${url}?schedule=other`, { headers })
+	expect(other.status).toBe(200)
+	expect(catalogSchema.parse(await other.json()).jobs).toEqual([])
+	const completed = await fetch(`${url}/${jobId}/result`, { headers })
+
+	expect(completed.status, completed.ok ? undefined : await completed.text()).toBe(200)
+	const result = agentJobResultSchema.strict().parse(await completed.json())
+	console.info("Real scheduled Pi result", result)
+	expect(result.operationId).not.toBe(jobId)
+	expect(result.status, result.reason).toBe("done")
+	expect(result.text?.length).toBeGreaterThan(0)
+	const operationResponse = await fetch(`${url}/${jobId}/operation`, { headers })
+	expect(operationResponse.status).toBe(200)
+	expect(agentJobResultSchema.strict().parse(await operationResponse.json())).toEqual(
+		result,
+	)
+	const sessionResponse = await fetch(`${url}/${jobId}/sessions`, { headers })
+	expect(sessionResponse.status).toBe(200)
+	const sessions = z.array(agentJobSessionSchema).parse(await sessionResponse.json())
+	expect(sessions.map((session) => session.id)).toEqual([result.session])
+	const messageResponse = await fetch(
+		`${url}/${jobId}/sessions/${result.session}/messages`,
+		{
+			headers,
+		},
+	)
+	expect(messageResponse.status).toBe(200)
+	const messages = z.array(agentJobMessageSchema).parse(await messageResponse.json())
+	const userEntries = messages.filter((entry) => entry.kind === UserEntry.kind)
+	expect(userEntries).toHaveLength(1)
+	expect(userEntries[0]?.model).toContainEqual(
+		expect.objectContaining({ content: schedule.payload.prompt, role: "user" }),
+	)
+	const listed = await fetch(url, { headers })
+	expect(listed.status).toBe(200)
+	expect(catalogSchema.parse(await listed.json()).jobs).toContainEqual(entry)
+	for (const className of ["SlateAgentJob", "SlateAgent"] as const) {
+		const ids = await worker.listDurableObjectIds(className)
+		expect(ids.length).toBeGreaterThan(0)
+		for (const id of ids) await worker.evictDurableObject(className, { id })
+	}
+	const retainedResult = await fetch(`${url}/${jobId}/result`, { headers })
+	expect(retainedResult.status).toBe(200)
+	expect(agentJobResultSchema.strict().parse(await retainedResult.json())).toEqual(result)
+	const deleted = await fetch(`${url}/${jobId}`, { headers, method: "DELETE" })
+	expect(deleted.status).toBe(204)
+	const missing = await fetch(`${url}/${jobId}`, { headers })
+	expect(missing.status).toBe(404)
+	const empty = await fetch(`${url}?schedule=greeting`, { headers })
+	expect(empty.status).toBe(200)
+	expect(catalogSchema.parse(await empty.json()).jobs.map(({ id }) => id)).not.toContain(
+		jobId,
+	)
+}, 300_000)

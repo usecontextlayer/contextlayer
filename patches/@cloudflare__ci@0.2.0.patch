@@ -22,15 +22,11 @@ index aa6068d5ab399caf3f018e5c7c4a691da57931a7..00ced22304dd823fb8dee429675a493a
    ttlSeconds?: number;
  };
 diff --git a/src/ci/runners/sandbox.ts b/src/ci/runners/sandbox.ts
-index 4fb4a42354cdc9fbc18c930b0f3396c7a979d036..5cf2c40fc5b03c7679b7217ea7b2217f3c37fbc0 100644
+index 4fb4a42354cdc9fbc18c930b0f3396c7a979d036..90c542e3039af8196161b0981c8957d964d6b2a3 100644
 --- a/src/ci/runners/sandbox.ts
 +++ b/src/ci/runners/sandbox.ts
-@@ -28,10 +28,10 @@ const INLINE_LOG_BYTES = 300_000;
- export class SandboxRunner implements Runner<DirectoryBackup> {
-   readonly name = 'sandbox';
- 
--  constructor(private readonly env: Bindings) {}
-+  constructor(private readonly env: Pick<Bindings, 'SANDBOX'>) {}
+@@ -31,7 +31,7 @@ export class SandboxRunner implements Runner<DirectoryBackup> {
+   constructor(private readonly env: Bindings) {}
  
    /**
 -   * Copies source, runs the command, and snapshots `/workspace` after a
@@ -85,17 +81,16 @@ index 83946a318ec5493d258581f33babf8ed43a9e909..debe4bfe725aad68aec49bae999bc6a8
        if (glob[index + 2] === '/') {
          pattern += '(?:.*/)?';
 diff --git a/src/worker.ts b/src/worker.ts
-index 3d37e16ab2a6d9fd321d3173a35610dc22e5f43b..e20ad2c58e3fd3ba48b324a9984f430612442d31 100644
+index 3d37e16ab2a6d9fd321d3173a35610dc22e5f43b..f0250a1c8e473461c1e0fc25871cd5efa988ae7b 100644
 --- a/src/worker.ts
 +++ b/src/worker.ts
-@@ -1,7 +1,10 @@
+@@ -1,7 +1,9 @@
  // Copyright (c) 2026 Cloudflare, Inc.
  // SPDX-License-Identifier: Apache-2.0
  
 +export { ContainerProxy } from '@cloudflare/sandbox';
  export { CiSandbox } from './ci/sandbox';
 +export { SandboxRunner } from './ci/runners/sandbox';
-+export type { RunOutput, RunStepInput, RunStepResult, Runner } from './ci/runners/runner';
  export { restartCiRun, startCiRun } from './ci/dispatch';
  export type {
    CreatePullRequestResult,

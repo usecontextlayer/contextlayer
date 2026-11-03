@@ -217,6 +217,14 @@ node --import tsx scripts/release.ts --help
 
 Main pushes run checks; version-tag pushes publish npm packages. Use the release ladder to keep the version, checked commit and release tag together. Tag publication requires successful checks for that exact commit and package versions matching the tag. The ladder commits and pushes; follow the machine's Git approval convention. GitHub receives `NPM_TOKEN` for publication and `FONTAWESOME_PACKAGE_TOKEN` for CI installation through Doppler sync. Package manifests own which packages publish. npm publication and service deployment have separate workflows, but the release ladder also pushes main and can therefore trigger [Workers Builds](#service-deployment). Twilio deployment remains separate.
 
+The committed `packages/cli/templates/app/pnpm-lock.yaml` seeds the test Build image's pnpm store and is excluded from the CLI's bundled starter. Refresh it when useful, after any newly pinned CLI/SDK versions have been published:
+
+```sh
+pnpm --dir packages/cli/templates/app install --lockfile-only --ignore-scripts --no-frozen-lockfile
+```
+
+Commit the refreshed lockfile. Refreshing is independent of the release ladder; each slate checkout's own lockfile determines its installed versions, and missing cached packages download normally.
+
 For public CLI onboarding and deployment, follow the [CLI README](packages/cli/README.md) and the generated checkout's README. Public setup uses `npx @usecontextlayer/cli` without a global installation.
 
 ## Service deployment
@@ -232,7 +240,7 @@ Workers Builds reads the root `.node-version`; remove any separate `NODE_VERSION
 
 Supply a config-scoped read-only token for Doppler `platform/prod` as the Cloudflare build secret `DOPPLER_TOKEN`. Capture its value when creating it; later token listing/get calls return metadata without the credential. Doppler supplies `FONTAWESOME_PACKAGE_TOKEN` for installation. Keep both bootstrap and registry credentials in the build environment; neither belongs in runtime Worker bindings.
 
-Follow the [secret-delivery contract](ARCHITECTURE.md#worker-deployment-and-secrets): declare runtime secret names through Wrangler's native `secrets.required` and keep their values in Doppler. The shared deployment workflow resolves the effective configuration, including Vite's generated configuration. Do not maintain a `.dev.vars` copy or a separate secret list. Changed Doppler values take effect on the next deployment.
+Follow the [secret-delivery contract](ARCHITECTURE.md#worker-deployment-and-secrets): declare runtime secret names through Wrangler's native `secrets.required` and keep their values in Doppler. The shared deployment workflow selects each production configuration explicitly for both secret discovery and deployment: Platform uses `build/server/wrangler.json`, and the Wrangler projects use their source `wrangler.jsonc`. This keeps deployment independent of Vite's latest-build redirect, which a test build can point at `build-test/`. Do not maintain a `.dev.vars` copy or a separate secret list. Changed Doppler values take effect on the next deployment.
 
 Production platform serves at `https://platform.usecontextlayer.com`. Its database configuration belongs in Doppler `platform/prod`; Neon's `platform` project owns the production database. Run [platform migrations](#platform-database-migrations) separately from Worker deployment. Slate OAuth provisioning requires the same `CTX_APP_OAUTH_PROVISIONING_SECRET` in Doppler `platform/prod` and `web/prod`.
 

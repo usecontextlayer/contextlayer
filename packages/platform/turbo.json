@@ -1,6 +1,13 @@
 {
 	"extends": ["//"],
 	"tasks": {
+		"build": {
+			"env": ["CLOUDFLARE_ENV"],
+			"outputs": ["build/**"]
+		},
+		"build:test": {
+			"outputs": ["build-test/**"]
+		},
 		"db.codegen": {
 			"cache": false,
 			"dependsOn": ["^build"]
@@ -13,17 +20,8 @@
 			"cache": false,
 			"dependsOn": ["^build"]
 		},
-		"dev": {
-			"dependsOn": ["build"],
-			"passThroughEnv": ["CLOUDFLARE_*"]
-		},
 		"dev:watch": {
 			"passThroughEnv": ["CLOUDFLARE_*"]
-		},
-		"test:integration:node": {
-			"cache": false,
-			"dependsOn": ["build", "@usecontextlayer/dispatcher#build"],
-			"passThroughEnv": ["CLOUDFLARE_*", "COMPOSIO_API_KEY", "POLAR_*"]
 		}
 	}
 }

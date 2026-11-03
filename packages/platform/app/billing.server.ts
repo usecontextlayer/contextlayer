@@ -71,7 +71,9 @@ export async function checkSlateBilling(
 		customer = state ? await saveCustomerState(db, state) : undefined
 	}
 	const billingUrl = new URL(
-		owner.type === "organization" ? "/settings/organizations" : "/settings/billing",
+		owner.type === "organization"
+			? `/organization/${encodeURIComponent(owner.id)}/billing`
+			: "/settings/billing",
 		config.CTX_AUTH_ISSUER,
 	).href
 	const subscription = customer?.state.active_subscriptions[0]
@@ -101,7 +103,7 @@ export async function checkSlateBilling(
 	})
 	return {
 		allowed: false,
-		message: `This slate has no Free clips remaining. Free clips renew on ${renewal}. Free has no overage charges. The slate's Owner can upgrade at ${billingUrl}`,
+		message: `This slate has no included clips remaining. Included clips renew on ${renewal}. This plan has no overage charges. The slate's Owner can upgrade at ${billingUrl}`,
 		reason: "credits-exhausted",
 	} as const
 }

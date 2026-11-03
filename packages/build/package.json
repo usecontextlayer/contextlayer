@@ -19,8 +19,9 @@
 	"private": true,
 	"scripts": {
 		"build": "wrangler deploy --env=\"\" --dry-run --outdir dist",
+		"build:test": "wrangler deploy --env test --dry-run --outdir dist-test",
 		"test": "vitest run --config vitest.config.ts",
-		"test:integration:node": "doppler run --project platform --config dev -- vitest run --config vitest.integration.node.config.ts",
+		"test:integration:remote": "doppler run --project platform --config dev -- vitest run --config vitest.integration.remote.config.ts",
 		"tsc": "tsc --noEmit"
 	},
 	"type": "module",

@@ -1,14 +1,18 @@
 # Build Worker
 
-Follow the [domain model](../../ARCHITECTURE.md#domain-model) and [build pipeline](../../ARCHITECTURE.md#build-pipeline) for ownership, phase ordering and credential boundaries. Extend `CIWorkflow` from `@cloudflare/ci`; use its native checkout, runners and snapshots. Own publication through a normal Workflow step and the native Sandbox lifecycle. Each publishing attempt must destroy its Sandbox when finished.
+Follow the [domain model](../../ARCHITECTURE.md#domain-model) and [build pipeline](../../ARCHITECTURE.md#build-pipeline) for ownership, phase ordering and credential boundaries. Extend `CIWorkflow` from `@cloudflare/ci`; use its native checkout, runners and snapshots.
+
+Never use the automatic runner command cache to skip migrations or run-specific artifact upload: restoring a workspace does not apply migrations to this operation's selected database instances or upload artifacts into this Workflow run's prefix, even when the source and command are unchanged.
 
 ## Migration runner
 
-Implement the [shared migration phase](../../ARCHITECTURE.md#slate-databases-and-authored-migrations) once for build and member provisioning. Disable automatic retries and output snapshots. For each nonempty provisioning operation, use one sandbox and prepare its workspace once: restore the supplied build snapshot or install dependencies once, then run the native Kysely CLI sequentially against the selected database targets and stop on the first failure. Reuse the initiating operation's revision and prepared instance set; the runner must not select new actors, resources or source.
+Implement the [shared migration phase](../../ARCHITECTURE.md#slate-databases-and-authored-migrations) once for build and member provisioning. Disable automatic retries and output snapshots. For each nonempty provisioning operation, use one sandbox and prepare its workspace once: check out the initiating revision and install dependencies without install scripts, then run the native Kysely CLI sequentially against the selected database targets and stop on the first failure. Reuse the initiating operation's revision and prepared instance set; the runner must not select new actors, resources or source.
 
 Host native migration sandboxes in the existing `CiSandbox` namespace and expose the SDK's `ContainerProxy`. Register handlers by assigning `CiSandbox.outboundHandlers`, which invokes the native registry setter. Map each selected database instance to a distinct trusted virtual hostname. The outbound SQL handler uses only that per-run mapping and the `DATABASES` binding; authored requests supply SQL and parameters, never physical database identity. Do not route migration SQL through the viewer-delegated runtime query operation: that operation can itself initiate membership. Preserve SQL errors across the HTTP boundary so the native Kysely CLI fails visibly.
 
 ## Publication
+
+Own publication through a normal Workflow step and the native Sandbox lifecycle. Each publishing attempt must create a fresh platform-controlled Sandbox with no authored checkout or restored workspace, and destroy it when finished. Reusing the authored build's sandbox would let its files or processes influence the later credential-bearing command.
 
 Run normal frozen installation and the authored build. Native Vite/framework configuration must place the deployment output under build/. Transfer build/ and .wrangler/deploy/ with image-owned rclone, preserving their project-relative paths. Do not parse the generated configuration to discover or copy individual output directories, reconstruct it, or introduce another artifact manifest.
 

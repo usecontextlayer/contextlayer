@@ -8,10 +8,8 @@ import {
 import { execa } from "execa"
 import { z } from "zod"
 
-export async function getLocalSlateId(directory = process.cwd()) {
-	const { stdout: remote } = await execa("git", ["remote", "get-url", "origin"], {
-		cwd: directory,
-	})
+export async function getLocalSlateId() {
+	const { stdout: remote } = await execa("git", ["remote", "get-url", "origin"])
 	return z.uuid().parse(new URL(remote).pathname.replace(/^\/git\//, ""))
 }
 

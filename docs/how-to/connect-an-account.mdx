@@ -37,7 +37,9 @@ The local workflow below uses an account connected for your personal Owner. If y
     The command prints an authorization link and suggested assignment commands. Run `npx @usecontextlayer/cli accounts --help` for account listing and other options.
   </Step>
   <Step title="Authorize in the browser">
-    Open the link, sign in to the Gmail account you want the slate to use, and approve the provider's requested access. If a coding agent is running the CLI, it should give this link to you and wait for you to complete authorization.
+    The authorization link is short-lived, so open it promptly, sign in to the Gmail account you want the slate to use, and approve the provider's requested access. If a coding agent is running the CLI, it should give you the link as soon as it is printed, then wait for you to complete authorization.
+
+    If the link has expired, run `npx @usecontextlayer/cli accounts add gmail` again to get a new one.
 
     The external account you authorize and the ContextLayer Owner holding it are separate choices. This walkthrough connects the Gmail account for your personal Owner.
   </Step>
