@@ -42,3 +42,9 @@ minimumReleaseAgeExclude:
   - "@vitest/mocker@5.1.0"
   - "@vitest/spy@5.1.0"
   - vitest@5.1.0
+
+permissions:
+  "@better-auth-ui/core":
+    skills: true
+  "@better-auth-ui/react":
+    skills: true
