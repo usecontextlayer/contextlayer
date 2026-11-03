@@ -1,17 +1,12 @@
 import { DurableObject } from "cloudflare:workers"
 import assert from "node:assert/strict"
-import { type ExecutionEnv, getOrThrow } from "@earendil-works/pi-durable/env"
+import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context"
+import { getOrThrow } from "@earendil-works/pi-durable/env"
 import { createEnvConformance } from "@earendil-works/pi-durable/testing"
 import { RemoteExecutionEnv } from "@earendil-works/pi-env/remote"
 import { createContainerConnection } from "@/agent-computer"
 
 export default {}
-
-const context: Parameters<ExecutionEnv["createTempDir"]>[1] = {
-	abortSignal: undefined,
-	toString: () => "computer-conformance",
-	value: () => undefined,
-}
 
 export class ComputerConformance extends DurableObject {
 	async run() {
@@ -38,11 +33,15 @@ export class ComputerConformance extends DurableObject {
 			},
 			listFiles: true,
 			withEnv: async (use) => {
-				const cwd = getOrThrow(await environment.createTempDir("conformance-", context))
+				const cwd = getOrThrow(
+					await environment.createTempDir("conformance-", BACKGROUND_CONTEXT),
+				)
 				try {
 					await use(new RemoteExecutionEnv({ connection, cwd, id: environment.id }))
 				} finally {
-					getOrThrow(await environment.remove(cwd, { recursive: true }, context))
+					getOrThrow(
+						await environment.remove(cwd, { recursive: true }, BACKGROUND_CONTEXT),
+					)
 				}
 			},
 		})
