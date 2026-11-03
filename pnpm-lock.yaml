@@ -124,11 +124,11 @@ importers:
   packages/cli:
     dependencies:
       '@anthropic-ai/claude-agent-sdk':
-        specifier: 0.3.289
-        version: 0.3.289(@anthropic-ai/sdk@0.131.0(zod@4.6.7))(@modelcontextprotocol/sdk@1.31.0(@cfworker/json-schema@4.1.1)(supports-color@10.2.2)(zod@4.6.7))(zod@4.6.7)
+        specifier: 0.3.316
+        version: 0.3.316(@anthropic-ai/sdk@0.131.0(zod@4.6.7))(@modelcontextprotocol/sdk@1.31.0(@cfworker/json-schema@4.1.1)(supports-color@10.2.2)(zod@4.6.7))(zod@4.6.7)
       cf:
-        specifier: 1.0.0-beta.23
-        version: 1.0.0-beta.23(@types/node@24.19.2)
+        specifier: 1.0.0-beta.26
+        version: 1.0.0-beta.26(@types/node@24.19.2)
       create-react-router:
         specifier: 8.5.1
         version: 8.5.1
@@ -632,53 +632,53 @@ packages:
     resolution: {integrity: sha512-UpbC9C1oht8dhfKPbVXSLRZS3DI8uk8n5v2uMjBPNIYGsC2kL045ywq7D8Hh9KgnH9rP5W/GxQdYtWScRouqlA==}
     engines: {node: '>=22'}
 
-  '@anthropic-ai/claude-agent-sdk-darwin-arm64@0.3.289':
-    resolution: {integrity: sha512-A1iK70JJgj6GhSkGnaVC02B1hX0aPvWTbn3a1Fp9iKhXt1a6eZwAhkqdP+F/rzAVUcQG24ehG/LBF2Ec8tBL0Q==}
+  '@anthropic-ai/claude-agent-sdk-darwin-arm64@0.3.316':
+    resolution: {integrity: sha512-1I1oJ/YGqq4pFQvJqycD2e8pbsUQLLR+DwEzG9jQAGCoSKkxP1TBfHpjSik/0byCixyzpYObrYXPC0PKBIR91g==}
     cpu: [arm64]
     os: [darwin]
 
-  '@anthropic-ai/claude-agent-sdk-darwin-x64@0.3.289':
-    resolution: {integrity: sha512-8kCv04+eOm26zPta8hym7eNHT/nn44a94Y/XwiR9ExWGGDcBJpNOZkVUxt+ciiKNQN7ujuYqAjdRedIRyD1izw==}
+  '@anthropic-ai/claude-agent-sdk-darwin-x64@0.3.316':
+    resolution: {integrity: sha512-gzNncKrID/6yJIKCAuF/pY1kfygQZ4dU0J+MNFl0bU+iQW65ERoIyoghYVfrAQ/gH2fuvnQtWxa8LQNScHgNMA==}
     cpu: [x64]
     os: [darwin]
 
-  '@anthropic-ai/claude-agent-sdk-linux-arm64-musl@0.3.289':
-    resolution: {integrity: sha512-nA1iLmY9R1Da042RWEJbJxz2S+jMVk1KcACeAuW2A9vVBqAUZwHXwWG1tvs9OZOBzxtayOxvKfG1pGIjoyStww==}
+  '@anthropic-ai/claude-agent-sdk-linux-arm64-musl@0.3.316':
+    resolution: {integrity: sha512-1qqaEdsAs6eipEQQ4bMAWiwDjIouyA/YN5KQWS0/+kuPb+GKS8rUVW2dty2elV703hsMovb4IhMP4cv5K7R9YA==}
     cpu: [arm64]
     os: [linux]
     libc: [musl]
 
-  '@anthropic-ai/claude-agent-sdk-linux-arm64@0.3.289':
-    resolution: {integrity: sha512-u5GKtkDU5ho9g8fveN4PgInHyWOBQ12wSlZAcssrQJx8WmoYTUYQTz5kH4e6VNYfIJv1K5DXOSxPGuqbcSMr6Q==}
+  '@anthropic-ai/claude-agent-sdk-linux-arm64@0.3.316':
+    resolution: {integrity: sha512-+lm9XSw/em14yMZ41fbo80kfblbylfBQc9nYS6GgLoZVvgT3wSeEbv88v+mEK/jFw9g3VCH4ZI01sjNM34o7uw==}
     cpu: [arm64]
     os: [linux]
     libc: [glibc]
 
-  '@anthropic-ai/claude-agent-sdk-linux-x64-musl@0.3.289':
-    resolution: {integrity: sha512-/XpyF/cyWNABbgxvtR+v8xz8bjv1lCZKZfBKdm5b/ROlfmyr27Q37JqNUUY6HR9dGvSYf4tCzkqLstk2tQZ6UQ==}
+  '@anthropic-ai/claude-agent-sdk-linux-x64-musl@0.3.316':
+    resolution: {integrity: sha512-pMG9MRkjxMMbIxpwg/cKz6JorNjZtJOA9l/fifRQ/A01zGTKrRIaSCWoGg+Asmc64QBOa3aA4vzE/od9B1R0Tw==}
     cpu: [x64]
     os: [linux]
     libc: [musl]
 
-  '@anthropic-ai/claude-agent-sdk-linux-x64@0.3.289':
-    resolution: {integrity: sha512-d/2f7T/DpnEat78nun+mE26HZ0rO9BGEmoGja1i8iIW62IZX1K3T2IXd1h0Wjgtx1JSGDUK3pxMhQJxMyJdycQ==}
+  '@anthropic-ai/claude-agent-sdk-linux-x64@0.3.316':
+    resolution: {integrity: sha512-+csYyGkHziNp4It+ZykqTmXRZBuNrieTiBnji+zwAxNmLLCWz8xEWjNmwhaLPIMpUiaYREkDhZXt/AS6xXta5w==}
     cpu: [x64]
     os: [linux]
     libc: [glibc]
 
-  '@anthropic-ai/claude-agent-sdk-win32-arm64@0.3.289':
-    resolution: {integrity: sha512-/99s03mf1X3YB8pqcAsF+yDBo/O6kzZG2A6UU8zAf5Xa0iM/aBgd6kCx5Qz2KozrCkrlnbsWjp3HKEKs0Ls7MA==}
+  '@anthropic-ai/claude-agent-sdk-win32-arm64@0.3.316':
+    resolution: {integrity: sha512-Xj4iTS8NsB6isGhnZEnaIXIpUcSspv/lyIVnfPZjVGwuttaVHjq4IxfDopsPaVsPuTKd+L7DLAaBram1k85U2g==}
     cpu: [arm64]
     os: [win32]
 
-  '@anthropic-ai/claude-agent-sdk-win32-x64@0.3.289':
-    resolution: {integrity: sha512-HBoziJqI6LkEkqZuumOXxXLMZEvnZOQirc3OyZTDJIa7UJcV/pn9EsBXLruMlNztrOWfEqBeYArXSl00H91rjA==}
+  '@anthropic-ai/claude-agent-sdk-win32-x64@0.3.316':
+    resolution: {integrity: sha512-FzQA1zHbYJTtLR9nn1McwkGYeiEmroTmYjIg7xZqo5eweJ8U/DESZKR/QdfF04MXe2DF23oLL8WHjEa+WxbGQw==}
     cpu: [x64]
     os: [win32]
 
-  '@anthropic-ai/claude-agent-sdk@0.3.289':
-    resolution: {integrity: sha512-fQRvZPhf6zxyzj7gwyItbhixmu5+Oy0HMQOyzYz3Phjhxuhj3TnpGPPy0VBnbSqWqYxT67TAFOiF5OzOFMYPLQ==}
-    engines: {node: '>=18.0.0'}
+  '@anthropic-ai/claude-agent-sdk@0.3.316':
+    resolution: {integrity: sha512-mCMr0que5kIy80JslJub6WFDB2+GYRGWNeVgSZaBpkBwXrr4wnRMnnGHitkA2BEJ5QP5xWyc6YH/6do/edxCWg==}
+    engines: {node: '>=18.14.0'}
     peerDependencies:
       '@anthropic-ai/sdk': '>=0.93.0'
       '@modelcontextprotocol/sdk': ^1.29.0
@@ -1205,14 +1205,8 @@ packages:
   '@better-auth/utils@0.3.1':
     resolution: {integrity: sha512-+CGp4UmZSUrHHnpHhLPYu6cV+wSUSvVbZbNykxhUDocpVNTo9uFFxw/NqJlh1iC4wQ9HKKWGCKuZ5wUgS0v6Kg==}
 
-  '@better-auth/utils@0.5.0':
-    resolution: {integrity: sha512-BL8W4EfIZFwlu0r54m3v1ztjDhu6dDe/amLTm0xybmbZaNgYUqhD3SjpAsnq0q8YD6/ki4iwIgxJNLP/N3TxiA==}
-
   '@better-auth/utils@0.5.1':
     resolution: {integrity: sha512-WETqw5vQ52uQ/xwWR4E8rTgT6fDEr/wnS+otDNkBCa/69281FCF32OKDdQUcahMCnjsvqXBNiEvAQHFB0EVRRg==}
-
-  '@better-fetch/fetch@1.3.2':
-    resolution: {integrity: sha512-Gs7n99b5tqUC6cQAPbV0uED3IraHB6xQbHLQ/C3l7ZFafHScOx9pQ+DYmP5blbLFShVWLqxNUlI9wi4xU/X+ow==}
 
   '@better-fetch/fetch@1.3.3':
     resolution: {integrity: sha512-U6SlDt/GUWtK2JAxS/NhdoYTEim+EL1G5byz2TUj83KjLZBUpYzb5SmX0aXaCnbGkAjFKnV/o/0+cyXMbEcqqg==}
@@ -1303,8 +1297,8 @@ packages:
     resolution: {integrity: sha512-dlT1m5e/0yUL0kRNcQn7yGLVThkgbB0Ga/1AmfDDC/8ik6AIiSf2QLQO2zPYvefsHP0aFgxO93cVLCCfDp7kzQ==}
     engines: {node: '>= 20.12.0'}
 
-  '@cloudflare/build-output-utils@0.9.5':
-    resolution: {integrity: sha512-/OYHkTHFTqvImsY68psI+mhjNRE4Xcsm/oUqZzFY81KufBVfeYWZGYrhsDnwarKw7cEJO/htFF/dOZtoMgWajg==}
+  '@cloudflare/build-output-utils@0.9.6':
+    resolution: {integrity: sha512-JjNSJPctyGbQn4XDXzsqy1/M/xdNAh3XRPj0c/4KY1BYCUWA/ejcrnj3nuTHyoN8Zl+RmVIThIj+am29jTV+kQ==}
 
   '@cloudflare/ci@0.2.0':
     resolution: {integrity: sha512-uAr54YhZy4sYHaJM2fYMPg2BtmS2btemBMtED59XDdYQhw08lGr29IS+njNKSWnrBGpbJuQGRWc/jWWiMgg3vg==}
@@ -1326,8 +1320,8 @@ packages:
       zod:
         optional: true
 
-  '@cloudflare/config@0.28.1':
-    resolution: {integrity: sha512-pQS0jJmk2grEK2XdkvJxyk8y8W607D4daOrEdv+iyqSslSLTvH7lChF/3fpCQIy//3rBLUnzanZ8rgyekbh0/g==}
+  '@cloudflare/config@0.29.0':
+    resolution: {integrity: sha512-0sD73G6xRdz6/9DXNcAuLv6VbnNiWA09zo7VwhPyaa3ysIGvLMXJR5G19r3+iG5ZIB9ErGMwqgprVOVaYKsIpw==}
 
   '@cloudflare/containers@0.3.7':
     resolution: {integrity: sha512-DM9dm3FnIBSyiSJ1FLavKwl/lk3oAmTaynCzZQ9pZR0ncRPquSxkxd8Nu2MFILxmDDsPkxKsSNEh9mHHMty4Fw==}
@@ -1336,8 +1330,8 @@ packages:
     resolution: {integrity: sha512-jxQYkj8dSIzc0cD6cMMNdOc1UVjqSqu8BZdor5s8cGjW2I8BjODt/kWPVdY+u9zj3ms75Q5qaZgnxUad83+eAg==}
     engines: {node: '>=22.0.0'}
 
-  '@cloudflare/runtime-types@0.1.16':
-    resolution: {integrity: sha512-znHsvvjWm7Q0uydqdZqZAFfoLj9CTYjRyeUVF3j8gf2SVAkZvb56rOXiLVinueCcCcimdzDleudJ43svdLLzqg==}
+  '@cloudflare/runtime-types@0.1.19':
+    resolution: {integrity: sha512-3ZQe25s1Uqo2HtWpz+ovBe0IhqS5od4Ja4Uf6z/hjTbdS9JJ2jnYxOcF6x3ioHuG2A7g3GK6e6ADtelMaCETzg==}
 
   '@cloudflare/sandbox@0.12.1':
     resolution: {integrity: sha512-P1ZmNDLYtuEY1ZUcAx0OgTol98VqS617LGd4nf1RTOjSV2yHLDAp59NI36/gg3/pxkHPgmAEyFIjH/ie8FoA7g==}
@@ -3909,8 +3903,8 @@ packages:
   ccount@2.0.1:
     resolution: {integrity: sha512-eyrF0jiFpY+3drT6383f1qhkbGsLSifNAjA61IUjZjmLCWjItY6LB9ft9YhoDgwfmclB2zhu51Lc7+95b8NRAg==}
 
-  cf@1.0.0-beta.23:
-    resolution: {integrity: sha512-TGmHgxElSiuEe7rqXdxzzAZXsIMpZr8p+eczLFH+xgWvJoyaafFeITeAnzMBn2vm7PxabXKoFOTQrbXFawBe3g==}
+  cf@1.0.0-beta.26:
+    resolution: {integrity: sha512-StQUwvWubehIWMTqlUbfRNuUgO9qzE4ns7AMa0NbE2eJrOV32E9DwZxfxhqu4aADbE9kKXOt/XuqDC3mM3gC3w==}
     engines: {node: ^22.23.0 || ^24.22.0 || ^26.12.0}
     hasBin: true
 
@@ -5504,8 +5498,8 @@ packages:
     resolution: {integrity: sha512-QNgCA/axizZ7kv7RV3nwbRoz+w4watBlwIsyXjwgYHw4eSw5BrR1F2152s3Kz+Bzy/YxjKFHrZl3LzBRbPgYoQ==}
     engines: {node: '>=22.0.0'}
 
-  miniflare@5.20261023.0-beta:
-    resolution: {integrity: sha512-SHY8A98gCvmrnBLqABHRTSh3duAL1z+tHPRZu/tqxHFqVARrZ4oQis/ALYwp3XvzHvs6B/ff/CdcCafqP+cOFA==}
+  miniflare@5.20261023.3-beta:
+    resolution: {integrity: sha512-thdXzlktu5GE1o/BlmMAPeJ0Cu6Tu5LpMbRlyfRrpVvMRrhd6p52TMqcITCZZLVzt1UO92VGBkLDhLOpryUAyQ==}
     engines: {node: '>=22.0.0'}
 
   minimatch@10.2.6:
@@ -7148,44 +7142,44 @@ snapshots:
       json-schema: 0.4.0
     optional: true
 
-  '@anthropic-ai/claude-agent-sdk-darwin-arm64@0.3.289':
+  '@anthropic-ai/claude-agent-sdk-darwin-arm64@0.3.316':
     optional: true
 
-  '@anthropic-ai/claude-agent-sdk-darwin-x64@0.3.289':
+  '@anthropic-ai/claude-agent-sdk-darwin-x64@0.3.316':
     optional: true
 
-  '@anthropic-ai/claude-agent-sdk-linux-arm64-musl@0.3.289':
+  '@anthropic-ai/claude-agent-sdk-linux-arm64-musl@0.3.316':
     optional: true
 
-  '@anthropic-ai/claude-agent-sdk-linux-arm64@0.3.289':
+  '@anthropic-ai/claude-agent-sdk-linux-arm64@0.3.316':
     optional: true
 
-  '@anthropic-ai/claude-agent-sdk-linux-x64-musl@0.3.289':
+  '@anthropic-ai/claude-agent-sdk-linux-x64-musl@0.3.316':
     optional: true
 
-  '@anthropic-ai/claude-agent-sdk-linux-x64@0.3.289':
+  '@anthropic-ai/claude-agent-sdk-linux-x64@0.3.316':
     optional: true
 
-  '@anthropic-ai/claude-agent-sdk-win32-arm64@0.3.289':
+  '@anthropic-ai/claude-agent-sdk-win32-arm64@0.3.316':
     optional: true
 
-  '@anthropic-ai/claude-agent-sdk-win32-x64@0.3.289':
+  '@anthropic-ai/claude-agent-sdk-win32-x64@0.3.316':
     optional: true
 
-  '@anthropic-ai/claude-agent-sdk@0.3.289(@anthropic-ai/sdk@0.131.0(zod@4.6.7))(@modelcontextprotocol/sdk@1.31.0(@cfworker/json-schema@4.1.1)(supports-color@10.2.2)(zod@4.6.7))(zod@4.6.7)':
+  '@anthropic-ai/claude-agent-sdk@0.3.316(@anthropic-ai/sdk@0.131.0(zod@4.6.7))(@modelcontextprotocol/sdk@1.31.0(@cfworker/json-schema@4.1.1)(supports-color@10.2.2)(zod@4.6.7))(zod@4.6.7)':
     dependencies:
       '@anthropic-ai/sdk': 0.131.0(zod@4.6.7)
       '@modelcontextprotocol/sdk': 1.31.0(@cfworker/json-schema@4.1.1)(supports-color@10.2.2)(zod@4.6.7)
       zod: 4.6.7
     optionalDependencies:
-      '@anthropic-ai/claude-agent-sdk-darwin-arm64': 0.3.289
-      '@anthropic-ai/claude-agent-sdk-darwin-x64': 0.3.289
-      '@anthropic-ai/claude-agent-sdk-linux-arm64': 0.3.289
-      '@anthropic-ai/claude-agent-sdk-linux-arm64-musl': 0.3.289
-      '@anthropic-ai/claude-agent-sdk-linux-x64': 0.3.289
-      '@anthropic-ai/claude-agent-sdk-linux-x64-musl': 0.3.289
-      '@anthropic-ai/claude-agent-sdk-win32-arm64': 0.3.289
-      '@anthropic-ai/claude-agent-sdk-win32-x64': 0.3.289
+      '@anthropic-ai/claude-agent-sdk-darwin-arm64': 0.3.316
+      '@anthropic-ai/claude-agent-sdk-darwin-x64': 0.3.316
+      '@anthropic-ai/claude-agent-sdk-linux-arm64': 0.3.316
+      '@anthropic-ai/claude-agent-sdk-linux-arm64-musl': 0.3.316
+      '@anthropic-ai/claude-agent-sdk-linux-x64': 0.3.316
+      '@anthropic-ai/claude-agent-sdk-linux-x64-musl': 0.3.316
+      '@anthropic-ai/claude-agent-sdk-win32-arm64': 0.3.316
+      '@anthropic-ai/claude-agent-sdk-win32-x64': 0.3.316
 
   '@anthropic-ai/sdk@0.129.0(zod@4.6.7)':
     dependencies:
@@ -7837,15 +7831,9 @@ snapshots:
 
   '@better-auth/utils@0.3.1': {}
 
-  '@better-auth/utils@0.5.0':
-    dependencies:
-      '@noble/hashes': 2.4.0
-
   '@better-auth/utils@0.5.1':
     dependencies:
       '@noble/hashes': 2.4.0
-
-  '@better-fetch/fetch@1.3.2': {}
 
   '@better-fetch/fetch@1.3.3': {}
 
@@ -7912,9 +7900,9 @@ snapshots:
       fast-wrap-ansi: 0.2.2
       sisteransi: 1.0.5
 
-  '@cloudflare/build-output-utils@0.9.5':
+  '@cloudflare/build-output-utils@0.9.6':
     dependencies:
-      '@cloudflare/config': 0.28.1
+      '@cloudflare/config': 0.29.0
 
   '@cloudflare/ci@0.2.0(patch_hash=0b9be35d104f4efc0692488eef57a450befe9d622c613a79509383ece87f07d5)':
     dependencies:
@@ -7935,7 +7923,7 @@ snapshots:
       zod: 4.6.7
     optional: true
 
-  '@cloudflare/config@0.28.1':
+  '@cloudflare/config@0.29.0':
     dependencies:
       zod: 4.6.6
 
@@ -7943,9 +7931,9 @@ snapshots:
 
   '@cloudflare/kv-asset-handler@0.5.0': {}
 
-  '@cloudflare/runtime-types@0.1.16(@types/node@24.19.2)':
+  '@cloudflare/runtime-types@0.1.19(@types/node@24.19.2)':
     dependencies:
-      miniflare: 5.20261023.0-beta(@types/node@24.19.2)
+      miniflare: 5.20261023.3-beta(@types/node@24.19.2)
       workerd: 1.20261023.1
     transitivePeerDependencies:
       - '@types/node'
@@ -9952,7 +9940,7 @@ snapshots:
   better-call@1.3.2(zod@4.6.7):
     dependencies:
       '@better-auth/utils': 0.3.1
-      '@better-fetch/fetch': 1.3.2
+      '@better-fetch/fetch': 1.3.3
       rou3: 0.7.12
       set-cookie-parser: 3.1.2
     optionalDependencies:
@@ -9960,8 +9948,8 @@ snapshots:
 
   better-call@1.4.4(zod@4.6.7):
     dependencies:
-      '@better-auth/utils': 0.5.0
-      '@better-fetch/fetch': 1.3.2
+      '@better-auth/utils': 0.5.1
+      '@better-fetch/fetch': 1.3.3
       rou3: 0.9.2
       set-cookie-parser: 3.1.2
     optionalDependencies:
@@ -10057,13 +10045,13 @@ snapshots:
   ccount@2.0.1:
     optional: true
 
-  cf@1.0.0-beta.23(@types/node@24.19.2):
+  cf@1.0.0-beta.26(@types/node@24.19.2):
     dependencies:
-      '@cloudflare/build-output-utils': 0.9.5
-      '@cloudflare/config': 0.28.1
-      '@cloudflare/runtime-types': 0.1.16(@types/node@24.19.2)
+      '@cloudflare/build-output-utils': 0.9.6
+      '@cloudflare/config': 0.29.0
+      '@cloudflare/runtime-types': 0.1.19(@types/node@24.19.2)
       blake3-wasm: 2.1.5
-      miniflare: 5.20261023.0-beta(@types/node@24.19.2)
+      miniflare: 5.20261023.3-beta(@types/node@24.19.2)
     transitivePeerDependencies:
       - '@types/node'
       - bufferutil
@@ -11856,7 +11844,7 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
-  miniflare@5.20261023.0-beta(@types/node@24.19.2):
+  miniflare@5.20261023.3-beta(@types/node@24.19.2):
     dependencies:
       '@cspotcode/source-map-support': 0.8.1
       sharp: 0.35.5(@types/node@24.19.2)
