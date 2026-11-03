@@ -6,7 +6,7 @@
 		"@better-auth-ui/react": "1.7.32",
 		"@better-auth/oauth-provider": "1.7.15",
 		"@cloudflare/sandbox": "1.0.3",
-		"@composio/core": "^0.22.0",
+		"@composio/core": "^0.27.0",
 		"@earendil-works/chord": "1.4.0",
 		"@earendil-works/pi-ai": "1.4.0",
 		"@earendil-works/pi-codemode": "1.4.0",

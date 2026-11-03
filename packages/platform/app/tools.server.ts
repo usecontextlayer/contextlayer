@@ -1,3 +1,4 @@
+import type { ToolRouterSessionExecuteResponse } from "@composio/core"
 import type { z } from "zod"
 import { createAccountSession } from "@/accounts.server"
 import type { OwnerIdentity } from "@/auth.server"
@@ -8,7 +9,11 @@ import type { PlatformConfig } from "@/env"
 import { readLatestSlateDeclarations } from "@/slate-declarations.server"
 import { resolveSlateConnection } from "@/slate-resource-execution.server"
 import { getSlate, type SlateAccess } from "@/slates.server"
-import type { accountToolCallSchema, toolCallSchema } from "@/tools.schema"
+import type {
+	accountToolCallSchema,
+	toolCallSchema,
+	toolResultSchema,
+} from "@/tools.schema"
 
 export async function callTool(
 	db: PlatformDb,
@@ -37,7 +42,7 @@ export async function callTool(
 	)
 	return {
 		allowed: true,
-		result: await session.execute(call.tool, call.arguments),
+		result: toToolResult(await session.execute(call.tool, call.arguments)),
 	} as const
 }
 
@@ -65,7 +70,21 @@ export async function callAccountTool(
 	)
 	return {
 		allowed: true,
-		result: await session.execute(call.tool, call.arguments),
+		result: toToolResult(await session.execute(call.tool, call.arguments)),
 		slate: access.slate,
 	} as const
+}
+
+// Composio reports success in resultType; a call that did not complete can carry an empty error.
+function toToolResult(
+	response: ToolRouterSessionExecuteResponse,
+): z.infer<typeof toolResultSchema> {
+	return {
+		data: response.data,
+		error:
+			response.resultType === "completed"
+				? null
+				: response.error || `Tool call ${response.resultType}`,
+		logId: response.logId,
+	}
 }

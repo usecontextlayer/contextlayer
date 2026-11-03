@@ -44,9 +44,8 @@ export async function createAgentTools(
 								args as Record<string, unknown>,
 							)
 							return {
-								isError: result.error !== null,
-								output:
-									result.error === null ? [] : [{ text: result.error, type: "text" }],
+								isError: result.resultType !== "completed",
+								output: result.error ? [{ text: result.error, type: "text" }] : [],
 								structuredOutput: z.json().parse(result),
 							}
 						},
@@ -77,7 +76,7 @@ export async function createAgentTools(
 }
 
 function actionResultSchema(action: Tool) {
-	// The catalog wraps data with successful; sessions use error and logId instead.
+	// The catalog wraps data with successful; sessions report resultType instead.
 	const dataSchema = dereferenceJsonSchema(action.outputParameters, {
 		onUnresolved: "sentinel",
 	})?.properties?.data
@@ -89,11 +88,11 @@ function actionResultSchema(action: Tool) {
 			{
 				anyOf: [
 					{
-						properties: { data: dataSchema, error: { type: "null" } },
+						properties: { data: dataSchema, resultType: { const: "completed" } },
 						type: "object",
 					},
 					{
-						properties: { error: { type: "string" } },
+						properties: { resultType: { enum: ["failed", "blocked"] } },
 						type: "object",
 					},
 				],

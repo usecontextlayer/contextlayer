@@ -12,7 +12,10 @@ export const secretRequiredSchema = z.object({
 
 export const toolResultSchema = z.object({
 	data: z.record(z.string(), z.unknown()),
-	error: z.string().nullable(),
+	error: z
+		.string()
+		.nullable()
+		.describe("Null exactly when the tool call completed; otherwise why it did not."),
 	logId: z.string(),
 })
 
