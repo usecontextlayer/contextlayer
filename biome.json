@@ -29,9 +29,7 @@
 			"!!**/worker-configuration.d.ts",
 			"!!packages/cli/template/databases/*/types.ts",
 			"!!**/plugin-registry.json",
-			"!!**/*.md",
-			"!!**/*.yaml",
-			"!!**/*.yml"
+			"!!**/*.md"
 		]
 	},
 	"formatter": {

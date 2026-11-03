@@ -1,16 +1,16 @@
 packages:
-  - 'packages/*'
+  - "packages/*"
 
 patchedDependencies:
-  '@cloudflare/ci@0.2.0': patches/@cloudflare__ci@0.2.0.patch
-  '@cloudflare/vite-plugin@1.62.4': patches/@cloudflare__vite-plugin@1.62.4.patch
-  '@earendil-works/pi-env@1.4.0': patches/@earendil-works__pi-env@1.4.0.patch
+  "@cloudflare/ci@0.2.0": patches/@cloudflare__ci@0.2.0.patch
+  "@cloudflare/vite-plugin@1.62.4": patches/@cloudflare__vite-plugin@1.62.4.patch
+  "@earendil-works/pi-env@1.4.0": patches/@earendil-works__pi-env@1.4.0.patch
   miniflare@5.20261001.0-alpha: patches/miniflare@5.20261001.0-alpha.patch
   wrangler@4.146.0: patches/wrangler@4.146.0.patch
 
 # @cloudflare/ci pins @cloudflare/sandbox exactly. Keep it on the same 0.12.x release as packages/build and its Dockerfile image, so the CiSandbox Durable Object, Build's own Sandbox calls and the container image run one SDK version. Revisit when @cloudflare/ci is upgraded.
 overrides:
-  '@cloudflare/ci>@cloudflare/sandbox': 0.12.14
+  "@cloudflare/ci>@cloudflare/sandbox": 0.12.14
 
 # Enforce the Node version floor declared in package.json.
 engineStrict: true
@@ -25,8 +25,8 @@ verifyDepsBeforeRun: false
 allowBuilds:
   "@google/genai": false
   protobufjs: false
-  '@mongodb-js/zstd': false
-  '@polar-sh/cli': true
+  "@mongodb-js/zstd": false
+  "@polar-sh/cli": true
   core-js-pure: false
   node-liblzma: false
   workerd: false
@@ -38,4 +38,4 @@ allowBuilds:
 
 # First-party releases are usable immediately; third-party exceptions stay version-specific.
 minimumReleaseAgeExclude:
-  - '@usecontextlayer/*'
+  - "@usecontextlayer/*"
