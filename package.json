@@ -13,7 +13,7 @@
 		"tsx": "latest",
 		"turbo": "2.11.10",
 		"typescript": "latest",
-		"vitest": "^4.1.11",
+		"vitest": "^5.1.0",
 		"wrangler": "4.146.0",
 		"zod": "^4.6.7"
 	},

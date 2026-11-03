@@ -11,7 +11,7 @@
 		"@types/node": "^24.19.2",
 		"aws4fetch": "1.0.20",
 		"typescript": "latest",
-		"vitest": "4.1.11",
+		"vitest": "5.1.0",
 		"wrangler": "4.152.0"
 	},
 	"license": "BUSL-1.1",

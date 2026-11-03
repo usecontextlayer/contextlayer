@@ -39,3 +39,6 @@ allowBuilds:
 # First-party releases are usable immediately; third-party exceptions stay version-specific.
 minimumReleaseAgeExclude:
   - "@usecontextlayer/*"
+  - "@vitest/mocker@5.1.0"
+  - "@vitest/spy@5.1.0"
+  - vitest@5.1.0
