@@ -107,12 +107,50 @@ test("collects and selects consumer resources while preserving each declaration"
 	expect(declarations).toEqual(before)
 })
 
-test("collects a slate with no agents or requirements", () => {
-	expect(
-		collectSlateResources(
-			slateDeclarationsSchema.parse({ agents: {}, app: { connections: {} } }),
-		),
-	).toEqual({ connections: {}, databases: {}, secrets: {} })
+test("collects an empty slate without manufacturing an app declaration", () => {
+	const declarations = slateDeclarationsSchema.parse({ agents: {} })
+	expect(declarations).toEqual({ agents: {} })
+	expect(collectSlateResources(declarations)).toEqual({
+		connections: {},
+		databases: {},
+		secrets: {},
+	})
+})
+
+test("collects agent-only resources without an app consumer", () => {
+	const declarations = slateDeclarationsSchema.parse({
+		agents: {
+			brief: {
+				connections: { mail: { mode: "viewer", toolkit: "gmail" } },
+				databases: { reports: { mode: "owner" } },
+				secrets: { MODEL_KEY: { mode: "owner" } },
+			},
+			summary: {
+				connections: { mail: { mode: "viewer", toolkit: "gmail" } },
+			},
+		},
+	})
+	const brief = { name: "brief", type: "agent" } as const
+	const summary = { name: "summary", type: "agent" } as const
+	const resources = collectSlateResources(declarations)
+	expect(resources).toEqual({
+		connections: {
+			mail: { consumers: [brief, summary], mode: "viewer", toolkit: "gmail" },
+		},
+		databases: { reports: { consumers: [brief], mode: "owner" } },
+		secrets: { MODEL_KEY: { consumers: [brief], mode: "owner" } },
+	})
+	expect(resourcesForConsumer(resources, { type: "app" })).toEqual({
+		connections: {},
+		databases: {},
+		secrets: {},
+	})
+	expect(resourcesForConsumer(resources, brief)).toEqual(resources)
+	expect(resourcesForConsumer(resources, summary)).toEqual({
+		connections: resources.connections,
+		databases: {},
+		secrets: {},
+	})
 })
 
 test("Resources requires consumer metadata beyond the authored declaration", () => {

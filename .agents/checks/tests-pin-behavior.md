@@ -4,6 +4,8 @@ Added or changed tests assert observable behavior tightly enough to catch the re
 
 **Verdict test:** for each added/changed test, ask two questions. (1) Would it survive an internal refactor unchanged? (2) Would it fail if the behavior it guards regressed? A "no" to either FAILs.
 
+Answer (2) by experiment, not by reading: TESTING.md → "Prove the Test Can Fail" requires seeing each new or changed test fail against a deliberate production break.
+
 ## FAIL when
 
 - Assertions mirror implementation: exact subprocess argv/call shapes, spies on internal helpers, private intermediate state, snapshots of internal structure — a benign reorder or refactor breaks the test with zero behavior change. (Full standard: AGENTS.md → "Assert on the Contract, Not the Inside".)

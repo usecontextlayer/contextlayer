@@ -1,3 +1,4 @@
+import assert from "node:assert/strict"
 import { execFile as execFileCallback } from "node:child_process"
 import { mkdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
@@ -11,6 +12,7 @@ import {
 } from "@usecontextlayer/shared/declaration"
 import { slateResourcesSchema } from "@usecontextlayer/shared/slate-resources"
 import { expect } from "vitest"
+import { readSlateDeclarations } from "@/slate-declarations.server"
 import { slateSchema } from "@/slates.schema"
 
 const execFile = promisify(execFileCallback)
@@ -66,6 +68,99 @@ test("hosted resources report no commit through the API, CLI and chrome", async 
 	const chrome = await fetch(chromeUrl, { headers: { ...headers, accept: "text/html" } })
 	expect(chrome.status).toBe(200)
 	expect(await chrome.text()).toContain(message)
+})
+
+test("declaration snapshots follow the selected revision's app and agent source", async ({
+	db,
+	directory,
+	git,
+	identity,
+	platform,
+}) => {
+	const { ARTIFACTS } = await platform.worker.getEnv()
+	const created = await fetch(`${platform.origin}/api/slates`, {
+		headers: identity.headers,
+		method: "POST",
+	})
+	expect(created.status).toBe(201)
+	const slate = slateSchema.parse(await created.json())
+	await using resources = new AsyncDisposableStack()
+	resources.defer(async () => {
+		await ARTIFACTS.delete(slate.id)
+		await db.deleteFrom("slate").where("id", "=", slate.id).execute()
+	})
+	await git("init", "-b", "main")
+	await git("config", "user.name", "Declaration Test")
+	await git("config", "user.email", "declarations-test@example.com")
+	await git("remote", "add", "origin", `${platform.origin}/git/${slate.id}`)
+	const commitSource = async (message: string) => {
+		await git("add", ".")
+		await git("-c", "commit.gpgsign=false", "commit", "-m", message)
+		await git("push", "origin", "main")
+		return (await git("rev-parse", "HEAD")).stdout.trim()
+	}
+	const readSnapshot = async (revision: string) => {
+		const repo = await ARTIFACTS.get(slate.id)
+		const commit = await repo.readCommit(revision)
+		assert(commit)
+		return await readSlateDeclarations(repo, commit)
+	}
+
+	await mkdir(join(directory, "public"))
+	await writeFile(join(directory, "public/slate.json"), "not a declaration")
+	const emptyCommit = await commitSource("Commit static source without consumers")
+	const empty = await readSnapshot(emptyCommit)
+	expect(empty).toEqual({
+		agentTrees: [],
+		allowed: true,
+		commit: emptyCommit,
+		declarations: { agents: {} },
+		resources: { connections: {}, databases: {}, secrets: {} },
+	})
+
+	await mkdir(join(directory, "agents/summary"), { recursive: true })
+	await writeFile(join(directory, "agents/summary/instructions.md"), "Summarize mail.\n")
+	await writeFile(
+		join(directory, "agents/summary/slate.json"),
+		JSON.stringify({ connections: { mail: { mode: "viewer", toolkit: "gmail" } } }),
+	)
+	const agentCommit = await commitSource("Add a standalone agent")
+	const agent = await readSnapshot(agentCommit)
+	expect(agent.commit).toBe(agentCommit)
+	expect(agent.declarations).toEqual({
+		agents: {
+			summary: {
+				connections: { mail: { mode: "viewer", toolkit: "gmail" } },
+				databases: {},
+				secrets: {},
+			},
+		},
+	})
+	expect(agent.resources.connections.mail).toEqual({
+		consumers: [{ name: "summary", type: "agent" }],
+		mode: "viewer",
+		toolkit: "gmail",
+	})
+
+	await mkdir(join(directory, "app"))
+	await writeFile(join(directory, "app/root.tsx"), "export default function App() {}")
+	const missingDeclaration = await commitSource("Add app source without its declaration")
+	await expect(readSnapshot(missingDeclaration)).rejects.toThrow(
+		"Slate declaration not found: app/slate.json",
+	)
+	await writeFile(join(directory, "app/slate.json"), "{")
+	const malformedDeclaration = await commitSource("Write an invalid app declaration")
+	await expect(readSnapshot(malformedDeclaration)).rejects.toBeInstanceOf(SyntaxError)
+
+	await writeFile(join(directory, "app/slate.json"), JSON.stringify({ connections: {} }))
+	const appCommit = await commitSource("Declare the app's empty requirements")
+	expect((await readSnapshot(appCommit)).declarations.app).toEqual({
+		connections: {},
+		databases: {},
+		secrets: {},
+	})
+	expect(await readSnapshot(agentCommit)).toEqual(agent)
+	expect(await readSnapshot(emptyCommit)).toEqual(empty)
 })
 
 test("hosted configuration uses pushed declarations independently of developer-local configuration", async ({
@@ -129,7 +224,7 @@ test("hosted configuration uses pushed declarations independently of developer-l
 			secrets: { [viewerSecretName]: { mode: "viewer" } },
 		},
 	})
-	await writeFile(join(dir, "public/slate.json"), JSON.stringify(declarations.app))
+	await writeFile(join(dir, "app/slate.json"), JSON.stringify(declarations.app))
 	const agentDeclaration = join(dir, "agents/daily-summary/slate.json")
 	await writeFile(agentDeclaration, JSON.stringify(declarations.agents["daily-summary"]))
 	await git("init", "-b", "main")
@@ -141,7 +236,7 @@ test("hosted configuration uses pushed declarations independently of developer-l
 		join(dir, ".contextlayer/connections.json"),
 		JSON.stringify({ repository: "developer-local-repository" }),
 	)
-	await git("add", "public", "agents")
+	await git("add", "app", "agents")
 	await git(
 		"-c",
 		"commit.gpgsign=false",

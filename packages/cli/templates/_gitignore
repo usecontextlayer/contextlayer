@@ -4,6 +4,7 @@
 *.tsbuildinfo
 /.react-router/
 /build/
+/dist/
 .mf
 .wrangler
 .dev.vars*

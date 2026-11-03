@@ -35,7 +35,7 @@ const routes = [
 		`${accountPath}/workers/dispatch/namespaces/{namespace}/scripts/{script}`,
 		"getSlateWorker",
 		"Inspect the published Worker",
-		"Requires slate management permission. Returns the selected published Worker's native metadata, including its trusted source commit tag when present. This metadata does not identify the revision that answered an individual HTTP request.",
+		"Requires slate management permission. Returns the selected published Worker's native metadata, including the source commit script tag set after deployment when present. This metadata does not identify the revision that answered an individual HTTP request.",
 		z.unknown(),
 		accountParams.extend({ namespace: z.string(), script: z.string() }),
 	],

@@ -11,16 +11,16 @@ export async function contextlayer({ command }: ConfigEnv) {
 	return [
 		mcpApps(),
 		cloudflare({
-			auxiliaryWorkers: [
-				{
-					config: bindings ? { name: bindings.workerName, vars: bindings.vars } : {},
-					configPath: "workers/local-resources/wrangler.jsonc",
-					devOnly: true,
-				},
-			],
-			config: {
-				...(bindings
-					? {
+			...(bindings
+				? {
+						auxiliaryWorkers: [
+							{
+								config: { name: bindings.workerName, vars: bindings.vars },
+								configPath: "workers/local-resources/wrangler.jsonc",
+								devOnly: true,
+							},
+						],
+						config: {
 							services: [
 								...(bindings.props
 									? [
@@ -39,10 +39,10 @@ export async function contextlayer({ command }: ConfigEnv) {
 									service: bindings.workerName,
 								},
 							],
-						}
-					: {}),
-			},
-			persistState: { path: ".contextlayer/databases" },
+						},
+						persistState: { path: ".contextlayer/databases" },
+					}
+				: {}),
 			viteEnvironment: { name: "ssr" },
 		}),
 		bindings ? localDatabaseProvisioning(bindings) : undefined,

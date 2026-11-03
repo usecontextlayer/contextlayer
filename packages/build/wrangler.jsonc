@@ -43,7 +43,7 @@
 				{
 					"class_name": "CiSandbox",
 					"image": "./Dockerfile",
-					"image_build_context": "../cli/template",
+					"image_build_context": "../cli/templates/app",
 					"image_vars": { "PREFETCH_TEMPLATE_DEPENDENCIES": "true" },
 					"instance_type": "standard-4",
 					"max_instances": 10

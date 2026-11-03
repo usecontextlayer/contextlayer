@@ -47,7 +47,7 @@ export const test = base.extend<{ secretSlate: SecretSlate }>({
 		await copySlateProject(directory)
 		await mkdir(join(directory, "agents/daily/schedules"), { recursive: true })
 		await writeFile(
-			join(directory, "public/slate.json"),
+			join(directory, "app/slate.json"),
 			JSON.stringify({ connections: {} }),
 		)
 		await writeFile(

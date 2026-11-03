@@ -1,30 +1,20 @@
 import { appendFile, cp, mkdir } from "node:fs/promises"
 import { join, resolve } from "node:path"
+import { initializeSlateSource, type ScaffoldKind } from "@usecontextlayer/cli/scaffold"
 import { execa } from "execa"
+
+type SlateProjectOptions = {
+	installDependencies?: boolean
+	scaffold?: ScaffoldKind | "empty"
+}
 
 export async function createSlateProject(
 	workspaceRoot: string,
 	checkout: string,
-	{ installDependencies = false }: { installDependencies?: boolean } = {},
+	{ installDependencies = false, scaffold = "app" }: SlateProjectOptions = {},
 ) {
+	await initializeSlateSource(checkout, scaffold === "empty" ? [] : [scaffold])
 	const packagesRoot = join(workspaceRoot, "packages")
-	const cli = join(packagesRoot, "cli")
-	await execa(
-		"pnpm",
-		[
-			"exec",
-			"create-react-router",
-			checkout,
-			"--template",
-			join(cli, "dist/template.tar.gz"),
-			"--package-manager",
-			"pnpm",
-			"--no-install",
-			"--no-git-init",
-			"--yes",
-		],
-		{ cwd: cli },
-	)
 	const packages = join(checkout, "packages")
 	await mkdir(packages, { recursive: true })
 	await Promise.all(
@@ -45,10 +35,12 @@ export async function createSlateProject(
 
 export async function copySlateProject(
 	checkout: string,
-	{ installDependencies = false }: { installDependencies?: boolean } = {},
+	{ installDependencies = false, scaffold = "app" }: SlateProjectOptions = {},
 ) {
-	await cp(resolve(import.meta.dirname, "../../../artifacts/slate-project"), checkout, {
-		recursive: true,
-	})
+	await cp(
+		resolve(import.meta.dirname, "../../../artifacts/slate-project", scaffold),
+		checkout,
+		{ recursive: true },
+	)
 	if (installDependencies) await execa("pnpm", ["install"], { cwd: checkout })
 }

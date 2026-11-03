@@ -41,10 +41,7 @@ test("authored cron jobs retain results after schedule removal and Durable Objec
 	const remote = `${origin}/git/${slate.id}`
 	await copySlateProject(directory)
 	await mkdir(join(directory, "agents/brief/schedules"), { recursive: true })
-	await writeFile(
-		join(directory, "public/slate.json"),
-		JSON.stringify({ connections: {} }),
-	)
+	await writeFile(join(directory, "app/slate.json"), JSON.stringify({ connections: {} }))
 	await writeFile(
 		join(directory, "agents/brief/slate.json"),
 		JSON.stringify({

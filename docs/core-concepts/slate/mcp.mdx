@@ -1,6 +1,6 @@
 ---
 title: "MCP"
-description: "Expose a slate's tools and optional interactive Views to Model Context Protocol clients through its hosted /mcp endpoint."
+description: "Expose tools without requiring an app, and build View resources alongside the slate's other browser assets."
 ---
 
 A [slate](/core-concepts/slate) can expose tools to clients that support the **Model Context Protocol (MCP)**. A client discovers the tools, calls them with structured arguments, and receives their results through the slate's hosted endpoint:
@@ -9,7 +9,13 @@ A [slate](/core-concepts/slate) can expose tools to clients that support the **M
 https://<name>.contextlayer.xyz/mcp
 ```
 
-A tool can also provide a **View**: an interactive interface displayed inside an MCP Apps-compatible client. Tools perform the work; Views let people interact with that work inside the client.
+MCP tools do not require a React Router app or static files. They can share a slate with those parts, or be its only authored functionality.
+
+A **View** is a browser interface authored as an MCP Apps resource. Tools and Views are independent: a tool can return text without a View, a View can build without a tool or app, and several tools can reference the same View.
+
+<Note>
+  View compilation and resource discovery are available. Delivering the built JavaScript and CSS inside an MCP host still requires resource CSP and asset-access support that is not implemented yet. Use text-only tools for a complete hosted workflow.
+</Note>
 
 <Note>
   MCP tools currently cannot use ContextLayer connections, databases, or secrets. Keep all three resource collections empty in an MCP declaration; declaring a resource fails the build. Apps and agents support these resources.
@@ -49,11 +55,11 @@ export function handler(args: unknown) {
 
 ContextLayer validates a call against `inputSchema` before invoking the handler. The type assertion in this example describes that already-validated value to TypeScript.
 
-MCP tools and app routes are separate entry points. Defining an app route does not create an MCP tool. Both can import shared modules from the slate when they need the same logic, but importing a module does not give an MCP tool access to the app's resources.
+MCP tools and app routes are separate entry points. Defining an app route does not create an MCP tool. Both can import shared modules from the slate when they need the same logic, but importing a module does not give an MCP tool access to the app's resources. For how these entry points fit beside agents, static files, and Views, see [How the parts work together](/core-concepts/slate#how-the-parts-work-together).
 
 ## Views
 
-A **View** is an HTML page that a compatible MCP client renders for a tool using MCP Apps. Put its entry point at `mcp-ui/<name>/index.html`; a React entry uses the MCP Apps host bridge to communicate with the client.
+Put a View's HTML entry point at `mcp-ui/<name>/index.html`. It can load TypeScript or TSX and import browser-compatible components, utilities, and CSS from elsewhere in the slate. It does not need a React Router route. When used inside an MCP host, interaction belongs to the MCP Apps bridge.
 
 Once a View exists, associate it with a tool through the tool definition's metadata:
 
@@ -61,15 +67,17 @@ Once a View exists, associate it with a tool through the tool definition's metad
 _meta: { ui: { resourceUri: "ui://echo/index.html" } }
 ```
 
-This URI identifies `mcp-ui/echo/index.html`. It is an MCP resource URI, not a browser URL. Several tools can reference the same View.
+This URI identifies `mcp-ui/echo/index.html`. It is an MCP resource URI, not a browser URL. The generated manifest maps it to the built HTML served at `/mcp-ui/echo/`. A View is listed as a resource even when no tool references it.
 
-The View receives tool inputs and results and requests further tool calls through the client's bridge. It receives no ContextLayer credentials. Use that bridge for interaction rather than relying on access to the slate's browser pages; the View is displayed in the MCP client, outside the app's browser session.
+The MCP Apps bridge supplies tool inputs and results and lets a View request further tool calls. A View must not receive ContextLayer credentials or depend on the app's browser session. Compiling browser assets does not grant them cross-origin access or bypass a private slate's viewing authorization.
 
 ## Build and serving
 
-When the slate is built, the SDK evaluates each tool definition, writes the tool list into the deployment, and compiles each View into one HTML file with its scripts and styles inlined. On the hosted slate, each tool call runs the tool's `handler` in the slate's Worker.
+The SDK evaluates tool definitions during the build and writes their schemas and declarations into the generated `mcp.json` catalog. Each View contributes its HTML as an entry to the same Vite client build as any app. Vite follows those entries' dependency graphs and emits ordinary HTML, JavaScript chunks, and stylesheets, including shared and lazy-loaded modules. Existing app entries and static files remain part of that build.
 
-The development server does not serve `/mcp`. Build and deploy the slate to use its MCP endpoint. [Expose MCP tools](/how-to/expose-mcp-tools) walks through a tool, an optional View, and deployment.
+The same build hooks run with or without React Router; there is no separate per-View build or single-file packaging. On the hosted slate, tool discovery reads the generated catalog, and each tool call runs the selected `handler` in the slate's Worker.
+
+Build and deploy the slate to use its hosted `/mcp` endpoint. Local MCP invocation and View preview are not provided by the app's development server. [Expose MCP tools](/how-to/expose-mcp-tools) walks through a text tool, deployment, and authoring View build output.
 
 ## Connect a client
 

@@ -48,7 +48,7 @@ test("API jobs execute a Code Mode database call and preserve owner and viewer w
 	await copySlateProject(directory)
 	await mkdir(join(directory, "agents/database"), { recursive: true })
 	await writeFile(
-		join(directory, "public/slate.json"),
+		join(directory, "app/slate.json"),
 		JSON.stringify({
 			connections: {},
 			databases: { drafts: { mode: "viewer" }, reports: { mode: "owner" } },

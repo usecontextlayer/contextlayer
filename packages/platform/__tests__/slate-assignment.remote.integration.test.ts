@@ -47,10 +47,7 @@ test("chrome completes agent-only setup and repeated API assignment preserves it
 			.execute()
 	await copySlateProject(directory)
 	await mkdir(join(directory, "agents/daily/schedules"), { recursive: true })
-	await writeFile(
-		join(directory, "public/slate.json"),
-		JSON.stringify({ connections: {} }),
-	)
+	await writeFile(join(directory, "app/slate.json"), JSON.stringify({ connections: {} }))
 	await writeFile(
 		join(directory, "agents/daily/slate.json"),
 		JSON.stringify({

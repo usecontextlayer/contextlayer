@@ -11,7 +11,7 @@ You declare the database and author migrations for its schema. ContextLayer prov
 
 Databases are declared under `databases`, keyed by slug, with a mode:
 
-```json public/slate.json
+```json app/slate.json
 {
   "connections": {},
   "databases": {
@@ -79,7 +79,7 @@ Authored migrations are the source of schema changes. Kysely runs them in order 
 
 ## Local and hosted state
 
-In a checkout, database state lives in the Git-ignored `.contextlayer/databases` directory. Starting `pnpm dev` applies pending local migrations before the app can query. Local tooling reaches only local databases; it does not migrate or query hosted data.
+In an app checkout, database state lives in the Git-ignored `.contextlayer/databases` directory. The app starter's `pnpm dev` runs React Router's development server and applies pending local migrations before the app can query. Local database operation needs no ContextLayer login. Local tooling reaches only local databases; it does not migrate or query hosted data.
 
 When you push to `main`, ContextLayer builds that commit, applies its migrations, and deploys it. The migration phase updates owner-mode databases and existing members' viewer-mode databases. When someone becomes a member, ContextLayer provisions and migrates their viewer-mode databases in the background before installing their schedules. Local rows are not copied into these hosted databases.
 
@@ -110,7 +110,7 @@ You can query through three interfaces, all using the same resource-selection ru
 | --- | --- | --- |
 | `database<DB>(databases, slug)` | App loaders and actions. | Native typed Kysely query results. |
 | `databases.query(slug, sql, params)` | App loaders and actions. | A `rows` array of objects keyed by column name. |
-| `database_query` | Agent jobs. | A `rows` array of objects keyed by column name. |
+| `database_query` | Hosted agent jobs. | A `rows` array of objects keyed by column name. |
 
 For direct SQL, obtain `databases` with `context.get(databasesContext)` and pass values as parameters. All three interfaces reach the same stored database when the slate, Owner, and slug match.
 

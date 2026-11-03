@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto"
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { resolve } from "node:path"
-import { resourcesSchema } from "@usecontextlayer/shared/declaration"
+import { type Resources, resourcesSchema } from "@usecontextlayer/shared/declaration"
 import {
 	type LocalResourceConfiguration,
 	localResourceConfigurationSchema,
@@ -37,8 +37,9 @@ export function getLocalResourcesWorkerName() {
 
 export async function prepareLocalResourceConfiguration(
 	directory = process.cwd(),
+	declared?: Resources,
 ): Promise<LocalResourceConfiguration> {
-	const resources = await readLocalResources(directory)
+	const resources = declared ?? (await readLocalResources(directory))
 	const assignments = new Map(Object.entries(await readLocalConnections(directory)))
 	return localResourceConfigurationSchema.parse({
 		connections: Object.fromEntries(

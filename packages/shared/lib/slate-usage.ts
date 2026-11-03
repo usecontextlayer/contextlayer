@@ -32,7 +32,6 @@ export function slateRequestUsage(
 	request: Request,
 	response: Response,
 ): SlateUsageName | null {
-	if (new URL(request.url).pathname === "/slate.json") return null
 	const name =
 		request.method === "GET"
 			? "loader_call"

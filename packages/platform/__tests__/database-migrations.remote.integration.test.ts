@@ -81,7 +81,7 @@ test("reprovisioning preserves data, refreshes schedules, and stops on migration
 		).stdout.trim()
 	await copySlateProject(directory)
 	await writeFile(
-		join(directory, "public/slate.json"),
+		join(directory, "app/slate.json"),
 		JSON.stringify({ connections: {}, databases: { notes: { mode: "viewer" } } }),
 	)
 	await mkdir(join(directory, "agents/daily/schedules"), { recursive: true })

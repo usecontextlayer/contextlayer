@@ -4,10 +4,7 @@ import seed from "@usecontextlayer/dev-env/seed.json" with { type: "json" }
 import { expect } from "vitest"
 import { slateSchema } from "@/slates.schema"
 
-test("Owner subscriptions gate execution while declaration access stays available", async ({
-	db,
-	platform,
-}) => {
+test("Owner subscriptions gate execution at every pathname", async ({ db, platform }) => {
 	const { origin } = platform
 	const personalOwner = seed.web.user.id
 	const organizationOwner = seed.web.organization.id
@@ -38,7 +35,7 @@ test("Owner subscriptions gate execution while declaration access stays availabl
 	const expectBlocked = async (slate: typeof personalSlate) => {
 		expect((await request(resolve(slate.public_hostname, "/"))).status).toBe(402)
 		expect((await request(resolve(slate.public_hostname, "/slate.json"))).status).toBe(
-			200,
+			402,
 		)
 	}
 	const slateWithoutPolarCustomer = slateSchema.parse(

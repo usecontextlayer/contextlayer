@@ -24,7 +24,7 @@ export type Declaration = z.infer<typeof declarationSchema>
 
 export const slateDeclarationsSchema = z.strictObject({
 	agents: z.record(z.string().min(1), declarationSchema),
-	app: declarationSchema,
+	app: declarationSchema.optional(),
 })
 export type SlateDeclarations = z.infer<typeof slateDeclarationsSchema>
 
@@ -57,13 +57,17 @@ export function hasViewerResources(resources: Resources) {
 }
 
 export function collectSlateResources(slateDeclarations: SlateDeclarations): Resources {
-	const declarations: { consumer: ResourceConsumer; declaration: Declaration }[] = [
-		{ consumer: { type: "app" }, declaration: slateDeclarations.app },
-		...Object.entries(slateDeclarations.agents).map(([name, declaration]) => ({
-			consumer: { name, type: "agent" as const },
+	const declarations: { consumer: ResourceConsumer; declaration: Declaration }[] =
+		Object.entries(slateDeclarations.agents).map(([name, declaration]) => ({
+			consumer: { name, type: "agent" },
 			declaration,
-		})),
-	]
+		}))
+	if (slateDeclarations.app) {
+		declarations.unshift({
+			consumer: { type: "app" },
+			declaration: slateDeclarations.app,
+		})
+	}
 	return {
 		connections: collectRequirements(
 			"connections",

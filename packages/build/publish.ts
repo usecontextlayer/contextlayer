@@ -1,6 +1,5 @@
 import { getSandbox } from "@cloudflare/sandbox"
 import { artifactTransferEnv } from "@/artifact"
-import { slateDeploymentConfig } from "@/deployment"
 import type { BuildBindings } from "@/env"
 
 export async function publishSlate(
@@ -25,20 +24,16 @@ export async function publishSlate(
 		if (!download.success) {
 			throw new Error(`Deployment artifact download failed: ${download.stderr}`)
 		}
-		await sandbox.writeFile("/tmp/slate-deploy/tsconfig.json", "{}")
-		await sandbox.writeFile(
-			"/tmp/slate-deploy/wrangler.json",
-			JSON.stringify(slateDeploymentConfig(slateId, commit)),
-		)
 		const deployment = await sandbox.exec(
-			'/opt/contextlayer/node_modules/.bin/wrangler deploy --config ./wrangler.json --no-bundle --dispatch-namespace "$CTX_DISPATCH_NAMESPACE"',
+			'/opt/contextlayer/node_modules/.bin/wrangler deploy --no-bundle --no-autoconfig --name "$CTX_SLATE_ID" --dispatch-namespace "$CTX_DISPATCH_NAMESPACE"',
 			{
-				cwd: "/tmp/slate-deploy",
+				cwd: "/tmp/slate-deploy/payload",
 				env: {
 					CI: "true",
 					CLOUDFLARE_ACCOUNT_ID: env.CLOUDFLARE_ACCOUNT_ID,
 					CLOUDFLARE_API_TOKEN: env.CF_TOKEN,
 					CTX_DISPATCH_NAMESPACE: env.CTX_DISPATCH_NAMESPACE,
+					CTX_SLATE_ID: slateId,
 					WRANGLER_SEND_METRICS: "false",
 				},
 				timeout: 600_000,
@@ -47,6 +42,20 @@ export async function publishSlate(
 		console.log(deployment.stdout)
 		if (!deployment.success) {
 			throw new Error(`Slate deployment failed: ${deployment.stderr}`)
+		}
+		const tags = await fetch(
+			`https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/workers/dispatch/namespaces/${env.CTX_DISPATCH_NAMESPACE}/scripts/${slateId}/tags`,
+			{
+				body: JSON.stringify([`commit:${commit}`]),
+				headers: {
+					Authorization: `Bearer ${env.CF_TOKEN}`,
+					"Content-Type": "application/json",
+				},
+				method: "PUT",
+			},
+		)
+		if (!tags.ok) {
+			throw new Error(`Slate commit tagging failed: HTTP ${tags.status}`)
 		}
 	} finally {
 		await sandbox.destroy()

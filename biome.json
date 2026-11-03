@@ -27,7 +27,7 @@
 			"!!**/priv/static",
 			"!!**/package-lock.json",
 			"!!**/worker-configuration.d.ts",
-			"!!packages/cli/template/databases/*/types.ts",
+			"!!packages/cli/templates/app/databases/*/types.ts",
 			"!!**/plugin-registry.json",
 			"!!**/*.md"
 		]
@@ -116,7 +116,7 @@
 			}
 		},
 		{
-			"includes": ["packages/cli/template/app/**/*.tsx"],
+			"includes": ["packages/cli/templates/app/app/**/*.tsx"],
 			"linter": {
 				"rules": {
 					"style": {

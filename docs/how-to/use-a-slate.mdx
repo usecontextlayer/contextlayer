@@ -5,6 +5,8 @@ description: "Open a slate as a viewer, sign in, and set up your own accounts an
 
 Use a slate someone has shared with you: open its hosted URL, sign in if needed, and supply any personal accounts or secrets it requires. You do not need a local checkout or the CLI to follow this guide.
 
+This walkthrough follows a slate with an app and ContextLayer's header and configuration tray, called the **chrome**. A slate can instead provide only static files or expose MCP tools; static files follow the same viewing rules but do not automatically include the chrome. Use the interface the author has provided.
+
 Complete only the setup items the slate asks for. Some slates use entirely shared resources and need no personal setup.
 
 <Steps titleSize="h2">
@@ -14,7 +16,7 @@ Complete only the setup items the slate asks for. Some slates use entirely share
   <Step title="Sign in">
     A private slate sends you to sign in with your ContextLayer account, then returns you to the slate. New slates are private. A private slate opens for its owning user, or for members of its owning organization.
 
-    A public slate can open without sign-in. That does not make its resources yours or grant permission to manage the slate.
+    A public slate can open without sign-in. That does not make its resources yours or grant permission to manage the slate. The `public/` source directory contains static files; its name does not make a private slate public.
   </Step>
   <Step title="Check your setup">
     The **chrome** is the ContextLayer header above the app. It shows your signed-in identity and the slate's setup status. Select the status to open the configuration tray.

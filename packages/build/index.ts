@@ -71,7 +71,7 @@ export class Build extends CIWorkflow<CloudflareArtifacts, BuildBindings> {
 		)
 		await ci.runner({
 			command:
-				'pnpm install --frozen-lockfile && pnpm build && /usr/local/bin/rclone copy ./build "$CTX_BUILD_ARTIFACT_PATH" --config /dev/null',
+				'pnpm install --frozen-lockfile && pnpm build && /usr/local/bin/rclone copy ./build "$CTX_BUILD_ARTIFACT_PATH"build --config /dev/null && /usr/local/bin/rclone copy ./.wrangler/deploy "$CTX_BUILD_ARTIFACT_PATH".wrangler/deploy --config /dev/null',
 			env: await artifactTransferEnv(this.env, event.instanceId, "object-read-write"),
 			name: "build",
 		})

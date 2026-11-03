@@ -109,5 +109,5 @@ test("Free subscriptions grant credits and exhaustion denies runtime access afte
 	expect(message).toContain("Included clips renew on")
 	expect(message).toContain("This plan has no overage charges")
 	expect(message).toContain(`/organization/${externalId}/billing`)
-	expect((await fetch(resolve("/slate.json"))).status).toBe(200)
+	expect((await fetch(resolve("/slate.json"))).status).toBe(402)
 }, 300_000)

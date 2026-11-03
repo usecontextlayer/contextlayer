@@ -45,11 +45,11 @@ test.each([
 	}
 })
 
-test("the declaration is free for reads and mutations even though it returns JSON", () => {
+test("the former declaration URL uses ordinary dynamic request metering", () => {
 	for (const method of ["GET", "POST", "PUT", "PATCH", "DELETE"]) {
 		expect(
 			slateRequestUsage(request("/slate.json", method), response("application/json")),
-		).toBeNull()
+		).toBe(method === "GET" ? "loader_call" : "action_call")
 	}
 })
 

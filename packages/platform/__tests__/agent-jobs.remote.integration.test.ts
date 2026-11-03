@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { mkdir, writeFile } from "node:fs/promises"
+import { mkdir, readdir, writeFile } from "node:fs/promises"
 import { AssistantEntry, ToolResultEntry, UserEntry } from "@earendil-works/pi-durable"
 import { test } from "@tests/integration"
 import { copySlateProject } from "@usecontextlayer/dev-env/slate"
@@ -18,7 +18,7 @@ import {
 import { slateSchema } from "@/slates.schema"
 
 test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
-	"API jobs using %s complete through the declared provider",
+	"API jobs without an app using %s complete through the declared provider",
 	{ timeout: 240_000 },
 	async (providerSecret, { directory, git, platform, webEnv, webSession }) => {
 		const { origin, worker } = platform
@@ -37,9 +37,9 @@ test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
 		resources.defer(async () => {
 			await ARTIFACTS.delete(slate.id)
 		})
-		await copySlateProject(directory)
+		await copySlateProject(directory, { scaffold: "empty" })
+		expect(await readdir(directory)).not.toContain("app")
 		await mkdir(`${directory}/agents/brief`, { recursive: true })
-		await writeFile(`${directory}/public/slate.json`, JSON.stringify({ connections: {} }))
 		await writeFile(
 			`${directory}/agents/brief/instructions.md`,
 			"You are a concise assistant.\n",

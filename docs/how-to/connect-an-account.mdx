@@ -5,11 +5,11 @@ description: "Connect an account to ContextLayer, then assign it to a connection
 
 Connect a Gmail account, then assign it to a connection named `work-email`. This guide uses a viewer-mode connection: each person supplies their own Gmail account on the hosted slate. It shows local and hosted setup separately because they save different assignments.
 
-Before you start, sign in to the CLI as described in [Installation](/installation) and work from a private slate's checkout. If your personal Owner already has a connected Gmail account, skip account authorization and go straight to assignment.
+Before you start, sign in to the CLI as described in [Installation](/installation) and work from a private slate's checkout with an app, such as the app starter in the [Quickstart](/quickstart). Plain initialization includes build tooling but no app; the Quickstart selects `--scaffold-app`. If your personal Owner already has a connected Gmail account, skip account authorization and go straight to assignment.
 
-Add `work-email` to the app's existing `connections` object in `public/slate.json`. Keep its other declarations. For a starter app that still uses the `notes` database, the result is:
+Add `work-email` to the app's existing `connections` object in `app/slate.json`. Keep its other declarations. For a starter app that still uses the `notes` database, the result is:
 
-```json public/slate.json
+```json app/slate.json
 {
   "connections": {
     "work-email": { "toolkit": "gmail", "mode": "viewer" }

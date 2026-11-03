@@ -95,7 +95,7 @@ Follow the [vault access contract](../../ARCHITECTURE.md#owner-owned-shared-secr
 
 ## Declaration sources and contracts
 
-Use the declaration schema, `collectSlateResources`, and `resourcesForConsumer` from `@usecontextlayer/shared/declaration`. Follow [the resource contract](../../ARCHITECTURE.md#key-contract-slate-resource-requirements); do not duplicate collection, validation, or consumer selection.
+Use the declaration schema, `collectSlateResources`, and `resourcesForConsumer` from `@usecontextlayer/shared/declaration`. Follow [the resource contract](../../ARCHITECTURE.md#key-contract-slate-resource-requirements); do not duplicate collection, validation, or consumer selection. Read app requirements from `app/slate.json` only when `app/` exists, and require a valid declaration when it does. Do not interpret absent app source as a missing declaration or read `public/slate.json` as authority.
 
 `readSlateDeclarations` owns hosted source reads and accepts an explicit immutable commit. Latest-state operations use `readLatestSlateDeclarations` to select `main` once; builds supply their triggering commit. Carry that snapshot, including discovered agent trees, through every phase. Authorize before reading. The reader accepts no caller credentials, resolves no resource values, and invokes no authored Worker. Preserve the typed `no-commit` outcome as setup data; an uncommitted repository is not a committed empty declaration. Never accept caller-supplied declarations or Resources as hosted authority, including from slate Owners.
 
@@ -125,13 +125,13 @@ Build connection tools only from prepared references through `createAccountSessi
 
 ### Agent job and inspection API
 
-Expose jobs and schedules through the shared Zod/OpenAPI/domain pattern. Job APIs reject public slates. Apply viewing authorization to job submission, catalog discovery, and ordinary operation/results. Apply source-management authorization before schedule inspection, rich execution reads, or lifecycle mutations: their prompts and execution payloads can disclose authored source and private data.
+Keep hosted agent Hono route definitions, wire schemas and job/catalog/schedule operations in platform. Platform owns the native execution runtime, hosted lookup, source/resource preparation, authorization and scope selection. Job APIs reject public slates. Apply viewing authorization to job submission, catalog discovery, and ordinary operation/results. Apply source-management authorization before schedule inspection, rich execution reads, or lifecycle mutations: their prompts and execution payloads can disclose authored source and private data.
 
 Keep catalog, operation, and session identity distinct. Pi creates operation receipts; native catalog entries identify jobs. Callers must not choose physical addresses or conversations. Catalog metadata comes from the prepared actor and trusted trigger; scheduled provenance retains both the native schedule identity and authored name across reprovisioning. Catalog reads must not load execution state. Ordinary operation/results remain transcript-free; native inspection and messages serve their separate purposes.
 
-Resolve authorized app/current-user scopes in shared domain operations. Return the native job stub through `SlateAgent.resolveJob`, acquire it with `using`, and await calls before disposal. Derive its interface from `SlateAgentJob` with inherited `Agent` members omitted so Workers applies RPC typing once. Do not copy method signatures, forward every job method through the parent, or expose physical addresses. Keep native catalog deletion on the parent and preserve native abort results independently of missing-job outcomes; do not add a pending-state deletion restriction or cleanup ledger.
+Resolve authorized app/current-user scopes in platform's agent domain operations. Return the native job stub through `SlateAgent.resolveJob`, acquire it with `using`, and await calls before disposal. Derive its interface from `SlateAgentJob` with inherited `Agent` members omitted so Workers applies RPC typing once. Do not copy method signatures, forward every job method through the parent, or expose physical addresses. Keep native catalog deletion on the parent and preserve native abort results independently of missing-job outcomes; do not add a pending-state deletion restriction or cleanup ledger.
 
-Pass trusted typed RPC results through; do not reparse them into application-owned copies. Validate unknown inspection/message envelopes and generic schedule payloads at the shared domain boundary. Preserve native fields and opaque nested payloads in response schemas rather than rebuilding Pi's state machine. Schemas own field semantics, including timestamp units and the distinction between live inspection and completed messages.
+Pass trusted typed RPC results through; do not reparse them into application-owned copies. Validate unknown inspection/message envelopes and generic schedule payloads at platform's agent domain boundary. Preserve native fields and opaque nested payloads in response schemas rather than rebuilding Pi's state machine. Schemas own field semantics, including timestamp units and the distinction between live inspection and completed messages.
 
 ### Agent schedule provisioning
 
@@ -155,7 +155,7 @@ Use one shared Meridian container per environment, with native Container lifecyc
 
 Shared secret save/delete operations must await profile publication after a successful subscription-token mutation. Keep this in the shared operation so Owner APIs, slate setup, and chrome agree. Publication failure reports failure after the vault write; it does not imply rollback. Other secret names must not start Meridian.
 
-For local subscription access, obtain a token with `claude setup-token`, save it through the ordinary Owner-scoped secret command, and declare it with the desired owner/viewer mode. Docker is required for Meridian and the job computer. Vault writes require the user's per-write authorization.
+For hosted subscription access, including jobs in the DevEnv, obtain a token with `claude setup-token`, save it through the ordinary Owner-scoped secret command, and declare it with the desired owner/viewer mode. Docker is required for Meridian and the job computer. Vault writes require the user's per-write authorization.
 
 ## Testing
 
@@ -171,7 +171,7 @@ After confirmed account switching, replace navigation with the Personal slate li
 
 Follow [billing ownership and admission policy](../../ARCHITECTURE.md#slate-owner-billing-access). Use Polar's native webhook verification and Customer State, with settings validated in `env.ts`. Acknowledge customer events only after their required native subscription creation or state persistence succeeds. Keep Polar's merchant organization distinct from the slate's owning organization; external customer identity is the Better Auth user/organization ID.
 
-Keep `checkSlateBilling` separate from identity and viewing/management authorization. Resolution and delegated execution call it after viewing authorization; personal-account execution calls it after slate management. Pass the actual incoming pathname for the declaration exemption, preserve the shared refusal through local/hosted Tools, and reuse web's billing destinations. Keep usage reporting asynchronous. Do not add a balance ledger, duplicate admission policy, or no-plan enrollment/backfill.
+Keep `checkSlateBilling` separate from identity and viewing/management authorization. Resolution and delegated execution call it after viewing authorization; personal-account execution calls it after slate management. Apply the shared decision without authored-path exemptions, preserve the shared refusal through local/hosted Tools, and reuse web's billing destinations. Keep usage reporting asynchronous. Do not add a balance ledger, duplicate admission policy, or no-plan enrollment/backfill.
 
 ## Slate usage
 

@@ -34,13 +34,13 @@ You can start account authorization from:
 
 A connected account is available for assignment; connecting it alone does not assign it to a slate. [Connections and assignments](/core-concepts/resources/connections-and-assignments) explains how assignments work, and [Connect an account](/how-to/connect-an-account) provides the procedure.
 
-During local development, connections always use your personal accounts, regardless of the slate's Owner or the connection's mode. Connect the account for yourself when you want to use it locally.
+During local app development, connections always use your personal accounts, regardless of the slate's Owner or the connection's mode. Connect the account for yourself when you want to use it locally. The app uses your saved CLI login and the slate registered by `init`; local execution does not use hosted assignments.
 
 ## Example: a local Gmail connection
 
 For example, an app declares a Gmail connection with the slug `work-email`:
 
-```json public/slate.json
+```json app/slate.json
 {
   "connections": {
     "work-email": {
@@ -85,4 +85,4 @@ The platform's account operations are in the Accounts group of the API reference
 
 - [List active accounts belonging to an Owner](https://docs.usecontextlayer.com/api-reference/accounts/list-active-accounts-belonging-to-an-owner)
 - [Create an authorization link to connect an Owner's account](https://docs.usecontextlayer.com/api-reference/accounts/create-an-authorization-link-to-connect-an-owners-account)
-- [List the caller's active accounts for a toolkit](https://docs.usecontextlayer.com/api-reference/accounts/list-the-callers-active-accounts-for-a-toolkit) and [Call a tool with the caller's selected account](https://docs.usecontextlayer.com/api-reference/accounts/call-a-tool-with-the-callers-selected-account), the personal-account operations that local development uses
+- [List the caller's active accounts for a toolkit](https://docs.usecontextlayer.com/api-reference/accounts/list-the-callers-active-accounts-for-a-toolkit) and [Call a tool with the caller's selected account](https://docs.usecontextlayer.com/api-reference/accounts/call-a-tool-with-the-callers-selected-account), the personal-account operations that local app development uses

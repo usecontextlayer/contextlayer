@@ -1,4 +1,4 @@
-import { cp } from "node:fs/promises"
+import { cp, readdir, rm } from "node:fs/promises"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client"
@@ -153,12 +153,15 @@ test("private organization member passes billing through slate-bound MCP authori
 	).toBe(200)
 })
 
-test("discovers a View and invokes an authored Worker once through native MCP", {
+test("discovers a View and invokes an app-less Worker through native MCP", {
 	timeout: 300_000,
 }, async ({ slate, directory, dispatcher, mcpHeaders }) => {
 	await copySlateProject(directory, {
 		installDependencies: true,
+		scaffold: "mcp",
 	})
+	await rm(join(directory, "mcp/tool"), { recursive: true })
+	expect(await readdir(directory)).not.toContain("app")
 	for (const source of ["mcp", "mcp-ui", "workers/mcp.ts"]) {
 		await cp(
 			new URL(`./fixtures/mcp/${source}`, import.meta.url),
@@ -184,8 +187,8 @@ test("discovers a View and invokes an authored Worker once through native MCP", 
 		"exec",
 		"wrangler",
 		"deploy",
-		"--config",
-		join(directory, "build/server/wrangler.json"),
+		"--no-bundle",
+		"--no-autoconfig",
 		"--dispatch-namespace",
 		namespace,
 		"--env=",

@@ -131,12 +131,12 @@ A slate created against the DevEnv is the ordinary development loop for the issu
 
 ```sh
 pnpm exec turbo run build --filter=@usecontextlayer/cli
-pnpm dev:ctx init ../my-slate
+pnpm dev:ctx init ../my-slate --scaffold-app
 ```
 
-The slate is registered in the local platform and appears in its dashboard. Use `pnpm dev:ctx init --help` for organization selection. Create slates outside this repository so they have an independent Git root and package-manager workspace. pnpm must work there too; a machine-wide mise default supplies it outside repo-local tool configuration, without `mise exec` or a CLI workaround.
+This loop selects the app starter; its dev script runs the React Router development server with local app resources. Plain initialization creates a slate with Git, a short `AGENTS.md` and the same package/Vite/Cloudflare build baseline; authored parts can be added independently. The slate is registered in the local platform and appears in its dashboard. Use `pnpm dev:ctx init --help` for creation options and `scaffold --help` to add source later. Create slates outside this repository so they have an independent Git root and package-manager workspace. pnpm must work there too; a machine-wide mise default supplies it outside repo-local tool configuration, without `mise exec` or a CLI workaround.
 
-Run `pnpm exec turbo run dev:watch --filter=@usecontextlayer/cli` to rebuild the CLI and starter as their source changes. **Rebuilding does not update an existing slate's files; initialize a fresh slate to exercise starter edits.** Before running a slate against unpublished CLI or SDK changes, [install matching local packages](TESTING.md#verifying-unpublished-cli-and-sdk-in-a-slate-checkout). `dev:ctx` selects this workspace's CLI, but the slate's Vite integration uses its installed packages.
+Run `pnpm exec turbo run dev:watch --filter=@usecontextlayer/cli` to rebuild the CLI and bundled scaffolds as their source changes. **Rebuilding does not update an existing slate's files; initialize a fresh slate with the relevant scaffold to exercise its edits.** Before running a slate against unpublished CLI or SDK changes, [install matching local packages](TESTING.md#verifying-unpublished-cli-and-sdk-in-a-slate-checkout). `dev:ctx` selects this workspace's CLI, but the slate's Vite integration uses its installed packages.
 
 Commands that act on a slate checkout read the current directory. Run them from inside that checkout through this repository's DevEnv runner:
 
@@ -157,13 +157,7 @@ Follow [Local login and assignment](docs/reference/sdk.mdx#local-login-and-assig
 
 Listing local requirements needs no Git metadata, login, running development server or platform request.
 
-Restart the slate's `pnpm dev` after declaration, assignment or secret changes, and when its startup access token expires. Keep the generated `workers/local-resources` files current with the CLI template when updating a development checkout. [Local verification](TESTING.md#local-slate-resources-and-agents) owns checks against the running app.
-
-### Running an agent locally
-
-Build the CLI with `pnpm exec turbo run build tsc --filter=@usecontextlayer/cli`. From a slate checkout containing `agents/<name>/instructions.md`, run `pnpm -C <path-to-this-checkout> dev:ctx agent --help` for local-run commands. Claude Agent SDK uses native Claude authentication, so an existing Claude login or SDK-supported model credential must be available. The command starts and stops the slate's development server and uses its persisted `.contextlayer/databases` state. App connection declarations require the matching saved CLI login; declarations with only databases need no ContextLayer login.
-
-[Local agent execution](ARCHITECTURE.md#local-agent-execution) owns instruction composition and settings isolation. Follow [local agent verification](TESTING.md#local-slate-resources-and-agents) to exercise changes.
+Restart the slate's `pnpm dev` after declaration, assignment or secret changes, and when its startup access token expires. Keep the generated `workers/local-resources` files current with the app scaffold when updating a development checkout. [Local verification](TESTING.md#local-slate-resources-and-agents) owns checks against the running app.
 
 ### Authored database development
 
@@ -223,10 +217,10 @@ node --import tsx scripts/release.ts --help
 
 Main pushes run checks; version-tag pushes publish npm packages. Use the release ladder to keep the version, checked commit and release tag together. Tag publication requires successful checks for that exact commit and package versions matching the tag. The ladder commits and pushes; follow the machine's Git approval convention. GitHub receives `NPM_TOKEN` for publication and `FONTAWESOME_PACKAGE_TOKEN` for CI installation through Doppler sync. Package manifests own which packages publish. npm publication and service deployment have separate workflows, but the release ladder also pushes main and can therefore trigger [Workers Builds](#service-deployment). Twilio deployment remains separate.
 
-The committed `packages/cli/template/pnpm-lock.yaml` seeds the test Build image's pnpm store and is excluded from the CLI's bundled starter. Refresh it when useful, after any newly pinned CLI/SDK versions have been published:
+The committed `packages/cli/templates/app/pnpm-lock.yaml` seeds the test Build image's pnpm store and is excluded from the CLI's bundled starter. Refresh it when useful, after any newly pinned CLI/SDK versions have been published:
 
 ```sh
-pnpm --dir packages/cli/template install --lockfile-only --ignore-scripts --no-frozen-lockfile
+pnpm --dir packages/cli/templates/app install --lockfile-only --ignore-scripts --no-frozen-lockfile
 ```
 
 Commit the refreshed lockfile. Refreshing is independent of the release ladder; each slate checkout's own lockfile determines its installed versions, and missing cached packages download normally.
@@ -274,7 +268,7 @@ Follow [Auth deployment configuration](packages/auth/AGENTS.md#deployment-config
 
 ## Slate deployment
 
-Push committed source from a checkout created against the intended platform through its `/git/<slate-id>` remote. In production, pushes to `contextlayer-prod` Artifacts trigger the deployed build Workflow. Use published CLI and SDK packages for production hosted slates; unpublished packages belong in [local/test verification](TESTING.md#verifying-unpublished-cli-and-sdk-in-a-slate-checkout).
+Push committed source from a checkout created against the intended platform through its `/git/<slate-id>` remote. In production, pushes to `contextlayer-prod` Artifacts trigger the deployed build Workflow. Use published CLI and SDK packages for production hosted slates; unpublished packages belong in [local/test verification](TESTING.md#verifying-unpublished-cli-and-sdk-in-a-slate-checkout). The committed project must install with pnpm install --frozen-lockfile and build with pnpm build. Its native Vite/framework configuration must emit deployment output under build/ and the Cloudflare deployment pointer under .wrangler/deploy/; the publisher transfers both directories and lets Wrangler follow the pointer.
 
 Follow the [deployment guide](docs/how-to/deploy.mdx) to inspect CI and the published revision after a push; use the [DevEnv command runner](#start-and-sign-in) for local inspection. Operators with Cloudflare account access can also open Workflows → `contextlayer-build` in the Cloudflare dashboard. Inspect `build`, `migrate`, and `deploy` in order, followed by schedule provisioning. Build output and status show whether the pushed commit built; a successful build includes its CI snapshot. **A failed migration stops deployment and is not automatically retried; earlier successful SQL statements may remain applied.** Migrations must remain compatible with the currently deployed Worker until publication completes. [Build and publication](ARCHITECTURE.md#build-pipeline) owns phase ordering and revision coherence.
 
@@ -282,7 +276,7 @@ Inspect background membership provisioning in `contextlayer-member-provisioning`
 
 ### Deploying and inspecting an agent
 
-Commit `agents/<name>/instructions.md` and keep `public/slate.json` and every `agents/<name>/slate.json` valid. Declare schedules in `agents/<name>/schedules/<prompt>.md` with YAML frontmatter such as `cron: "0 7 * * 1-5"` and the user prompt in the Markdown body. Cron is canonical five-field UTC. Push through the normal slate deployment workflow to publish changes and provision schedules.
+Commit `agents/<name>/instructions.md` and keep every `agents/<name>/slate.json` valid; keep `app/slate.json` valid when the slate includes `app/`. Hosted agents do not require an app or static files. Declare schedules in `agents/<name>/schedules/<prompt>.md` with YAML frontmatter such as `cron: "0 7 * * 1-5"` and the user prompt in the Markdown body. Cron is canonical five-field UTC. Push through the normal slate deployment workflow to publish changes and provision schedules.
 
 Follow platform guidance for [hosted model configuration](packages/platform/AGENTS.md#hosted-model-configuration), [Authored agents](ARCHITECTURE.md#authored-agents) for inspection and authorization semantics, and [model-test prerequisites](TESTING.md#provider-accounts-and-model-credentials) for verification.
 

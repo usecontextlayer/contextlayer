@@ -45,10 +45,7 @@ test("API jobs honor a declared non-default Owner model", async ({
 	})
 	await copySlateProject(directory)
 	await mkdir(join(directory, "agents/model"), { recursive: true })
-	await writeFile(
-		join(directory, "public/slate.json"),
-		JSON.stringify({ connections: {} }),
-	)
+	await writeFile(join(directory, "app/slate.json"), JSON.stringify({ connections: {} }))
 	await writeFile(
 		join(directory, "agents/model/slate.json"),
 		JSON.stringify({

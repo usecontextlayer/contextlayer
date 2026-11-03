@@ -3,9 +3,9 @@ title: "SDK"
 description: "Import paths, resource APIs, React Router integration, and build configuration for @usecontextlayer/sdk."
 ---
 
-`@usecontextlayer/sdk` connects a slate's authored code to ContextLayer. It provides the app's document layout, request-scoped Tools and Databases capabilities, and the Vite and Worker integration used by the starter.
+`@usecontextlayer/sdk` connects a slate's authored code to ContextLayer. It provides the app's document layout and request-scoped Tools and Databases capabilities, plus Vite and Worker integration for app routes, MCP tools, and View builds. These parts can be composed within the same slate; MCP tools and Views do not require a React Router app.
 
-The CLI installs and configures the SDK when it creates a slate. For initial setup, use [Installation](/installation) and the [Quickstart](/quickstart). This page describes the SDK's imports, contracts, and integration points.
+The CLI installs and configures the SDK when it creates a slate. Plain initialization includes package and build tooling without authored functionality; the [Quickstart](/quickstart) selects the app scaffold. For initial setup, use [Installation](/installation). This page describes the SDK's imports, contracts, and integration points.
 
 ## Import paths
 
@@ -19,7 +19,7 @@ Use the entry point for the environment in which the import runs:
 | `@usecontextlayer/sdk/worker` | `createSlateWorker` and its Worker type. |
 | `@usecontextlayer/sdk/database` | `databaseDialect` for native Kysely CLI configuration. |
 | `@usecontextlayer/sdk/html` | `htmlPage` for a standalone server-rendered HTML document. |
-| `@usecontextlayer/sdk/local` | The local resource Worker integration used by the generated checkout. |
+| `@usecontextlayer/sdk/local` | The local resource Worker integration used by the app scaffold. |
 
 The app and each agent declare their required resources in `slate.json`; importing an SDK function does not make an undeclared resource available. See [Resources](/core-concepts/resources) for declarations, modes, and assignments.
 
@@ -29,7 +29,7 @@ The app and each agent declare their required resources in `slate.json`; importi
 
 ### Call connected services
 
-In a loader or action, obtain Tools with `context.get(toolsContext)` from `@usecontextlayer/sdk`. Call `tools.call(connectionSlug, toolName, arguments)` with a connection slug declared in `public/slate.json`. Calls resolve to `{ data, logId }`; validate the tool-specific `data` before using it.
+In a loader or action, obtain Tools with `context.get(toolsContext)` from `@usecontextlayer/sdk`. Call `tools.call(connectionSlug, toolName, arguments)` with a connection slug declared in `app/slate.json`. Calls resolve to `{ data, logId }`; validate the tool-specific `data` before using it.
 
 | Argument | Meaning |
 | --- | --- |
@@ -53,7 +53,7 @@ The promise resolves to `{ data: unknown, logId: string }`. `data` contains the 
 
 `databasesContext` supplies the `Databases` capability for a React Router request. `database<DB>(databases, slug)` accepts that capability and a string slug and returns a `Kysely<DB>` instance for the declared database. The root SDK entry point also exports the `Tools` and `Databases` types.
 
-Declare the slug in `public/slate.json`. An agent that should use the same logical database must declare it too, with the same mode. The app and agent share stored rows only when their resource selection chooses the same Owner. Each database keeps its configuration, migrations, and generated query types under `databases/<slug>`.
+Declare the slug in `app/slate.json`. An agent that should use the same logical database must declare it too, with the same mode. The app and agent share stored rows only when their resource selection chooses the same Owner. Each database keeps its configuration, migrations, and generated query types under `databases/<slug>`.
 
 ### Query through Kysely
 
@@ -98,7 +98,7 @@ The returned promise resolves to this result shape:
 | `changes` | `number`, optional | Mutation change count, when present. |
 | `lastInsertRowid` | `number`, optional | SQLite's last insert row ID, when present. |
 
-Agents use `database_query` to reach their own declared databases with the same SQL contract. The result type is not a named export from the SDK root; use the return type of `query` when you need to derive it.
+Hosted agents use `database_query` to reach their own declared databases with the same SQL contract. The result type is not a named export from the SDK root; use the return type of `query` when you need to derive it.
 
 SQL transactions are not supported by the ContextLayer database interface. Kysely, direct SQL, and agent queries use the same storage when their slate, selected Owner, and slug match.
 
@@ -120,7 +120,7 @@ Follow [Add a database](/how-to/add-a-database) to create and apply migrations, 
 
 ## Missing resource setup
 
-Missing required setup produces a native HTTP 409 response that React Router can render through an error boundary. The generated root already handles these responses:
+Missing required setup produces a native HTTP 409 response that React Router can render through an error boundary. The app scaffold's `app/root.tsx` already handles these responses:
 
 | Missing input | Payload | Exported schema |
 | --- | --- | --- |
@@ -141,7 +141,20 @@ Keep this re-export when editing the app's root component, error boundary, style
 
 ## Vite and Worker configuration
 
-Compose `contextlayer` with the app's React Router and Tailwind plugins:
+The `contextlayer` integration supplies Cloudflare's Vite plugin and the MCP build producer. Keep one Cloudflare plugin instance. For a slate without an app, the base and MCP scaffolds use this configuration:
+
+```ts vite.config.ts
+import { contextlayer } from "@usecontextlayer/sdk/vite"
+import { defineConfig } from "vite"
+
+export default defineConfig((env) => ({
+  build: { outDir: "build" },
+  plugins: [contextlayer(env)],
+  resolve: { tsconfigPaths: true },
+}))
+```
+
+For an app, compose the same integration with React Router and Tailwind:
 
 ```ts vite.config.ts
 import { contextlayer } from "@usecontextlayer/sdk/vite"
@@ -155,15 +168,33 @@ export default defineConfig((env) => ({
 }))
 ```
 
-This integration supplies the Cloudflare plugin; do not add a second instance. Keep the generated `workers/local-resources/wrangler.jsonc` and `workers/local-resources/index.ts` for local development. Follow the [startup and restart prerequisites](#local-login-and-assignment) when changing resources.
+Every slate builds through its package script. Native Vite and Cloudflare configuration must place deployment output under `build/` and write the deployment pointer under `.wrangler/deploy/`. React Router supplies its own build layout within that root. `public/` files join the client assets through Vite's normal file copying; they need no extra entry point. See [Deploy](/how-to/deploy#what-the-pipeline-does) for the publication contract.
 
-Keep the generated `workers/app.ts` wiring to `createSlateWorker` from `@usecontextlayer/sdk/worker`. It supplies the virtual React Router server build, Vite mode and development flag, and authored MCP modules. `createSlateWorker` returns the exported `SlateWorker` type. The [runtime architecture](https://github.com/usecontextlayer/contextlayer/blob/main/ARCHITECTURE.md#resource-configuration-and-execution--principles) owns capability wiring and trust boundaries.
+Each `mcp-ui/<name>/index.html` contributes an HTML entry to the same client compilation as any app. Vite retains shared modules, CSS, and dynamic imports as ordinary assets. Tools-only source still produces the MCP catalog without an authored browser entry. [MCP Views](/core-concepts/slate/mcp#views) explains the separate resource-access limitation; compilation does not establish that a View can load its assets inside an MCP host.
+
+During app development, the integration prepares local app resources and starts the auxiliary resource Worker. Keep the app scaffold's `workers/local-resources/wrangler.jsonc` and `workers/local-resources/index.ts`; they are not required for an app-less slate. The local Worker and service bindings are development-only. Follow the [startup and restart prerequisites](#local-login-and-assignment) when changing resources.
+
+### Worker options
+
+The app scaffold's `workers/app.ts` calls `createSlateWorker` with its virtual React Router server build, Vite mode and development flag, and authored MCP modules. An MCP-only Worker omits the app build:
+
+```ts workers/app.ts
+import { createSlateWorker, type McpToolModule } from "@usecontextlayer/sdk/worker"
+
+export default createSlateWorker({
+  development: import.meta.env.DEV,
+  mcp: import.meta.glob<McpToolModule>("/mcp/*/index.ts", { eager: true }),
+  mode: import.meta.env.MODE,
+})
+```
+
+`createSlateWorker` returns the exported `SlateWorker` type. An empty or static-only slate needs no authored Worker entry. The [runtime architecture](https://github.com/usecontextlayer/contextlayer/blob/main/ARCHITECTURE.md#resource-configuration-and-execution--principles) owns capability wiring and trust boundaries.
 
 The Worker factory takes these options:
 
 | Option | Purpose |
 | --- | --- |
-| `build` | The server build accepted by React Router's `createRequestHandler`. |
+| `build`, optional | The server build accepted by React Router's `createRequestHandler`; omit it when there is no app. |
 | `mode` | The Vite mode string. |
 | `development` | Whether the Worker is running in development. |
 | `mcp`, optional | A record of authored MCP modules, each exporting a tool definition and handler. |
@@ -174,7 +205,7 @@ The Worker entry point also exports the `McpToolModule` type. Its handler has th
 handler(args: unknown): CallToolResult | Promise<CallToolResult>
 ```
 
-ContextLayer validates `args` against the tool's `inputSchema` before invoking the handler. MCP handlers receive no ContextLayer resource capabilities; see [MCP tools](/core-concepts/slate/mcp#tools) for declaration restrictions. Keep the starter's module discovery wiring when adding tools; [Expose MCP tools](/how-to/expose-mcp-tools) covers the authored files and deployment.
+Trusted MCP dispatch selects the tool, and ContextLayer validates `args` against its `inputSchema` before invoking the handler. Without an app build, ordinary requests reaching the Worker return 404; an HTTP path or query parameter does not select an MCP handler. MCP handlers receive no ContextLayer resource capabilities; see [MCP tools](/core-concepts/slate/mcp#tools) for declaration restrictions. Keep the scaffold's module discovery wiring when adding tools; [Expose MCP tools](/how-to/expose-mcp-tools) covers the authored files and deployment.
 
 ## Standalone HTML pages
 
@@ -205,8 +236,8 @@ The caller owns the content, form destination, validation and authorization flow
 
 ## Local login and assignment
 
-Declare app resources in `public/slate.json` and agent resources in `agents/<name>/slate.json`; see [Resources](/core-concepts/resources). Use the CLI's `accounts` and `connections` commands for account setup, with [Connect an account](/how-to/connect-an-account) as the walkthrough. Local assignments are saved in ignored `.contextlayer/connections.json`.
+Declare app resources in `app/slate.json` and agent resources in `agents/<name>/slate.json`; see [Resources](/core-concepts/resources). A slate without `app/` needs no app declaration or app resource Worker. Use the CLI's `accounts` and `connections` commands for account setup, with [Connect an account](/how-to/connect-an-account) as the walkthrough. Local assignments are saved in ignored `.contextlayer/connections.json`.
 
 For local tool calls, assign your personal connected accounts even when the hosted declaration uses `owner` mode or the slate belongs to an organization. Keep `.contextlayer/` ignored in Git. Local database state lives in `.contextlayer/databases`; local secret values come from environment variables with their declared names.
 
-When the app declares connections, Vite startup needs a matching CLI login and the generated Git origin to identify the slate. This also applies when running a local agent because that command starts Vite. Restart `pnpm dev` after changing declarations, assignments, or secret values, and when the startup access token expires. Apply new migrations with the native Kysely CLI while development is running. The [local resource architecture](https://github.com/usecontextlayer/contextlayer/blob/main/ARCHITECTURE.md#resource-configuration-and-execution--principles) describes preparation and credential boundaries.
+When the app declares connections, Vite startup needs a matching CLI login and the generated Git origin to identify the slate. Connections declared only by agents do not require app startup to authenticate. Local app databases need no ContextLayer login. Restart the app's `pnpm dev` after changing declarations, assignments, or secret values, and when the startup access token expires. Apply new migrations with the native Kysely CLI while development is running. Local agent execution and local MCP invocation or View preview are not provided by this app development path. The [local resource architecture](https://github.com/usecontextlayer/contextlayer/blob/main/ARCHITECTURE.md#resource-configuration-and-execution--principles) describes preparation and credential boundaries.

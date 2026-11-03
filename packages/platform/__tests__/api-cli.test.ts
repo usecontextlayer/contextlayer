@@ -153,14 +153,81 @@ test("describes the supplied contract without login or invocation", async ({
 	const describeResult = await apiCli.run("api", "request", "--describe")
 	expect(describeResult.exitCode, describeResult.stderr).toBe(0)
 	expect(JSON.parse(describeResult.stdout)).toMatchObject({
-		description: "Accept an opaque value",
-		method: "post",
-		operationId: "request",
-		path: "/values/{key}",
+		openapi: "3.1.0",
+		paths: {
+			"/values/{key}": {
+				post: {
+					description: "Accept an opaque value",
+					operationId: "request",
+				},
+			},
+		},
+		security: [{ bearer: [] }],
+		servers: [{ url: `${apiCli.settings.CTX_PLATFORM_URL}/transport` }],
 	})
 	const helpResult = await apiCli.run("api", "request", "--help")
 	expect(helpResult.exitCode).toBe(0)
 	expect(helpResult.stdout).toContain("Accept an opaque value")
+	expect(operationRequests).toBe(0)
+})
+
+test("describes recursive OpenAPI schemas with their references intact", async ({
+	apiCli,
+}) => {
+	await rm(join(String(apiCli.settings.CTX_CONFIG_DIR), "auth.json"))
+	let operationRequests = 0
+	apiCli.respond = (response) => {
+		operationRequests++
+		response.statusCode = 500
+		response.end("Unexpected invocation")
+	}
+	apiCli.document = {
+		...apiCli.document,
+		components: {
+			...apiCli.document.components,
+			schemas: {
+				RecursiveNode: {
+					properties: {
+						children: {
+							items: { $ref: "#/components/schemas/RecursiveNode" },
+							type: "array",
+						},
+					},
+					type: "object",
+				},
+			},
+		},
+		paths: {
+			"/recursive": {
+				get: {
+					operationId: "recursive",
+					responses: {
+						200: {
+							content: {
+								"application/json": {
+									schema: { $ref: "#/components/schemas/RecursiveNode" },
+								},
+							},
+							description: "A recursive value",
+						},
+					},
+				},
+			},
+		},
+	}
+	const result = await apiCli.run("api", "recursive", "--describe")
+	expect(result.exitCode, result.stderr).toBe(0)
+	const described = JSON.parse(result.stdout)
+	const path = "/recursive"
+	expect(Object.keys(described.paths)).toEqual([path])
+	expect(described.paths[path].get.operationId).toBe("recursive")
+	expect(
+		described.paths[path].get.responses["200"].content["application/json"].schema,
+	).toEqual({ $ref: "#/components/schemas/RecursiveNode" })
+	expect(described.components).toEqual(apiCli.document.components)
+	expect(described.components.schemas.RecursiveNode.properties.children.items).toEqual({
+		$ref: "#/components/schemas/RecursiveNode",
+	})
 	expect(operationRequests).toBe(0)
 })
 

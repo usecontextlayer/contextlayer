@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process"
+import { cpSync } from "node:fs"
 import { defineConfig } from "tsdown"
 
 export default defineConfig({
@@ -9,20 +9,17 @@ export default defineConfig({
 		auth: "auth-public.ts",
 		cli: "cli.ts",
 		database: "database.ts",
+		scaffold: "scaffold.ts",
 		vite: "vite.ts",
 	},
 	format: ["esm"],
 	hooks: {
 		"build:done": () => {
-			// The image cache lockfile records the CLI's integrity and cannot ship inside that same CLI.
-			execFileSync(
-				"tar",
-				["--exclude=template/pnpm-lock.yaml", "-czf", "dist/template.tar.gz", "template"],
-				{
-					env: { ...process.env, COPYFILE_DISABLE: "1" },
-					stdio: "inherit",
-				},
-			)
+			// The image cache lockfile records this CLI's integrity and must not ship inside it.
+			cpSync("templates", "dist/templates", {
+				filter: (source) => source !== "templates/app/pnpm-lock.yaml",
+				recursive: true,
+			})
 		},
 	},
 	outDir: "dist",

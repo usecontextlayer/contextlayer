@@ -182,7 +182,7 @@ export function createApi() {
 	slateRouting.openapi(
 		createRoute({
 			description:
-				"Resolve a public hostname to a slate authorized for this caller. Private slates require the owning user or an organization member. The pathname identifies the requested slate path; /slate.json skips the execution billing check.",
+				"Resolve a public hostname to a slate authorized for this caller. Private slates require the owning user or an organization member. The pathname identifies the requested slate path.",
 			method: "get",
 			operationId: "resolveSlate",
 			path: "/resolve",
@@ -222,10 +222,8 @@ export function createApi() {
 				c.var.config.CTX_AUTH_ISSUER,
 			)
 			if (!result.allowed) return c.body(null, slateViewingErrorStatus[result.reason])
-			if (input.pathname !== "/slate.json") {
-				const billing = await checkSlateBilling(c.var.db, c.var.config, result.slate)
-				if (!billing.allowed) return c.text(billing.message, 402)
-			}
+			const billing = await checkSlateBilling(c.var.db, c.var.config, result.slate)
+			if (!billing.allowed) return c.text(billing.message, 402)
 			return c.json({ id: result.slate.id, owner: getSlateOwner(result.slate) }, 200)
 		},
 	)
