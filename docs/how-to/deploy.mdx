@@ -40,7 +40,7 @@ Work from the slate checkout created by `init`, which has `origin` set to the sl
   <Step title="Inspect the build and published revision">
     Use the CLI's CI entry point to list your slate's retained runs, their native execution states, and timing metadata. These reads use your normal ContextLayer login; you do not need Cloudflare credentials or a separate Cloudflare installation. Use CLI help for the supported CI listing and Worker inspection operations and paging options. Native CI help also describes operations that ContextLayer does not expose.
 
-    Cloudflare defines the run statuses and retains the records. The listing does not include each run's source commit, step details, execution error text, or logs. Run status describes pipeline execution; to confirm which source revision is published, inspect the Worker's commit tag and compare it with your pushed commit. Neither the latest push nor a completed run alone confirms the published revision.
+    Cloudflare defines the run statuses and retains the records. The listing does not include each run's source commit, step details, execution error text, or logs. Run status describes pipeline execution. Inspect the Worker's native script tags for `commit:<sha>` and compare that SHA with your pushed commit. ContextLayer sets this tag after deployment succeeds; it identifies the last successfully tagged deployment. Deployment and tagging are separate operations, so a deployment can succeed before a tag update fails. Neither the latest push nor a completed run alone confirms the published revision.
 
     Published-script metadata does not identify the revision that answered a particular HTTP request.
   </Step>
@@ -60,7 +60,7 @@ The pipeline takes its source code, declarations, migrations, and schedules from
 1. **Prepare.** ContextLayer reads the commit's declarations and selects the databases to migrate.
 2. **Build.** An isolated sandbox runs `pnpm install --frozen-lockfile` and `pnpm build`. There is no fallback that publishes source files when package or build configuration is missing.
 3. **Migrate.** The commit's Kysely migrations run against the slate's owner-mode databases and every existing member's viewer-mode databases.
-4. **Deploy.** rclone transfers `build/` and `.wrangler/deploy/` with their relative paths intact. Wrangler follows its native pointer to publish the compiled Worker and assets, or assets-only output. ContextLayer supplies the slate's deployment identity and commit tag.
+4. **Deploy.** rclone transfers `build/` and `.wrangler/deploy/` with their relative paths intact. Wrangler follows its native pointer to publish the compiled Worker and assets, or assets-only output. ContextLayer supplies the slate's deployment identity, then sets its native `commit:<sha>` script tag after Wrangler succeeds. A failed tag update fails this step.
 5. **Schedules.** The schedules of the slate's agents are installed from the same commit.
 
 <Warning>

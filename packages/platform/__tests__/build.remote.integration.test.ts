@@ -159,6 +159,7 @@ export function handler({ value }: z.infer<typeof tool.inputSchema>) {
 		await git("-c", "commit.gpgsign=false", "commit", "-m", "Author deployment fixture")
 		await git("push", repo.remote, "main")
 
+		const commit = await git("rev-parse", "HEAD")
 		const id = crypto.randomUUID()
 		resources.defer(async () => {
 			let cursor: string | undefined
@@ -183,7 +184,7 @@ export function handler({ value }: z.infer<typeof tool.inputSchema>) {
 				providerData: { namespace: "contextlayer-test" },
 				ref: "refs/heads/main",
 				repo: slate.id,
-				sha: await git("rev-parse", "HEAD"),
+				sha: commit,
 				trigger: "push",
 			} satisfies CiParams<CloudflareArtifacts>,
 		})
@@ -217,6 +218,23 @@ export function handler({ value }: z.infer<typeof tool.inputSchema>) {
 			.array(z.object({ name: z.string(), type: z.string() }))
 			.parse(JSON.parse(stdout))
 		expect(bindings).toEqual([])
+		if (source === "empty") {
+			const { stdout: metadata } = await execute("pnpm", [
+				"dlx",
+				"cf",
+				"workers-for-platforms",
+				"dispatch-namespaces",
+				"scripts",
+				"get",
+				slate.id,
+				"--dispatch-namespace",
+				namespace,
+			])
+			const published = z
+				.object({ script: z.object({ tags: z.array(z.string()) }) })
+				.parse(JSON.parse(metadata))
+			expect(published.script.tags).toContain(`commit:${commit}`)
+		}
 		const deployed = SLATES.get(slate.id)
 		if (source === "app") {
 			const database = prepareSlateDatabase(slate, null, "notes", {
