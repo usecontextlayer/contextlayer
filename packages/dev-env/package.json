@@ -6,7 +6,7 @@
 		"@usecontextlayer/db-infra": "workspace:*",
 		"better-auth": "1.7.7",
 		"execa": "^10.2.1",
-		"kysely": "^0.29.5",
+		"kysely": "^0.29.8",
 		"openid-client": "^6.8.9",
 		"postgres": "^3.4.9",
 		"wait-on": "^9.5.1",

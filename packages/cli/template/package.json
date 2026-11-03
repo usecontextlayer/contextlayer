@@ -6,7 +6,7 @@
 		"class-variance-authority": "0.7.1",
 		"cn": "0.5.0",
 		"isbot": "5.2.2",
-		"kysely": "0.29.5",
+		"kysely": "0.29.8",
 		"lucide-react": "1.61.0",
 		"react": "19.3.1",
 		"react-dom": "19.3.1",

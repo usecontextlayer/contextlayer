@@ -6,7 +6,7 @@
 		"@modelcontextprotocol/server": "2.4.0",
 		"@usecontextlayer/cli": "workspace:*",
 		"hono": "^4.13.16",
-		"kysely": "0.29.5",
+		"kysely": "0.29.8",
 		"vite-plugin-singlefile": "2.3.4",
 		"zod": "^4.6.7"
 	},
