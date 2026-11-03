@@ -14,6 +14,16 @@ Review test changes with [tests-pin-behavior](.agents/checks/tests-pin-behavior.
 
 **Implement directly and cover with tests where the repo's conventions call for them; do not run the red→green ceremony by default.** Reach for test-first when the user asks for it on a task, or when a failing test is the cheapest proof that a subtle defect (a concurrency or ordering bug) is real. The ceremony costs real wall-clock on mechanical changes and earns its place only where the failing test is itself the evidence. A general standard that mandates test-first everywhere does not override this repo's stance.
 
+### Prove the Test Can Fail
+
+**Every new or changed test must be seen failing against a deliberate regression of the behavior it promises.** Once the test passes, break the production code under test the way a real regression would — drop the guard, invert the condition, return another Owner's row — and run the test. It must fail at the assertion that names the promise, for that reason. A failure anywhere else — a type or import error, a fixture that never comes up, a build that breaks — proves nothing about the assertion; make a narrower break. When an assertion constrains two sides, such as including one result and excluding another, break each side separately. Integration lanes load prebuilt test builds, so run the break through the lane's root command; a break the test build never received proves nothing.
+
+**A test that still passes against the break guards nothing.** Strengthen it until the break fails it, or remove it. Never adjust the break until something fails: the break models the regression, and the test must answer to it.
+
+**Restore the production code exactly, confirm an empty diff against the committed file, and run the test green again.** Never commit a break. Break code only in a checkout you own, where no other session's run or commit can pick it up.
+
+This is the evidence test-first would have produced, gathered without its ceremony, so it applies whether or not the test was written first. Make each break by hand at the promised behavior: the question is whether this test guards this promise, not which code anywhere is unguarded.
+
 ### Placement & Tiers
 
 Tests are sorted by a **filename suffix** defined in `vitest.shared.ts`. The **tier** separates unit tests (hermetic, run on CI) from integration tests (need real services, runtimes or remote resources, opt-in only). Unit tests are marked by **runtime**. **The unmarked name claims the default runtime: bare `*.test.ts(x)` runs in plain Node**, and `.browser.` marks browser-coupled tests. Integration tests are marked by **lane**: `<subject>.<lane>.integration.test.ts(x)`. Write a bare unit test unless it needs Chromium or an integration prerequisite.
