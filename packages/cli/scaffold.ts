@@ -1,5 +1,13 @@
 import { Buffer } from "node:buffer"
-import { lstat, mkdir, readdir, readFile, writeFile } from "node:fs/promises"
+import {
+	constants,
+	copyFile,
+	lstat,
+	mkdir,
+	readdir,
+	readFile,
+	writeFile,
+} from "node:fs/promises"
 import { dirname, join, relative, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { execa } from "execa"
@@ -101,6 +109,11 @@ export async function initializeSlateSource(
 ) {
 	await mkdir(directory, { recursive: true })
 	await writeFile(join(directory, "AGENTS.md"), orientation, { flag: "wx" })
+	await copyFile(
+		fileURLToPath(new URL("./templates/_gitignore", import.meta.url)),
+		join(directory, ".gitignore"),
+		constants.COPYFILE_EXCL,
+	)
 	await execa("git", ["init", "--initial-branch=main"], {
 		cwd: directory,
 		stdio: "inherit",

@@ -50,7 +50,7 @@ Sign in with `login` and choose the slate's [Owner](/core-concepts/owners-and-vi
 npx @usecontextlayer/cli init my-slate
 ```
 
-Plain `init` creates a private slate in ContextLayer and writes an empty checkout: Git on `main`, a short root `AGENTS.md`, and package/Vite/Cloudflare build tooling. It installs dependencies, commits the source and lockfile, and sets the slate's Git remote. Empty means there is no authored app, static content, agent, or MCP tool yet; it still has everything needed for the normal build pipeline.
+Plain `init` creates a private slate in ContextLayer and writes an empty checkout: Git on `main`, a short root `AGENTS.md`, a `.gitignore`, and package/Vite/Cloudflare build tooling. It installs dependencies, commits the source and lockfile, and sets the slate's Git remote. Empty means there is no authored app, static content, agent, or MCP tool yet; it still has everything needed for the normal build pipeline.
 
 The slate's name is its hostname label, generated at creation from an adjective, a color and an animal. The [Quickstart](/quickstart) selects the app scaffold explicitly and walks through a working notes app.
 
@@ -67,7 +67,7 @@ This adds a minimal `public/index.html` for you to fill in. The `app`, `public`,
 
 A scaffold checks its complete proposal before writing. If any proposed file conflicts with existing source, none of that scaffold's files are written. The CLI prints every proposed path and its complete content for your coding agent to integrate. This is expected when adding app or MCP setup to a checkout that already has package or build configuration. During initialization with several scaffold flags, clean proposals apply while conflicting proposals remain pending integration.
 
-Standalone scaffolding writes source only. After integrating a proposal that changes dependencies, run `pnpm install` and commit `pnpm-lock.yaml` with the source. Scaffolding does not merge files, install dependencies, or commit for you.
+Standalone scaffolding writes source only. After integrating a proposal that changes dependencies, run `pnpm install` and commit `pnpm-lock.yaml` with the source. Scaffolding does not merge files, install dependencies, or commit for you. Initialization supplies the repository's `.gitignore`; adding a scaffold leaves your ignore rules unchanged.
 
 The files remain authoritative after scaffolding. Writing the same files directly has the same effect; there is no component registration or installed-part state to maintain. The root `AGENTS.md` points your coding agent to these docs, while `app/AGENTS.md` supplies app-specific guidance when present. These guides are authoring material, not required served manuals.
 

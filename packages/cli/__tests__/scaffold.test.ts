@@ -1,16 +1,34 @@
 import { Buffer } from "node:buffer"
 import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
-import { join } from "node:path"
-import { fileURLToPath } from "node:url"
+import { dirname, join } from "node:path"
+import { fileURLToPath, pathToFileURL } from "node:url"
 import { declarationSchema } from "@usecontextlayer/shared/declaration"
 import { execa } from "execa"
-import { afterEach, beforeEach, expect, test } from "vitest"
+import { afterAll, afterEach, beforeAll, beforeEach, expect, test } from "vitest"
 import { initializeSlateSource } from "@/scaffold"
 
 const cli = fileURLToPath(new URL("../dist/cli.mjs", import.meta.url))
 const templates = fileURLToPath(new URL("../dist/templates/", import.meta.url))
 let directory: string
+let packageDirectory: string
+let packedScaffold: typeof import("@/scaffold")
+
+beforeAll(async () => {
+	packageDirectory = await mkdtemp(join(tmpdir(), "ctx-scaffold-package-"))
+	const archive = join(packageDirectory, "cli.tgz")
+	await execa("pnpm", ["pack", "--out", archive], {
+		cwd: fileURLToPath(new URL("..", import.meta.url)),
+	})
+	await execa("tar", ["-xzf", archive, "-C", packageDirectory])
+	packedScaffold = await import(
+		pathToFileURL(join(packageDirectory, "package/dist/scaffold.mjs")).href
+	)
+})
+
+afterAll(async () => {
+	await rm(packageDirectory, { force: true, recursive: true })
+})
 
 beforeEach(async () => {
 	directory = await mkdtemp(join(tmpdir(), "ctx-scaffold-"))
@@ -19,6 +37,49 @@ beforeEach(async () => {
 afterEach(async () => {
 	await rm(directory, { force: true, recursive: true })
 })
+
+test("the packed initializer keeps generated and local files out of Git for every slate shape", async () => {
+	for (const scaffolds of [[], ["app"], ["public"], ["agents"], ["mcp"]] as const) {
+		const checkout = join(directory, scaffolds[0] ?? "empty")
+		await packedScaffold.initializeSlateSource(checkout, [...scaffolds])
+		const ignored = [
+			"node_modules/dependency/index.js",
+			".contextlayer/connections.json",
+			".contextlayer/databases/local.sqlite",
+			"build/index.js",
+			".wrangler/deploy/config.json",
+			".env",
+			".dev.vars",
+		]
+		for (const file of [...ignored, ".env.example", ".dev.vars.example"]) {
+			await mkdir(dirname(join(checkout, file)), { recursive: true })
+			await writeFile(join(checkout, file), "fixture")
+		}
+		await execa("git", ["add", "."], { cwd: checkout })
+		const { stdout } = await execa("git", ["ls-files"], { cwd: checkout })
+		const tracked = stdout.split("\n")
+		expect(tracked).toEqual(
+			expect.arrayContaining([
+				".gitignore",
+				"AGENTS.md",
+				"package.json",
+				".env.example",
+				".dev.vars.example",
+			]),
+		)
+		for (const file of ignored) expect(tracked).not.toContain(file)
+	}
+})
+
+test.each(["app", "mcp"] as const)(
+	"the packed %s scaffold preserves authored Git ignore rules",
+	async (kind) => {
+		const ignore = "/my-local-state/\n"
+		await writeFile(join(directory, ".gitignore"), ignore)
+		expect(await packedScaffold.scaffoldSlate(kind, directory)).toBe(true)
+		expect(await readFile(join(directory, ".gitignore"), "utf8")).toBe(ignore)
+	},
+)
 
 test("an empty slate starts on main with native build tooling and no authored parts", async () => {
 	const checkout = join(directory, "slate")
