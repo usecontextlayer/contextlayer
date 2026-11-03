@@ -8,7 +8,7 @@
 	"devDependencies": {
 		"@cloudflare/workers-types": "^5.20261102.1",
 		"tsdown": "latest",
-		"vitest": "^5.1.0"
+		"vitest": "^4.1.12"
 	},
 	"exports": {
 		"./accounts": {
