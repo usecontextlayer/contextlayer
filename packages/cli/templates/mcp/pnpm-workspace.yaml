@@ -3,4 +3,4 @@ allowBuilds:
   workerd: true
 engineStrict: true
 minimumReleaseAgeExclude:
-  - '@usecontextlayer/*'
+  - "@usecontextlayer/*"
