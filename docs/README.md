@@ -15,9 +15,12 @@ For contribution rules, read [AGENTS.md](AGENTS.md) together with the repository
 | `reference/` | SDK contracts and integration details. |
 | `docs.json` | Site configuration, navigation, and the generated OpenAPI reference source. |
 | `.mintignore` | Excludes contributor-only `AGENTS.md` from the site while retaining it in the checkout. |
-| `logo/` and `favicon.png` | Shared site branding assets. |
+| `logo.css` | Adapts Mintlify's logo slot to the shared wordmark's intrinsic size and theme color. |
+| `favicon.png` | Site favicon. |
 
 A page's path relative to this directory determines its URL. Its `title` and `description` live in YAML front matter. Add the page to `docs.json` when it should appear in the sidebar.
+
+The wordmark is served by the marketing website at `https://www.usecontextlayer.com/brand/wordmark.svg`. Both logo theme entries reference that one asset. Publish the website asset before deploying a docs change that first references it.
 
 ## Preview changes
 

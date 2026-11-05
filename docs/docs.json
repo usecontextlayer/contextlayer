@@ -46,8 +46,8 @@
 		}
 	},
 	"logo": {
-		"dark": "/logo/dark.svg",
-		"light": "/logo/light.svg"
+		"dark": "https://www.usecontextlayer.com/brand/wordmark.svg",
+		"light": "https://www.usecontextlayer.com/brand/wordmark.svg"
 	},
 	"name": "ContextLayer",
 	"navbar": {

@@ -1,0 +1,10 @@
+/* biome-ignore-start lint/complexity/noImportantStyles: Mintlify's documented logo hook requires important sizing overrides; the SVG owns the dimensions. */
+img.nav-logo {
+	width: auto !important;
+	height: auto !important;
+}
+/* biome-ignore-end lint/complexity/noImportantStyles: End the Mintlify sizing override. */
+
+.dark img.nav-logo {
+	filter: invert(1);
+}
