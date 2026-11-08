@@ -162,7 +162,7 @@ function getAgentActor(access: SlateAccess, type: AgentActor["type"]): AgentActo
 	return type === "app" ? { type } : { id: access.identity.user.id, type }
 }
 
-function getAgentScope(
+function getAgentInstance(
 	agents: DurableObjectNamespace<SlateAgent>,
 	access: SlateAccess,
 	name: string,
@@ -193,7 +193,7 @@ export async function createAgentConversation(
 		name,
 	)
 	if (!prepared.allowed) return prepared
-	const conversation = await getAgentScope(
+	const conversation = await getAgentInstance(
 		agents,
 		access,
 		name,
@@ -227,7 +227,7 @@ export async function submitAgentInput(
 	const submission = agentSubmissionSchema
 		.optional()
 		.parse(
-			await getAgentScope(agents, access, name, actorType).submit(
+			await getAgentInstance(agents, access, name, actorType).submit(
 				conversationId,
 				input,
 				prepared.configuration,
@@ -247,7 +247,7 @@ export async function getAgentSubmission(
 ) {
 	return agentSubmissionSchema
 		.optional()
-		.parse(await getAgentScope(agents, access, name, actorType).getSubmission(id))
+		.parse(await getAgentInstance(agents, access, name, actorType).getSubmission(id))
 }
 
 export async function listAgentConversations(
@@ -260,7 +260,7 @@ export async function listAgentConversations(
 	cursor?: Cursor,
 ) {
 	return agentConversationsPageSchema.parse(
-		await getAgentScope(agents, access, name, actorType).listConversations(
+		await getAgentInstance(agents, access, name, actorType).listConversations(
 			query,
 			limit,
 			cursor,
@@ -280,7 +280,7 @@ export async function getAgentConversation(
 	if (!authorization.allowed) return authorization
 	const conversation = agentConversationViewSchema
 		.optional()
-		.parse(await getAgentScope(agents, access, name, actorType).getConversation(id))
+		.parse(await getAgentInstance(agents, access, name, actorType).getConversation(id))
 	return conversation
 		? ({ allowed: true, conversation } as const)
 		: ({ allowed: false, reason: "not-found" } as const)
@@ -302,7 +302,7 @@ export async function listAgentEntries(
 	const entries = agentEntriesPageSchema
 		.optional()
 		.parse(
-			await getAgentScope(agents, access, name, actorType).entries(
+			await getAgentInstance(agents, access, name, actorType).entries(
 				id,
 				query,
 				limit,
@@ -314,14 +314,14 @@ export async function listAgentEntries(
 		: ({ allowed: false, reason: "not-found" } as const)
 }
 
-function getAgentScopes(
+function getAgentInstances(
 	agents: DurableObjectNamespace<SlateAgent>,
 	access: SlateAccess,
 	name: string,
 ) {
 	return [
-		getAgentScope(agents, access, name, "app"),
-		getAgentScope(agents, access, name, "user"),
+		getAgentInstance(agents, access, name, "app"),
+		getAgentInstance(agents, access, name, "user"),
 	]
 }
 
@@ -333,9 +333,9 @@ export async function listAgentSchedules(
 ) {
 	const authorization = await authorizeAgentManagement(access, issuer)
 	if (!authorization.allowed) return authorization
-	const scopes = await getAgentScopes(agents, access, name)
+	const instances = getAgentInstances(agents, access, name)
 	const schedules = await Promise.all(
-		scopes.map(async (agent) =>
+		instances.map(async (agent) =>
 			z.array(agentRuntimeScheduleSchema).parse(await agent.listAuthoredSchedules()),
 		),
 	)
@@ -351,7 +351,7 @@ export async function getAgentSchedule(
 ) {
 	const authorization = await authorizeAgentManagement(access, issuer)
 	if (!authorization.allowed) return authorization
-	for (const agent of await getAgentScopes(agents, access, name)) {
+	for (const agent of getAgentInstances(agents, access, name)) {
 		const schedule = await agent.getAuthoredSchedule(id)
 		if (schedule)
 			return {

@@ -160,7 +160,7 @@ test("API conversations execute Code Mode database calls and retain owner and vi
 		"done",
 	)
 	assert(result.type === "input" && result.status === "done")
-	const messages: z.infer<typeof agentEntrySchema>[] = []
+	const entries: z.infer<typeof agentEntrySchema>[] = []
 	let cursor: Cursor | undefined
 	do {
 		const entriesUrl = new URL(`${conversationUrl}/entries`)
@@ -171,10 +171,10 @@ test("API conversations execute Code Mode database calls and retain owner and vi
 		const response = await fetch(entriesUrl, { headers })
 		expect(response.status).toBe(200)
 		const page = agentEntriesPageSchema.parse(await response.json())
-		messages.push(...page.items)
+		entries.push(...page.items)
 		cursor = page.next
 	} while (cursor)
-	const toolResults = messages
+	const toolResults = entries
 		.filter((entry) => entry.kind === ToolResultEntry.kind)
 		.flatMap((entry) => entry.model ?? [])
 		.filter((message) => message.role === "toolResult" && message.toolName === "codemode")

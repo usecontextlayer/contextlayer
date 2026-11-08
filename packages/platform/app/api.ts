@@ -1335,7 +1335,6 @@ export function createApi() {
 			{ name: "Accounts" },
 			{ name: "Shared secrets" },
 			{ name: "Agents" },
-			{ name: "Agent jobs" },
 		],
 	}))
 	return api

@@ -55,7 +55,7 @@ An agent-only slate that declares a database must also supply its [Kysely config
 
     The secret's mode decides whose value the agent uses. In owner mode the slate's Owner saves one value and the agent uses it for every actor. In viewer mode each person saves their own, and the agent uses the value of the person it acts for. See [Secrets](/core-concepts/resources/secrets).
 
-    New conversations use `claude-haiku-4-5` unless the agent declares `ANTHROPIC_MODEL` under `secrets`. To choose the model, declare `ANTHROPIC_MODEL` with a mode and save a full Anthropic model ID as its value, the same way as the key. Once declared, the value is required. A changed value applies to new conversations; existing conversations retain their model.
+    This walkthrough uses the default model. To select another, follow [Model and authentication](/core-concepts/slate/agents#model-and-authentication) before creating the conversation.
   </Step>
   <Step title="Deploy by pushing to main">
     Commit the agent and push `main`:
@@ -153,13 +153,9 @@ An agent-only slate that declares a database must also supply its [Kysely config
 
 ## What the hosted agent can use
 
-The SlateAgent provides one shared Linux computer and these tools to its conversations:
+See [Tools a hosted agent gets](/core-concepts/slate/agents#tools-a-hosted-agent-gets) when writing instructions that use the computer, databases, or connected services. Keep anything that must last in a declared database; the computer's files are scratch space.
 
-- **Coding tools.** `read`, `write`, `edit` and `bash` work on the agent instance's computer, shared across its conversations. The computer has no internet access. Its files are scratch space without a persistence guarantee after shutdown; starting a fresh conversation does not clear them. Keep anything that must last in a database.
-- **`database_query`.** Runs parameterized SQL against a database the agent declares. Writes persist immediately and are visible to the app and to other conversations that use the same database. The database's tables come from its migrations under `databases/<slug>`, which ContextLayer applies when the slate deploys.
-- **Connection tools.** For each connection the agent declares, it gets that service's actions from Composio, named `<slug>__<ACTION>` after the connection's slug. Each call resolves the current authorized assignment; an in-flight call keeps its captured account. Creating a conversation and submitting input require the agent's declared connections to be assigned. Connect an account with the CLI's `accounts add` command and, after you push, assign it with the `connections` command; each command's `--help` shows how.
-
-The model is not offered connection tools directly. It finds them through Code Mode, which searches and describes the agent's tools, and calls them from short scripts. Those scripts run in a sandbox that reaches only the agent's own tools, including `database_query` and the coding tools. The model can also call `database_query` and coding tools directly.
+To add a connected service to this agent, declare the connection, push it, and assign an account before creating a conversation or submitting input. Every declared connection must have an assignment. Connect an account with the CLI's `accounts add` command and assign it with the `connections` command; each command's `--help` shows how. [Connect an account](/how-to/connect-an-account) walks through the setup.
 
 ## Continue developing
 

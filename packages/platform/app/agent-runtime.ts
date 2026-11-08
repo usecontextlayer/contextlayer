@@ -93,7 +93,7 @@ export class SlateAgent extends DurableObject<PlatformEnv["Bindings"]> {
 							const databases = Object.keys(configuration.databases)
 							if (databases.length) {
 								sections.push(
-									`Declared databases: ${databases.join(", ")}. Database writes persist and are shared with the app and other conversations using that resource. Files in the sandbox are scratch space.`,
+									`Declared databases: ${databases.join(", ")}. Database writes persist and are shared with the app and other conversations using that resource. Files on the computer are scratch space.`,
 								)
 							}
 							const connections = Object.entries(configuration.connections)

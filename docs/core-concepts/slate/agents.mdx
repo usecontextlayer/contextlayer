@@ -39,7 +39,7 @@ A hosted agent runs on an Anthropic model. Declare and supply one of these provi
 
 If both are declared, the API key takes precedence. The secret's `owner` or `viewer` mode selects who supplies the credential, independently of which model the agent uses.
 
-The default model is `claude-haiku-4-5`. To choose another, declare an `ANTHROPIC_MODEL` secret and save a full Anthropic model ID as its value. A changed model applies to new conversations; existing conversations retain their selected model. Provider credentials are resolved from current hosted configuration when needed. See [Secrets](/core-concepts/resources/secrets).
+The default model is `claude-haiku-4-5`. To choose another, declare an `ANTHROPIC_MODEL` secret and save a full Anthropic model ID as its value. Once declared, the model value is required. A changed model applies to new conversations; existing conversations retain their selected model. Provider credentials are resolved from current hosted configuration when needed. See [Secrets](/core-concepts/resources/secrets).
 
 ## Conversations and submissions
 
@@ -81,7 +81,7 @@ Scope follows the agent's requirements, including its connections, databases, an
 
 ## Tools a hosted agent gets
 
-- **The computer.** `read`, `write`, `edit` and `bash` work on the SlateAgent's shared Linux computer, which has no internet access. Files there are scratch space, with no persistence guarantee after the computer stops. It stops after ten minutes without activity; durable conversation history does not restore its files.
+- **The computer.** `read`, `write`, `edit` and `bash` work on the SlateAgent's shared Linux computer, which has no internet access. Files there are scratch space, with no persistence guarantee after the computer stops; durable conversation history does not restore its files.
 - **`database_query`.** Parameterized SQL against the agent's declared databases. Writes persist immediately and are shared with the app and with other agent conversations that use the same database.
 - **Connection tools.** For each declared connection, the actions of its toolkit, named `<connection-slug>__<ACTION>`. They use the account currently assigned to that connection; the agent never sees its credentials.
 
