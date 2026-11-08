@@ -39,7 +39,7 @@ A hosted agent runs on an Anthropic model. Declare and supply one of these provi
 
 If both are declared, the API key takes precedence. The secret's `owner` or `viewer` mode selects who supplies the credential, independently of which model the agent uses.
 
-The default model is `claude-haiku-4-5`. To choose another, declare an `ANTHROPIC_MODEL` secret and save a full Anthropic model ID as its value. Once declared, the model value is required. A changed model applies to new conversations; existing conversations retain their selected model. Provider credentials are resolved from current hosted configuration when needed. See [Secrets](/core-concepts/resources/secrets).
+The default model is `claude-haiku-4-5`. To choose another, declare an `ANTHROPIC_MODEL` secret and save a full Anthropic model ID as its value. Once declared, the model value is required. A changed model applies to new conversations; existing conversations retain their selected model. The runtime selects the provider secret's Owner when it refreshes configuration. For API-key access, it loads the actual value when authenticating each model request. See [Secrets](/core-concepts/resources/secrets).
 
 ## Conversations and submissions
 
@@ -49,7 +49,9 @@ Create a conversation for a fresh history, then submit a prompt to it. Submit an
 
 The conversation directory includes Pi's native root and task-owned child conversations. Starting the runtime creates its root without submitting work, so a conversation's presence alone does not show that a user prompt or scheduled task has run.
 
-Instructions are prepared from current source for each model request, including when continuing an existing conversation. Each resource tool call resolves current declared authorization and assignments. A call already in flight keeps the assignment it captured; the next call resolves again. Starting a new conversation does not freeze the agent's instructions or resources.
+Instructions and resources refresh from current source when the hosted runtime opens and before it accepts new input, whether submitted manually or by a schedule. The same refresh selects assigned accounts and declared secret Owners. One submission can produce several model and tool rounds without another refresh. Starting a new conversation does not freeze the agent's instructions or resources: conversations share installed configuration, so input to one conversation can affect later work in another. A tool call already in flight keeps the binding it captured.
+
+Opening a cold runtime also loads its configuration and connection-tool definitions before recovering accepted work. Reading history or inspecting schedules can therefore wait for those services or fail if they are unavailable. Reading configuration or history does not enroll you as a slate member; membership follows [setup and first use of viewer-mode resources](/core-concepts/owners-and-viewers#slate-members).
 
 Conversations in the same SlateAgent share its computer and connection-tool working context. A fresh conversation does not clear those files or create a separate computer. Different SlateAgents have separate computers and connection sessions. They can still share declared resources: your manual digest and an app-scoped digest can read the same owner-mode notes database. Conversation records, computer scratch files, and persistent database rows have separate lifetimes. For the wider relationship between agents, interfaces, and shared data, see [How the parts work together](/core-concepts/slate#how-the-parts-work-together).
 
@@ -83,7 +85,7 @@ Scope follows the agent's requirements, including its connections, databases, an
 
 - **The computer.** `read`, `write`, `edit` and `bash` work on the SlateAgent's shared Linux computer, which has no internet access. Files there are scratch space, with no persistence guarantee after the computer stops; durable conversation history does not restore its files.
 - **`database_query`.** Parameterized SQL against the agent's declared databases. Writes persist immediately and are shared with the app and with other agent conversations that use the same database.
-- **Connection tools.** For each declared connection, the actions of its toolkit, named `<connection-slug>__<ACTION>`. They use the account currently assigned to that connection; the agent never sees its credentials.
+- **Connection tools.** For each declared connection, the actions of its toolkit, named `<connection-slug>__<ACTION>`. They use the account selected at the latest configuration refresh; the agent never sees its credentials.
 
 The agent uses **Code Mode** to discover connection tools and coordinate calls in a short script. Connection tools are available through Code Mode; computer tools and `database_query` can also be called directly. A Code Mode script reaches the agent's tools without gaining general computer or network access. The computer's lack of internet access does not prevent authorized connection tools from calling their external services.
 

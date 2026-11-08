@@ -6,7 +6,10 @@ import type {
 	SubmissionId,
 	UserInput,
 } from "@earendil-works/pi-durable"
-import { resourcesForConsumer } from "@usecontextlayer/shared/declaration"
+import {
+	hasViewerResources,
+	resourcesForConsumer,
+} from "@usecontextlayer/shared/declaration"
 import { z } from "zod"
 import { getAgentInstanceName } from "@/agent-instance"
 import type { SlateAgent } from "@/agent-runtime"
@@ -26,8 +29,12 @@ import type { PlatformDb } from "@/database"
 import type { SlateId } from "@/database/models/public/Slate"
 import type { PlatformBindings, PlatformConfig } from "@/env"
 import { readLatestSlateDeclarations } from "@/slate-declarations.server"
-import type { ResolvedSlateResourceConfiguration } from "@/slate-resource-configuration.server"
-import { prepareSlateResourceExecution } from "@/slate-resource-execution.server"
+import { addSlateMember } from "@/slate-members.server"
+import {
+	getSlateResourceConfiguration,
+	type ResolvedSlateResourceConfiguration,
+	resolveSlateResourceConfiguration,
+} from "@/slate-resource-configuration.server"
 import type { Slate } from "@/slates.schema"
 import {
 	authorizeSlateManagement,
@@ -120,7 +127,6 @@ export function prepareAgentConfiguration(
 export async function getAgentConfiguration(
 	db: PlatformDb,
 	artifacts: Artifacts,
-	memberProvisioning: PlatformEnv["Bindings"]["MEMBER_PROVISIONING"],
 	config: PlatformBindings,
 	slate: Slate,
 	actor: AgentActor,
@@ -136,15 +142,19 @@ export async function getAgentConfiguration(
 		name,
 		type: "agent",
 	})
-	const resolved = await prepareSlateResourceExecution(
+	if (
+		hasViewerResources(resources) &&
+		(actor.type === "app" || slate.visibility === "public")
+	)
+		return { allowed: false, reason: "forbidden" } as const
+	const configuration = await getSlateResourceConfiguration(
 		db,
-		memberProvisioning,
 		config,
 		slate,
-		actor,
-		snapshot,
+		actor.type === "user" ? actor : null,
 		resources,
 	)
+	const resolved = resolveSlateResourceConfiguration(configuration)
 	if (!resolved.allowed) return resolved
 	return {
 		allowed: true,
@@ -155,7 +165,38 @@ export async function getAgentConfiguration(
 			resolved.configuration,
 			name,
 		),
+		snapshot,
 	} as const
+}
+
+export async function prepareAgentExecution(
+	db: PlatformDb,
+	artifacts: Artifacts,
+	memberProvisioning: PlatformEnv["Bindings"]["MEMBER_PROVISIONING"],
+	config: PlatformBindings,
+	slate: Slate,
+	actor: AgentActor,
+	name: string,
+) {
+	const prepared = await getAgentConfiguration(db, artifacts, config, slate, actor, name)
+	if (!prepared.allowed) return prepared
+	if (
+		actor.type === "user" &&
+		hasViewerResources(
+			resourcesForConsumer(prepared.snapshot.resources, { name, type: "agent" }),
+		)
+	) {
+		const member = await addSlateMember(
+			db,
+			memberProvisioning,
+			config,
+			slate,
+			actor,
+			prepared.snapshot,
+		)
+		if (!member.allowed) return member
+	}
+	return prepared
 }
 
 function getAgentActor(access: SlateAccess, type: AgentActor["type"]): AgentActor {
@@ -183,7 +224,7 @@ export async function createAgentConversation(
 	name: string,
 	actorType: AgentActor["type"],
 ) {
-	const prepared = await getAgentConfiguration(
+	const prepared = await prepareAgentExecution(
 		db,
 		artifacts,
 		memberProvisioning,
@@ -214,7 +255,7 @@ export async function submitAgentInput(
 	conversationId: ConversationId,
 	input: { content: UserInput; requestId?: string },
 ) {
-	const prepared = await getAgentConfiguration(
+	const prepared = await prepareAgentExecution(
 		db,
 		artifacts,
 		memberProvisioning,

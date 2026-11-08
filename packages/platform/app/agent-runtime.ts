@@ -42,7 +42,7 @@ import {
 	type ScheduledAgentRun,
 	scheduledAgentRunSchema,
 } from "@/agents.schema"
-import { getAgentConfiguration } from "@/agents.server"
+import { getAgentConfiguration, prepareAgentExecution } from "@/agents.server"
 import type { PlatformEnv } from "@/context"
 import { createPlatformDb } from "@/database"
 import type { SlateId } from "@/database/models/public/Slate"
@@ -53,6 +53,7 @@ import { slateSchema } from "@/slates.schema"
 export class SlateAgent extends DurableObject<PlatformEnv["Bindings"]> {
 	private lifecycle: Lifecycle<PlatformEnv["Bindings"]>
 	private registry = createRegistry()
+	private models = createModels()
 	private connectionSessions = new Map<
 		string,
 		Promise<Awaited<ReturnType<Composio["use"]>>>
@@ -73,71 +74,8 @@ export class SlateAgent extends DurableObject<PlatformEnv["Bindings"]> {
 	private harness = new PiHarness({
 		defaults: { model: { id: "claude-haiku-4-5", provider: "anthropic" } },
 		harness: async ({ storage, context, onWake }) => {
-			const models = createModels()
-			models.setProvider(
-				createAgentProvider(
-					this.env,
-					this.env.MERIDIAN,
-					async () => (await this.configuration()).secrets,
-				),
-			)
 			this.registry.install(CodingTools)
-			this.registry.install({
-				name: "contextlayer",
-				sections: [
-					{
-						key: "slate_instructions",
-						render: async () => {
-							const configuration = await this.configuration()
-							const sections = [configuration.agent.instructions]
-							const databases = Object.keys(configuration.databases)
-							if (databases.length) {
-								sections.push(
-									`Declared databases: ${databases.join(", ")}. Database writes persist and are shared with the app and other conversations using that resource. Files on the computer are scratch space.`,
-								)
-							}
-							const connections = Object.entries(configuration.connections)
-							if (connections.length) {
-								sections.push(
-									`Connections:\n${connections.map(([name, { toolkit }]) => `- ${name}: ${toolkit}`).join("\n")}`,
-								)
-							}
-							return sections.join("\n\n")
-						},
-					},
-				],
-				tools: [
-					defineTool({
-						description:
-							"Execute parameterized SQL against a declared database. Read its schema with sqlite_master or PRAGMA table_info. Writes persist immediately.",
-						execute: async ({
-							slug,
-							sql,
-							params,
-						}: z.input<typeof databaseQuerySchema>) => {
-							const database = (await this.configuration()).databases[slug]
-							if (!database) throw new Error("not-declared")
-							const result = databaseResultSchema.parse(
-								await this.env.DATABASES.getByName(database.instance_name).query(
-									sql,
-									params,
-								),
-							)
-							return {
-								output: [{ text: JSON.stringify(result), type: "text" }],
-								structuredOutput: result,
-							}
-						},
-						name: "database_query",
-						parameters: z.toJSONSchema(databaseQuerySchema, { io: "input" }),
-						structuredOutputSchema: z.toJSONSchema(databaseResultSchema),
-					}),
-				],
-			})
-			const prepared = await this.prepareConfiguration()
-			await this.installConnectionTools(
-				prepared.allowed ? prepared.configuration.connections : {},
-			)
+			await this.installConfiguration(await this.readConfiguration())
 			const pi = await Harness.open(
 				storage,
 				{
@@ -155,7 +93,7 @@ export class SlateAgent extends DurableObject<PlatformEnv["Bindings"]> {
 							id: this.ctx.id.toString(),
 						})
 					},
-					models,
+					models: this.models,
 					onWake,
 					registry: this.registry,
 				},
@@ -185,7 +123,7 @@ export class SlateAgent extends DurableObject<PlatformEnv["Bindings"]> {
 			.use(this.scheduler)
 	}
 
-	private async prepareConfiguration() {
+	private async readConfiguration() {
 		assert(this.ctx.id.name)
 		const { slateId, name, actor } = parseAgentInstanceName(this.ctx.id.name)
 		const config = parseDatabaseEnv(this.env)
@@ -201,7 +139,6 @@ export class SlateAgent extends DurableObject<PlatformEnv["Bindings"]> {
 			return await getAgentConfiguration(
 				db,
 				this.env.ARTIFACTS,
-				this.env.MEMBER_PROVISIONING,
 				this.env,
 				slate,
 				actor,
@@ -212,37 +149,82 @@ export class SlateAgent extends DurableObject<PlatformEnv["Bindings"]> {
 		}
 	}
 
-	private async configuration() {
-		const prepared = await this.prepareConfiguration()
-		if (!prepared.allowed) {
-			throw new Error(
-				prepared.reason === "secret-required"
-					? `secret-required: ${prepared.name}`
-					: prepared.reason === "connection-required"
-						? `connection-required: ${prepared.slug}`
-						: prepared.reason,
-			)
-		}
-		return prepared.configuration
-	}
-
-	private async installConnectionTools(connections: AgentConfiguration["connections"]) {
-		const { extension, namespaces } = await createAgentTools(
+	private async installConfiguration(
+		prepared:
+			| { allowed: true; configuration: AgentConfiguration }
+			| Extract<Awaited<ReturnType<typeof getAgentConfiguration>>, { allowed: false }>,
+	) {
+		const configuration = prepared.allowed ? prepared.configuration : undefined
+		const { namespaces, tools } = await createAgentTools(
 			this.env.COMPOSIO_API_KEY,
 			await Promise.all(
-				Object.entries(connections).map(async ([name, connection]) => ({
-					name,
-					session: await this.connectionSession(connection),
-					toolkit: connection.toolkit,
-				})),
+				Object.entries(configuration?.connections ?? {}).map(
+					async ([name, connection]) => ({
+						name,
+						session: await this.connectionSession(connection),
+						toolkit: connection.toolkit,
+					}),
+				),
 			),
-			async (name, toolkit) => {
-				const connection = (await this.configuration()).connections[name]
-				if (!connection || connection.toolkit !== toolkit) throw new Error("not-declared")
-				return this.connectionSession(connection)
-			},
 		)
-		this.registry.install(extension)
+		const sections = configuration ? [configuration.agent.instructions] : []
+		const databases = Object.keys(configuration?.databases ?? {})
+		if (databases.length) {
+			sections.push(
+				`Declared databases: ${databases.join(", ")}. Database writes persist and are shared with the app and other conversations using that resource. Files on the computer are scratch space.`,
+			)
+		}
+		const connections = Object.entries(configuration?.connections ?? {})
+		if (connections.length) {
+			sections.push(
+				`Connections:\n${connections.map(([name, { toolkit }]) => `- ${name}: ${toolkit}`).join("\n")}`,
+			)
+		}
+		const instructions = sections.join("\n\n")
+		this.models.setProvider(
+			createAgentProvider(this.env, this.env.MERIDIAN, () => {
+				if (!prepared.allowed) {
+					throw new Error(
+						prepared.reason === "secret-required"
+							? `secret-required: ${prepared.name}`
+							: prepared.reason === "connection-required"
+								? `connection-required: ${prepared.slug}`
+								: prepared.reason,
+					)
+				}
+				return prepared.configuration.secrets
+			}),
+		)
+		if (configuration) {
+			tools.push(
+				defineTool({
+					description:
+						"Execute parameterized SQL against a declared database. Read its schema with sqlite_master or PRAGMA table_info. Writes persist immediately.",
+					execute: async ({ slug, sql, params }: z.input<typeof databaseQuerySchema>) => {
+						const database = configuration.databases[slug]
+						if (!database) throw new Error("not-declared")
+						const result = databaseResultSchema.parse(
+							await this.env.DATABASES.getByName(database.instance_name).query(
+								sql,
+								params,
+							),
+						)
+						return {
+							output: [{ text: JSON.stringify(result), type: "text" }],
+							structuredOutput: result,
+						}
+					},
+					name: "database_query",
+					parameters: z.toJSONSchema(databaseQuerySchema, { io: "input" }),
+					structuredOutputSchema: z.toJSONSchema(databaseResultSchema),
+				}),
+			)
+		}
+		this.registry.install({
+			name: "contextlayer",
+			sections: [{ key: "slate_instructions", render: () => instructions }],
+			tools,
+		})
 		this.registry.install(createCodemodeExtension({ namespaces, sandbox: this.sandbox }))
 	}
 
@@ -313,7 +295,7 @@ export class SlateAgent extends DurableObject<PlatformEnv["Bindings"]> {
 		configuration: AgentConfiguration,
 		entry?: InputEntry,
 	) {
-		await this.installConnectionTools(configuration.connections)
+		await this.installConfiguration({ allowed: true, configuration })
 		return this.harness.session(String(id)).submit(input.content, {
 			entry,
 			operationId: input.requestId,
@@ -404,7 +386,31 @@ export class SlateAgent extends DurableObject<PlatformEnv["Bindings"]> {
 		schedule: Schedule<ScheduledAgentRun>,
 	) {
 		const scheduled = scheduledAgentRunSchema.parse(input)
-		const prepared = await this.prepareConfiguration()
+		assert(this.ctx.id.name)
+		const { slateId, name, actor } = parseAgentInstanceName(this.ctx.id.name)
+		const config = parseDatabaseEnv(this.env)
+		const db = createPlatformDb(config.CTX_PLATFORM_DATABASE_URL)
+		let prepared: Awaited<ReturnType<typeof prepareAgentExecution>>
+		try {
+			const slate = slateSchema.parse(
+				await db
+					.selectFrom("slate")
+					.selectAll()
+					.where("id", "=", slateId)
+					.executeTakeFirstOrThrow(),
+			)
+			prepared = await prepareAgentExecution(
+				db,
+				this.env.ARTIFACTS,
+				this.env.MEMBER_PROVISIONING,
+				this.env,
+				slate,
+				actor,
+				name,
+			)
+		} finally {
+			await db.destroy()
+		}
 		if (!prepared.allowed && prepared.reason === "agent-definition-missing") {
 			await this.provisionSchedules(
 				scheduled.slateId,

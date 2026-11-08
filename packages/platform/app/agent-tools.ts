@@ -5,7 +5,7 @@ import {
 	type Tool,
 	ToolRouterSessionExecuteResponseSchema,
 } from "@composio/core"
-import type { Extension, ToolRegistration } from "@earendil-works/pi-durable"
+import type { ToolRegistration } from "@earendil-works/pi-durable"
 import type { CodemodeNamespace } from "@earendil-works/pi-durable/codemode"
 import { z } from "zod"
 import { zodToJsonSchema } from "zod-to-json-schema"
@@ -19,10 +19,6 @@ export async function createAgentTools(
 		session: Awaited<ReturnType<Composio["use"]>>
 		toolkit: string
 	}[],
-	resolveSession: (
-		name: string,
-		toolkit: string,
-	) => Promise<Awaited<ReturnType<Composio["use"]>>>,
 ) {
 	const composio = new Composio({ apiKey })
 	const namespaces: CodemodeNamespace[] = connections.map(({ name, toolkit }) => ({
@@ -30,9 +26,9 @@ export async function createAgentTools(
 		name,
 		prefix: `${name}__`,
 	}))
-	const tools = (
+	const tools: ToolRegistration[] = (
 		await Promise.all(
-			connections.map(async ({ name, session, toolkit }) => {
+			connections.map(async ({ name, session }) => {
 				const actions = await composio.tools.getRawToolRouterSessionTools(
 					session.sessionId,
 				)
@@ -43,8 +39,7 @@ export async function createAgentTools(
 						deferred: true,
 						description: action.description ?? action.name,
 						execute: async (args) => {
-							const current = await resolveSession(name, toolkit)
-							const result = await current.execute(
+							const result = await session.execute(
 								action.slug,
 								args as Record<string, unknown>,
 							)
@@ -62,13 +57,7 @@ export async function createAgentTools(
 			}),
 		)
 	).flat()
-	return {
-		extension: {
-			name: "connections",
-			tools,
-		},
-		namespaces,
-	} satisfies { extension: Extension; namespaces: CodemodeNamespace[] }
+	return { namespaces, tools }
 }
 
 function actionResultSchema(action: Tool) {

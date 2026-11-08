@@ -28,12 +28,10 @@ test("agent tools expose native action inputs and session result schemas to Code
 		account.id,
 		"gmail",
 	)
-	const { extension } = await createAgentTools(
-		COMPOSIO_API_KEY,
-		[{ name: "mail", session, toolkit: "gmail" }],
-		async () => session,
-	)
-	const tool = extension.tools.find(({ name }) => name === "mail__GMAIL_GET_PROFILE")
+	const { tools } = await createAgentTools(COMPOSIO_API_KEY, [
+		{ name: "mail", session, toolkit: "gmail" },
+	])
+	const tool = tools.find(({ name }) => name === "mail__GMAIL_GET_PROFILE")
 	if (!tool) throw new Error("Missing mail profile tool")
 	const declaration = renderToolSignature({
 		inputSchema: z.record(z.string(), z.unknown()).parse(tool.parameters),

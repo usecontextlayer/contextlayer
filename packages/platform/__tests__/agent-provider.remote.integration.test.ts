@@ -15,7 +15,7 @@ test("declared API access fails without falling back to subscription access", as
 		CLAUDE_CODE_OAUTH_TOKEN: owner,
 	}
 	const models = createModels()
-	models.setProvider(createAgentProvider(platform.env, MERIDIAN, async () => secrets))
+	models.setProvider(createAgentProvider(platform.env, MERIDIAN, () => secrets))
 	const model = models.getModel("anthropic", "claude-haiku-4-5")
 	assert(model)
 	await expect(models.getAuth(model)).rejects.toThrow(

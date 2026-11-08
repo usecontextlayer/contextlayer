@@ -15,7 +15,7 @@ An agent-only slate that declares a database must also supply its [Kysely config
   <Step title="Write the agent">
     Create `agents/digest/` and add the two files below. The directory name, `digest`, becomes the agent's name.
 
-    `instructions.md` holds the agent's standing instructions. New and existing conversations use the current instructions when preparing a model request. The prompt you send arrives as separate user input.
+    `instructions.md` holds the agent's standing instructions. The runtime loads current instructions when it opens and before accepting new input in a new or existing conversation. The prompt you send arrives as separate user input. See [Conversations and submissions](/core-concepts/slate/agents#conversations-and-submissions) for when changes take effect across conversations.
 
     ```markdown agents/digest/instructions.md
     You summarize the notes in the `notes` table of the `notes` database. Each row stores its note text in `body`. Read them with the `database_query` tool and reply in two or three sentences.

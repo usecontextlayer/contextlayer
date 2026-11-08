@@ -10,7 +10,7 @@ import { loadSharedSecret, secretKey, secretKeyRef } from "@/secrets.server"
 export function createAgentProvider(
 	config: PlatformBindings,
 	meridian: PlatformEnv["Bindings"]["MERIDIAN"],
-	secrets: () => Promise<AgentConfiguration["secrets"]>,
+	secrets: () => AgentConfiguration["secrets"],
 ): Provider<"anthropic-messages"> {
 	const provider = anthropicProvider()
 	const subscriptionFetch: typeof fetch = (input, init) =>
@@ -30,7 +30,7 @@ export function createAgentProvider(
 			apiKey: {
 				name: "Declared Anthropic access",
 				async resolve() {
-					const declared = await secrets()
+					const declared = secrets()
 					if (declared.ANTHROPIC_API_KEY) {
 						return {
 							auth: {

@@ -3,6 +3,7 @@ import { mkdir, readdir, writeFile } from "node:fs/promises"
 import {
 	AssistantEntry,
 	InboxDoc,
+	SystemEntry,
 	ToolResultEntry,
 	UsageDoc,
 	UserEntry,
@@ -19,12 +20,13 @@ import {
 	agentEntriesPageSchema,
 	agentSubmissionSchema,
 } from "@/agents.schema"
+import { slateMemberSchema } from "@/slate-members.schema"
 import { slateSchema } from "@/slates.schema"
 
 test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
 	"API conversations without an app using %s retain their results and history",
 	{ timeout: 240_000 },
-	async (providerSecret, { directory, git, platform, webEnv, webSession }) => {
+	async (providerSecret, { db, directory, git, platform, webEnv, webSession }) => {
 		const { origin, worker } = platform
 		const headers = new Headers(webSession.headers)
 		headers.set("origin", origin)
@@ -68,6 +70,15 @@ test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
 		)
 		await git("push", `${origin}/git/${slate.id}`, "main")
 		const url = `${origin}/api/slates/${slate.id}/agents/brief`
+		const membership = db
+			.selectFrom("slate_member")
+			.select("user_id")
+			.where("slate_id", "=", slate.id)
+			.where("user_id", "=", slateMemberSchema.shape.user_id.parse(webSession.user.id))
+		expect(await membership.executeTakeFirst()).toBeUndefined()
+		const discovered = await fetch(`${url}/conversations?limit=10`, { headers })
+		expect(discovered.status).toBe(200)
+		expect(await membership.executeTakeFirst()).toBeUndefined()
 		const completedConversations = []
 		const markerPath = "/workspace/contextlayer-coding-tools.txt"
 		const prompts = [
@@ -81,6 +92,7 @@ test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
 		for (const [index, prompt] of prompts.entries()) {
 			const created = await fetch(`${url}/conversations`, { headers, method: "POST" })
 			expect(created.status).toBe(201)
+			expect(await membership.executeTakeFirst()).toEqual({ user_id: webSession.user.id })
 			const conversation = agentConversationSchema.parse(await created.json())
 			const conversationUrl = `${url}/conversations/${conversation.id}`
 			expect(new URL(created.headers.get("location") ?? "", origin).href).toBe(
@@ -199,6 +211,12 @@ test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
 		assert(first && second)
 		expect(first.conversation.id).not.toBe(second.conversation.id)
 		const firstUrl = `${url}/conversations/${first.conversation.id}`
+		const revisedInstructions =
+			"You are a concise assistant. Explain completed work in plain language.\n"
+		await writeFile(`${directory}/agents/brief/instructions.md`, revisedInstructions)
+		await git("add", "agents/brief/instructions.md")
+		await git("-c", "commit.gpgsign=false", "commit", "-m", "Update agent instructions")
+		await git("push", `${origin}/git/${slate.id}`, "main")
 		const followup =
 			"Summarize what you did in your previous response in one sentence. Do not use tools."
 		const continued = await fetch(`${firstUrl}/submissions`, {
@@ -230,6 +248,7 @@ test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
 		expect(continuedResult.status, JSON.stringify(continuedResult)).toBe("done")
 		assert(continuedResult.type === "input" && continuedResult.status === "done")
 		const continuedAnswer = continuedResult.answer
+		const continuedEntry = continuedResult.entry
 		expect(continuedAnswer).not.toBe(first.result.answer)
 		first.prompts.push(followup)
 		const pageQuery = new URLSearchParams({ limit: "2", order: "ascending" })
@@ -255,6 +274,18 @@ test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
 		expect(new Set(pagedEntries.map((entry) => entry.id)).size).toBe(pagedEntries.length)
 		expect(pagedEntries).toContainEqual(first.answer)
 		expect(pagedEntries.some((entry) => entry.id === continuedAnswer)).toBe(true)
+		expect(
+			pagedEntries
+				.filter((entry) => entry.kind === SystemEntry.kind && entry.id >= continuedEntry)
+				.flatMap((entry) => entry.model ?? []),
+		).toContainEqual(
+			expect.objectContaining({
+				role: "system",
+				sections: expect.objectContaining({
+					slate_instructions: expect.stringContaining(revisedInstructions),
+				}),
+			}),
+		)
 		const conversationsQuery = new URLSearchParams({ limit: "1", order: "ascending" })
 		const conversations: z.infer<typeof agentConversationsPageSchema>["items"] = []
 		let conversationPage: z.infer<typeof agentConversationsPageSchema>
