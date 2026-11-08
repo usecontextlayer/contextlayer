@@ -1,18 +1,20 @@
-import type { Usage } from "@earendil-works/pi-ai"
-import type { UsageState } from "@earendil-works/pi-durable"
+import type {
+	ConversationId,
+	ConversationQuery,
+	ConversationRecord,
+	Cursor,
+	EntryId,
+	EntryQuery,
+	SubmissionId,
+	TaskId,
+	UserInput,
+} from "@earendil-works/pi-durable"
 import { z } from "@hono/zod-openapi"
 import { secretNameSchema } from "@usecontextlayer/shared/declaration"
 import { agentActorSchema } from "@usecontextlayer/shared/slate-provisioning"
 import { slateResourceConfigurationSchema } from "@usecontextlayer/shared/slate-resources"
 import { ownerSchema } from "@usecontextlayer/shared/slate-usage"
-import type { Schedule } from "agents"
-import type {
-	PiOperationResult,
-	PiPendingOperation,
-	PiReceipt,
-	PiSessionInfo,
-} from "agents/harness/pi"
-import type { RoutedAgentEntry } from "agents/routing"
+import type { Schedule } from "agents/schedules"
 
 import { slateSchema, slateTargetSchema } from "@/slates.schema"
 
@@ -24,114 +26,181 @@ export const agentSchema = z.object({
 	instructions: z.string(),
 })
 
-export const agentRunRequestSchema = z.strictObject({
+export const agentParamsSchema = z.object({
 	name: z.string().min(1).openapi({
 		description: "Agent directory name under agents/ in the pushed source.",
 	}),
-	prompt: z.string().min(1).openapi({
-		description: "User message for a fresh job, separate from its standing instructions.",
-	}),
-})
-
-export const agentParamsSchema = z.object({
-	name: agentRunRequestSchema.shape.name,
 	target: slateTargetSchema,
 })
-export const agentJobRequestSchema = agentRunRequestSchema.omit({ name: true })
-export const agentJobReceiptSchema = z.object({
-	accepted: z.boolean().openapi({
-		description: "Whether the native operation was admitted; not a task-success result.",
-	}),
-	operationId: z.string().openapi({
-		description: "Native Pi operation identifier, distinct from the catalog job ID.",
-	}),
-	session: z.string().openapi({
-		description: "Pi session ID scoped to this job; IDs can recur in other jobs.",
-	}),
-}) satisfies z.ZodType<PiReceipt>
-export const agentJobPendingSchema = z.object({
-	operationId: agentJobReceiptSchema.shape.operationId,
-	session: agentJobReceiptSchema.shape.session,
-	status: z.enum(["queued", "running", "parked"]).openapi({
-		description:
-			"`parked` means Pi stopped retrying the task after repeated crash restarts without new progress.",
-	}),
-}) satisfies z.ZodType<PiPendingOperation>
-export const agentJobResultSchema = z.object({
-	operationId: agentJobReceiptSchema.shape.operationId,
-	reason: z.string().optional().openapi({
-		description: "Native explanation when the operation settles without an answer.",
-	}),
-	session: agentJobReceiptSchema.shape.session,
-	status: z.enum(["done", "unanswered"]).openapi({
-		description:
-			"done means the operation answered; unanswered means it settled without an answer. Neither asserts task success.",
-	}),
-	text: z.string().optional().openapi({
-		description:
-			"Final answer text when supplied by the native operation; not a transcript.",
-	}),
-}) satisfies z.ZodType<PiOperationResult>
-export const agentJobOperationSchema = z.union([
-	agentJobPendingSchema,
-	agentJobResultSchema,
-])
-export const agentJobTriggerSchema = z.discriminatedUnion("type", [
-	z.object({ type: z.literal("api") }),
-	z.object({ schedule: z.string(), scheduleId: z.string(), type: z.literal("schedule") }),
-])
-export const agentJobMetadataSchema = z.object({
-	actor: agentActorSchema,
-	trigger: agentJobTriggerSchema,
-})
-export type AgentJobMetadata = z.infer<typeof agentJobMetadataSchema>
-export type AgentJobTrigger = z.infer<typeof agentJobTriggerSchema>
 
-export const agentJobEntrySchema = z.object({
-	createdAt: z
-		.number()
-		.openapi({ description: "Catalog creation time in Unix milliseconds." }),
-	id: z.uuid().openapi({
-		description: "Catalog job ID used by job routes.",
-	}),
-	metadata: agentJobMetadataSchema.nullable(),
-	updatedAt: z.number().openapi({
-		description: "Last catalog update in Unix milliseconds; not execution progress.",
-	}),
-}) satisfies z.ZodType<RoutedAgentEntry<AgentJobMetadata>>
-export const agentJobCreationSchema = z.object({
-	job: agentJobEntrySchema,
-	receipt: agentJobReceiptSchema,
+const piIdSchema = z.coerce.number().int().positive()
+export const agentConversationIdSchema = piIdSchema.transform(
+	(id) => id as ConversationId,
+)
+export const agentSubmissionIdSchema = piIdSchema.transform((id) => id as SubmissionId)
+const piEntryIdSchema = piIdSchema.transform((id) => id as EntryId)
+const piTaskIdSchema = piIdSchema.transform((id) => id as TaskId)
+
+export const agentConversationParamsSchema = agentParamsSchema.extend({
+	conversationId: agentConversationIdSchema,
 })
-export const agentJobsQuerySchema = z.object({
-	schedule: z.string().min(1).optional().openapi({
-		description: "Authored schedule name, independent of the native schedule ID.",
+export const agentSubmissionParamsSchema = agentParamsSchema.extend({
+	submissionId: agentSubmissionIdSchema,
+})
+
+export const agentReadQuerySchema = z.object({
+	actor: z.enum(["user", "app"]).default("user").openapi({
+		description:
+			"Select the authenticated user's agent instance or the named agent's app instance. Native IDs and cursors belong to that instance.",
 	}),
+})
+
+const piUserInputSchema = z.union([
+	z.string(),
+	z.array(
+		z.discriminatedUnion("type", [
+			z.object({
+				text: z.string(),
+				textSignature: z.string().optional(),
+				type: z.literal("text"),
+			}),
+			z.object({
+				data: z.string(),
+				mimeType: z.string(),
+				type: z.literal("image"),
+			}),
+		]),
+	),
+]) satisfies z.ZodType<UserInput>
+
+export const agentSubmissionRequestSchema = z.strictObject({
+	content: piUserInputSchema,
+	requestId: z.string().optional().openapi({
+		description: "Native Pi deduplication key, scoped to this conversation.",
+	}),
+})
+
+export const agentCursorSchema = z.record(z.string(), z.json()).openapi({
+	additionalProperties: true,
+	description: "Opaque native Pi scan cursor. Return it unchanged to the same scan.",
+	type: "object",
+}) satisfies z.ZodType<Cursor>
+
+const piCursorQuerySchema = z
+	.string()
+	.transform((value, ctx) => {
+		try {
+			return JSON.parse(value) as unknown
+		} catch (error) {
+			if (!(error instanceof SyntaxError)) throw error
+			ctx.addIssue({ code: "custom", message: "Use a JSON-encoded native Pi cursor" })
+			return z.NEVER
+		}
+	})
+	.pipe(agentCursorSchema)
+	.openapi({
+		description:
+			"JSON-encode the previous page's native next cursor without changing it.",
+		type: "string",
+	})
+
+const piPageQuerySchema = z.object({
+	cursor: piCursorQuerySchema.optional(),
+	limit: z.coerce.number().int().positive(),
+})
+const piScanOrderSchema = z.enum(["ascending", "descending"])
+
+export const agentConversationQuerySchema = z.object({
+	order: piScanOrderSchema.optional(),
+	ownerConversationId: agentConversationIdSchema.optional(),
+	ownerTaskId: piTaskIdSchema.optional(),
+}) satisfies z.ZodType<ConversationQuery>
+
+export const agentEntriesQuerySchema = z.object({
+	maxEntryId: piEntryIdSchema.optional(),
+	minEntryId: piEntryIdSchema.optional(),
+	order: piScanOrderSchema.optional(),
+}) satisfies z.ZodType<Omit<EntryQuery, "conversationId">>
+
+export const agentConversationsPageQuerySchema = agentConversationQuerySchema.extend({
+	...piPageQuerySchema.shape,
+	...agentReadQuerySchema.shape,
+})
+export const agentEntriesPageQuerySchema = agentEntriesQuerySchema.extend({
+	...piPageQuerySchema.shape,
+	...agentReadQuerySchema.shape,
+})
+
+export const agentConversationSchema = z.looseObject({
+	id: agentConversationIdSchema,
+	owner: z
+		.looseObject({ conversationId: agentConversationIdSchema, taskId: piTaskIdSchema })
+		.optional(),
+	parent: z
+		.looseObject({ at: piEntryIdSchema, conversationId: agentConversationIdSchema })
+		.optional(),
+}) satisfies z.ZodType<ConversationRecord>
+
+const piSubmissionSchema = z.looseObject({
+	conversationId: agentConversationIdSchema,
+	id: agentSubmissionIdSchema,
+	requestId: z.string().optional(),
+	trace: z.record(z.string(), z.string()).optional(),
+})
+const piInputSubmissionSchema = piSubmissionSchema.extend({ type: z.literal("input") })
+const piWriteSubmissionSchema = piSubmissionSchema.extend({ type: z.literal("write") })
+const piContinueSubmissionSchema = piSubmissionSchema.extend({
+	type: z.literal("continue"),
+})
+const piUnansweredSubmissionShape = {
+	// Keep JSON validation, but expose opaque HTTP typing: recursive JSON exceeds Hono's compiler limit.
+	// https://github.com/honojs/hono/issues/5543
+	detail: z
+		.json()
+		.transform((detail): unknown => detail)
+		.optional()
+		.openapi({
+			additionalProperties: true,
+			description: "Opaque native JSON detail for an unanswered submission.",
+			items: {},
+			type: ["string", "number", "boolean", "null", "object", "array"],
+		}),
+	reason: z.string(),
+	status: z.literal("unanswered"),
+}
+
+export const agentSubmissionSchema = z.union([
+	piInputSubmissionSchema.extend({ status: z.literal("queued") }),
+	piInputSubmissionSchema.extend({ entry: piEntryIdSchema, status: z.literal("placed") }),
+	piInputSubmissionSchema.extend({
+		answer: piEntryIdSchema,
+		entry: piEntryIdSchema,
+		status: z.literal("done"),
+	}),
+	piInputSubmissionSchema.extend({
+		...piUnansweredSubmissionShape,
+		entry: piEntryIdSchema.optional(),
+	}),
+	piWriteSubmissionSchema.extend({ status: z.literal("queued") }),
+	piWriteSubmissionSchema.extend({ entry: piEntryIdSchema, status: z.literal("done") }),
+	piWriteSubmissionSchema.extend(piUnansweredSubmissionShape),
+	piContinueSubmissionSchema.extend({ status: z.literal("placed") }),
+	piContinueSubmissionSchema.extend({
+		answer: piEntryIdSchema,
+		status: z.literal("done"),
+	}),
+	piContinueSubmissionSchema.extend(piUnansweredSubmissionShape),
+])
+
+export const agentConversationsPageSchema = z.object({
+	items: z.array(agentConversationSchema),
+	next: agentCursorSchema.optional(),
 })
 export const agentScheduleParamsSchema = agentParamsSchema.extend({
 	scheduleId: z.string().min(1).openapi({
 		description: "Native provisioned schedule ID from the schedule listing.",
 	}),
 })
-export const agentJobParamsSchema = agentParamsSchema.extend({
-	id: agentJobEntrySchema.shape.id,
-})
-
-export const agentJobSessionParamsSchema = agentJobParamsSchema.extend({
-	session: z
-		.string()
-		.refine((session) => Number.isSafeInteger(Number(session)) && Number(session) >= 1, {
-			message: "Use a positive integer Pi session ID",
-		}),
-})
-export const agentJobSessionSchema = z.object({
-	busy: z.boolean(),
-	id: agentJobReceiptSchema.shape.session,
-	parent: z.string().optional().openapi({
-		description: "Parent session ID within the same job, when present.",
-	}),
-}) satisfies z.ZodType<PiSessionInfo>
-
 const piMessageSchema = z
 	.looseObject({
 		role: z.enum(["system", "user", "assistant", "toolResult"]),
@@ -141,7 +210,7 @@ const piMessageSchema = z
 		description:
 			"Native Pi model message. Content, usage, tools, and provider fields pass through unchanged.",
 	})
-export const agentJobMessageSchema = z
+export const agentEntrySchema = z
 	.looseObject({
 		byTaskId: z.number().optional(),
 		conversationId: z.number(),
@@ -164,52 +233,26 @@ export const agentJobMessageSchema = z
 	})
 	.openapi({
 		description:
-			"Native active EntryRecord; native payload fields are preserved, not normalized into chat messages.",
+			"Native Pi EntryRecord. Model messages and extension payloads pass through unchanged.",
 	})
 
-const piUsageSchema = z.looseObject({
-	cacheRead: z.number(),
-	cacheWrite: z.number(),
-	cacheWrite1h: z.number().optional(),
-	cost: z.looseObject({
-		cacheRead: z.number(),
-		cacheWrite: z.number(),
-		input: z.number(),
-		output: z.number(),
-		total: z.number(),
-	}),
-	input: z.number(),
-	output: z.number(),
-	reasoning: z.number().optional(),
-	totalTokens: z.number(),
-}) satisfies z.ZodType<Usage>
-export const agentJobUsageSchema = z
+export const agentEntriesPageSchema = z.object({
+	items: z.array(agentEntrySchema),
+	next: agentCursorSchema.optional(),
+})
+export const agentConversationViewSchema = z
 	.looseObject({
-		models: z.record(z.string(), piUsageSchema),
-		tools: z.record(z.string(), piUsageSchema),
+		before: piEntryIdSchema.optional(),
+		conversation: agentConversationSchema,
+		docs: z.record(z.string(), z.looseObject({})).openapi({
+			description:
+				"Native built-in conversation documents, including internal execution and rendered system sections. Requires inspection authorization.",
+		}),
+		entries: z.array(agentEntrySchema),
 	})
 	.openapi({
 		description:
-			"Native model and tool usage aggregated across this job's conversations.",
-	}) satisfies z.ZodType<UsageState>
-
-export const agentJobInspectionSchema = z
-	.looseObject({
-		scheduling: z.enum(["paused", "running", "closing"]),
-		submissions: z.array(
-			z.looseObject({}).openapi({
-				description: "Opaque native SubmissionRecord, passed through unchanged.",
-			}),
-		),
-		tasks: z.array(
-			z.looseObject({}).openapi({
-				description: "Opaque native TaskInspection, passed through unchanged.",
-			}),
-		),
-	})
-	.openapi({
-		description:
-			"Native HarnessInspection of live work: unfinished tasks and queued or placed submissions. May be empty after settlement; use messages for completed work.",
+			"Native Pi ConversationView with recent entries and current conversation documents.",
 	})
 
 export const agentScheduleSchema = z.object({
@@ -220,11 +263,16 @@ export const agentScheduleSchema = z.object({
 			message: "Use a five-field cron expression in UTC",
 		}),
 	name: z.string().min(1),
-	prompt: agentRunRequestSchema.shape.prompt,
+	prompt: z.string().min(1).openapi({
+		description:
+			"User message submitted in a fresh conversation for each schedule firing.",
+	}),
 })
 
-export const scheduledAgentRunSchema = agentRunRequestSchema.extend({
+export const scheduledAgentRunSchema = z.strictObject({
 	actor: agentActorSchema,
+	name: agentParamsSchema.shape.name,
+	prompt: agentScheduleSchema.shape.prompt,
 	schedule: agentScheduleSchema.shape.name,
 	slateId: slateSchema.shape.id,
 })
@@ -247,9 +295,9 @@ export const agentRuntimeScheduleSchema = z.object({
 	Extract<Schedule<z.infer<typeof scheduledAgentRunSchema>>, { type: "cron" }>
 >
 
-export const agentRunSchema = z.strictObject({
+export const agentConfigurationSchema = z.strictObject({
 	actor: agentActorSchema,
-	agent: agentSchema.extend({ name: agentRunRequestSchema.shape.name }),
+	agent: agentSchema.extend({ name: agentParamsSchema.shape.name }),
 	connections: z.record(
 		z.string(),
 		z.object({
@@ -265,14 +313,15 @@ export const agentRunSchema = z.strictObject({
 			owner: true,
 		}),
 	),
-	prompt: agentRunRequestSchema.shape.prompt,
 	secrets: z.record(secretNameSchema, ownerSchema),
 	slateId: slateSchema.shape.id,
 })
 
-export type AgentRunRequest = z.infer<typeof agentRunRequestSchema>
-export type AgentRun = z.infer<typeof agentRunSchema>
-export type AgentJobOperation = z.infer<typeof agentJobOperationSchema>
-export type AgentJobEntry = z.infer<typeof agentJobEntrySchema>
+export type AgentConfiguration = z.infer<typeof agentConfigurationSchema>
+export type AgentSubmissionRequest = z.infer<typeof agentSubmissionRequestSchema>
+export type AgentConversationsPageQuery = z.infer<
+	typeof agentConversationsPageQuerySchema
+>
+export type AgentEntriesPageQuery = z.infer<typeof agentEntriesPageQuerySchema>
 export type AgentSchedule = z.infer<typeof agentScheduleSchema>
 export type ScheduledAgentRun = z.infer<typeof scheduledAgentRunSchema>

@@ -1,7 +1,7 @@
 FROM node:24-trixie-slim AS daemon
 RUN npm install --global pnpm@12.16.1
 WORKDIR /pi
-RUN pnpm add --ignore-scripts --save-exact @earendil-works/pi-env@1.4.0
+RUN pnpm add --ignore-scripts --save-exact @earendil-works/pi-env@1.5.0
 
 FROM node:24-trixie-slim
 RUN apt-get update \

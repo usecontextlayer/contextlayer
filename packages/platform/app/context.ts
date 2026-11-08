@@ -1,7 +1,6 @@
 import type { SlateDatabase } from "@usecontextlayer/shared/database-worker"
 import type { SlateProvisioning } from "@usecontextlayer/shared/slate-provisioning"
 import { createContext } from "react-router"
-import type { SlateAgentJob } from "@/agent-job"
 import type { SlateAgent } from "@/agent-runtime"
 import type { OwnerIdentity } from "@/auth.server"
 import type { PlatformDb } from "@/database"
@@ -21,7 +20,6 @@ export type PlatformEnv = {
 	Bindings: PlatformBindings & {
 		MERIDIAN: DurableObjectNamespace<Meridian>
 		AGENTS: DurableObjectNamespace<SlateAgent>
-		AGENT_JOBS: DurableObjectNamespace<SlateAgentJob>
 		SLATES: DispatchNamespace
 		ASSETS: Fetcher
 		ARTIFACTS: Artifacts

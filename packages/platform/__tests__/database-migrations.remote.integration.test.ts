@@ -7,7 +7,6 @@ import { promisify } from "node:util"
 import { test as base } from "@tests/database"
 import { copySlateProject } from "@usecontextlayer/dev-env/slate"
 import type { SlateProvisioning } from "@usecontextlayer/shared/slate-provisioning"
-import { getAgentByName } from "agents/routing"
 import { expect } from "vitest"
 import { getAgentInstanceName } from "@/agent-instance"
 import type { PlatformEnv } from "@/context"
@@ -127,8 +126,7 @@ test("reprovisioning preserves data, refreshes schedules, and stops on migration
 		DATABASES.getByName(unselected.instance_name).query("SELECT * FROM notes"),
 	).rejects.toThrow()
 	for (const id of ["first", "second"]) {
-		const agent = await getAgentByName(
-			AGENTS,
+		const agent = AGENTS.getByName(
 			getAgentInstanceName(slate.id, "daily", { id, type: "user" }),
 		)
 		expect(await agent.listAuthoredSchedules()).toMatchObject([
@@ -171,8 +169,7 @@ export async function up(db: Kysely<unknown>) {
 		).toEqual([{ body: selected.owner.id, source: "authored" }])
 	}
 	for (const id of ["first", "second"]) {
-		const agent = await getAgentByName(
-			AGENTS,
+		const agent = AGENTS.getByName(
 			getAgentInstanceName(slate.id, "daily", { id, type: "user" }),
 		)
 		expect(await agent.listAuthoredSchedules()).toMatchObject([
@@ -231,8 +228,7 @@ export async function up(db: Kysely<unknown>) {
 		])
 	}
 	for (const id of ["first", "second"]) {
-		const agent = await getAgentByName(
-			AGENTS,
+		const agent = AGENTS.getByName(
 			getAgentInstanceName(slate.id, "daily", { id, type: "user" }),
 		)
 		expect(await agent.listAuthoredSchedules()).toMatchObject([

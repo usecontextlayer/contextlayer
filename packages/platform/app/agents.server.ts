@@ -1,23 +1,30 @@
+import type {
+	ConversationId,
+	ConversationQuery,
+	Cursor,
+	EntryQuery,
+	SubmissionId,
+	UserInput,
+} from "@earendil-works/pi-durable"
 import { resourcesForConsumer } from "@usecontextlayer/shared/declaration"
-import { getAgentByName } from "agents/routing"
 import { z } from "zod"
 import { getAgentInstanceName } from "@/agent-instance"
 import type { SlateAgent } from "@/agent-runtime"
 import {
 	type AgentActor,
-	type AgentJobTrigger,
-	type AgentRun,
-	type AgentRunRequest,
-	agentJobInspectionSchema,
-	agentJobMessageSchema,
+	type AgentConfiguration,
+	agentConversationsPageSchema,
+	agentConversationViewSchema,
+	agentEntriesPageSchema,
 	agentRuntimeScheduleSchema,
 	type agentSchema,
+	agentSubmissionSchema,
 } from "@/agents.schema"
 import { listOrganizations } from "@/auth.server"
 import type { PlatformEnv } from "@/context"
 import type { PlatformDb } from "@/database"
 import type { SlateId } from "@/database/models/public/Slate"
-import type { PlatformConfig } from "@/env"
+import type { PlatformBindings, PlatformConfig } from "@/env"
 import { readLatestSlateDeclarations } from "@/slate-declarations.server"
 import type { ResolvedSlateResourceConfiguration } from "@/slate-resource-configuration.server"
 import { prepareSlateResourceExecution } from "@/slate-resource-execution.server"
@@ -74,14 +81,14 @@ async function readAgent(
 	} as const
 }
 
-export function prepareAgentRun(
+export function prepareAgentConfiguration(
 	slate: Slate,
 	actor: AgentActor,
 	agent: z.infer<typeof agentSchema>,
 	configuration: ResolvedSlateResourceConfiguration,
-	{ name, prompt }: AgentRunRequest,
+	name: string,
 ) {
-	const connections: AgentRun["connections"] = {}
+	const connections: AgentConfiguration["connections"] = {}
 	for (const [slug, connection] of Object.entries(configuration.connections)) {
 		connections[slug] = {
 			account_id: connection.account_id,
@@ -89,7 +96,7 @@ export function prepareAgentRun(
 			toolkit: connection.toolkit,
 		}
 	}
-	const run: AgentRun = {
+	const configurationValue: AgentConfiguration = {
 		actor,
 		agent: { commit: agent.commit, instructions: agent.instructions, name },
 		connections,
@@ -99,7 +106,6 @@ export function prepareAgentRun(
 				{ instance_name: database.instance_name, owner: database.owner },
 			]),
 		),
-		prompt,
 		secrets: Object.fromEntries(
 			Object.entries(configuration.secrets).map(([secretName, requirement]) => [
 				secretName,
@@ -108,26 +114,26 @@ export function prepareAgentRun(
 		),
 		slateId: slate.id,
 	}
-	return run
+	return configurationValue
 }
 
-export async function getAgentRun(
+export async function getAgentConfiguration(
 	db: PlatformDb,
 	artifacts: Artifacts,
 	memberProvisioning: PlatformEnv["Bindings"]["MEMBER_PROVISIONING"],
-	config: PlatformConfig,
+	config: PlatformBindings,
 	slate: Slate,
 	actor: AgentActor,
-	input: AgentRunRequest,
+	name: string,
 ) {
 	const snapshot = await readLatestSlateDeclarations(artifacts, slate.id)
 	if (!snapshot.allowed)
 		return { allowed: false, reason: "agent-definition-missing" } as const
-	const result = await readAgent(artifacts, slate.id, input.name, snapshot.commit)
+	const result = await readAgent(artifacts, slate.id, name, snapshot.commit)
 	if (!result.allowed)
 		return { allowed: false, reason: "agent-definition-missing" } as const
 	const resources = resourcesForConsumer(snapshot.resources, {
-		name: input.name,
+		name,
 		type: "agent",
 	})
 	const resolved = await prepareSlateResourceExecution(
@@ -142,192 +148,181 @@ export async function getAgentRun(
 	if (!resolved.allowed) return resolved
 	return {
 		allowed: true,
-		run: prepareAgentRun(slate, actor, result.agent, resolved.configuration, input),
+		configuration: prepareAgentConfiguration(
+			slate,
+			actor,
+			result.agent,
+			resolved.configuration,
+			name,
+		),
 	} as const
 }
 
-export async function startAgentRun(
-	agents: DurableObjectNamespace<SlateAgent>,
-	run: AgentRun,
-	trigger: AgentJobTrigger = { type: "api" },
-) {
-	const agent = await getAgentByName(
-		agents,
-		getAgentInstanceName(run.slateId, run.agent.name, run.actor),
-	)
-	return agent.start(run, trigger)
+function getAgentActor(access: SlateAccess, type: AgentActor["type"]): AgentActor {
+	return type === "app" ? { type } : { id: access.identity.user.id, type }
 }
 
-function getAgentScopes(
+function getAgentScope(
 	agents: DurableObjectNamespace<SlateAgent>,
-	{ slate, identity }: SlateAccess,
+	access: SlateAccess,
 	name: string,
+	actorType: AgentActor["type"],
 ) {
-	const actors: AgentActor[] = [{ type: "app" }, { id: identity.user.id, type: "user" }]
-	return Promise.all(
-		actors.map((actor) =>
-			getAgentByName(agents, getAgentInstanceName(slate.id, name, actor)),
+	return agents.getByName(
+		getAgentInstanceName(access.slate.id, name, getAgentActor(access, actorType)),
+	)
+}
+
+export async function createAgentConversation(
+	db: PlatformDb,
+	artifacts: Artifacts,
+	memberProvisioning: PlatformEnv["Bindings"]["MEMBER_PROVISIONING"],
+	agents: DurableObjectNamespace<SlateAgent>,
+	config: PlatformConfig,
+	access: SlateAccess,
+	name: string,
+	actorType: AgentActor["type"],
+) {
+	const prepared = await getAgentConfiguration(
+		db,
+		artifacts,
+		memberProvisioning,
+		config,
+		access.slate,
+		getAgentActor(access, actorType),
+		name,
+	)
+	if (!prepared.allowed) return prepared
+	const conversation = await getAgentScope(
+		agents,
+		access,
+		name,
+		actorType,
+	).createConversation(prepared.configuration)
+	return { allowed: true, conversation } as const
+}
+
+export async function submitAgentInput(
+	db: PlatformDb,
+	artifacts: Artifacts,
+	memberProvisioning: PlatformEnv["Bindings"]["MEMBER_PROVISIONING"],
+	agents: DurableObjectNamespace<SlateAgent>,
+	config: PlatformConfig,
+	access: SlateAccess,
+	name: string,
+	actorType: AgentActor["type"],
+	conversationId: ConversationId,
+	input: { content: UserInput; requestId?: string },
+) {
+	const prepared = await getAgentConfiguration(
+		db,
+		artifacts,
+		memberProvisioning,
+		config,
+		access.slate,
+		getAgentActor(access, actorType),
+		name,
+	)
+	if (!prepared.allowed) return prepared
+	const submission = agentSubmissionSchema
+		.optional()
+		.parse(
+			await getAgentScope(agents, access, name, actorType).submit(
+				conversationId,
+				input,
+				prepared.configuration,
+			),
+		)
+	return submission
+		? ({ allowed: true, submission } as const)
+		: ({ allowed: false, reason: "not-found" } as const)
+}
+
+export async function getAgentSubmission(
+	agents: DurableObjectNamespace<SlateAgent>,
+	access: SlateAccess,
+	name: string,
+	actorType: AgentActor["type"],
+	id: SubmissionId,
+) {
+	return agentSubmissionSchema
+		.optional()
+		.parse(await getAgentScope(agents, access, name, actorType).getSubmission(id))
+}
+
+export async function listAgentConversations(
+	agents: DurableObjectNamespace<SlateAgent>,
+	access: SlateAccess,
+	name: string,
+	actorType: AgentActor["type"],
+	query: ConversationQuery,
+	limit: number,
+	cursor?: Cursor,
+) {
+	return agentConversationsPageSchema.parse(
+		await getAgentScope(agents, access, name, actorType).listConversations(
+			query,
+			limit,
+			cursor,
 		),
 	)
 }
 
-export async function getAgentJob(
+export async function getAgentConversation(
 	agents: DurableObjectNamespace<SlateAgent>,
-	access: SlateAccess,
+	access: OwnerSlateAccess,
+	issuer: string,
 	name: string,
-	id: string,
+	actorType: AgentActor["type"],
+	id: ConversationId,
 ) {
-	for (const agent of await getAgentScopes(agents, access, name)) {
-		const job = await agent.getJob(id)
-		if (job) return job
-	}
-	return null
+	const authorization = await authorizeAgentManagement(access, issuer)
+	if (!authorization.allowed) return authorization
+	const conversation = agentConversationViewSchema
+		.optional()
+		.parse(await getAgentScope(agents, access, name, actorType).getConversation(id))
+	return conversation
+		? ({ allowed: true, conversation } as const)
+		: ({ allowed: false, reason: "not-found" } as const)
 }
 
-async function resolveAgentJob(
+export async function listAgentEntries(
 	agents: DurableObjectNamespace<SlateAgent>,
-	access: SlateAccess,
+	access: OwnerSlateAccess,
+	issuer: string,
 	name: string,
-	id: string,
+	actorType: AgentActor["type"],
+	id: ConversationId,
+	query: Omit<EntryQuery, "conversationId">,
+	limit: number,
+	cursor?: Cursor,
 ) {
-	for (const agent of await getAgentScopes(agents, access, name)) {
-		const job = await agent.resolveJob(id)
-		if (job) return job
-	}
-	return null
-}
-
-export async function getAgentJobOperation(
-	agents: DurableObjectNamespace<SlateAgent>,
-	access: SlateAccess,
-	name: string,
-	id: string,
-) {
-	using job = await resolveAgentJob(agents, access, name, id)
-	return job ? await job.operation() : null
-}
-
-export async function getAgentJobResult(
-	agents: DurableObjectNamespace<SlateAgent>,
-	access: SlateAccess,
-	name: string,
-	id: string,
-) {
-	using job = await resolveAgentJob(agents, access, name, id)
-	return job ? await job.result() : null
-}
-
-export async function listAgentJobs(
-	agents: DurableObjectNamespace<SlateAgent>,
-	access: SlateAccess,
-	name: string,
-	schedule?: string,
-) {
-	const scopes = await getAgentScopes(agents, access, name)
-	const jobs = await Promise.all(scopes.map((agent) => agent.listJobs()))
-	return jobs
-		.flat()
-		.filter(
-			(job) =>
-				schedule === undefined ||
-				(job.metadata?.trigger.type === "schedule" &&
-					job.metadata.trigger.schedule === schedule),
+	const authorization = await authorizeAgentManagement(access, issuer)
+	if (!authorization.allowed) return authorization
+	const entries = agentEntriesPageSchema
+		.optional()
+		.parse(
+			await getAgentScope(agents, access, name, actorType).entries(
+				id,
+				query,
+				limit,
+				cursor,
+			),
 		)
-		.sort((a, b) => b.createdAt - a.createdAt || b.id.localeCompare(a.id))
+	return entries
+		? ({ allowed: true, entries } as const)
+		: ({ allowed: false, reason: "not-found" } as const)
 }
 
-export async function listAgentJobSessions(
+function getAgentScopes(
 	agents: DurableObjectNamespace<SlateAgent>,
-	access: OwnerSlateAccess,
-	issuer: string,
+	access: SlateAccess,
 	name: string,
-	id: string,
 ) {
-	const authorization = await authorizeAgentManagement(access, issuer)
-	if (!authorization.allowed) return authorization
-	using job = await resolveAgentJob(agents, access, name, id)
-	if (!job) return { allowed: false, reason: "not-found" } as const
-	return { allowed: true, sessions: await job.listSessions() } as const
-}
-
-export async function getAgentJobMessages(
-	agents: DurableObjectNamespace<SlateAgent>,
-	access: OwnerSlateAccess,
-	issuer: string,
-	name: string,
-	id: string,
-	session: string,
-) {
-	const authorization = await authorizeAgentManagement(access, issuer)
-	if (!authorization.allowed) return authorization
-	using job = await resolveAgentJob(agents, access, name, id)
-	if (!job) return { allowed: false, reason: "not-found" } as const
-	const messages = await job.messages(session)
-	if (messages === null) return { allowed: false, reason: "not-found" } as const
-	return {
-		allowed: true,
-		messages: z.array(agentJobMessageSchema).parse(messages),
-	} as const
-}
-
-export async function getAgentJobUsage(
-	agents: DurableObjectNamespace<SlateAgent>,
-	access: OwnerSlateAccess,
-	issuer: string,
-	name: string,
-	id: string,
-) {
-	const authorization = await authorizeAgentManagement(access, issuer)
-	if (!authorization.allowed) return authorization
-	using job = await resolveAgentJob(agents, access, name, id)
-	if (!job) return { allowed: false, reason: "not-found" } as const
-	return { allowed: true, usage: await job.usage() } as const
-}
-
-export async function getAgentJobInspection(
-	agents: DurableObjectNamespace<SlateAgent>,
-	access: OwnerSlateAccess,
-	issuer: string,
-	name: string,
-	id: string,
-) {
-	const authorization = await authorizeAgentManagement(access, issuer)
-	if (!authorization.allowed) return authorization
-	using job = await resolveAgentJob(agents, access, name, id)
-	if (!job) return { allowed: false, reason: "not-found" } as const
-	return {
-		allowed: true,
-		inspection: agentJobInspectionSchema.parse(await job.inspection()),
-	} as const
-}
-
-export async function abortAgentJob(
-	agents: DurableObjectNamespace<SlateAgent>,
-	access: OwnerSlateAccess,
-	issuer: string,
-	name: string,
-	id: string,
-) {
-	const authorization = await authorizeAgentManagement(access, issuer)
-	if (!authorization.allowed) return authorization
-	using job = await resolveAgentJob(agents, access, name, id)
-	if (!job) return { allowed: false, reason: "not-found" } as const
-	return { allowed: true, result: await job.abort() } as const
-}
-
-export async function deleteAgentJob(
-	agents: DurableObjectNamespace<SlateAgent>,
-	access: OwnerSlateAccess,
-	issuer: string,
-	name: string,
-	id: string,
-) {
-	const authorization = await authorizeAgentManagement(access, issuer)
-	if (!authorization.allowed) return authorization
-	for (const agent of await getAgentScopes(agents, access, name)) {
-		if (await agent.deleteJob(id)) return { allowed: true } as const
-	}
-	return { allowed: false, reason: "not-found" } as const
+	return [
+		getAgentScope(agents, access, name, "app"),
+		getAgentScope(agents, access, name, "user"),
+	]
 }
 
 export async function listAgentSchedules(
@@ -365,27 +360,4 @@ export async function getAgentSchedule(
 			} as const
 	}
 	return { allowed: true, schedule: null } as const
-}
-
-export async function startAgentJob(
-	db: PlatformDb,
-	artifacts: Artifacts,
-	memberProvisioning: PlatformEnv["Bindings"]["MEMBER_PROVISIONING"],
-	agents: PlatformEnv["Bindings"]["AGENTS"],
-	config: PlatformConfig,
-	access: SlateAccess,
-	input: AgentRunRequest,
-) {
-	const prepared = await getAgentRun(
-		db,
-		artifacts,
-		memberProvisioning,
-		config,
-		access.slate,
-		{ id: access.identity.user.id, type: "user" },
-		input,
-	)
-	if (!prepared.allowed) return prepared
-	const creation = await startAgentRun(agents, prepared.run)
-	return { allowed: true, creation } as const
 }

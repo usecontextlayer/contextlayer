@@ -45,15 +45,15 @@ index 5d8ed5feb739c8623a04e0ac95c4d65e8e1c26a4..f7ea7731d2fea5cd9a9df25c8a899d81
 -//# sourceMappingURL=connection.d.ts.map
 \ No newline at end of file
 diff --git a/dist/connection.js b/dist/connection.js
-index 693836b26ef17fd6824dc189bbd2848d2365fce7..0dcbc2ce8ba9b6ef2882821de2079d17c2b52169 100644
+index a40e0c483ccc7573952cc9158ef52585b53fcb96..3201a0768408f0e2ce5670a645a3c935bfa21a7e 100644
 --- a/dist/connection.js
 +++ b/dist/connection.js
 @@ -1,4 +1,3 @@
 -import { spawn } from "node:child_process";
  import { randomBytes } from "node:crypto";
+ import { stripVTControlCharacters } from "node:util";
  /** Frame types (docs/protocol.md). */
- const REQUEST = 1;
-@@ -64,7 +63,8 @@ function closed() {
+@@ -87,7 +86,8 @@ function withStderr(message, stderr) {
  /** One running daemon. */
  class Session {
      id;
@@ -63,10 +63,10 @@ index 693836b26ef17fd6824dc189bbd2848d2365fce7..0dcbc2ce8ba9b6ef2882821de2079d17
      token;
      pending = new Map();
      /** Received bytes not yet parsed, without concatenating on every chunk. */
-@@ -74,9 +74,10 @@ class Session {
-     lastSeen = Date.now();
+@@ -98,9 +98,10 @@ class Session {
      timer;
      live = true;
+     stderrTail = "";
 -    constructor(id, child, token) {
 +    constructor(id, process, token) {
          this.id = id;
@@ -76,7 +76,7 @@ index 693836b26ef17fd6824dc189bbd2848d2365fce7..0dcbc2ce8ba9b6ef2882821de2079d17
          this.token = token;
      }
      /** The first `length` buffered bytes as one buffer, without consuming them. */
-@@ -187,57 +188,74 @@ export class Connection {
+@@ -211,56 +212,81 @@ export class Connection {
      }
      #write(session, data) {
          if (session.live)
@@ -130,27 +130,51 @@ index 693836b26ef17fd6824dc189bbd2848d2365fce7..0dcbc2ce8ba9b6ef2882821de2079d17
 +        }
 +        const session = new Session(++this.#sessions, process, token);
          this.#session = session;
-         let startTimer;
-         const failed = new Promise((_resolve, reject) => {
-             startTimer = setTimeout(() => reject(lost(`pi-env did not answer within ${START_TIMEOUT_MS / 1000} s`)), START_TIMEOUT_MS);
+         let ready = false;
+-        let startTimer;
+-        const failed = new Promise((_resolve, reject) => {
+-            startTimer = setTimeout(() => reject(lost(`pi-env did not answer within ${START_TIMEOUT_MS / 1000} s`)), START_TIMEOUT_MS);
 -            child.once("error", (error) => reject(new RemoteError({ code: "spawn_error", message: error.message, lost: true })));
--            child.once("exit", (code) => reject(lost(`pi-env exited with code ${code} before it was ready`)));
+-            child.once("close", (code) => reject(lost(`pi-env exited with code ${code} before it was ready`)));
+-        });
+-        failed.catch(() => { });
+-        child.stdout.on("data", (chunk) => this.#onData(session, chunk));
+-        child.stderr.setEncoding("utf8").on("data", (text) => {
++        const stdout = this.#read(session, process.stdout, (chunk) => this.#onData(session, chunk));
++        const decoder = new TextDecoder();
++        const receiveStderr = (text) => {
+             if (!ready)
+                 session.stderrTail = (session.stderrTail + text).slice(-STDERR_TAIL_CHARS);
+             this.#options.onLog?.(text);
++        };
++        const stderr = process.stderr
++            ? this.#read(session, process.stderr, (chunk) => receiveStderr(decoder.decode(chunk, { stream: true })))
++                .then(() => receiveStderr(decoder.decode()))
++            : Promise.resolve();
++        let startTimer;
++        const failed = new Promise((_resolve, reject) => {
++            startTimer = setTimeout(() => reject(lost(`pi-env did not answer within ${START_TIMEOUT_MS / 1000} s`)), START_TIMEOUT_MS);
 +            void process.exited.then(
-+                (code) => reject(lost(`pi-env exited with code ${code} before it was ready`)),
++                async (code) => {
++                    if (!ready) {
++                        await Promise.all([stdout, stderr]);
++                        reject(lost(`pi-env exited with code ${code} before it was ready`));
++                    }
++                },
 +                (error) => reject(new RemoteError({ code: "spawn_error", message: error instanceof Error ? error.message : String(error), lost: true })),
 +            );
          });
--        failed.catch(() => { });
--        child.stdout.on("data", (chunk) => this.#onData(session, chunk));
--        child.stderr.on("data", (chunk) => this.#options.onLog?.(chunk.toString("utf8")));
 -        child.on("error", () => this.#teardown(session, lost("pi-env connection lost")));
--        child.on("exit", () => this.#teardown(session, lost("pi-env connection lost")));
--        child.stdin.on("error", () => { });
 +        failed.catch(() => {});
-+        void this.#read(session, process.stdout, (chunk) => this.#onData(session, chunk));
-+        if (process.stderr) void this.#read(session, process.stderr, (chunk) => this.#options.onLog?.(chunk.toString("utf8")));
+         // A ready session fails as soon as the daemon exits, even while a process it started keeps a pipe open.
+-        child.on("exit", () => {
+-            if (ready)
+-                this.#teardown(session, lost("pi-env connection lost"));
+-        });
+-        child.on("close", () => this.#teardown(session, lost("pi-env connection lost")));
+-        child.stdin.on("error", () => { });
 +        void process.exited.then(
-+            () => this.#teardown(session, lost("pi-env connection lost")),
++            () => { if (ready) this.#teardown(session, lost("pi-env connection lost")); },
 +            () => this.#teardown(session, lost("pi-env connection lost")),
 +        );
          session.timer = setInterval(() => {
@@ -164,20 +188,7 @@ index 693836b26ef17fd6824dc189bbd2848d2365fce7..0dcbc2ce8ba9b6ef2882821de2079d17
          try {
              const { json } = await Promise.race([this.#send(session, "hello", { protocol: 1 }, {}), failed]);
              if (json.protocol !== 1)
-                 throw lost(`Unsupported protocol ${json.protocol}`);
-             return { info: json, session };
--        }
--        catch (error) {
-+        } catch (error) {
-             this.#teardown(session, error instanceof Error ? error : lost(String(error)));
-             throw error;
--        }
--        finally {
-+        } finally {
-             clearTimeout(startTimer);
-         }
-     }
-@@ -250,8 +268,8 @@ export class Connection {
+@@ -292,8 +318,8 @@ export class Connection {
              this.#session = undefined;
              this.#ready = undefined;
          }
@@ -188,7 +199,7 @@ index 693836b26ef17fd6824dc189bbd2848d2365fce7..0dcbc2ce8ba9b6ef2882821de2079d17
          const pending = [...session.pending.values()];
          session.pending.clear();
          for (const request of pending)
-@@ -328,4 +346,21 @@ export class Connection {
+@@ -370,4 +396,21 @@ export class Connection {
              pending.reject(new RemoteError(json));
      }
  }
@@ -377,11 +388,11 @@ index 0000000000000000000000000000000000000000..238b97a9d1129503e29e8dad2e1d4259
 +export { RemoteExecutionEnv } from "./remote-env.js";
 +export { RemoteWatcher } from "./watch.js";
 diff --git a/dist/watch.js b/dist/watch.js
-index 94567b4b80119111dd785f0be99b77e19e150fe4..1be703ec774e2b79f485464e776511102b2804e2 100644
+index 7daa94828cfe0f96b151da4a47bc9e1cd69cf588..5312c1c79990ddee3f8995f9ce2686312eeeb7ee 100644
 --- a/dist/watch.js
 +++ b/dist/watch.js
-@@ -106,7 +106,7 @@ export class RemoteWatcher {
-         for (let delay = RECONNECT_FIRST_MS; !this.#closed; delay = Math.min(delay * 2, RECONNECT_MAX_MS)) {
+@@ -109,7 +109,7 @@ export class RemoteWatcher {
+         for (let delay = RECONNECT_FIRST_MS; !this.#stopped; delay = Math.min(delay * 2, RECONNECT_MAX_MS)) {
              await new Promise((resolve) => {
                  const timer = setTimeout(resolve, delay);
 -                timer.unref();
@@ -389,14 +400,14 @@ index 94567b4b80119111dd785f0be99b77e19e150fe4..1be703ec774e2b79f485464e77651110
                  this.#wake = () => {
                      clearTimeout(timer);
                      resolve();
-@@ -131,4 +131,3 @@ export class RemoteWatcher {
+@@ -134,4 +134,3 @@ export class RemoteWatcher {
          }
      }
  }
 -//# sourceMappingURL=watch.js.map
 \ No newline at end of file
 diff --git a/package.json b/package.json
-index f86276de26043d482336fb01de2625b447656d42..43e7ef1742b862cbdb2b0730ace64acda5975dd6 100644
+index f78d49c20e98f1995db6c20d9eaff14a24345565..ccf7a9e660d3f8bbce502106fa8eda727f7d5a66 100644
 --- a/package.json
 +++ b/package.json
 @@ -11,6 +11,11 @@

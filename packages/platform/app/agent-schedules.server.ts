@@ -1,6 +1,6 @@
 import { resourcesForConsumer } from "@usecontextlayer/shared/declaration"
 import type { SlateProvisioning } from "@usecontextlayer/shared/slate-provisioning"
-import { getAgentByName } from "agents/routing"
+import { parse as parseYaml } from "yaml"
 import { getAgentInstanceName, getAgentUnattendedScope } from "@/agent-instance"
 import { agentScheduleSchema } from "@/agents.schema"
 import type { PlatformEnv } from "@/context"
@@ -12,7 +12,6 @@ export async function provisionAgentSchedules(
 	{ slate, actors, snapshot }: SlateProvisioning,
 ) {
 	const slateId = slateSchema.shape.id.parse(slate.id)
-	const { parseSkillFrontmatter } = await import("agents/skills")
 	using repo = await artifacts.get(slateId)
 	for (const definition of snapshot.agentTrees) {
 		const files = (await repo.readTree(definition.hash)) as ArtifactsTreeEntry[]
@@ -29,12 +28,16 @@ export async function provisionAgentSchedules(
 			(entry) => entry.type === "blob" && entry.name.endsWith(".md"),
 		)) {
 			const content = (await repo.readBlob(file.hash)) as Blob
-			const { data, body } = parseSkillFrontmatter(await content.text())
+			const raw = await content.text()
+			const match = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/)
+			const { cron } = agentScheduleSchema
+				.pick({ cron: true })
+				.parse(match ? parseYaml(match[1] ?? "") : {})
 			schedules.push(
 				agentScheduleSchema.parse({
-					cron: data.cron,
+					cron,
 					name: file.name.slice(0, -3),
-					prompt: body,
+					prompt: match ? (match[2] ?? "") : raw,
 				}),
 			)
 		}
@@ -42,8 +45,7 @@ export async function provisionAgentSchedules(
 			resourcesForConsumer(snapshot.resources, { name: definition.name, type: "agent" }),
 		)
 		for (const actor of actors) {
-			const instance = await getAgentByName(
-				agents,
+			const instance = agents.getByName(
 				getAgentInstanceName(slateId, definition.name, actor),
 			)
 			await instance.provisionSchedules(

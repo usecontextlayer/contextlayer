@@ -1,7 +1,7 @@
 import type { Resources } from "@usecontextlayer/shared/declaration"
 import type { SlateResourceConfiguration } from "@usecontextlayer/shared/slate-resources"
 import type { PlatformDb } from "@/database"
-import type { PlatformConfig } from "@/env"
+import type { PlatformBindings, PlatformConfig } from "@/env"
 import { getCredentialOwner, getSlateOwner, type Owner } from "@/owner"
 import { listSharedSecretNames, secretKey } from "@/secrets.server"
 import { assignmentOwner } from "@/slate-connections.schema"
@@ -107,7 +107,7 @@ export function prepareSlateDatabase(
 
 export async function getSlateResourceConfiguration(
 	db: PlatformDb,
-	config: PlatformConfig,
+	config: PlatformBindings,
 	slate: Slate,
 	viewer: { id: string } | null,
 	resources: Resources,

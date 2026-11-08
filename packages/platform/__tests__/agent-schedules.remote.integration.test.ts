@@ -1,21 +1,20 @@
+import assert from "node:assert/strict"
 import { mkdir, rm, writeFile } from "node:fs/promises"
 import { join } from "node:path"
-import { UserEntry } from "@earendil-works/pi-durable"
+import { AssistantEntry, LiveDoc } from "@earendil-works/pi-durable"
 import { test } from "@tests/integration"
 import { copySlateProject } from "@usecontextlayer/dev-env/slate"
 import { expect } from "vitest"
 import { z } from "zod"
 import {
-	type AgentJobEntry,
-	agentJobEntrySchema,
-	agentJobMessageSchema,
-	agentJobResultSchema,
-	agentJobSessionSchema,
+	agentConversationsPageSchema,
+	agentConversationViewSchema,
+	agentEntriesPageSchema,
 	agentRuntimeScheduleSchema,
 } from "@/agents.schema"
 import { slateSchema } from "@/slates.schema"
 
-test("authored cron jobs retain results after schedule removal and Durable Object eviction", async ({
+test("authored cron firings create separate conversations and retain results after schedule removal and Durable Object eviction", async ({
 	buildWorker,
 	git,
 	directory,
@@ -72,11 +71,16 @@ test("authored cron jobs retain results after schedule removal and Durable Objec
 		"Author scheduled Pi acceptance agent",
 	)
 	await git("push", remote, "main")
-	const url = `${origin}/api/slates/${slate.id}/agents/brief/jobs`
-	const catalogSchema = z.object({ jobs: z.array(agentJobEntrySchema.strict()) }).strict()
-	const before = await fetch(url, { headers })
+	const url = `${origin}/api/slates/${slate.id}/agents/brief`
+	const conversationsUrl = `${url}/conversations?actor=app&limit=100&order=ascending`
+	const before = await fetch(conversationsUrl, { headers })
 	expect(before.status).toBe(200)
-	expect(catalogSchema.parse(await before.json()).jobs).toEqual([])
+	const beforeConversations = agentConversationsPageSchema.parse(
+		await before.json(),
+	).items
+	const userBefore = await fetch(`${url}/conversations?limit=100`, { headers })
+	expect(userBefore.status).toBe(200)
+	const userConversations = agentConversationsPageSchema.parse(await userBefore.json())
 	const { MEMBER_PROVISIONING, PROVISIONING } = await buildWorker.getEnv()
 	const commit = (await git("rev-parse", "HEAD")).stdout.trim()
 	await writeFile(
@@ -116,20 +120,27 @@ test("authored cron jobs retain results after schedule removal and Durable Objec
 	const scheduleDetail = await fetch(`${scheduleUrl}/${schedule.id}`, { headers })
 	expect(scheduleDetail.status).toBe(200)
 	expect(agentRuntimeScheduleSchema.parse(await scheduleDetail.json())).toEqual(schedule)
-	let entry: AgentJobEntry | undefined
+	let conversations: z.infer<typeof agentConversationsPageSchema>["items"] = []
 	await expect
 		.poll(
 			async () => {
-				const response = await fetch(url, { headers })
+				const response = await fetch(conversationsUrl, { headers })
 				expect(response.status).toBe(200)
-				entry = catalogSchema.parse(await response.json()).jobs[0]
-				return entry !== undefined
+				conversations = agentConversationsPageSchema
+					.parse(await response.json())
+					.items.filter(
+						(conversation) =>
+							!beforeConversations.some((before) => before.id === conversation.id),
+					)
+				return conversations.length >= 2
 			},
 			{ interval: 1000, timeout: 180_000 },
 		)
 		.toBe(true)
-	if (!entry) throw new Error("Expected a cron-created job catalog entry")
-	const jobId = entry.id
+	const first = conversations[0]
+	const second = conversations[1]
+	assert(first && second)
+	expect(first.id).not.toBe(second.id)
 	await rm(join(directory, "agents/brief/schedules/greeting.md"))
 	await git("add", "agents")
 	await git(
@@ -145,67 +156,102 @@ test("authored cron jobs retain results after schedule removal and Durable Objec
 	)
 	const removed = await fetch(`${scheduleUrl}/${schedule.id}`, { headers })
 	expect(removed.status).toBe(404)
-	expect(entry.metadata).toEqual({
-		actor: { type: "app" },
-		trigger: { schedule: "greeting", scheduleId: schedule.id, type: "schedule" },
-	})
-	const detail = await fetch(`${url}/${jobId}`, { headers })
-	expect(detail.status).toBe(200)
-	expect(agentJobEntrySchema.strict().parse(await detail.json())).toEqual(entry)
-	const matching = await fetch(`${url}?schedule=greeting`, { headers })
-	expect(matching.status).toBe(200)
-	expect(catalogSchema.parse(await matching.json()).jobs).toContainEqual(entry)
-	const other = await fetch(`${url}?schedule=other`, { headers })
-	expect(other.status).toBe(200)
-	expect(catalogSchema.parse(await other.json()).jobs).toEqual([])
-	const completed = await fetch(`${url}/${jobId}/result`, { headers })
-
-	expect(completed.status, completed.ok ? undefined : await completed.text()).toBe(200)
-	const result = agentJobResultSchema.strict().parse(await completed.json())
-	console.info("Real scheduled Pi result", result)
-	expect(result.operationId).not.toBe(jobId)
-	expect(result.status, result.reason).toBe("done")
-	expect(result.text?.length).toBeGreaterThan(0)
-	const operationResponse = await fetch(`${url}/${jobId}/operation`, { headers })
-	expect(operationResponse.status).toBe(200)
-	expect(agentJobResultSchema.strict().parse(await operationResponse.json())).toEqual(
-		result,
-	)
-	const sessionResponse = await fetch(`${url}/${jobId}/sessions`, { headers })
-	expect(sessionResponse.status).toBe(200)
-	const sessions = z.array(agentJobSessionSchema).parse(await sessionResponse.json())
-	expect(sessions.map((session) => session.id)).toEqual([result.session])
-	const messageResponse = await fetch(
-		`${url}/${jobId}/sessions/${result.session}/messages`,
-		{
-			headers,
-		},
-	)
-	expect(messageResponse.status).toBe(200)
-	const messages = z.array(agentJobMessageSchema).parse(await messageResponse.json())
-	const userEntries = messages.filter((entry) => entry.kind === UserEntry.kind)
-	expect(userEntries).toHaveLength(1)
-	expect(userEntries[0]?.model).toContainEqual(
-		expect.objectContaining({ content: schedule.payload.prompt, role: "user" }),
-	)
-	const listed = await fetch(url, { headers })
-	expect(listed.status).toBe(200)
-	expect(catalogSchema.parse(await listed.json()).jobs).toContainEqual(entry)
-	for (const className of ["SlateAgentJob", "SlateAgent"] as const) {
-		const ids = await worker.listDurableObjectIds(className)
-		expect(ids.length).toBeGreaterThan(0)
-		for (const id of ids) await worker.evictDurableObject(className, { id })
+	const completedConversations = []
+	for (const conversation of [first, second]) {
+		const conversationUrl = `${url}/conversations/${conversation.id}`
+		let view: z.infer<typeof agentConversationViewSchema> | undefined
+		await expect
+			.poll(
+				async () => {
+					const response = await fetch(`${conversationUrl}?actor=app`, { headers })
+					expect(response.status).toBe(200)
+					view = agentConversationViewSchema.parse(await response.json())
+					const live = view.docs[LiveDoc.definition.kind]
+					return (
+						live?.runFailure !== undefined ||
+						(live?.run === undefined &&
+							view.entries.some((entry) => entry.kind === AssistantEntry.kind))
+					)
+				},
+				{ interval: 1000, timeout: 120_000 },
+			)
+			.toBe(true)
+		assert(view)
+		expect(view.conversation).toEqual(conversation)
+		expect(
+			view.docs[LiveDoc.definition.kind]?.runFailure,
+			JSON.stringify(view.docs[LiveDoc.definition.kind]),
+		).toBeUndefined()
+		expect(view.docs[LiveDoc.definition.kind]?.run).toBeUndefined()
+		const history = await fetch(
+			`${conversationUrl}/entries?actor=app&limit=100&order=ascending`,
+			{ headers },
+		)
+		expect(history.status).toBe(200)
+		const entries = agentEntriesPageSchema.parse(await history.json()).items
+		const inputs = entries.filter((entry) => entry.kind === "slate.schedule")
+		expect(inputs).toHaveLength(1)
+		const input = inputs[0]
+		assert(input)
+		expect(input.data).toEqual({ schedule: "greeting", scheduleId: schedule.id })
+		expect(input.model).toContainEqual(
+			expect.objectContaining({ content: schedule.payload.prompt, role: "user" }),
+		)
+		const answer = entries.filter((entry) => entry.kind === AssistantEntry.kind).at(-1)
+		assert(answer)
+		expect(answer.conversationId).toBe(conversation.id)
+		const message = z
+			.looseObject({
+				content: z.array(
+					z.looseObject({ text: z.string().optional(), type: z.string() }),
+				),
+				role: z.literal("assistant"),
+			})
+			.parse(answer.model?.find((message) => message.role === "assistant"))
+		expect(
+			message.content
+				.filter((part) => part.type === "text")
+				.map((part) => part.text)
+				.join("").length,
+		).toBeGreaterThan(0)
+		completedConversations.push({ answer, conversation, input })
 	}
-	const retainedResult = await fetch(`${url}/${jobId}/result`, { headers })
-	expect(retainedResult.status).toBe(200)
-	expect(agentJobResultSchema.strict().parse(await retainedResult.json())).toEqual(result)
-	const deleted = await fetch(`${url}/${jobId}`, { headers, method: "DELETE" })
-	expect(deleted.status).toBe(204)
-	const missing = await fetch(`${url}/${jobId}`, { headers })
-	expect(missing.status).toBe(404)
-	const empty = await fetch(`${url}?schedule=greeting`, { headers })
-	expect(empty.status).toBe(200)
-	expect(catalogSchema.parse(await empty.json()).jobs.map(({ id }) => id)).not.toContain(
-		jobId,
+	const listed = await fetch(conversationsUrl, { headers })
+	expect(listed.status).toBe(200)
+	expect(agentConversationsPageSchema.parse(await listed.json()).items).toEqual(
+		expect.arrayContaining([first, second]),
 	)
+	const userAfter = await fetch(`${url}/conversations?limit=100`, { headers })
+	expect(userAfter.status).toBe(200)
+	expect(agentConversationsPageSchema.parse(await userAfter.json())).toEqual(
+		userConversations,
+	)
+	const ids = await worker.listDurableObjectIds("SlateAgent")
+	expect(ids.length).toBeGreaterThan(0)
+	for (const id of ids) await worker.evictDurableObject("SlateAgent", { id })
+	for (const { answer, conversation, input } of completedConversations) {
+		const conversationUrl = `${url}/conversations/${conversation.id}`
+		const retainedAnswer = await fetch(
+			`${conversationUrl}/entries?actor=app&minEntryId=${answer.id}&maxEntryId=${answer.id}&limit=1`,
+			{ headers },
+		)
+		expect(retainedAnswer.status).toBe(200)
+		expect(agentEntriesPageSchema.parse(await retainedAnswer.json()).items).toEqual([
+			answer,
+		])
+		const retainedInput = await fetch(
+			`${conversationUrl}/entries?actor=app&minEntryId=${input.id}&maxEntryId=${input.id}&limit=1`,
+			{ headers },
+		)
+		expect(retainedInput.status).toBe(200)
+		expect(agentEntriesPageSchema.parse(await retainedInput.json()).items).toEqual([
+			input,
+		])
+		const retained = await fetch(`${conversationUrl}?actor=app`, { headers })
+		expect(retained.status).toBe(200)
+		const view = agentConversationViewSchema.parse(await retained.json())
+		expect(view.conversation).toEqual(conversation)
+		expect(view.docs[LiveDoc.definition.kind]?.run).toBeUndefined()
+		expect(view.docs[LiveDoc.definition.kind]?.runFailure).toBeUndefined()
+	}
 }, 300_000)

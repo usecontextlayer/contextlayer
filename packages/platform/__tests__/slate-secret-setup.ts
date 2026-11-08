@@ -2,7 +2,6 @@ import { mkdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { test as base } from "@tests/integration"
 import { copySlateProject } from "@usecontextlayer/dev-env/slate"
-import { getAgentByName } from "agents/routing"
 import { execa } from "execa"
 import { expect } from "vitest"
 import { getAgentInstanceName } from "@/agent-instance"
@@ -99,8 +98,7 @@ export const test = base.extend<{ secretSlate: SecretSlate }>({
 			chromeHeaders,
 			chromeUrl,
 			headers,
-			instance: await getAgentByName(
-				AGENTS,
+			instance: AGENTS.getByName(
 				getAgentInstanceName(slate.id, "daily", { id: webSession.user.id, type: "user" }),
 			),
 			members: () =>

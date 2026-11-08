@@ -7,7 +7,7 @@ import type { AgentActor } from "@/agents.schema"
 import type { PlatformEnv } from "@/context"
 import type { PlatformDb } from "@/database"
 import type { SlateConnectionAssignmentSlug } from "@/database/models/public/SlateConnectionAssignment"
-import type { PlatformConfig } from "@/env"
+import type { PlatformBindings, PlatformConfig } from "@/env"
 import {
 	readLatestSlateDeclarations,
 	type SlateDeclarationSnapshot,
@@ -24,7 +24,7 @@ import type { SlateAccess } from "@/slates.server"
 export async function prepareSlateResourceExecution(
 	db: PlatformDb,
 	memberProvisioning: PlatformEnv["Bindings"]["MEMBER_PROVISIONING"],
-	config: PlatformConfig,
+	config: PlatformBindings,
 	slate: Slate,
 	actor: AgentActor,
 	snapshot: SlateDeclarationSnapshot,

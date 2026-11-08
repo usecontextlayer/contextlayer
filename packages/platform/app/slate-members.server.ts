@@ -1,7 +1,7 @@
 import type { PlatformEnv } from "@/context"
 import type { PlatformDb } from "@/database"
 import type { SlateId } from "@/database/models/public/Slate"
-import type { PlatformConfig } from "@/env"
+import type { PlatformBindings } from "@/env"
 import type { SlateDeclarationSnapshot } from "@/slate-declarations.server"
 import { slateMemberSchema } from "@/slate-members.schema"
 import { prepareSlateProvisioning } from "@/slate-provisioning.server"
@@ -28,7 +28,7 @@ export async function isSlateMember(
 export async function addSlateMember(
 	db: PlatformDb,
 	memberProvisioning: PlatformEnv["Bindings"]["MEMBER_PROVISIONING"],
-	config: PlatformConfig,
+	config: PlatformBindings,
 	slate: Slate,
 	user: { id: string },
 	snapshot: SlateDeclarationSnapshot,

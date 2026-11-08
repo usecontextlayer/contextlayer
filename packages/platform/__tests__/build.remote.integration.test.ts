@@ -3,15 +3,15 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import type { CiParams, CiRunnerResult, CloudflareArtifacts } from "@cloudflare/ci"
 import type { CiBindings } from "@cloudflare/ci/worker"
+import { ROOT_CONVERSATION_ID } from "@earendil-works/pi-durable"
 import { test as base } from "@tests/database"
 import { copySlateProject } from "@usecontextlayer/dev-env/slate"
 import { mcpManifestSchema } from "@usecontextlayer/shared/mcp"
-import { getAgentByName } from "agents/routing"
 import { execa } from "execa"
 import { expect } from "vitest"
 import { z } from "zod"
 import { getAgentInstanceName } from "@/agent-instance"
-import { agentRuntimeScheduleSchema } from "@/agents.schema"
+import { agentConversationsPageSchema, agentRuntimeScheduleSchema } from "@/agents.schema"
 import type { PlatformEnv } from "@/context"
 import { prepareSlateDatabase } from "@/slate-resource-configuration.server"
 import { slateSchema } from "@/slates.schema"
@@ -301,8 +301,7 @@ export function handler({ value }: z.infer<typeof tool.inputSchema>) {
 			expect(hidden.status).toBe(200)
 			expect(await hidden.text()).toBe(slate.id)
 		} else if (source === "agents") {
-			const agent = await getAgentByName(
-				AGENTS,
+			const agent = AGENTS.getByName(
 				getAgentInstanceName(slate.id, "agent", { type: "app" }),
 			)
 			expect(
@@ -321,7 +320,11 @@ export function handler({ value }: z.infer<typeof tool.inputSchema>) {
 					type: "cron",
 				},
 			])
-			expect(await agent.listJobs()).toEqual([])
+			expect(
+				agentConversationsPageSchema
+					.parse(await agent.listConversations({}, 2))
+					.items.map(({ id }) => id),
+			).toEqual([ROOT_CONVERSATION_ID])
 		}
 		if (source === "mcp" || source === "empty" || source === "agents") {
 			expect((await deployed.fetch(`https://${slate.public_hostname}/`)).status).toBe(404)

@@ -28,20 +28,26 @@ test("agent tools bind two Gmail namespaces to their connected accounts", async 
 	const assignments = { personal_email: second, work_email: first }
 	for (const account of Object.values(assignments)) z.email().parse(account.display_name)
 	const { COMPOSIO_API_KEY } = config
+	const connections = await Promise.all(
+		Object.entries(assignments).map(async ([name, account]) => ({
+			name,
+			session: await createAccountSession(
+				COMPOSIO_API_KEY,
+				{ id: identity.user.id, type: "personal" },
+				account.id,
+				"gmail",
+			),
+			toolkit: "gmail",
+		})),
+	)
 	const { extension } = await createAgentTools(
 		COMPOSIO_API_KEY,
-		await Promise.all(
-			Object.entries(assignments).map(async ([name, account]) => ({
-				name,
-				session: await createAccountSession(
-					COMPOSIO_API_KEY,
-					{ id: identity.user.id, type: "personal" },
-					account.id,
-					"gmail",
-				),
-				toolkit: "gmail",
-			})),
-		),
+		connections,
+		async (name) => {
+			const connection = connections.find((connection) => connection.name === name)
+			assert(connection)
+			return connection.session
+		},
 	)
 	for (const [slug, account] of Object.entries(assignments)) {
 		const tool = extension.tools.find(({ name }) => name === `${slug}__GMAIL_GET_PROFILE`)

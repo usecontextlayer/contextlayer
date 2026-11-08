@@ -16,7 +16,7 @@
 	"compatibility_flags": ["nodejs_compat"],
 	"containers": [
 		{
-			"class_name": "SlateAgentJob",
+			"class_name": "SlateAgent",
 			"images": {
 				"workspace": {
 					"dockerfile": "./Dockerfile"
@@ -54,10 +54,6 @@
 				"name": "DATABASES"
 			},
 			{
-				"class_name": "SlateAgentJob",
-				"name": "AGENT_JOBS"
-			},
-			{
 				"class_name": "Meridian",
 				"name": "MERIDIAN"
 			}
@@ -74,7 +70,7 @@
 			],
 			"containers": [
 				{
-					"class_name": "SlateAgentJob",
+					"class_name": "SlateAgent",
 					"images": {
 						"workspace": {
 							"dockerfile": "./Dockerfile"
@@ -106,10 +102,6 @@
 					{
 						"class_name": "SlateDatabase",
 						"name": "DATABASES"
-					},
-					{
-						"class_name": "SlateAgentJob",
-						"name": "AGENT_JOBS"
 					},
 					{
 						"class_name": "Meridian",
@@ -168,6 +160,10 @@
 		{
 			"new_sqlite_classes": ["Meridian"],
 			"tag": "v4"
+		},
+		{
+			"deleted_classes": ["SlateAgentJob"],
+			"tag": "v5"
 		}
 	],
 	"name": "contextlayer-platform",

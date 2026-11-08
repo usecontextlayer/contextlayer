@@ -1,22 +1,24 @@
 import assert from "node:assert/strict"
 import { mkdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
-import { ToolResultEntry } from "@earendil-works/pi-durable"
+import { type Cursor, ToolResultEntry } from "@earendil-works/pi-durable"
 import { writeDatabase } from "@tests/database-project"
 import { test } from "@tests/integration"
 import { copySlateProject } from "@usecontextlayer/dev-env/slate"
 import { slateResourcesSchema } from "@usecontextlayer/shared/slate-resources"
 import { expect } from "vitest"
-import { z } from "zod"
+import type { z } from "zod"
+import { getAgentInstanceName } from "@/agent-instance"
 import {
-	agentJobCreationSchema,
-	agentJobMessageSchema,
-	agentJobResultSchema,
+	agentConversationSchema,
+	agentEntriesPageSchema,
+	type agentEntrySchema,
+	agentSubmissionSchema,
 } from "@/agents.schema"
 import { slateMemberSchema } from "@/slate-members.schema"
 import { slateSchema } from "@/slates.schema"
 
-test("API jobs execute a Code Mode database call and preserve owner and viewer writes", async ({
+test("API conversations execute Code Mode database calls and retain owner and viewer writes after recovery", async ({
 	buildWorker,
 	git,
 	db,
@@ -70,7 +72,7 @@ test("API jobs execute a Code Mode database call and preserve owner and viewer w
 	const sql =
 		"INSERT INTO updates (id, kind, body, created_at) SELECT ?, kind, body, ? FROM updates WHERE id = ? RETURNING id, body"
 	const copies = ["drafts", "reports"].map((slug) => ({
-		params: ["copy", 2, "seed"],
+		params: [`copy-${slug}`, 2, "seed"],
 		slug,
 		sql,
 	}))
@@ -125,25 +127,53 @@ test("API jobs execute a Code Mode database call and preserve owner and viewer w
 			["seed", "proof", markers[slug], 1],
 		)
 	}
-	const url = `${origin}/api/slates/${slate.id}/agents/database/jobs`
+	const url = `${origin}/api/slates/${slate.id}/agents/database`
+	const conversationResponse = await fetch(`${url}/conversations`, {
+		headers,
+		method: "POST",
+	})
+	expect(conversationResponse.status).toBe(201)
+	const conversation = agentConversationSchema.parse(await conversationResponse.json())
+	const conversationUrl = `${url}/conversations/${conversation.id}`
 	const submitted = await fetch(
-		url,
+		`${conversationUrl}/submissions`,
 		post({
-			prompt: `Use Code Mode to call tools.database_query for each of ${JSON.stringify(copies)}. Copy the seed row in both databases.`,
+			content: `Use Code Mode to call tools.database_query for each of ${JSON.stringify(copies)}. Copy the seed row in both databases.`,
 		}),
 	)
 	expect(submitted.status).toBe(202)
-	const api = agentJobCreationSchema.parse(await submitted.json())
-	const completed = await fetch(`${url}/${api.job.id}/result`, { headers })
-	expect(completed.status).toBe(200)
-	const result = agentJobResultSchema.parse(await completed.json())
-	expect(result.status, result.reason).toBe("done")
-	const messagesResponse = await fetch(
-		`${url}/${api.job.id}/sessions/${result.session}/messages`,
-		{ headers },
+	let result = agentSubmissionSchema.parse(await submitted.json())
+	expect(result.conversationId).toBe(conversation.id)
+	const submissionUrl = `${url}/submissions/${result.id}`
+	await expect
+		.poll(
+			async () => {
+				const response = await fetch(submissionUrl, { headers })
+				expect(response.status).toBe(200)
+				result = agentSubmissionSchema.parse(await response.json())
+				return result.status === "done" || result.status === "unanswered"
+			},
+			{ interval: 1000, timeout: 600_000 },
+		)
+		.toBe(true)
+	expect(result.status, result.status === "unanswered" ? result.reason : undefined).toBe(
+		"done",
 	)
-	expect(messagesResponse.status).toBe(200)
-	const messages = z.array(agentJobMessageSchema).parse(await messagesResponse.json())
+	assert(result.type === "input" && result.status === "done")
+	const messages: z.infer<typeof agentEntrySchema>[] = []
+	let cursor: Cursor | undefined
+	do {
+		const entriesUrl = new URL(`${conversationUrl}/entries`)
+		entriesUrl.searchParams.set("minEntryId", String(result.entry))
+		entriesUrl.searchParams.set("maxEntryId", String(result.answer))
+		entriesUrl.searchParams.set("limit", "100")
+		if (cursor) entriesUrl.searchParams.set("cursor", JSON.stringify(cursor))
+		const response = await fetch(entriesUrl, { headers })
+		expect(response.status).toBe(200)
+		const page = agentEntriesPageSchema.parse(await response.json())
+		messages.push(...page.items)
+		cursor = page.next
+	} while (cursor)
 	const toolResults = messages
 		.filter((entry) => entry.kind === ToolResultEntry.kind)
 		.flatMap((entry) => entry.model ?? [])
@@ -158,15 +188,22 @@ test("API jobs execute a Code Mode database call and preserve owner and viewer w
 			isError: false,
 		}),
 	)
-	const deleted = await fetch(`${url}/${api.job.id}`, { headers, method: "DELETE" })
-	expect(deleted.status).toBe(204)
+	await worker.evictDurableObject("SlateAgent", {
+		name: getAgentInstanceName(slate.id, "database", {
+			id: webSession.user.id,
+			type: "user",
+		}),
+	})
+	const recovered = await fetch(submissionUrl, { headers })
+	expect(recovered.status).toBe(200)
+	expect(agentSubmissionSchema.parse(await recovered.json())).toEqual(result)
 	for (const slug of ["drafts", "reports"] as const) {
 		const persisted = await stores[slug].query(
 			"SELECT id, body FROM updates ORDER BY created_at",
 		)
 		expect(persisted.rows).toEqual([
 			{ body: markers[slug], id: "seed" },
-			{ body: markers[slug], id: "copy" },
+			{ body: markers[slug], id: `copy-${slug}` },
 		])
 	}
 }, 900_000)

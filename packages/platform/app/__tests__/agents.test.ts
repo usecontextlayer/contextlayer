@@ -5,8 +5,7 @@ import {
 } from "@usecontextlayer/shared/declaration"
 import { expect, test } from "vitest"
 import { getAgentUnattendedScope } from "@/agent-instance"
-import { agentRunRequestSchema } from "@/agents.schema"
-import { prepareAgentRun } from "@/agents.server"
+import { prepareAgentConfiguration } from "@/agents.server"
 import type { ResolvedSlateResourceConfiguration } from "@/slate-resource-configuration.server"
 import { slateSchema } from "@/slates.schema"
 
@@ -38,7 +37,7 @@ test.each([
 	},
 )
 
-test("a prepared run preserves resolved references and separates instructions from its prompt", () => {
+test("prepared agent configuration preserves resolved references and standing instructions", () => {
 	const slate = slateSchema.parse({
 		id: "00000000-0000-4000-8000-000000000001",
 		owner_organization_id: "acme",
@@ -84,14 +83,14 @@ test("a prepared run preserves resolved references and separates instructions fr
 			},
 		},
 	} satisfies ResolvedSlateResourceConfiguration
-	const run = prepareAgentRun(
+	const prepared = prepareAgentConfiguration(
 		slate,
 		{ id: "bob", type: "user" },
 		{ commit: "deployed-revision", instructions: "Return a company brief.\n" },
 		configuration,
-		agentRunRequestSchema.parse({ name: "brief", prompt: "Research Acme." }),
+		"brief",
 	)
-	expect(run).toEqual({
+	expect(prepared).toEqual({
 		actor: { id: "bob", type: "user" },
 		agent: {
 			commit: "deployed-revision",
@@ -115,7 +114,6 @@ test("a prepared run preserves resolved references and separates instructions fr
 				owner: { id: "acme", type: "organization" },
 			},
 		},
-		prompt: "Research Acme.",
 		secrets: {
 			CLAUDE_CODE_OAUTH_TOKEN: { id: "acme", type: "organization" },
 			PERSONAL_API_KEY: { id: "bob", type: "personal" },

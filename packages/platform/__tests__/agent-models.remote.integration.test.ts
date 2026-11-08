@@ -1,21 +1,21 @@
+import assert from "node:assert/strict"
 import { mkdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
-import { AssistantEntry } from "@earendil-works/pi-durable"
+import { AssistantEntry, UsageDoc } from "@earendil-works/pi-durable"
 import { test } from "@tests/integration"
 import { copySlateProject } from "@usecontextlayer/dev-env/slate"
 import { slateResourcesSchema } from "@usecontextlayer/shared/slate-resources"
 import { expect } from "vitest"
-import { z } from "zod"
 import {
-	agentJobCreationSchema,
-	agentJobMessageSchema,
-	agentJobResultSchema,
-	agentJobUsageSchema,
+	agentConversationSchema,
+	agentConversationViewSchema,
+	agentEntriesPageSchema,
+	agentSubmissionSchema,
 } from "@/agents.schema"
 import { loadSharedSecret } from "@/secrets.server"
 import { slateSchema } from "@/slates.schema"
 
-test("API jobs honor a declared non-default Owner model", async ({
+test("API conversations honor a declared non-default Owner model", async ({
 	git,
 	directory,
 	organization,
@@ -75,40 +75,56 @@ test("API jobs honor a declared non-default Owner model", async ({
 	const configured = slateResourcesSchema.parse(await inventory.json()).resources
 	expect(configured.secrets.ANTHROPIC_API_KEY?.owner).toEqual(owner)
 	expect(configured.secrets.ANTHROPIC_MODEL?.owner).toEqual(owner)
-	const url = `${origin}/api/slates/${slate.id}/agents/model/jobs`
-	const submitted = await fetch(url, {
-		body: JSON.stringify({ prompt: "Say hello in one sentence." }),
+	const url = `${origin}/api/slates/${slate.id}/agents/model`
+	const conversationResponse = await fetch(`${url}/conversations`, {
+		headers,
+		method: "POST",
+	})
+	expect(conversationResponse.status).toBe(201)
+	const conversation = agentConversationSchema.parse(await conversationResponse.json())
+	const conversationUrl = `${url}/conversations/${conversation.id}`
+	const submitted = await fetch(`${conversationUrl}/submissions`, {
+		body: JSON.stringify({ content: "Say hello in one sentence." }),
 		headers,
 		method: "POST",
 	})
 	expect(submitted.status).toBe(202)
-	const api = agentJobCreationSchema.parse(await submitted.json())
-	expect(api.job.metadata).toEqual({
-		actor: { id: webSession.user.id, type: "user" },
-		trigger: { type: "api" },
-	})
-	const completed = await fetch(`${url}/${api.job.id}/result`, { headers })
-	expect(completed.status).toBe(200)
-	const result = agentJobResultSchema.parse(await completed.json())
-	expect(result.status, result.reason).toBe("done")
+	let result = agentSubmissionSchema.parse(await submitted.json())
+	expect(result.conversationId).toBe(conversation.id)
+	const submissionUrl = `${url}/submissions/${result.id}`
+	await expect
+		.poll(
+			async () => {
+				const response = await fetch(submissionUrl, { headers })
+				expect(response.status).toBe(200)
+				result = agentSubmissionSchema.parse(await response.json())
+				return result.status === "done" || result.status === "unanswered"
+			},
+			{ interval: 1000, timeout: 180_000 },
+		)
+		.toBe(true)
+	expect(result.status, result.status === "unanswered" ? result.reason : undefined).toBe(
+		"done",
+	)
+	assert(result.type === "input" && result.status === "done")
 	const response = await fetch(
-		`${url}/${api.job.id}/sessions/${result.session}/messages`,
+		`${conversationUrl}/entries?minEntryId=${result.answer}&maxEntryId=${result.answer}&limit=1`,
 		{ headers },
 	)
 	expect(response.status).toBe(200)
-	const assistants = z
-		.array(agentJobMessageSchema)
-		.parse(await response.json())
-		.filter((entry) => entry.kind === AssistantEntry.kind)
+	const { items } = agentEntriesPageSchema.parse(await response.json())
+	expect(items).toHaveLength(1)
+	expect(items[0]).toMatchObject({ id: result.answer, kind: AssistantEntry.kind })
+	const assistants = items
 		.flatMap((entry) => entry.model ?? [])
 		.filter((message) => message.role === "assistant")
 	expect(assistants.length).toBeGreaterThan(0)
 	for (const assistant of assistants)
 		expect(assistant).toMatchObject({ model: expectedModel, provider: "anthropic" })
-	const usageResponse = await fetch(`${url}/${api.job.id}/usage`, { headers })
-	expect(usageResponse.status).toBe(200)
-	const usage = agentJobUsageSchema.parse(await usageResponse.json())
-	expect(Object.keys(usage.models)).toEqual([`anthropic/${expectedModel}`])
-	const deleted = await fetch(`${url}/${api.job.id}`, { headers, method: "DELETE" })
-	expect(deleted.status).toBe(204)
+	const viewResponse = await fetch(conversationUrl, { headers })
+	expect(viewResponse.status).toBe(200)
+	const view = agentConversationViewSchema.parse(await viewResponse.json())
+	const usage = view.docs[UsageDoc.definition.kind]
+	assert(usage)
+	expect(usage.models).toEqual({ [`anthropic/${expectedModel}`]: expect.any(Object) })
 }, 300_000)

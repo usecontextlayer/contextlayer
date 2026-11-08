@@ -19,6 +19,10 @@ export async function createAgentTools(
 		session: Awaited<ReturnType<Composio["use"]>>
 		toolkit: string
 	}[],
+	resolveSession: (
+		name: string,
+		toolkit: string,
+	) => Promise<Awaited<ReturnType<Composio["use"]>>>,
 ) {
 	const composio = new Composio({ apiKey })
 	const namespaces: CodemodeNamespace[] = connections.map(({ name, toolkit }) => ({
@@ -28,7 +32,7 @@ export async function createAgentTools(
 	}))
 	const tools = (
 		await Promise.all(
-			connections.map(async ({ name, session }) => {
+			connections.map(async ({ name, session, toolkit }) => {
 				const actions = await composio.tools.getRawToolRouterSessionTools(
 					session.sessionId,
 				)
@@ -39,7 +43,8 @@ export async function createAgentTools(
 						deferred: true,
 						description: action.description ?? action.name,
 						execute: async (args) => {
-							const result = await session.execute(
+							const current = await resolveSession(name, toolkit)
+							const result = await current.execute(
 								action.slug,
 								args as Record<string, unknown>,
 							)
@@ -60,15 +65,6 @@ export async function createAgentTools(
 	return {
 		extension: {
 			name: "connections",
-			sections: [
-				{
-					key: "connections",
-					render: () =>
-						namespaces.length === 0
-							? undefined
-							: `Connections:\n${namespaces.map(({ name, description }) => `- ${name}: ${description}`).join("\n")}`,
-				},
-			],
 			tools,
 		},
 		namespaces,

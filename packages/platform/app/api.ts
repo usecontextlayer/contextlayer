@@ -15,38 +15,32 @@ import {
 } from "@/accounts.schema"
 import { connectAccount, listAccounts, listPersonalAccounts } from "@/accounts.server"
 import {
-	agentJobCreationSchema,
-	agentJobEntrySchema,
-	agentJobInspectionSchema,
-	agentJobMessageSchema,
-	agentJobOperationSchema,
-	agentJobParamsSchema,
-	agentJobRequestSchema,
-	agentJobResultSchema,
-	agentJobSessionParamsSchema,
-	agentJobSessionSchema,
-	agentJobsQuerySchema,
-	agentJobUsageSchema,
+	agentConversationParamsSchema,
+	agentConversationSchema,
+	agentConversationsPageQuerySchema,
+	agentConversationsPageSchema,
+	agentConversationViewSchema,
+	agentEntriesPageQuerySchema,
+	agentEntriesPageSchema,
 	agentParamsSchema,
+	agentReadQuerySchema,
 	agentRuntimeScheduleSchema,
 	agentScheduleParamsSchema,
 	agentSchema,
+	agentSubmissionParamsSchema,
+	agentSubmissionRequestSchema,
+	agentSubmissionSchema,
 } from "@/agents.schema"
 import {
-	abortAgentJob,
-	deleteAgentJob,
+	createAgentConversation,
 	getAgent,
-	getAgentJob,
-	getAgentJobInspection,
-	getAgentJobMessages,
-	getAgentJobOperation,
-	getAgentJobResult,
-	getAgentJobUsage,
+	getAgentConversation,
 	getAgentSchedule,
-	listAgentJobSessions,
-	listAgentJobs,
+	getAgentSubmission,
+	listAgentConversations,
+	listAgentEntries,
 	listAgentSchedules,
-	startAgentJob,
+	submitAgentInput,
 } from "@/agents.server"
 import {
 	getSlateViewerIdentity,
@@ -764,43 +758,34 @@ export function createApi() {
 		},
 	)
 
-	const jobs = new OpenAPIHono<OwnerViewingEnv>()
-	jobs.use("*", async (c, next) => {
-		// Public slates are temporarily excluded from jobs.
+	const agentExecution = new OpenAPIHono<OwnerViewingEnv>()
+	agentExecution.use("*", async (c, next) => {
 		if (c.var.slateAccess.slate.visibility === "public") return c.body(null, 403)
 		await next()
 	})
-	jobs.openapi(
+	agentExecution.openapi(
 		createRoute({
 			description:
-				"Start a fresh hosted job on a private slate using the latest agent definition on main and the authenticated acting user. Returns after admission with the catalog job and native execution receipt, without waiting for an answer.",
+				"Create a conversation for the authenticated user in this named agent's shared runtime. New conversations use the current model and creation defaults. Returns the native Pi conversation record.",
 			method: "post",
-			operationId: "startAgentJob",
-			path: "/",
-			request: {
-				body: {
-					content: { "application/json": { schema: agentJobRequestSchema } },
-					required: true,
-				},
-				params: agentParamsSchema,
-			},
+			operationId: "createAgentConversation",
+			path: "/conversations",
+			request: { params: agentParamsSchema },
 			responses: {
-				202: {
-					content: { "application/json": { schema: agentJobCreationSchema } },
-					description: "Native routed job and Pi submission receipt",
+				201: {
+					content: { "application/json": { schema: agentConversationSchema } },
+					description: "The created native Pi conversation",
 					headers: {
 						Location: {
-							description: "The created job resource",
+							description: "The created conversation resource",
 							schema: { type: "string" },
 						},
 					},
 				},
-				400: { description: "Invalid slate target, agent name, or prompt" },
+				400: { description: "Invalid slate target or agent name" },
 				401: { description: "A valid ContextLayer login is required" },
-				403: {
-					description: "Slate viewing is forbidden or the slate is public",
-				},
-				404: { description: "Slate or deployed agent not found" },
+				403: { description: "Slate viewing is forbidden or the slate is public" },
+				404: { description: "Slate or agent definition not found" },
 				409: {
 					content: {
 						"application/json": {
@@ -811,18 +796,19 @@ export function createApi() {
 				},
 			},
 			security,
-			summary: "Start an agent job with a prompt",
-			tags: ["Agent jobs"],
+			summary: "Create an agent conversation",
+			tags: ["Agent conversations"],
 		}),
 		async (c) => {
-			const result = await startAgentJob(
+			const result = await createAgentConversation(
 				c.var.db,
 				c.env.ARTIFACTS,
 				c.env.MEMBER_PROVISIONING,
 				c.env.AGENTS,
 				c.var.config,
 				c.var.slateAccess,
-				{ ...c.req.valid("json"), name: c.req.valid("param").name },
+				c.req.valid("param").name,
+				"user",
 			)
 			if (!result.allowed) {
 				if (result.reason === "secret-required")
@@ -833,414 +819,251 @@ export function createApi() {
 			}
 			c.header(
 				"Location",
-				`${new URL(c.req.url).pathname.replace(/\/$/, "")}/${result.creation.job.id}`,
+				`${new URL(c.req.url).pathname.replace(/\/$/, "")}/${result.conversation.id}`,
 			)
-			return c.json(result.creation, 202)
+			return c.json(result.conversation, 201)
 		},
 	)
-	jobs.openapi(
+	agentExecution.openapi(
 		createRoute({
 			description:
-				"Read one native catalog entry by job ID. Use the operation and result endpoints for execution state.",
-			method: "get",
-			operationId: "getAgentJob",
-			path: "/{id}",
-			request: { params: agentJobParamsSchema },
-			responses: {
-				200: {
-					content: { "application/json": { schema: agentJobEntrySchema } },
-					description: "Native job catalog entry with actor and trigger provenance",
+				"Submit native Pi input to an existing conversation belonging to the authenticated user. Returns the native submission record after durable admission; execution continues after disconnection. An optional requestId deduplicates input within this conversation.",
+			method: "post",
+			operationId: "submitAgentInput",
+			path: "/conversations/{conversationId}/submissions",
+			request: {
+				body: {
+					content: { "application/json": { schema: agentSubmissionRequestSchema } },
+					required: true,
 				},
-				400: { description: "Invalid slate target, agent name, or job ID" },
+				params: agentConversationParamsSchema,
+			},
+			responses: {
+				202: {
+					content: { "application/json": { schema: agentSubmissionSchema } },
+					description: "Native Pi submission with its durable ID and current status",
+				},
+				400: {
+					description: "Invalid slate target, agent name, conversation ID, or input",
+				},
 				401: { description: "A valid ContextLayer login is required" },
 				403: { description: "Slate viewing is forbidden or the slate is public" },
-				404: { description: "Slate or agent job not found" },
-			},
-			security,
-			summary: "Get an agent job's catalog entry",
-			tags: ["Agent jobs"],
-		}),
-		async (c) => {
-			const { id, name } = c.req.valid("param")
-			const job = await getAgentJob(c.env.AGENTS, c.var.slateAccess, name, id)
-			if (!job) return c.body(null, 404)
-			return c.json(job, 200)
-		},
-	)
-	jobs.openapi(
-		createRoute({
-			description:
-				"Inspect the admitted native operation without waiting, including pending or settled state. This response contains no transcript.",
-			method: "get",
-			operationId: "getAgentJobOperation",
-			path: "/{id}/operation",
-			request: { params: agentJobParamsSchema },
-			responses: {
-				200: {
-					content: { "application/json": { schema: agentJobOperationSchema } },
-					description:
-						"Native Pi pending operation or settled result without the transcript",
-				},
-				400: { description: "Invalid slate target, agent name, or job ID" },
-				401: { description: "A valid ContextLayer login is required" },
-				403: { description: "Slate viewing is forbidden or the slate is public" },
-				404: { description: "Slate or agent job not found" },
-			},
-			security,
-			summary: "Get an agent job's current operation",
-			tags: ["Agent jobs"],
-		}),
-		async (c) => {
-			const { id, name } = c.req.valid("param")
-			const operation = await getAgentJobOperation(
-				c.env.AGENTS,
-				c.var.slateAccess,
-				name,
-				id,
-			)
-			if (!operation) return c.body(null, 404)
-			return c.json(operation, 200)
-		},
-	)
-	jobs.openapi(
-		createRoute({
-			description:
-				"Wait for the admitted native operation to settle and return its native result without a transcript. Use sessions and messages for execution detail.",
-			method: "get",
-			operationId: "getAgentJobResult",
-			path: "/{id}/result",
-			request: { params: agentJobParamsSchema },
-			responses: {
-				200: {
-					content: { "application/json": { schema: agentJobResultSchema } },
-					description: "Await the native Pi settled result without the transcript",
-				},
-				400: { description: "Invalid slate target, agent name, or job ID" },
-				401: { description: "A valid ContextLayer login is required" },
-				403: { description: "Slate viewing is forbidden or the slate is public" },
-				404: { description: "Slate or agent job not found" },
-			},
-			security,
-			summary: "Wait for an agent job's operation result",
-			tags: ["Agent jobs"],
-		}),
-		async (c) => {
-			const { id, name } = c.req.valid("param")
-			const operation = await getAgentJobResult(c.env.AGENTS, c.var.slateAccess, name, id)
-			if (!operation) return c.body(null, 404)
-			return c.json(operation, 200)
-		},
-	)
-	jobs.openapi(
-		createRoute({
-			description:
-				"Enumerate native execution sessions within this job. Requires slate management permission. Use the returned IDs with this job's messages operation.",
-			method: "get",
-			operationId: "listAgentJobSessions",
-			path: "/{id}/sessions",
-			request: { params: agentJobParamsSchema },
-			responses: {
-				200: {
-					content: { "application/json": { schema: z.array(agentJobSessionSchema) } },
-					description: "Native Pi sessions within this job",
-				},
-				400: { description: "Invalid slate target, agent name, or job ID" },
-				401: { description: "A valid ContextLayer login is required" },
-				403: {
-					description:
-						"Only the Owner or owning organization members may inspect execution",
-				},
-				404: { description: "Slate or agent job not found" },
-			},
-			security,
-			summary: "List the execution sessions within an agent job",
-			tags: ["Agent jobs"],
-		}),
-		async (c) => {
-			const { id, name } = c.req.valid("param")
-			const result = await listAgentJobSessions(
-				c.env.AGENTS,
-				c.var.slateAccess,
-				c.var.config.CTX_AUTH_ISSUER,
-				name,
-				id,
-			)
-			if (!result.allowed) {
-				const status = {
-					forbidden: 403,
-					"not-found": 404,
-					"sign-in-required": 401,
-				} as const
-				return c.body(null, status[result.reason])
-			}
-			return c.json(result.sessions, 200)
-		},
-	)
-	jobs.openapi(
-		createRoute({
-			description:
-				"Read the active transcript of an existing session in this job. Requires slate management permission. Missing jobs or sessions return HTTP 404.",
-			method: "get",
-			operationId: "getAgentJobMessages",
-			path: "/{id}/sessions/{session}/messages",
-			request: { params: agentJobSessionParamsSchema },
-			responses: {
-				200: {
-					content: { "application/json": { schema: z.array(agentJobMessageSchema) } },
-					description: "Native active transcript entries for this job session",
-				},
-				400: { description: "Invalid slate target, agent name, job ID, or session" },
-				401: { description: "A valid ContextLayer login is required" },
-				403: {
-					description:
-						"Only the Owner or owning organization members may inspect execution",
-				},
-				404: { description: "Slate, agent job, or Pi session not found" },
-			},
-			security,
-			summary: "Read the active transcript of an agent job session",
-			tags: ["Agent jobs"],
-		}),
-		async (c) => {
-			const { id, name, session } = c.req.valid("param")
-			const result = await getAgentJobMessages(
-				c.env.AGENTS,
-				c.var.slateAccess,
-				c.var.config.CTX_AUTH_ISSUER,
-				name,
-				id,
-				session,
-			)
-			if (!result.allowed) {
-				const status = {
-					forbidden: 403,
-					"not-found": 404,
-					"sign-in-required": 401,
-				} as const
-				return c.body(null, status[result.reason])
-			}
-			return c.json(result.messages, 200)
-		},
-	)
-	jobs.openapi(
-		createRoute({
-			description:
-				"Read native model and tool usage buckets for the job. Requires slate management permission.",
-			method: "get",
-			operationId: "getAgentJobUsage",
-			path: "/{id}/usage",
-			request: { params: agentJobParamsSchema },
-			responses: {
-				200: {
-					content: { "application/json": { schema: agentJobUsageSchema } },
-					description: "Native Pi model and tool usage across the job conversations",
-				},
-				400: { description: "Invalid slate target, agent name, or job ID" },
-				401: { description: "A valid ContextLayer login is required" },
-				403: {
-					description:
-						"Only the Owner or owning organization members may inspect execution",
-				},
-				404: { description: "Slate or agent job not found" },
-			},
-			security,
-			summary: "Get model and tool usage for an agent job",
-			tags: ["Agent jobs"],
-		}),
-		async (c) => {
-			const { id, name } = c.req.valid("param")
-			const result = await getAgentJobUsage(
-				c.env.AGENTS,
-				c.var.slateAccess,
-				c.var.config.CTX_AUTH_ISSUER,
-				name,
-				id,
-			)
-			if (!result.allowed) {
-				const status = {
-					forbidden: 403,
-					"not-found": 404,
-					"sign-in-required": 401,
-				} as const
-				return c.body(null, status[result.reason])
-			}
-			return c.json(result.usage, 200)
-		},
-	)
-	jobs.openapi(
-		createRoute({
-			description:
-				"Inspect live scheduling, unfinished tasks, and queued or placed submissions. Requires slate management permission.",
-			method: "get",
-			operationId: "getAgentJobInspection",
-			path: "/{id}/inspection",
-			request: { params: agentJobParamsSchema },
-			responses: {
-				200: {
-					content: { "application/json": { schema: agentJobInspectionSchema } },
-					description: "Native Pi scheduling, live tasks, and unfinished submissions",
-				},
-				400: { description: "Invalid slate target, agent name, or job ID" },
-				401: { description: "A valid ContextLayer login is required" },
-				403: {
-					description:
-						"Only the Owner or owning organization members may inspect execution",
-				},
-				404: { description: "Slate or agent job not found" },
-			},
-			security,
-			summary: "Inspect an agent job's live execution state",
-			tags: ["Agent jobs"],
-		}),
-		async (c) => {
-			const { id, name } = c.req.valid("param")
-			const result = await getAgentJobInspection(
-				c.env.AGENTS,
-				c.var.slateAccess,
-				c.var.config.CTX_AUTH_ISSUER,
-				name,
-				id,
-			)
-			if (!result.allowed) {
-				const status = {
-					forbidden: 403,
-					"not-found": 404,
-					"sign-in-required": 401,
-				} as const
-				return c.body(null, status[result.reason])
-			}
-			return c.json(result.inspection, 200)
-		},
-	)
-	jobs.openapi(
-		createRoute({
-			description:
-				"Abort the native pending operation and retain the job and execution records. Requires slate management permission. HTTP 200 contains the native boolean result, including false when nothing was aborted; a missing catalog entry returns HTTP 404.",
-			method: "delete",
-			operationId: "abortAgentJob",
-			path: "/{id}/operation",
-			request: { params: agentJobParamsSchema },
-			responses: {
-				200: {
-					content: { "application/json": { schema: z.boolean() } },
-					description:
-						"Native Pi abort result; false when the operation is already settled",
-				},
-				400: { description: "Invalid slate target, agent name, or job ID" },
-				401: { description: "A valid ContextLayer login is required" },
-				403: {
-					description: "Only the Owner or owning organization members may manage jobs",
-				},
-				404: { description: "Slate or agent job not found" },
-			},
-			security,
-			summary: "Abort an agent job's pending operation",
-			tags: ["Agent jobs"],
-		}),
-		async (c) => {
-			const { id, name } = c.req.valid("param")
-			const result = await abortAgentJob(
-				c.env.AGENTS,
-				c.var.slateAccess,
-				c.var.config.CTX_AUTH_ISSUER,
-				name,
-				id,
-			)
-			if (!result.allowed) {
-				const status = {
-					forbidden: 403,
-					"not-found": 404,
-					"sign-in-required": 401,
-				} as const
-				return c.body(null, status[result.reason])
-			}
-			return c.json(result.result, 200)
-		},
-	)
-	jobs.openapi(
-		createRoute({
-			description:
-				"Delete an owned job catalog entry and its native execution state, releasing its computer. Requires slate management permission. Deletion does not undo database writes or actions already performed by tools.",
-			method: "delete",
-			operationId: "deleteAgentJob",
-			path: "/{id}",
-			request: { params: agentJobParamsSchema },
-			responses: {
-				204: {
-					description: "Job catalog entry and independent execution object deleted",
-				},
-				400: { description: "Invalid slate target, agent name, or job ID" },
-				401: { description: "A valid ContextLayer login is required" },
-				403: {
-					description: "Only the Owner or owning organization members may manage jobs",
-				},
-				404: { description: "Slate or agent job not found" },
-			},
-			security,
-			summary: "Delete an agent job and its execution state",
-			tags: ["Agent jobs"],
-		}),
-		async (c) => {
-			const { id, name } = c.req.valid("param")
-			const result = await deleteAgentJob(
-				c.env.AGENTS,
-				c.var.slateAccess,
-				c.var.config.CTX_AUTH_ISSUER,
-				name,
-				id,
-			)
-			if (!result.allowed) {
-				const status = {
-					forbidden: 403,
-					"not-found": 404,
-					"sign-in-required": 401,
-				} as const
-				return c.body(null, status[result.reason])
-			}
-			return c.body(null, 204)
-		},
-	)
-	jobs.openapi(
-		createRoute({
-			description:
-				"List native catalog entries for this agent in the app and current-user scopes available to the caller, newest first by creation time and ID.",
-			method: "get",
-			operationId: "listAgentJobs",
-			path: "/",
-			request: { params: agentParamsSchema, query: agentJobsQuerySchema },
-			responses: {
-				200: {
+				404: { description: "Slate, agent definition, or conversation not found" },
+				409: {
 					content: {
 						"application/json": {
-							schema: z.object({ jobs: z.array(agentJobEntrySchema) }),
+							schema: z.union([connectionRequiredSchema, secretRequiredSchema]),
 						},
 					},
-					description:
-						"Native job catalog entries from the app and signed-in user's agent instances, merged newest first by createdAt (descending ID breaks ties). Execution state is available through individual job inspection.",
+					description: "A required connection assignment or personal secret is missing",
 				},
-				400: { description: "Invalid slate target or agent name" },
+			},
+			security,
+			summary: "Submit input to an agent conversation",
+			tags: ["Agent conversations"],
+		}),
+		async (c) => {
+			const { conversationId, name } = c.req.valid("param")
+			const result = await submitAgentInput(
+				c.var.db,
+				c.env.ARTIFACTS,
+				c.env.MEMBER_PROVISIONING,
+				c.env.AGENTS,
+				c.var.config,
+				c.var.slateAccess,
+				name,
+				"user",
+				conversationId,
+				c.req.valid("json"),
+			)
+			if (!result.allowed) {
+				if (result.reason === "secret-required")
+					return c.json({ name: result.name, reason: result.reason }, 409)
+				if (result.reason === "connection-required")
+					return c.json({ reason: result.reason, slug: result.slug }, 409)
+				return c.body(null, result.reason === "forbidden" ? 403 : 404)
+			}
+			return c.json(result.submission, 202)
+		},
+	)
+	agentExecution.openapi(
+		createRoute({
+			description:
+				"Read a native Pi submission in the selected user or app agent instance. A completed input's answer identifies its exact entry; retrieve it through listAgentEntries with equal minEntryId and maxEntryId and limit=1. This operation does not wait for completion.",
+			method: "get",
+			operationId: "getAgentSubmission",
+			path: "/submissions/{submissionId}",
+			request: {
+				params: agentSubmissionParamsSchema,
+				query: agentReadQuerySchema,
+			},
+			responses: {
+				200: {
+					content: { "application/json": { schema: agentSubmissionSchema } },
+					description: "Native Pi submission and its current outcome",
+				},
+				400: { description: "Invalid slate target, agent name, submission ID, or actor" },
+				401: { description: "A valid ContextLayer login is required" },
+				403: { description: "Slate viewing is forbidden or the slate is public" },
+				404: { description: "Slate or submission not found" },
+			},
+			security,
+			summary: "Get an agent submission",
+			tags: ["Agent conversations"],
+		}),
+		async (c) => {
+			const { name, submissionId } = c.req.valid("param")
+			const submission = await getAgentSubmission(
+				c.env.AGENTS,
+				c.var.slateAccess,
+				name,
+				c.req.valid("query").actor,
+				submissionId,
+			)
+			if (!submission) return c.body(null, 404)
+			return c.json(submission, 200)
+		},
+	)
+	agentExecution.openapi(
+		createRoute({
+			description:
+				"Page native Pi conversation records in the selected user or app agent instance. Native filters, IDs, and cursors apply within that one instance. The directory includes root and task-owned child conversations.",
+			method: "get",
+			operationId: "listAgentConversations",
+			path: "/conversations",
+			request: { params: agentParamsSchema, query: agentConversationsPageQuerySchema },
+			responses: {
+				200: {
+					content: { "application/json": { schema: agentConversationsPageSchema } },
+					description: "A native Pi page of conversation records",
+				},
+				400: { description: "Invalid slate target, agent name, actor, or scan query" },
 				401: { description: "A valid ContextLayer login is required" },
 				403: { description: "Slate viewing is forbidden or the slate is public" },
 				404: { description: "Slate not found" },
 			},
 			security,
-			summary: "List an agent's jobs available to the caller",
-			tags: ["Agent jobs"],
+			summary: "List an agent's conversations",
+			tags: ["Agent conversations"],
 		}),
-		async (c) =>
-			c.json(
-				{
-					jobs: await listAgentJobs(
-						c.env.AGENTS,
-						c.var.slateAccess,
-						c.req.valid("param").name,
-						c.req.valid("query").schedule,
-					),
-				},
+		async (c) => {
+			const { actor, cursor, limit, ...query } = c.req.valid("query")
+			return c.json(
+				await listAgentConversations(
+					c.env.AGENTS,
+					c.var.slateAccess,
+					c.req.valid("param").name,
+					actor,
+					query,
+					limit,
+					cursor,
+				),
 				200,
-			),
+			)
+		},
 	)
-	agents.route("/jobs", jobs)
+	agentExecution.openapi(
+		createRoute({
+			description:
+				"Inspect a native Pi conversation view in the selected user or app agent instance. Requires slate management permission because the view includes recent entries and internal documents, including rendered system instructions.",
+			method: "get",
+			operationId: "getAgentConversation",
+			path: "/conversations/{conversationId}",
+			request: {
+				params: agentConversationParamsSchema,
+				query: agentReadQuerySchema,
+			},
+			responses: {
+				200: {
+					content: { "application/json": { schema: agentConversationViewSchema } },
+					description:
+						"Native Pi conversation view with recent history and current state",
+				},
+				400: {
+					description: "Invalid slate target, agent name, conversation ID, or actor",
+				},
+				401: { description: "A valid ContextLayer login is required" },
+				403: { description: "Slate management is forbidden or the slate is public" },
+				404: { description: "Slate or conversation not found" },
+			},
+			security,
+			summary: "Inspect an agent conversation",
+			tags: ["Agent conversations"],
+		}),
+		async (c) => {
+			const { conversationId, name } = c.req.valid("param")
+			const result = await getAgentConversation(
+				c.env.AGENTS,
+				c.var.slateAccess,
+				c.var.config.CTX_AUTH_ISSUER,
+				name,
+				c.req.valid("query").actor,
+				conversationId,
+			)
+			if (!result.allowed) {
+				const status = {
+					forbidden: 403,
+					"not-found": 404,
+					"sign-in-required": 401,
+				} as const
+				return c.body(null, status[result.reason])
+			}
+			return c.json(result.conversation, 200)
+		},
+	)
+	agentExecution.openapi(
+		createRoute({
+			description:
+				"Page native Pi entries for a conversation in the selected user or app agent instance. Requires slate management permission. Entry bounds are inclusive; equal minEntryId and maxEntryId with limit=1 retrieves an exact answer. Preserve the selected actor when returning a native cursor.",
+			method: "get",
+			operationId: "listAgentEntries",
+			path: "/conversations/{conversationId}/entries",
+			request: {
+				params: agentConversationParamsSchema,
+				query: agentEntriesPageQuerySchema,
+			},
+			responses: {
+				200: {
+					content: { "application/json": { schema: agentEntriesPageSchema } },
+					description: "A native Pi page of conversation entries",
+				},
+				400: {
+					description: "Invalid slate target, agent name, conversation ID, or scan query",
+				},
+				401: { description: "A valid ContextLayer login is required" },
+				403: { description: "Slate management is forbidden or the slate is public" },
+				404: { description: "Slate or conversation not found" },
+			},
+			security,
+			summary: "Read an agent conversation's entries",
+			tags: ["Agent conversations"],
+		}),
+		async (c) => {
+			const { conversationId, name } = c.req.valid("param")
+			const { actor, cursor, limit, ...query } = c.req.valid("query")
+			const result = await listAgentEntries(
+				c.env.AGENTS,
+				c.var.slateAccess,
+				c.var.config.CTX_AUTH_ISSUER,
+				name,
+				actor,
+				conversationId,
+				query,
+				limit,
+				cursor,
+			)
+			if (!result.allowed) {
+				const status = {
+					forbidden: 403,
+					"not-found": 404,
+					"sign-in-required": 401,
+				} as const
+				return c.body(null, status[result.reason])
+			}
+			return c.json(result.entries, 200)
+		},
+	)
+	agents.route("/", agentExecution)
 	slate.route("/agents/:name", agents)
 	slates.route("/:target", slate)
 	api.route("/slates", slates)
