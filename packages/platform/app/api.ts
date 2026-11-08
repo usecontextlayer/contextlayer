@@ -20,16 +20,18 @@ import {
 	agentConversationsPageQuerySchema,
 	agentConversationsPageSchema,
 	agentConversationViewSchema,
+	agentCreateConversationParamsSchema,
 	agentEntriesPageQuerySchema,
 	agentEntriesPageSchema,
+	agentInstanceParamsSchema,
 	agentParamsSchema,
-	agentReadQuerySchema,
 	agentRuntimeScheduleSchema,
 	agentScheduleParamsSchema,
 	agentSchema,
 	agentSubmissionParamsSchema,
 	agentSubmissionRequestSchema,
 	agentSubmissionSchema,
+	agentSubmitInputParamsSchema,
 } from "@/agents.schema"
 import {
 	createAgentConversation,
@@ -672,14 +674,15 @@ export function createApi() {
 			return c.json(result.agent, 200)
 		},
 	)
-	agents.openapi(
+	const agentInstance = new OpenAPIHono<OwnerViewingEnv>()
+	agentInstance.openapi(
 		createRoute({
 			description:
-				"Inspect native authored cron schedules in the app and current-user scopes available to this caller. Requires slate management permission. Schedule authoring and removal happen through Git and deployment; framework lifecycle callbacks are excluded.",
+				"Inspect native authored cron schedules in the addressed user or app SlateAgent. Requires slate management permission, including for public slates. Schedule authoring and removal happen through Git and deployment; framework lifecycle callbacks are excluded.",
 			method: "get",
 			operationId: "listAgentSchedules",
 			path: "/schedules",
-			request: { params: agentParamsSchema },
+			request: { params: agentInstanceParamsSchema },
 			responses: {
 				200: {
 					content: {
@@ -687,7 +690,7 @@ export function createApi() {
 					},
 					description: "Native provisioned authored cron schedule records",
 				},
-				400: { description: "Invalid slate target or agent name" },
+				400: { description: "Invalid slate target, agent name, or actor" },
 				401: { description: "A valid ContextLayer login is required" },
 				403: {
 					description:
@@ -706,6 +709,7 @@ export function createApi() {
 				c.var.slateAccess,
 				c.var.config.CTX_AUTH_ISSUER,
 				params.name,
+				params.actor,
 			)
 			if (!result.allowed) {
 				const status = { forbidden: 403, "sign-in-required": 401 } as const
@@ -715,10 +719,10 @@ export function createApi() {
 			return c.json(result.schedules, 200)
 		},
 	)
-	agents.openapi(
+	agentInstance.openapi(
 		createRoute({
 			description:
-				"Inspect one native authored schedule by scheduleId. Requires slate management permission.",
+				"Inspect one native authored schedule by scheduleId in the addressed user or app SlateAgent. Requires slate management permission, including for public slates.",
 			method: "get",
 			operationId: "getAgentSchedule",
 			path: "/schedules/{scheduleId}",
@@ -728,7 +732,7 @@ export function createApi() {
 					content: { "application/json": { schema: agentRuntimeScheduleSchema } },
 					description: "Native provisioned authored cron schedule records",
 				},
-				400: { description: "Invalid slate target, agent name, or schedule ID" },
+				400: { description: "Invalid slate target, agent name, actor, or schedule ID" },
 				401: { description: "A valid ContextLayer login is required" },
 				403: {
 					description:
@@ -747,6 +751,7 @@ export function createApi() {
 				c.var.slateAccess,
 				c.var.config.CTX_AUTH_ISSUER,
 				params.name,
+				params.actor,
 				params.scheduleId,
 			)
 			if (!result.allowed) {
@@ -775,7 +780,7 @@ export function createApi() {
 			method: "post",
 			operationId: "createAgentConversation",
 			path: "/conversations",
-			request: { params: agentParamsSchema },
+			request: { params: agentCreateConversationParamsSchema },
 			responses: {
 				201: {
 					content: { "application/json": { schema: agentConversationSchema } },
@@ -787,7 +792,7 @@ export function createApi() {
 						},
 					},
 				},
-				400: { description: "Invalid slate target or agent name" },
+				400: { description: "Invalid slate target, agent name, or actor" },
 				401: { description: "A valid ContextLayer login is required" },
 				403: { description: "Slate viewing is forbidden or the slate is public" },
 				404: { description: "Slate or agent definition not found" },
@@ -805,6 +810,7 @@ export function createApi() {
 			tags: ["Agent conversations"],
 		}),
 		async (c) => {
+			const { actor, name } = c.req.valid("param")
 			const result = await createAgentConversation(
 				c.var.db,
 				c.env.ARTIFACTS,
@@ -812,8 +818,8 @@ export function createApi() {
 				c.env.AGENTS,
 				c.var.config,
 				c.var.slateAccess,
-				c.req.valid("param").name,
-				"user",
+				name,
+				actor,
 			)
 			if (!result.allowed) {
 				if (result.reason === "secret-required")
@@ -841,7 +847,7 @@ export function createApi() {
 					content: { "application/json": { schema: agentSubmissionRequestSchema } },
 					required: true,
 				},
-				params: agentConversationParamsSchema,
+				params: agentSubmitInputParamsSchema,
 			},
 			responses: {
 				202: {
@@ -849,7 +855,8 @@ export function createApi() {
 					description: "Native Pi submission with its durable ID and current status",
 				},
 				400: {
-					description: "Invalid slate target, agent name, conversation ID, or input",
+					description:
+						"Invalid slate target, agent name, actor, conversation ID, or input",
 				},
 				401: { description: "A valid ContextLayer login is required" },
 				403: { description: "Slate viewing is forbidden or the slate is public" },
@@ -868,7 +875,7 @@ export function createApi() {
 			tags: ["Agent conversations"],
 		}),
 		async (c) => {
-			const { conversationId, name } = c.req.valid("param")
+			const { actor, conversationId, name } = c.req.valid("param")
 			const result = await submitAgentInput(
 				c.var.db,
 				c.env.ARTIFACTS,
@@ -877,7 +884,7 @@ export function createApi() {
 				c.var.config,
 				c.var.slateAccess,
 				name,
-				"user",
+				actor,
 				conversationId,
 				c.req.valid("json"),
 			)
@@ -900,7 +907,6 @@ export function createApi() {
 			path: "/submissions/{submissionId}",
 			request: {
 				params: agentSubmissionParamsSchema,
-				query: agentReadQuerySchema,
 			},
 			responses: {
 				200: {
@@ -917,12 +923,12 @@ export function createApi() {
 			tags: ["Agent conversations"],
 		}),
 		async (c) => {
-			const { name, submissionId } = c.req.valid("param")
+			const { actor, name, submissionId } = c.req.valid("param")
 			const submission = await getAgentSubmission(
 				c.env.AGENTS,
 				c.var.slateAccess,
 				name,
-				c.req.valid("query").actor,
+				actor,
 				submissionId,
 			)
 			if (!submission) return c.body(null, 404)
@@ -936,7 +942,10 @@ export function createApi() {
 			method: "get",
 			operationId: "listAgentConversations",
 			path: "/conversations",
-			request: { params: agentParamsSchema, query: agentConversationsPageQuerySchema },
+			request: {
+				params: agentInstanceParamsSchema,
+				query: agentConversationsPageQuerySchema,
+			},
 			responses: {
 				200: {
 					content: { "application/json": { schema: agentConversationsPageSchema } },
@@ -952,12 +961,13 @@ export function createApi() {
 			tags: ["Agent conversations"],
 		}),
 		async (c) => {
-			const { actor, cursor, limit, ...query } = c.req.valid("query")
+			const { actor, name } = c.req.valid("param")
+			const { cursor, limit, ...query } = c.req.valid("query")
 			return c.json(
 				await listAgentConversations(
 					c.env.AGENTS,
 					c.var.slateAccess,
-					c.req.valid("param").name,
+					name,
 					actor,
 					query,
 					limit,
@@ -976,7 +986,6 @@ export function createApi() {
 			path: "/conversations/{conversationId}",
 			request: {
 				params: agentConversationParamsSchema,
-				query: agentReadQuerySchema,
 			},
 			responses: {
 				200: {
@@ -996,13 +1005,13 @@ export function createApi() {
 			tags: ["Agent conversations"],
 		}),
 		async (c) => {
-			const { conversationId, name } = c.req.valid("param")
+			const { actor, conversationId, name } = c.req.valid("param")
 			const result = await getAgentConversation(
 				c.env.AGENTS,
 				c.var.slateAccess,
 				c.var.config.CTX_AUTH_ISSUER,
 				name,
-				c.req.valid("query").actor,
+				actor,
 				conversationId,
 			)
 			if (!result.allowed) {
@@ -1033,7 +1042,8 @@ export function createApi() {
 					description: "A native Pi page of conversation entries",
 				},
 				400: {
-					description: "Invalid slate target, agent name, conversation ID, or scan query",
+					description:
+						"Invalid slate target, agent name, actor, conversation ID, or scan query",
 				},
 				401: { description: "A valid ContextLayer login is required" },
 				403: { description: "Slate management is forbidden or the slate is public" },
@@ -1044,8 +1054,8 @@ export function createApi() {
 			tags: ["Agent conversations"],
 		}),
 		async (c) => {
-			const { conversationId, name } = c.req.valid("param")
-			const { actor, cursor, limit, ...query } = c.req.valid("query")
+			const { actor, conversationId, name } = c.req.valid("param")
+			const { cursor, limit, ...query } = c.req.valid("query")
 			const result = await listAgentEntries(
 				c.env.AGENTS,
 				c.var.slateAccess,
@@ -1068,7 +1078,8 @@ export function createApi() {
 			return c.json(result.entries, 200)
 		},
 	)
-	agents.route("/", agentExecution)
+	agentInstance.route("/", agentExecution)
+	agents.route("/:actor", agentInstance)
 	slate.route("/agents/:name", agents)
 	slates.route("/:target", slate)
 	api.route("/slates", slates)

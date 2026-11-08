@@ -140,6 +140,102 @@ test("discovers every operation published by the platform without invoking endpo
 	expect(operationRequests).toBe(0)
 })
 
+test("agent operations require an actor address and the CLI sends it in the path", async ({
+	apiCli,
+}) => {
+	apiCli.document = await (
+		await createApi().request(
+			new URL("/openapi.json", apiCli.settings.CTX_PLATFORM_URL).href,
+		)
+	).json()
+	const prefix = "/slates/{target}/agents/{name}/{actor}"
+	for (const [operationId, method, path, params, suffix] of [
+		["createAgentConversation", "post", "/conversations", {}, "/conversations"],
+		[
+			"submitAgentInput",
+			"post",
+			"/conversations/{conversationId}/submissions",
+			{ conversationId: 7 },
+			"/conversations/7/submissions",
+		],
+		[
+			"getAgentSubmission",
+			"get",
+			"/submissions/{submissionId}",
+			{ submissionId: 11 },
+			"/submissions/11",
+		],
+		[
+			"listAgentConversations",
+			"get",
+			"/conversations",
+			{ limit: 10 },
+			"/conversations?limit=10",
+		],
+		[
+			"getAgentConversation",
+			"get",
+			"/conversations/{conversationId}",
+			{ conversationId: 7 },
+			"/conversations/7",
+		],
+		[
+			"listAgentEntries",
+			"get",
+			"/conversations/{conversationId}/entries",
+			{ conversationId: 7, limit: 10 },
+			"/conversations/7/entries?limit=10",
+		],
+		["listAgentSchedules", "get", "/schedules", {}, "/schedules"],
+		[
+			"getAgentSchedule",
+			"get",
+			"/schedules/{scheduleId}",
+			{ scheduleId: "cron-one" },
+			"/schedules/cron-one",
+		],
+	] as const) {
+		const operation = apiCli.document.paths?.[`${prefix}${path}`]?.[method]
+		expect(operation?.operationId).toBe(operationId)
+		expect(operation?.parameters).toContainEqual(
+			expect.objectContaining({
+				in: "path",
+				name: "actor",
+				required: true,
+				schema: expect.objectContaining({
+					enum: method === "post" ? ["user"] : ["user", "app"],
+				}),
+			}),
+		)
+		expect(operation?.parameters).not.toContainEqual(
+			expect.objectContaining({ in: "query", name: "actor" }),
+		)
+		expect(
+			apiCli.document.paths?.[`/slates/{target}/agents/{name}${path}`],
+		).toBeUndefined()
+		const actor = method === "post" ? "user" : "app"
+		const result = await apiCli.run(
+			"api",
+			operationId,
+			"--params",
+			JSON.stringify({
+				actor,
+				name: "brief",
+				target: "00000000-0000-4000-8000-000000000001",
+				...params,
+			}),
+			...(operationId === "submitAgentInput"
+				? ["--json", JSON.stringify({ content: "Hello" })]
+				: []),
+		)
+		expect(result.exitCode, result.stderr).toBe(0)
+		expect(JSON.parse(result.stdout).data).toMatchObject({
+			method: method.toUpperCase(),
+			url: `/api/slates/00000000-0000-4000-8000-000000000001/agents/brief/${actor}${suffix}`,
+		})
+	}
+})
+
 test("describes the supplied contract without login or invocation", async ({
 	apiCli,
 }) => {

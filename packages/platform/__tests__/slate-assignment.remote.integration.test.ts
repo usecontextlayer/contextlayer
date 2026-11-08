@@ -99,7 +99,7 @@ test("chrome completes agent-only setup and repeated API assignment preserves it
 	const { resources } = slateResourcesSchema.parse(await listing.json())
 	expect(resources.connections.primary?.account_id).toBe(account.id)
 	expect(resources.connections.secondary?.account_id).toBeNull()
-	const schedulesUrl = `${platform.origin}/api/slates/${slate.id}/agents/daily/schedules`
+	const schedulesUrl = `${platform.origin}/api/slates/${slate.id}/agents/daily/user/schedules`
 	const unconfigured = await fetch(schedulesUrl, { headers })
 	expect(unconfigured.status).toBe(200)
 	expect(await unconfigured.json()).toEqual([])
@@ -141,6 +141,12 @@ test("chrome completes agent-only setup and repeated API assignment preserves it
 			type: "cron",
 		},
 	])
+	const appSchedules = await fetch(
+		`${platform.origin}/api/slates/${slate.id}/agents/daily/app/schedules`,
+		{ headers },
+	)
+	expect(appSchedules.status).toBe(200)
+	expect(await appSchedules.json()).toEqual([])
 	const again = await fetch(
 		`${platform.origin}/api/slates/${slate.id}/connections/assign`,
 		post({ account_id: account.id, slug: "primary" }),

@@ -7,6 +7,7 @@ import { copySlateProject } from "@usecontextlayer/dev-env/slate"
 import { expect } from "vitest"
 import { z } from "zod"
 import {
+	agentConversationSchema,
 	agentConversationsPageSchema,
 	agentConversationViewSchema,
 	agentEntriesPageSchema,
@@ -71,14 +72,16 @@ test("authored cron firings create separate conversations and retain results aft
 		"Author scheduled Pi acceptance agent",
 	)
 	await git("push", remote, "main")
-	const url = `${origin}/api/slates/${slate.id}/agents/brief`
-	const conversationsUrl = `${url}/conversations?actor=app&limit=100&order=ascending`
+	const agentUrl = `${origin}/api/slates/${slate.id}/agents/brief`
+	const url = `${agentUrl}/app`
+	const userUrl = `${agentUrl}/user`
+	const conversationsUrl = `${url}/conversations?limit=100&order=ascending`
 	const before = await fetch(conversationsUrl, { headers })
 	expect(before.status).toBe(200)
 	const beforeConversations = agentConversationsPageSchema.parse(
 		await before.json(),
 	).items
-	const userBefore = await fetch(`${url}/conversations?limit=100`, { headers })
+	const userBefore = await fetch(`${userUrl}/conversations?limit=100`, { headers })
 	expect(userBefore.status).toBe(200)
 	const userConversations = agentConversationsPageSchema.parse(await userBefore.json())
 	const { MEMBER_PROVISIONING, PROVISIONING } = await buildWorker.getEnv()
@@ -98,7 +101,7 @@ test("authored cron firings create separate conversations and retain results aft
 		)
 		await workflow.waitForStatus("complete")
 	}
-	const scheduleUrl = `${origin}/api/slates/${slate.id}/agents/brief/schedules`
+	const scheduleUrl = `${url}/schedules`
 	const scheduled = await fetch(scheduleUrl, { headers })
 	expect(scheduled.status).toBe(200)
 	const schedules = z.array(agentRuntimeScheduleSchema).parse(await scheduled.json())
@@ -120,6 +123,27 @@ test("authored cron firings create separate conversations and retain results aft
 	const scheduleDetail = await fetch(`${scheduleUrl}/${schedule.id}`, { headers })
 	expect(scheduleDetail.status).toBe(200)
 	expect(agentRuntimeScheduleSchema.parse(await scheduleDetail.json())).toEqual(schedule)
+	const userSchedules = await fetch(`${userUrl}/schedules`, { headers })
+	expect(userSchedules.status).toBe(200)
+	expect(await userSchedules.json()).toEqual([])
+	expect((await fetch(`${userUrl}/schedules/${schedule.id}`, { headers })).status).toBe(
+		404,
+	)
+	const madePublic = await fetch(`${origin}/api/slates/${slate.id}`, {
+		body: JSON.stringify({ visibility: "public" }),
+		headers,
+		method: "PATCH",
+	})
+	expect(madePublic.status).toBe(200)
+	expect((await fetch(scheduleUrl, { headers })).status).toBe(200)
+	expect((await fetch(`${scheduleUrl}/${schedule.id}`, { headers })).status).toBe(200)
+	expect((await fetch(conversationsUrl, { headers })).status).toBe(403)
+	const madePrivate = await fetch(`${origin}/api/slates/${slate.id}`, {
+		body: JSON.stringify({ visibility: "private" }),
+		headers,
+		method: "PATCH",
+	})
+	expect(madePrivate.status).toBe(200)
 	let conversations: z.infer<typeof agentConversationsPageSchema>["items"] = []
 	await expect
 		.poll(
@@ -156,14 +180,18 @@ test("authored cron firings create separate conversations and retain results aft
 	)
 	const removed = await fetch(`${scheduleUrl}/${schedule.id}`, { headers })
 	expect(removed.status).toBe(404)
+	const userCreated = await fetch(`${userUrl}/conversations`, { headers, method: "POST" })
+	expect(userCreated.status).toBe(201)
+	const userConversation = agentConversationSchema.parse(await userCreated.json())
+	expect(userConversation.id).toBe(first.id)
 	const completedConversations = []
-	for (const conversation of [first, second]) {
+	for (const [index, conversation] of [first, second].entries()) {
 		const conversationUrl = `${url}/conversations/${conversation.id}`
 		let view: z.infer<typeof agentConversationViewSchema> | undefined
 		await expect
 			.poll(
 				async () => {
-					const response = await fetch(`${conversationUrl}?actor=app`, { headers })
+					const response = await fetch(conversationUrl, { headers })
 					expect(response.status).toBe(200)
 					view = agentConversationViewSchema.parse(await response.json())
 					const live = view.docs[LiveDoc.definition.kind]
@@ -183,10 +211,26 @@ test("authored cron firings create separate conversations and retain results aft
 			JSON.stringify(view.docs[LiveDoc.definition.kind]),
 		).toBeUndefined()
 		expect(view.docs[LiveDoc.definition.kind]?.run).toBeUndefined()
-		const history = await fetch(
-			`${conversationUrl}/entries?actor=app&limit=100&order=ascending`,
-			{ headers },
-		)
+		if (index === 0) {
+			const input = view.entries.find((entry) => entry.kind === "slate.schedule")
+			assert(input)
+			for (const [instanceUrl, expected] of [
+				[url, [input]],
+				[userUrl, []],
+			] as const) {
+				const selected = await fetch(
+					`${instanceUrl}/conversations/${userConversation.id}/entries?minEntryId=${input.id}&maxEntryId=${input.id}&limit=1`,
+					{ headers },
+				)
+				expect(selected.status).toBe(200)
+				expect(agentEntriesPageSchema.parse(await selected.json()).items).toEqual(
+					expected,
+				)
+			}
+		}
+		const history = await fetch(`${conversationUrl}/entries?limit=100&order=ascending`, {
+			headers,
+		})
 		expect(history.status).toBe(200)
 		const entries = agentEntriesPageSchema.parse(await history.json()).items
 		const inputs = entries.filter((entry) => entry.kind === "slate.schedule")
@@ -221,18 +265,21 @@ test("authored cron firings create separate conversations and retain results aft
 	expect(agentConversationsPageSchema.parse(await listed.json()).items).toEqual(
 		expect.arrayContaining([first, second]),
 	)
-	const userAfter = await fetch(`${url}/conversations?limit=100`, { headers })
+	const userAfter = await fetch(`${userUrl}/conversations?limit=100`, { headers })
 	expect(userAfter.status).toBe(200)
-	expect(agentConversationsPageSchema.parse(await userAfter.json())).toEqual(
-		userConversations,
-	)
+	const userDirectory = agentConversationsPageSchema.parse(await userAfter.json())
+	expect(userDirectory).toEqual({
+		...userConversations,
+		items: expect.arrayContaining([...userConversations.items, userConversation]),
+	})
+	expect(userDirectory.items).toHaveLength(userConversations.items.length + 1)
 	const ids = await worker.listDurableObjectIds("SlateAgent")
 	expect(ids.length).toBeGreaterThan(0)
 	for (const id of ids) await worker.evictDurableObject("SlateAgent", { id })
 	for (const { answer, conversation, input } of completedConversations) {
 		const conversationUrl = `${url}/conversations/${conversation.id}`
 		const retainedAnswer = await fetch(
-			`${conversationUrl}/entries?actor=app&minEntryId=${answer.id}&maxEntryId=${answer.id}&limit=1`,
+			`${conversationUrl}/entries?minEntryId=${answer.id}&maxEntryId=${answer.id}&limit=1`,
 			{ headers },
 		)
 		expect(retainedAnswer.status).toBe(200)
@@ -240,14 +287,14 @@ test("authored cron firings create separate conversations and retain results aft
 			answer,
 		])
 		const retainedInput = await fetch(
-			`${conversationUrl}/entries?actor=app&minEntryId=${input.id}&maxEntryId=${input.id}&limit=1`,
+			`${conversationUrl}/entries?minEntryId=${input.id}&maxEntryId=${input.id}&limit=1`,
 			{ headers },
 		)
 		expect(retainedInput.status).toBe(200)
 		expect(agentEntriesPageSchema.parse(await retainedInput.json()).items).toEqual([
 			input,
 		])
-		const retained = await fetch(`${conversationUrl}?actor=app`, { headers })
+		const retained = await fetch(conversationUrl, { headers })
 		expect(retained.status).toBe(200)
 		const view = agentConversationViewSchema.parse(await retained.json())
 		expect(view.conversation).toEqual(conversation)

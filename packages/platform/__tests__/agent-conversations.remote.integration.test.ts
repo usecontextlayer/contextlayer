@@ -69,7 +69,27 @@ test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
 			"Author Pi API acceptance agent",
 		)
 		await git("push", `${origin}/git/${slate.id}`, "main")
-		const url = `${origin}/api/slates/${slate.id}/agents/brief`
+		const agentUrl = `${origin}/api/slates/${slate.id}/agents/brief`
+		const url = `${agentUrl}/user`
+		for (const path of ["conversations?limit=10", "submissions/1", "schedules"]) {
+			expect((await fetch(`${agentUrl}/${path}`, { headers })).status).toBe(404)
+		}
+		for (const actor of ["app", "invalid"]) {
+			for (const path of ["conversations", "conversations/1/submissions"]) {
+				expect(
+					(
+						await fetch(`${agentUrl}/${actor}/${path}`, {
+							body: JSON.stringify({ content: "Unsupported manual actor" }),
+							headers,
+							method: "POST",
+						})
+					).status,
+				).toBe(400)
+			}
+		}
+		expect(
+			(await fetch(`${agentUrl}/invalid/conversations?limit=10`, { headers })).status,
+		).toBe(400)
 		const membership = db
 			.selectFrom("slate_member")
 			.select("user_id")

@@ -127,7 +127,7 @@ test("API conversations execute Code Mode database calls and retain owner and vi
 			["seed", "proof", markers[slug], 1],
 		)
 	}
-	const url = `${origin}/api/slates/${slate.id}/agents/database`
+	const url = `${origin}/api/slates/${slate.id}/agents/database/user`
 	const conversationResponse = await fetch(`${url}/conversations`, {
 		headers,
 		method: "POST",

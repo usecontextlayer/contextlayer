@@ -355,32 +355,21 @@ export async function listAgentEntries(
 		: ({ allowed: false, reason: "not-found" } as const)
 }
 
-function getAgentInstances(
-	agents: DurableObjectNamespace<SlateAgent>,
-	access: SlateAccess,
-	name: string,
-) {
-	return [
-		getAgentInstance(agents, access, name, "app"),
-		getAgentInstance(agents, access, name, "user"),
-	]
-}
-
 export async function listAgentSchedules(
 	agents: DurableObjectNamespace<SlateAgent>,
 	access: OwnerSlateAccess,
 	issuer: string,
 	name: string,
+	actorType: AgentActor["type"],
 ) {
 	const authorization = await authorizeAgentManagement(access, issuer)
 	if (!authorization.allowed) return authorization
-	const instances = getAgentInstances(agents, access, name)
-	const schedules = await Promise.all(
-		instances.map(async (agent) =>
-			z.array(agentRuntimeScheduleSchema).parse(await agent.listAuthoredSchedules()),
-		),
-	)
-	return { allowed: true, schedules: schedules.flat() } as const
+	const schedules = z
+		.array(agentRuntimeScheduleSchema)
+		.parse(
+			await getAgentInstance(agents, access, name, actorType).listAuthoredSchedules(),
+		)
+	return { allowed: true, schedules } as const
 }
 
 export async function getAgentSchedule(
@@ -388,17 +377,19 @@ export async function getAgentSchedule(
 	access: OwnerSlateAccess,
 	issuer: string,
 	name: string,
+	actorType: AgentActor["type"],
 	id: string,
 ) {
 	const authorization = await authorizeAgentManagement(access, issuer)
 	if (!authorization.allowed) return authorization
-	for (const agent of getAgentInstances(agents, access, name)) {
-		const schedule = await agent.getAuthoredSchedule(id)
-		if (schedule)
-			return {
-				allowed: true,
-				schedule: agentRuntimeScheduleSchema.parse(schedule),
-			} as const
-	}
-	return { allowed: true, schedule: null } as const
+	const schedule = await getAgentInstance(
+		agents,
+		access,
+		name,
+		actorType,
+	).getAuthoredSchedule(id)
+	return {
+		allowed: true,
+		schedule: schedule ? agentRuntimeScheduleSchema.parse(schedule) : null,
+	} as const
 }

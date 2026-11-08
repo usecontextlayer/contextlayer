@@ -33,6 +33,20 @@ export const agentParamsSchema = z.object({
 	target: slateTargetSchema,
 })
 
+export const agentInstanceParamsSchema = agentParamsSchema.extend({
+	actor: z.enum(["user", "app"]).openapi({
+		description:
+			"Required instance address: user selects the authenticated caller's SlateAgent; app selects this named agent's app SlateAgent. Native IDs and cursors belong to that instance.",
+	}),
+})
+
+export const agentCreateConversationParamsSchema = agentInstanceParamsSchema.extend({
+	actor: z.literal("user").openapi({
+		description:
+			"Manual input is supported only in the authenticated caller's SlateAgent.",
+	}),
+})
+
 const piIdSchema = z.coerce.number().int().positive()
 export const agentConversationIdSchema = piIdSchema.transform(
 	(id) => id as ConversationId,
@@ -41,18 +55,14 @@ export const agentSubmissionIdSchema = piIdSchema.transform((id) => id as Submis
 const piEntryIdSchema = piIdSchema.transform((id) => id as EntryId)
 const piTaskIdSchema = piIdSchema.transform((id) => id as TaskId)
 
-export const agentConversationParamsSchema = agentParamsSchema.extend({
+export const agentConversationParamsSchema = agentInstanceParamsSchema.extend({
 	conversationId: agentConversationIdSchema,
 })
-export const agentSubmissionParamsSchema = agentParamsSchema.extend({
+export const agentSubmissionParamsSchema = agentInstanceParamsSchema.extend({
 	submissionId: agentSubmissionIdSchema,
 })
-
-export const agentReadQuerySchema = z.object({
-	actor: z.enum(["user", "app"]).default("user").openapi({
-		description:
-			"Select the authenticated user's agent instance or the named agent's app instance. Native IDs and cursors belong to that instance.",
-	}),
+export const agentSubmitInputParamsSchema = agentCreateConversationParamsSchema.extend({
+	conversationId: agentConversationIdSchema,
 })
 
 const piUserInputSchema = z.union([
@@ -122,14 +132,12 @@ export const agentEntriesQuerySchema = z.object({
 	order: piScanOrderSchema.optional(),
 }) satisfies z.ZodType<Omit<EntryQuery, "conversationId">>
 
-export const agentConversationsPageQuerySchema = agentConversationQuerySchema.extend({
-	...piPageQuerySchema.shape,
-	...agentReadQuerySchema.shape,
-})
-export const agentEntriesPageQuerySchema = agentEntriesQuerySchema.extend({
-	...piPageQuerySchema.shape,
-	...agentReadQuerySchema.shape,
-})
+export const agentConversationsPageQuerySchema = agentConversationQuerySchema.extend(
+	piPageQuerySchema.shape,
+)
+export const agentEntriesPageQuerySchema = agentEntriesQuerySchema.extend(
+	piPageQuerySchema.shape,
+)
 
 export const agentConversationSchema = z.looseObject({
 	id: agentConversationIdSchema,
@@ -196,7 +204,7 @@ export const agentConversationsPageSchema = z.object({
 	items: z.array(agentConversationSchema),
 	next: agentCursorSchema.optional(),
 })
-export const agentScheduleParamsSchema = agentParamsSchema.extend({
+export const agentScheduleParamsSchema = agentInstanceParamsSchema.extend({
 	scheduleId: z.string().min(1).openapi({
 		description: "Native provisioned schedule ID from the schedule listing.",
 	}),

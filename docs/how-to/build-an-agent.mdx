@@ -78,14 +78,14 @@ An agent-only slate that declares a database must also supply its [Kysely config
     ```sh
     npx @usecontextlayer/cli api createAgentConversation --describe
     npx @usecontextlayer/cli api createAgentConversation \
-      --params '{"target":"<slate-id-or-hostname>","name":"digest"}'
+      --params '{"target":"<slate-id-or-hostname>","name":"digest","actor":"user"}'
     ```
 
     Keep the numeric conversation ID in `data.id`. Creation gives you a conversation without sending a prompt. In the following examples, replace `123` with that returned ID, then submit the task:
 
     ```sh
     npx @usecontextlayer/cli api submitAgentInput \
-      --params '{"target":"<slate-id-or-hostname>","name":"digest","conversationId":123}' \
+      --params '{"target":"<slate-id-or-hostname>","name":"digest","actor":"user","conversationId":123}' \
       --json '{"content":"Summarize the notes."}'
     ```
 
@@ -93,7 +93,7 @@ An agent-only slate that declares a database must also supply its [Kysely config
 
     ```sh
     npx @usecontextlayer/cli api getAgentSubmission \
-      --params '{"target":"<slate-id-or-hostname>","name":"digest","submissionId":456}'
+      --params '{"target":"<slate-id-or-hostname>","name":"digest","actor":"user","submissionId":456}'
     ```
 
     The read returns the current status without waiting. Check again while it is `queued` or `placed`. A `done` input submission contains `data.answer`, the exact entry ID containing its answer. An `unanswered` submission instead reports its native reason and any detail; do not treat that as a successful answer.
@@ -102,7 +102,7 @@ An agent-only slate that declares a database must also supply its [Kysely config
 
     ```sh
     npx @usecontextlayer/cli api listAgentEntries \
-      --params '{"target":"<slate-id-or-hostname>","name":"digest","conversationId":123,"minEntryId":789,"maxEntryId":789,"limit":1}'
+      --params '{"target":"<slate-id-or-hostname>","name":"digest","actor":"user","conversationId":123,"minEntryId":789,"maxEntryId":789,"limit":1}'
     ```
 
     Read the assistant message's text blocks under `data.items[0].model` and check that they summarize the notes you added. The entry ID ties this answer to your submission even if more work has since reached the conversation.
@@ -113,16 +113,16 @@ An agent-only slate that declares a database must also supply its [Kysely config
 
     ```sh
     npx @usecontextlayer/cli api listAgentConversations \
-      --params '{"target":"<slate-id-or-hostname>","name":"digest","limit":20}'
+      --params '{"target":"<slate-id-or-hostname>","name":"digest","actor":"user","limit":20}'
     npx @usecontextlayer/cli api getAgentConversation \
-      --params '{"target":"<slate-id-or-hostname>","name":"digest","conversationId":123}'
+      --params '{"target":"<slate-id-or-hostname>","name":"digest","actor":"user","conversationId":123}'
     npx @usecontextlayer/cli api listAgentEntries \
-      --params '{"target":"<slate-id-or-hostname>","name":"digest","conversationId":123,"order":"ascending","limit":50}'
+      --params '{"target":"<slate-id-or-hostname>","name":"digest","actor":"user","conversationId":123,"order":"ascending","limit":50}'
     ```
 
     The conversation view includes recent entries and current native documents, including usage and execution state. Entry listing reads history page by page. If a page returns `data.next`, JSON-encode that unchanged object as the next request's `cursor` parameter, preserving the same scan and actor. Use each operation's `--describe` for its complete native contract. The directory includes Pi's root, created at runtime startup without submitting a task, and any task-owned child conversations; it is not just a list of manual requests.
 
-    These reads select your agent instance by default. Supply `"actor":"app"` in `--params` to inspect the app instance instead. Keep the selected actor with every ID and cursor: an ID from one instance does not identify a record in another. Create and submit always act for you.
+    Every operation requires an actor in `--params`, which the CLI places in the URL path. Use `"actor":"user"` for your instance, including create and submit. Use `"actor":"app"` to read the app instance. Keep the selected actor with every ID and cursor: an ID from one instance does not identify a record in another.
 
     Private-slate viewers can create conversations, submit input, list conversations, and check submissions. Reading the conversation view or entries, including answer text, requires slate management permission, as does schedule inspection. Use your management login for this walkthrough. These APIs do not expose stopping or deleting work.
   </Step>
@@ -147,7 +147,7 @@ An agent-only slate that declares a database must also supply its [Kysely config
     - An agent with no viewer-mode resources, like `digest`, starts one conversation for the slate at each firing. This app actor does not require an authored UI app.
     - An agent with any viewer-mode connection, database or secret starts one conversation for each slate member at each firing, using that member's viewer-mode resources. A person becomes a slate member when they complete the slate's setup; ContextLayer then migrates their viewer-mode databases and installs the agent's schedules for them in the background.
 
-    Check that the provisioned schedule list includes `daily`. For this owner-only agent, use `listAgentConversations` with `"actor":"app"` to find scheduled conversations. Their input entries have kind `slate.schedule`, with the authored name in `data.schedule` and native schedule ID in `data.scheduleId`. Removing the schedule leaves that history intact.
+    Use `"actor":"app"` in `--params` when listing or reading this owner-only agent's provisioned schedules, and check that the list includes `daily`. For an agent with member-scoped schedules, use `"actor":"user"` to inspect your own installed schedules. A list for an actor with no installed schedules is empty. For this owner-only agent, use `listAgentConversations` with `"actor":"app"` to find scheduled conversations. Their input entries have kind `slate.schedule`, with the authored name in `data.schedule` and native schedule ID in `data.scheduleId`. Removing the schedule leaves that history intact.
   </Step>
 </Steps>
 

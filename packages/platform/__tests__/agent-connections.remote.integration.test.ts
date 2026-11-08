@@ -78,7 +78,7 @@ test("SlateAgent connection namespaces execute against their assigned Gmail acco
 		)
 		expect(assigned.status).toBe(200)
 	}
-	const url = `${origin}/api/slates/${slate.id}/agents/mail`
+	const url = `${origin}/api/slates/${slate.id}/agents/mail/user`
 	const conversationResponse = await fetch(`${url}/conversations`, {
 		headers,
 		method: "POST",

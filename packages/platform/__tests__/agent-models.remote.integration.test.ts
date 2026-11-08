@@ -75,7 +75,7 @@ test("API conversations honor a declared non-default Owner model", async ({
 	const configured = slateResourcesSchema.parse(await inventory.json()).resources
 	expect(configured.secrets.ANTHROPIC_API_KEY?.owner).toEqual(owner)
 	expect(configured.secrets.ANTHROPIC_MODEL?.owner).toEqual(owner)
-	const url = `${origin}/api/slates/${slate.id}/agents/model`
+	const url = `${origin}/api/slates/${slate.id}/agents/model/user`
 	const conversationResponse = await fetch(`${url}/conversations`, {
 		headers,
 		method: "POST",
