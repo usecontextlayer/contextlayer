@@ -298,7 +298,13 @@ export class SlateAgent extends DurableObject<PlatformEnv["Bindings"]> {
 		configuration: AgentConfiguration,
 	): Promise<unknown> {
 		await this.lifecycle.start()
-		return this.submitInput(id, input, configuration)
+		const pi = await this.harness.pi()
+		if (!(await pi.conversation(id, BACKGROUND_CONTEXT))) return undefined
+		const receipt = await this.submitInput(id, input, configuration)
+		return pi.commit(
+			(tx) => tx.submissionByRequest(id, receipt.operationId),
+			BACKGROUND_CONTEXT,
+		)
 	}
 
 	private async submitInput(
@@ -307,17 +313,11 @@ export class SlateAgent extends DurableObject<PlatformEnv["Bindings"]> {
 		configuration: AgentConfiguration,
 		entry?: InputEntry,
 	) {
-		const pi = await this.harness.pi()
-		if (!(await pi.conversation(id, BACKGROUND_CONTEXT))) return undefined
 		await this.installConnectionTools(configuration.connections)
-		const receipt = await this.harness.session(String(id)).submit(input.content, {
+		return this.harness.session(String(id)).submit(input.content, {
 			entry,
 			operationId: input.requestId,
 		})
-		return pi.commit(
-			(tx) => tx.submissionByRequest(id, receipt.operationId),
-			BACKGROUND_CONTEXT,
-		)
 	}
 
 	async getSubmission(id: SubmissionId): Promise<unknown> {
