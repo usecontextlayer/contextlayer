@@ -15,7 +15,7 @@ A slate can combine these parts, or contain just one:
 
 - The [**app**](/core-concepts/slate/app) is the browser interface people use to view information and take actions. It is built with React Router.
 - **Static files** in `public/` provide pages and assets with or without an app. They follow the slate's viewing permissions.
-- [**Agents**](/core-concepts/slate/agents) are named sets of standing instructions that run as hosted jobs, on demand or on a schedule.
+- [**Agents**](/core-concepts/slate/agents) are named sets of standing instructions that accept input in hosted conversations, on demand or on a schedule.
 - [**MCP tools and Views**](/core-concepts/slate/mcp) provide tools for Model Context Protocol clients and browser UI source built alongside the rest of the slate.
 - [**Resources**](/core-concepts/resources) are the connections, databases, and secrets the app and agents use. Each app or agent declares its requirements in a `slate.json` file.
 
@@ -54,7 +54,7 @@ One slate can combine both modes. Everyone can work with the same request databa
     Slates, Owners and viewers, accounts, and resources.
   </Card>
   <Card title="Build an agent" icon="list-check" href="/how-to/build-an-agent">
-    Write standing instructions, declare resources, and run a hosted job.
+    Write standing instructions, declare resources, and get an answer in a hosted conversation.
   </Card>
   <Card title="API reference" icon="code" href="/api-reference/slates/update-who-can-view-a-slate">
     Inspect platform requests and responses, starting with slate visibility.

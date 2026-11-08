@@ -1,29 +1,30 @@
 ---
 title: "Agents"
-description: "Define an agent independently of an app, then run it as hosted jobs through the API or a schedule."
+description: "Define an agent independently of an app, submit work to durable conversations, and run it on a schedule."
 ---
 
-An **agent** is a named set of standing instructions and resource requirements inside a [slate](/core-concepts/slate). ContextLayer runs those instructions as hosted **jobs**. Each job receives a task prompt and has its own conversation and computer. A slate can contain agents without an app or static files.
+An **agent** is a named set of standing instructions and resource requirements inside a [slate](/core-concepts/slate). ContextLayer hosts a separate instance of that agent for each person it acts for, and an app instance for work acting for the slate itself. Each instance has durable conversations and one shared Linux computer. A slate can contain agents without an app or static files.
 
 | Concept | What you author or start | Example |
 | --- | --- | --- |
 | Agent | Instructions and resources kept in `agents/<name>/` | A `digest` agent that summarizes notes. |
-| Job | One run of that agent with a task prompt | “Summarize the notes added today.” |
-| Schedule | A recurring time and prompt for starting jobs | Start a weekly summary every Monday at 09:00 UTC. |
+| Conversation | Durable history within one hosted agent instance | A summary and your follow-up questions about it. |
+| Submission | Input accepted into a conversation, with a status and outcome | “Summarize the notes added today.” |
+| Schedule | A recurring time and prompt for starting fresh conversations | Start a weekly summary every Monday at 09:00 UTC. |
 
-Start hosted jobs through the API or let a schedule start them. [Build an agent](/how-to/build-an-agent) walks through authoring the files and running a first job.
+Create a conversation and submit input through the API, or let a schedule do both. [Build an agent](/how-to/build-an-agent) walks through authoring the files and reading a first answer.
 
 ## An agent's files
 
 | File | Purpose |
 | --- | --- |
-| `agents/<name>/instructions.md` | Standing instructions, given to every job |
+| `agents/<name>/instructions.md` | Standing instructions used when preparing model requests |
 | `agents/<name>/slate.json` | The resources the agent requires, in the same schema as the app's declaration |
 | `agents/<name>/schedules/<schedule>.md` | Optional: a prompt to run on a schedule |
 
 The agent's name is its directory name. Use the agents scaffold for a minimal `agents/agent/` directory, then rename it and author its instructions and resources. Select it with `init --scaffold-agents` or add it later with `scaffold agents`; CLI help describes both commands. The scaffold supplies source, not a working agent or model credential. Writing the same files directly has the same effect.
 
-Every slate includes package and Vite/Cloudflare build tooling, even when it contains only agents. Keep that tooling and its lockfile when authoring an agent-only slate. Pushing `main` starts the normal deployment pipeline; jobs read instructions from the latest commit on `main`, while migrations and schedules are applied during successful deployment.
+Every slate includes package and Vite/Cloudflare build tooling, even when it contains only agents. Keep that tooling and its lockfile when authoring an agent-only slate. Pushing `main` starts the normal deployment pipeline. Hosted instruction and resource preparation reads the latest commit on `main`; migrations and schedules are applied during successful deployment.
 
 An agent uses only the resources in its own declaration; it does not inherit the app's requirements. The app and agents share a namespace per resource kind. If both declare the same database slug, they refer to the same logical database and must agree on its mode. They use the same stored database when that mode selects the same Owner. Different people's viewer-mode databases remain separate. [Resources](/core-concepts/resources) explains declarations and modes.
 
@@ -38,21 +39,23 @@ A hosted agent runs on an Anthropic model. Declare and supply one of these provi
 
 If both are declared, the API key takes precedence. The secret's `owner` or `viewer` mode selects who supplies the credential, independently of which model the agent uses.
 
-The default model is `claude-haiku-4-5`. To choose another, declare an `ANTHROPIC_MODEL` secret and save a full Anthropic model ID as its value. A changed model applies to new jobs. See [Secrets](/core-concepts/resources/secrets).
+The default model is `claude-haiku-4-5`. To choose another, declare an `ANTHROPIC_MODEL` secret and save a full Anthropic model ID as its value. A changed model applies to new conversations; existing conversations retain their selected model. Provider credentials are resolved from current hosted configuration when needed. See [Secrets](/core-concepts/resources/secrets).
 
-## Jobs
+## Conversations and submissions
 
-When a job starts, ContextLayer reads the agent's definition, resolves its declared resources for the job's actor, and starts a fresh conversation and Linux computer. The **actor** is the person or app the job acts for. The resolved resources stay fixed for that job.
+The **run actor** is the person or app the agent acts for, independently of who owns its resources. One hosted instance, called a **SlateAgent**, belongs to a particular slate, named agent, and actor. Your manual API calls create conversations and submit input in your instance. App-scoped schedules use the app instance. Neither selects another person's private instance.
 
-Jobs do not share conversations or computer files. They can share persistent resources: for example, a digest job can read the owner-mode notes database that the app writes to. A new job gets a fresh computer, but the database keeps its existing rows. Conversation and result records persist independently of the computer, so inspecting a completed job does not require its scratch files to remain available. For the wider relationship between agents, interfaces, and shared data, see [How the parts work together](/core-concepts/slate#how-the-parts-work-together).
+Create a conversation for a fresh history, then submit a prompt to it. Submit another prompt to the same conversation to continue its context. Every submission has its own native Pi identifier, status, and outcome. Acceptance does not wait for an answer, and work continues after the caller disconnects. Return later with the same slate, agent, actor, and IDs to read its state. [Build an agent](/how-to/build-an-agent#start-a-conversation-and-read-its-answer) shows the sequence.
 
-Start a job with a prompt through the API: [Start an agent job with a prompt](https://docs.usecontextlayer.com/api-reference/agent-jobs/start-an-agent-job-with-a-prompt). A job you start acts for you. If the agent declares viewer-mode resources, your setup for them must be complete first.
+The conversation directory includes Pi's native root and task-owned child conversations. Starting the runtime creates its root without submitting work, so a conversation's presence alone does not show that a user prompt or scheduled task has run.
 
-Anyone who can view a private slate can start jobs and read results for their own jobs and jobs acting for the app. Managing the slate is required to inspect transcripts, usage, live execution, or schedules, and to abort or delete jobs. These operations can reveal agent instructions and private data.
+Instructions are prepared from current source for each model request, including when continuing an existing conversation. Each resource tool call resolves current declared authorization and assignments. A call already in flight keeps the assignment it captured; the next call resolves again. Starting a new conversation does not freeze the agent's instructions or resources.
 
-Deleting a job releases its computer. It does not undo database writes or actions the job has already performed in connected services.
+Conversations in the same SlateAgent share its computer and connection-tool working context. A fresh conversation does not clear those files or create a separate computer. Different SlateAgents have separate computers and connection sessions. They can still share declared resources: your manual digest and an app-scoped digest can read the same owner-mode notes database. Conversation records, computer scratch files, and persistent database rows have separate lifetimes. For the wider relationship between agents, interfaces, and shared data, see [How the parts work together](/core-concepts/slate#how-the-parts-work-together).
 
-<Note>Public slates cannot run agent jobs yet.</Note>
+Anyone who can view a private slate can create conversations, submit input, list conversations, and read submission status. Reads select your instance by default; `actor=app` selects the named agent's app instance. Native IDs and page cursors belong to that selected instance. Reading conversation views or entries, including the answer text, requires slate management permission, as does inspecting schedules: these payloads can reveal instructions, tool arguments, and private data. The API has no operation to stop work or delete conversations.
+
+<Note>Public slates cannot use the hosted conversation API yet.</Note>
 
 ## Schedules
 
@@ -65,25 +68,25 @@ cron: "0 9 * * 1"
 Summarize last week's notes.
 ```
 
-This schedule starts a job every Monday at 09:00 UTC with “Summarize last week's notes.” as its prompt. The prompt supplies the task for that run; `instructions.md` still supplies the standing instructions.
+This schedule creates a fresh conversation every Monday at 09:00 UTC and submits “Summarize last week's notes.” as its input. The prompt supplies the task; `instructions.md` supplies the standing instructions.
 
-Schedules are installed after each successful deployment. When a person first becomes a slate member, their schedules are installed after their databases have been provisioned and migrated. Each firing starts a fresh job using the latest commit on `main`, through the same preparation path as an API job.
+Schedules are installed after each successful deployment. When a person first becomes a slate member, their schedules are installed after their databases have been provisioned and migrated. Each firing uses the existing SlateAgent for its actor, prepares the agent from the latest commit on `main`, and submits through the same path as manual input. Replacing or removing a schedule does not remove the conversations it already created. Their native entries retain the authored schedule name and its provisioned schedule ID.
 
-Who a scheduled job acts for depends on the agent's own declaration:
+Who a scheduled agent acts for depends on its own declaration:
 
-- An agent that declares **no viewer-mode resources** is **app-scoped**: each scheduled run acts for the slate itself. This app actor does not require a UI app. An owner-mode shared-database digest can run once for the whole slate.
-- An agent that declares **any viewer-mode resource** is **member-scoped**: each scheduled run acts for a particular [slate member](/core-concepts/owners-and-viewers#slate-members), with schedules installed for the members. A personal-inbox digest can run separately for each member.
+- An agent that declares **no viewer-mode resources** is **app-scoped**: each scheduled firing acts for the slate itself. This app actor does not require a UI app. An owner-mode shared-database digest can run once for the whole slate.
+- An agent that declares **any viewer-mode resource** is **member-scoped**: each scheduled firing acts for a particular [slate member](/core-concepts/owners-and-viewers#slate-members), with schedules installed for the members. A personal-inbox digest can run separately for each member.
 
 Scope follows the agent's requirements, including its connections, databases, and secrets. The app's declaration does not determine an agent's scope.
 
 ## Tools a hosted agent gets
 
-- **The computer.** `read`, `write`, `edit` and `bash` work on the job's Linux computer, which has no internet access. Files there are scratch space: they last only while the computer runs, and it stops after ten minutes without activity.
-- **`database_query`.** Parameterized SQL against the agent's declared databases. Writes persist immediately and are shared with the app and with other jobs that use the same database.
-- **Connection tools.** For each declared connection, the actions of its toolkit, named `<connection-slug>__<ACTION>`. They run with the account assigned to that connection; the agent never sees its credentials.
+- **The computer.** `read`, `write`, `edit` and `bash` work on the SlateAgent's shared Linux computer, which has no internet access. Files there are scratch space, with no persistence guarantee after the computer stops. It stops after ten minutes without activity; durable conversation history does not restore its files.
+- **`database_query`.** Parameterized SQL against the agent's declared databases. Writes persist immediately and are shared with the app and with other agent conversations that use the same database.
+- **Connection tools.** For each declared connection, the actions of its toolkit, named `<connection-slug>__<ACTION>`. They use the account currently assigned to that connection; the agent never sees its credentials.
 
-The agent uses **Code Mode** to discover connection tools and coordinate calls in a short script. Connection tools are available through Code Mode; computer tools and `database_query` can also be called directly. A Code Mode script reaches the job's tools without gaining general computer or network access. The computer's lack of internet access does not prevent authorized connection tools from calling their external services.
+The agent uses **Code Mode** to discover connection tools and coordinate calls in a short script. Connection tools are available through Code Mode; computer tools and `database_query` can also be called directly. A Code Mode script reaches the agent's tools without gaining general computer or network access. The computer's lack of internet access does not prevent authorized connection tools from calling their external services.
 
 ## Develop an agent
 
-Edit the agent's ordinary source files in your checkout, then push `main` and test execution through hosted jobs. Supply and verify its hosted resource assignments and model credentials independently of any app's local development settings. A local agent execution workflow is not available yet; `pnpm dev` in the app starter develops the React Router app. See [Build an agent](/how-to/build-an-agent) for the hosted workflow.
+Edit the agent's ordinary source files in your checkout, then push `main` and test through the hosted conversation API. Supply and verify its hosted resource assignments and model credentials independently of any app's local development settings. A local agent execution workflow is not available yet; `pnpm dev` in the app starter develops the React Router app. See [Build an agent](/how-to/build-an-agent) for the hosted workflow.

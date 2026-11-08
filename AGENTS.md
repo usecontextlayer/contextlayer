@@ -115,7 +115,7 @@ When a required action is blocked by sandbox or permission limits, escalate and 
 
 **Make dataflow, dependency direction, and control transfer explicit.** Parse, validate, and normalize at boundaries; pass typed values into shared operations and serialize results at the output boundary.
 
-- CLI/API/job adapters call shared domain operations. Domain operations must not depend on transport adapters or their request/context objects.
+- CLI, API, and schedule adapters call shared domain operations. Domain operations must not depend on transport adapters or their request/context objects.
 - Keep calculations deterministic over explicit inputs and outputs. Isolate I/O from those calculations; a shared operation that authorizes and performs a database write is not a pure calculation.
 - Prefer direct calls and return values over hidden callbacks, cross-layer mutation, or circular orchestration. Use framework-owned lifecycle hooks where the framework owns control.
 - Keep retries, branching, and fan-out in the operation's coordinator, with deterministic calculations beneath it. Do not create another architectural layer merely to make an I/O-owning operation appear pure.

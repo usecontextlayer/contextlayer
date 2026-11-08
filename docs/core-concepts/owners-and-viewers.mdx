@@ -10,6 +10,7 @@ Ownership, viewing access, and membership answer different questions:
 | **Owner** | Which person or organization owns and manages this slate or resource? |
 | **Viewer** | Who is using the hosted slate? |
 | **Resource mode** | Does this use the slate Owner's resource or the acting person's resource? |
+| **Run actor** | Which person or app does an agent act for? |
 | **Slate member** | Who has completed setup and participates in member-scoped scheduled work? |
 
 Every slate, connected account, and shared secret has an Owner. These roles can overlap: the same person can own, view, and be a member of a slate. Opening a slate makes you a viewer; it does not itself make you a slate member or grant management access.
@@ -34,9 +35,9 @@ Each declared resource has a mode that selects whose resource the hosted slate u
 | Mode | Selected Owner | Effect |
 | --- | --- | --- |
 | `owner` | The slate's Owner | Viewers use the shared resource through the slate. Viewing alone gives no permission to manage that Owner's accounts or secrets. |
-| `viewer` | The personal Owner of the person a request or job acts for | Each person uses their own account, secret value, or database. |
+| `viewer` | The personal Owner of the person a request or agent acts for | Each person uses their own account, secret value, or database. |
 
-A browser request acts for its viewer. A hosted job has a run actor selected when it starts; [Agents](/core-concepts/slate/agents#jobs) explains that selection.
+A browser request acts for its viewer. A hosted agent instance has a run actor: a particular person, or the app acting for the slate without a person. Each slate, named agent, and actor has its own conversations and shared computer. This does not change which Owner supplies its resources; [Agents](/core-concepts/slate/agents#conversations-and-submissions) explains that selection.
 
 ```json app/slate.json
 {
@@ -75,11 +76,12 @@ The organization rule always uses the slate's owning organization, regardless of
 | Action | Who |
 | --- | --- |
 | Open the app, read static files, and use MCP tools | Viewers |
-| Start agent jobs and read their results | Viewers of a private slate |
+| Create agent conversations, submit input, list conversations, and read submission status | Viewers of a private slate |
 | Assign an account to a viewer-mode connection, or save a viewer-mode secret | Viewers, each for themselves |
 | Assign an account to an owner-mode connection | The owning user, or members of the owning organization |
 | Clone, pull, or push the source; see the slate in the dashboard | The owning user, or members of the owning organization, whatever the visibility |
-| Read agent instructions, transcripts, and schedules; abort or delete jobs | The owning user, or members of the owning organization, whatever the visibility |
+| Read agent instructions and schedules | The owning user, or members of the owning organization, whatever the visibility |
+| Read agent conversation views and entries, including answer text | The owning user, or members of the owning organization, on a private slate |
 | Manage an Owner's accounts and secrets | That user, or members of that organization |
 
 ## Slate members

@@ -35,7 +35,7 @@ The app and agents use the same stored database when they declare the same slug 
 
 Two slates never share a database, even when they have the same Owner and slug. A new slate therefore gets its own storage; matching names do not give it access to another slate's rows.
 
-A database outlives individual agent jobs, while the files on an agent's computer do not. Keep persistent data in a database.
+A database persists independently of agent conversations and runtime restarts. Conversations within one agent instance share its computer, but the computer's files remain scratch space without a persistence guarantee. Keep persistent data in a database.
 
 ## Migrations and types
 
@@ -110,7 +110,7 @@ You can query through three interfaces, all using the same resource-selection ru
 | --- | --- | --- |
 | `database<DB>(databases, slug)` | App loaders and actions. | Native typed Kysely query results. |
 | `databases.query(slug, sql, params)` | App loaders and actions. | A `rows` array of objects keyed by column name. |
-| `database_query` | Hosted agent jobs. | A `rows` array of objects keyed by column name. |
+| `database_query` | Hosted agents. | A `rows` array of objects keyed by column name. |
 
 For direct SQL, obtain `databases` with `context.get(databasesContext)` and pass values as parameters. All three interfaces reach the same stored database when the slate, Owner, and slug match.
 

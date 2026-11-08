@@ -45,11 +45,11 @@ Work from the slate checkout created by `init`, which has `origin` set to the sl
     Published-script metadata does not identify the revision that answered a particular HTTP request.
   </Step>
   <Step title="Open the hosted URL">
-    After deployment succeeds, open the hosted URL printed by `init`. Its dashboard link is the management page; the hosted URL serves the slate's deployed content. A slate without a page at `/` can return 404 there after a successful deployment; an agents-only slate runs through jobs and schedules, and MCP clients use `/mcp`.
+    After deployment succeeds, open the hosted URL printed by `init`. Its dashboard link is the management page; the hosted URL serves the slate's deployed content. A slate without a page at `/` can return 404 there after a successful deployment; an agents-only slate runs through the conversation API and schedules, and MCP clients use `/mcp`.
 
     New slates are private. Sign in with an account allowed to view the slate: its owning user or a member of its owning organization. If a coding agent is deploying for you, it should give you the hosted URL so you can open it in your browser.
 
-    Check the behavior you changed through its surface: the app, static files, MCP tools, or hosted agent jobs. An app using the SDK's `Layout` shows the chrome for hosted resource setup. For a slate without that app interface, use the CLI or API to configure declared resources.
+    Check the behavior you changed through its surface: the app, static files, MCP tools, or hosted agent conversations. An app using the SDK's `Layout` shows the chrome for hosted resource setup. For a slate without that app interface, use the CLI or API to configure declared resources.
   </Step>
 </Steps>
 
@@ -76,7 +76,7 @@ Git carries committed source, declarations, migrations, and generated query type
 | Local state | What to do for the hosted slate |
 | --- | --- |
 | Assignments in `.contextlayer/connections.json` | Assign connected accounts through the hosted chrome, CLI, or API. |
-| Rows in `.contextlayer/databases` | Create data through the hosted app or hosted agent jobs; deployment applies the schema, not local rows. |
+| Rows in `.contextlayer/databases` | Create data through the hosted app or hosted agent conversations; deployment applies the schema, not local rows. |
 | Secret values in the local environment | Supply hosted values for the Owner selected by each secret's mode. |
 
 See [Connect an account](/how-to/connect-an-account) and [Secrets](/core-concepts/resources/secrets) for hosted configuration.

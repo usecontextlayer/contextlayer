@@ -1,21 +1,21 @@
 ---
 title: "Build an agent"
-description: "Write an agent, deploy it, run it as a hosted job, inspect what it did, and put it on a schedule."
+description: "Write an agent, deploy it, submit work to a conversation, inspect its answer, and put it on a schedule."
 ---
 
-Build a `digest` agent that reads the starter app's `notes` database, summarizes it in a hosted job, and runs on a daily schedule. You will write its standing instructions, declare its resources, supply model credentials, and start a job through the API.
+Build a `digest` agent that reads the starter app's `notes` database, summarizes it in a hosted conversation, and runs on a daily schedule. You will write its standing instructions, declare its resources, supply model credentials, and submit a prompt through the API.
 
-This example uses a private slate created with the app starter, `init --scaffold-app`, as in the [Quickstart](/quickstart). Work from its checkout and use an account that can manage the slate so you can configure its owner-mode secret and inspect the job. [Agents](/core-concepts/slate/agents) explains the distinction between an agent definition and each job that runs it.
+This example uses a private slate created with the app starter, `init --scaffold-app`, as in the [Quickstart](/quickstart). Work from its checkout and use an account that can manage the slate so you can configure its owner-mode secret and inspect the conversation. [Agents](/core-concepts/slate/agents) explains agent instances, conversations, and submissions.
 
 Agents themselves do not require an app. For an agent-only slate, select `init --scaffold-agents` or add the minimal source with `scaffold agents`, then author its instructions and resources. That scaffold supplies `agents/agent/`; rename it for your agent. Keep the slate's package/build tooling and lockfile. The notes workflow below deliberately shares the app starter's database and migrations.
 
-An agent-only slate that declares a database must also supply its [Kysely configuration and authored migrations](/core-concepts/resources/databases#migrations-and-types) under `databases/<slug>/`, along with the dependencies needed to run them. The minimal agents scaffold does not supply a database example. Verify its schema and queries through hosted deployment and jobs.
+An agent-only slate that declares a database must also supply its [Kysely configuration and authored migrations](/core-concepts/resources/databases#migrations-and-types) under `databases/<slug>/`, along with the dependencies needed to run them. The minimal agents scaffold does not supply a database example. Verify its schema and queries through hosted deployment and agent execution.
 
 <Steps titleSize="h2">
   <Step title="Write the agent">
     Create `agents/digest/` and add the two files below. The directory name, `digest`, becomes the agent's name.
 
-    `instructions.md` holds the agent's standing instructions. Every hosted job of this agent runs with them. The prompt you send arrives as a separate user message.
+    `instructions.md` holds the agent's standing instructions. New and existing conversations use the current instructions when preparing a model request. The prompt you send arrives as separate user input.
 
     ```markdown agents/digest/instructions.md
     You summarize the notes in the `notes` table of the `notes` database. Each row stores its note text in `body`. Read them with the `database_query` tool and reply in two or three sentences.
@@ -53,9 +53,9 @@ An agent-only slate that declares a database must also supply its [Kysely config
       A sandboxed or non-interactive environment may refuse `claude setup-token` or `secrets set`. If either command is refused or needs interaction, a coding agent must ask you to run that step in your own terminal and wait for you to confirm it succeeded before continuing. Supply the credential directly to `secrets set` in that terminal.
     </Note>
 
-    The secret's mode decides whose value a job uses. In owner mode the slate's Owner saves one value and every job uses it. In viewer mode each person saves their own, and a job uses the value of the person it acts for. See [Secrets](/core-concepts/resources/secrets).
+    The secret's mode decides whose value the agent uses. In owner mode the slate's Owner saves one value and the agent uses it for every actor. In viewer mode each person saves their own, and the agent uses the value of the person it acts for. See [Secrets](/core-concepts/resources/secrets).
 
-    Jobs use `claude-haiku-4-5` unless the agent declares `ANTHROPIC_MODEL` under `secrets`. To choose the model, declare `ANTHROPIC_MODEL` with a mode and save a full Anthropic model ID as its value, the same way as the key. Once declared, the value is required. A changed value applies to jobs started after the change.
+    New conversations use `claude-haiku-4-5` unless the agent declares `ANTHROPIC_MODEL` under `secrets`. To choose the model, declare `ANTHROPIC_MODEL` with a mode and save a full Anthropic model ID as its value, the same way as the key. Once declared, the value is required. A changed value applies to new conversations; existing conversations retain their model.
   </Step>
   <Step title="Deploy by pushing to main">
     Commit the agent and push `main`:
@@ -66,57 +66,65 @@ An agent-only slate that declares a database must also supply its [Kysely config
     git push
     ```
 
-    Hosted jobs read the agent from the latest commit on `main`, so a pushed change to `instructions.md` or `slate.json` applies to the next job. Database migrations and schedules take effect only when the pushed commit builds and deploys successfully. See [Deploy](/how-to/deploy).
+    Hosted preparation reads the latest commit on `main`: instruction changes apply at the next model request, and resource calls resolve current declarations and assignments when invoked. This also applies when continuing an existing conversation. Database migrations and schedules take effect only when the pushed commit builds and deploys successfully. See [Deploy](/how-to/deploy).
   </Step>
-  <Step title="Start a hosted job and inspect it">
-    Hosted jobs start through the platform API, and only on private slates. Use [the API CLI](/how-to/use-the-platform-api) with your saved login to invoke its operations. Running the CLI from your checkout submits a hosted job; it does not run the agent against local files or databases.
+  <Step title="Start a conversation and read its answer">
+    Hosted conversations run through the platform API, and only on private slates. Use [the API CLI](/how-to/use-the-platform-api) with your saved login. Running it from your checkout still uses hosted resources; it does not run the agent against local files or databases.
 
     Open the deployed notes app and add a few notes for the agent to summarize. Notes created during local development stay in the local database and are not present in the hosted database.
 
-    Inspect [Start an agent job with a prompt](/api-reference/agent-jobs/start-an-agent-job-with-a-prompt), then send the prompt:
+    Inspect the operation, then create a conversation:
 
     ```sh
-    npx @usecontextlayer/cli api startAgentJob --describe
-    npx @usecontextlayer/cli api startAgentJob \
-      --params '{"target":"<slate-id-or-hostname>","name":"digest"}' \
-      --json '{"prompt":"Summarize the notes."}'
+    npx @usecontextlayer/cli api createAgentConversation --describe
+    npx @usecontextlayer/cli api createAgentConversation \
+      --params '{"target":"<slate-id-or-hostname>","name":"digest"}'
     ```
 
-    Keep `data.job.id` for the requests below. The start request returns after the job is accepted for execution; it does not wait for the answer.
-
-    Start by checking its [current operation](/api-reference/agent-jobs/get-an-agent-jobs-current-operation), then [wait for the operation result](/api-reference/agent-jobs/wait-for-an-agent-jobs-operation-result):
+    Keep the numeric conversation ID in `data.id`. Creation gives you a conversation without sending a prompt. In the following examples, replace `123` with that returned ID, then submit the task:
 
     ```sh
-    npx @usecontextlayer/cli api getAgentJobOperation \
-      --params '{"target":"<slate-id-or-hostname>","name":"digest","id":"<job-id>"}'
-    npx @usecontextlayer/cli api getAgentJobResult \
-      --params '{"target":"<slate-id-or-hostname>","name":"digest","id":"<job-id>"}'
+    npx @usecontextlayer/cli api submitAgentInput \
+      --params '{"target":"<slate-id-or-hostname>","name":"digest","conversationId":123}' \
+      --json '{"content":"Summarize the notes."}'
     ```
 
-    Read the answer in `data.text` and check that it summarizes the notes you added. Each job starts a fresh conversation; start a new job for another task.
-
-    To read the model and tool messages, enumerate the job's sessions, then select a returned session ID:
+    This returns a native submission record after the input is accepted, without waiting for the answer. Keep its `data.id` as the submission ID and `data.conversationId` as the conversation ID. Work continues after your request ends. Replace `456` below with the returned submission ID and check its status:
 
     ```sh
-    npx @usecontextlayer/cli api listAgentJobSessions \
-      --params '{"target":"<slate-id-or-hostname>","name":"digest","id":"<job-id>"}'
-    npx @usecontextlayer/cli api getAgentJobMessages \
-      --params '{"target":"<slate-id-or-hostname>","name":"digest","id":"<job-id>","session":"<session-id>"}'
+    npx @usecontextlayer/cli api getAgentSubmission \
+      --params '{"target":"<slate-id-or-hostname>","name":"digest","submissionId":456}'
     ```
 
-    For more detail, use these inspection operations:
+    The read returns the current status without waiting. Check again while it is `queued` or `placed`. A `done` input submission contains `data.answer`, the exact entry ID containing its answer. An `unanswered` submission instead reports its native reason and any detail; do not treat that as a successful answer.
 
-    | Question | API operation |
-    | --- | --- |
-    | Who did this job act for, and what started it? | [Get its catalog entry](/api-reference/agent-jobs/get-an-agent-jobs-catalog-entry). |
-    | What other jobs can I see? | [List the agent's jobs](/api-reference/agent-jobs/list-an-agents-jobs-available-to-the-caller), newest first. |
-    | What did the model and tools do? | [List execution sessions](/api-reference/agent-jobs/list-the-execution-sessions-within-an-agent-job), then [read a session's active transcript](/api-reference/agent-jobs/read-the-active-transcript-of-an-agent-job-session). |
-    | What model and tool usage was recorded? | [Get job usage](/api-reference/agent-jobs/get-model-and-tool-usage-for-an-agent-job). |
-    | What is running now? | [Inspect live execution](/api-reference/agent-jobs/inspect-an-agent-jobs-live-execution-state). |
+    Replace both instances of `789` with `data.answer` to read that entry:
 
-    Private-slate viewers can start jobs and read results for their own jobs and app-actor jobs. Detailed transcripts, usage, live inspection, schedule inspection, aborting, and deletion require slate management permission.
+    ```sh
+    npx @usecontextlayer/cli api listAgentEntries \
+      --params '{"target":"<slate-id-or-hostname>","name":"digest","conversationId":123,"minEntryId":789,"maxEntryId":789,"limit":1}'
+    ```
 
-    Results and transcripts stay available after the job finishes. [Abort an agent job's pending operation](/api-reference/agent-jobs/abort-an-agent-jobs-pending-operation) stops it and keeps its records. [Delete an agent job and its execution state](/api-reference/agent-jobs/delete-an-agent-job-and-its-execution-state) removes the job and releases its computer. Deleting a job does not delete rows it wrote to a database or undo what its tools did elsewhere.
+    Read the assistant message's text blocks under `data.items[0].model` and check that they summarize the notes you added. The entry ID ties this answer to your submission even if more work has since reached the conversation.
+
+    To ask a follow-up, call `submitAgentInput` again with conversation `123` and new content. To begin with separate history, call `createAgentConversation` again. Both conversations share this agent instance's computer and connection-tool working context.
+
+    You can return later by listing conversations and inspecting the selected one:
+
+    ```sh
+    npx @usecontextlayer/cli api listAgentConversations \
+      --params '{"target":"<slate-id-or-hostname>","name":"digest","limit":20}'
+    npx @usecontextlayer/cli api getAgentConversation \
+      --params '{"target":"<slate-id-or-hostname>","name":"digest","conversationId":123}'
+    npx @usecontextlayer/cli api listAgentEntries \
+      --params '{"target":"<slate-id-or-hostname>","name":"digest","conversationId":123,"order":"ascending","limit":50}'
+    ```
+
+    The conversation view includes recent entries and current native documents, including usage and execution state. Entry listing reads history page by page. If a page returns `data.next`, JSON-encode that unchanged object as the next request's `cursor` parameter, preserving the same scan and actor. Use each operation's `--describe` for its complete native contract. The directory includes Pi's root, created at runtime startup without submitting a task, and any task-owned child conversations; it is not just a list of manual requests.
+
+    These reads select your agent instance by default. Supply `"actor":"app"` in `--params` to inspect the app instance instead. Keep the selected actor with every ID and cursor: an ID from one instance does not identify a record in another. Create and submit always act for you.
+
+    Private-slate viewers can create conversations, submit input, list conversations, and check submissions. Reading the conversation view or entries, including answer text, requires slate management permission, as does schedule inspection. Use your management login for this walkthrough. These APIs do not expose stopping or deleting work.
   </Step>
   <Step title="Schedule it">
     A schedule is a Markdown file in the agent's `schedules` directory. Its YAML front matter sets `cron`, and its body is the prompt each firing sends.
@@ -134,27 +142,27 @@ An agent-only slate that declares a database must also supply its [Kysely config
 
     Schedules come from Git. When a push to `main` deploys successfully, ContextLayer replaces the agent's schedules with the files in that commit. Delete a file and push, and that deployment removes its schedule. [List an agent's provisioned schedules](/api-reference/agents/list-an-agents-provisioned-schedules) and [Get a provisioned agent schedule](/api-reference/agents/get-a-provisioned-agent-schedule) show what is installed.
 
-    Each firing starts a fresh hosted job with the file's body as its prompt, using the agent's instructions and resources from the latest commit on `main`. Who the job acts for follows the agent's declaration:
+    Each firing creates a fresh conversation in the existing agent instance and submits the file's body as its input. Preparation uses the latest instructions and resources from `main`; the schedule does not pin the revision that installed it. Who the agent acts for follows its declaration:
 
-    - An agent with no viewer-mode resources, like `digest`, runs one job for the slate at each firing. This app actor does not require an authored UI app.
-    - An agent with any viewer-mode connection, database or secret runs one job for each slate member at each firing, using that member's viewer-mode resources. A person becomes a slate member when they complete the slate's setup; ContextLayer then migrates their viewer-mode databases and installs the agent's schedules for them in the background.
+    - An agent with no viewer-mode resources, like `digest`, starts one conversation for the slate at each firing. This app actor does not require an authored UI app.
+    - An agent with any viewer-mode connection, database or secret starts one conversation for each slate member at each firing, using that member's viewer-mode resources. A person becomes a slate member when they complete the slate's setup; ContextLayer then migrates their viewer-mode databases and installs the agent's schedules for them in the background.
 
-    Check that the provisioned schedule list includes `daily`. Scheduled jobs appear in the agent's job list under that schedule name. You now have a deployed agent, a verified manual result, and a recurring daily run.
+    Check that the provisioned schedule list includes `daily`. For this owner-only agent, use `listAgentConversations` with `"actor":"app"` to find scheduled conversations. Their input entries have kind `slate.schedule`, with the authored name in `data.schedule` and native schedule ID in `data.scheduleId`. Removing the schedule leaves that history intact.
   </Step>
 </Steps>
 
 ## What the hosted agent can use
 
-Each hosted job gets a fresh Linux computer and these tools:
+The SlateAgent provides one shared Linux computer and these tools to its conversations:
 
-- **Coding tools.** `read`, `write`, `edit` and `bash` work on the job's computer. The computer has no internet access. Its files are scratch space: no other job sees them, and they last only as long as the job's computer. Keep anything that must last in a database.
-- **`database_query`.** Runs parameterized SQL against a database the agent declares. Writes persist immediately and are visible to the app and to other jobs that use the same database. The database's tables come from its migrations under `databases/<slug>`, which ContextLayer applies when the slate deploys.
-- **Connection tools.** For each connection the agent declares, the job gets that service's actions from Composio, bound to the account assigned to the connection and named `<slug>__<ACTION>` after the connection's slug. A job does not start until every connection the agent declares has an assigned account. Connect an account with the CLI's `accounts add` command and, after you push, assign it with the `connections` command; each command's `--help` shows how.
+- **Coding tools.** `read`, `write`, `edit` and `bash` work on the agent instance's computer, shared across its conversations. The computer has no internet access. Its files are scratch space without a persistence guarantee after shutdown; starting a fresh conversation does not clear them. Keep anything that must last in a database.
+- **`database_query`.** Runs parameterized SQL against a database the agent declares. Writes persist immediately and are visible to the app and to other conversations that use the same database. The database's tables come from its migrations under `databases/<slug>`, which ContextLayer applies when the slate deploys.
+- **Connection tools.** For each connection the agent declares, it gets that service's actions from Composio, named `<slug>__<ACTION>` after the connection's slug. Each call resolves the current authorized assignment; an in-flight call keeps its captured account. Creating a conversation and submitting input require the agent's declared connections to be assigned. Connect an account with the CLI's `accounts add` command and, after you push, assign it with the `connections` command; each command's `--help` shows how.
 
-The model is not offered connection tools directly. It finds them through Code Mode, which searches and describes the job's tools, and calls them from short scripts. Those scripts run in a sandbox that reaches only the job's own tools, including `database_query` and the coding tools. The model can also call `database_query` and coding tools directly.
+The model is not offered connection tools directly. It finds them through Code Mode, which searches and describes the agent's tools, and calls them from short scripts. Those scripts run in a sandbox that reaches only the agent's own tools, including `database_query` and the coding tools. The model can also call `database_query` and coding tools directly.
 
 ## Continue developing
 
-Edit the agent's instructions and declaration in the checkout, push `main`, and start a fresh hosted job to verify each change. Keep app development data separate: notes written by `pnpm dev` stay in local storage and are not available to the hosted agent.
+Edit the agent's instructions and declaration in the checkout, push `main`, and submit input to verify each change. Use an existing conversation to continue its context or create a fresh one for separate history; create a new conversation to pick up a changed model selection. Keep app development data separate: notes written by `pnpm dev` stay in local storage and are not available to the hosted agent.
 
-A local agent execution workflow is not available yet. Test the deployed database, saved provider credential, connected accounts, and scheduling through hosted jobs.
+A local agent execution workflow is not available yet. Test the deployed database, saved provider credential, connected accounts, and scheduling through hosted conversations.

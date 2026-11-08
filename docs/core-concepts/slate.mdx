@@ -13,7 +13,7 @@ The authored parts are optional and can be combined:
 
 - [**App**](/core-concepts/slate/app): a React Router app that people open in a browser.
 - **Static files**: pages and assets in `public/`, with or without an app.
-- [**Agents**](/core-concepts/slate/agents): named sets of standing instructions that run as hosted jobs, on demand or on a schedule. They do not require an app.
+- [**Agents**](/core-concepts/slate/agents): named sets of standing instructions that accept input in hosted conversations, on demand or on a schedule. They do not require an app.
 - [**MCP tools and Views**](/core-concepts/slate/mcp): tools exposed through the slate's `/mcp` endpoint and browser UI source built for MCP interfaces. Tools do not require React Router, and Views can build without tools or an app.
 
 [Resources](/core-concepts/resources) are connections, databases, and secrets. The app and each agent name their requirements in a **declaration**: a `slate.json` file beside that consumer's source. A declaration says what code needs; it does not contain credentials or database contents.
@@ -22,7 +22,7 @@ The authored parts are optional and can be combined:
 
 Adding a part gives you another way to use the software you are building. A notes app and a `digest` agent, for example, can use the same declared database: people write notes through the app, and the agent reads them to prepare a summary. You can begin with the app and add the agent, or add a browser interface to data an agent already uses. The [agent walkthrough](/how-to/build-an-agent) demonstrates adding an agent to the notes app from the Quickstart.
 
-The parts keep their own entry points: a person opens an app page, an MCP client calls a tool, and a prompt or schedule starts an agent job. You connect their behavior through shared resources and ordinary source code, within the same repository and deployment workflow.
+The parts keep their own entry points: a person opens an app page, an MCP client calls a tool, and a prompt is submitted to an agent conversation or a schedule starts a fresh one. You connect their behavior through shared resources and ordinary source code, within the same repository and deployment workflow.
 
 ### Share data through declared resources
 

@@ -48,7 +48,7 @@ Initialization prints your dashboard link and hosted URL. The hosted URL becomes
 
 You could build a slate where a scheduled agent reads each team member's Gmail, finds messages needing attention, and saves them to a database. A React app presents the follow-ups for that person to review and act on. The agent does the background work; the person gets an interface built for the job.
 
-The app and agent declare the same database and use the same stored records. Each member can have their own inbox and follow-ups, while the organization supplies the agent's model credential. Database records persist across agent jobs.
+The app and agent declare the same database and use the same stored records. Each member can have their own inbox and follow-ups, while the organization supplies the agent's model credential. Database records persist independently of agent conversations and runtime restarts.
 
 The pieces live together:
 
