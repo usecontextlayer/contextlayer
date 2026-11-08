@@ -275,6 +275,20 @@ test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
 		expect(new Set(conversations.map((conversation) => conversation.id)).size).toBe(
 			conversations.length,
 		)
+		for (const [path, query] of [
+			[`${firstUrl}/entries`, pageQuery],
+			[`${url}/conversations`, conversationsQuery],
+		] as const) {
+			for (const [name, value] of [
+				["cursor", "{}"],
+				["order", "descending"],
+			] as const) {
+				const invalidQuery = new URLSearchParams(query)
+				invalidQuery.set(name, value)
+				const response = await fetch(`${path}?${invalidQuery}`, { headers })
+				expect.soft(response.status, `${path}: ${name}=${value}`).toBe(400)
+			}
+		}
 		const ids = await worker.listDurableObjectIds("SlateAgent")
 		expect(ids.length).toBeGreaterThan(0)
 		for (const id of ids) await worker.evictDurableObject("SlateAgent", { id })

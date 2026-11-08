@@ -759,6 +759,11 @@ export function createApi() {
 	)
 
 	const agentExecution = new OpenAPIHono<OwnerViewingEnv>()
+	agentExecution.onError((error, c) => {
+		// Durable Object RPC preserves error names, not custom class identity.
+		if (error.name === "StorageRequestError") return c.text(error.message, 400)
+		throw error
+	})
 	agentExecution.use("*", async (c, next) => {
 		if (c.var.slateAccess.slate.visibility === "public") return c.body(null, 403)
 		await next()
@@ -1335,6 +1340,7 @@ export function createApi() {
 			{ name: "Accounts" },
 			{ name: "Shared secrets" },
 			{ name: "Agents" },
+			{ name: "Agent conversations" },
 		],
 	}))
 	return api
