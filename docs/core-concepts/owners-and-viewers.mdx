@@ -37,7 +37,7 @@ Each declared resource has a mode that selects whose resource the hosted slate u
 | `owner` | The slate's Owner | Viewers use the shared resource through the slate. Viewing alone gives no permission to manage that Owner's accounts or secrets. |
 | `viewer` | The personal Owner of the person a request or agent acts for | Each person uses their own account, secret value, or database. |
 
-A browser request acts for its viewer. A hosted agent instance has a run actor: a particular person, or the app acting for the slate without a person. Each slate, named agent, and actor has its own conversations and shared computer. This does not change which Owner supplies its resources; [Agents](/core-concepts/slate/agents#conversations-and-submissions) explains that selection.
+A browser request acts for its viewer. A hosted agent instance has a run actor: a particular person, or the app acting for the slate without a person. This does not change which Owner supplies its resources. See [Address an agent instance](/core-concepts/slate/agents#address-an-agent-instance) for selecting whose conversations and schedules an API call uses.
 
 ```json app/slate.json
 {
@@ -83,6 +83,8 @@ The organization rule always uses the slate's owning organization, regardless of
 | Read agent instructions and schedules | The owning user, or members of the owning organization, whatever the visibility |
 | Read agent conversation views and entries, including answer text | The owning user, or members of the owning organization, on a private slate |
 | Manage an Owner's accounts and secrets | That user, or members of that organization |
+
+Agent API operations require a platform login, such as the [CLI login](/installation#sign-in), even where viewing permission is sufficient for the operation. A hosted slate's viewer credential or an MCP token does not authenticate this API. Raw conversation history and schedule details require management permission because they can expose authored instructions, tool arguments, and private data; a submission's status and answer-entry ID are not the answer text.
 
 ## Slate members
 

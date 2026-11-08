@@ -15,7 +15,7 @@ An agent-only slate that declares a database must also supply its [Kysely config
   <Step title="Write the agent">
     Create `agents/digest/` and add the two files below. The directory name, `digest`, becomes the agent's name.
 
-    `instructions.md` holds the agent's standing instructions. The runtime loads current instructions when it opens and before accepting new input in a new or existing conversation. The prompt you send arrives as separate user input. See [Conversations and submissions](/core-concepts/slate/agents#conversations-and-submissions) for when changes take effect across conversations.
+    `instructions.md` holds the agent's standing instructions. The prompt you send arrives as separate user input. See [When configuration changes](/core-concepts/slate/agents#when-configuration-changes) for when edited instructions take effect across conversations.
 
     ```markdown agents/digest/instructions.md
     You summarize the notes in the `notes` table of the `notes` database. Each row stores its note text in `body`. Read them with the `database_query` tool and reply in two or three sentences.
@@ -66,7 +66,7 @@ An agent-only slate that declares a database must also supply its [Kysely config
     git push
     ```
 
-    Hosted preparation reads the latest commit on `main`: instruction changes apply at the next model request, and resource calls resolve current declarations and assignments when invoked. This also applies when continuing an existing conversation. Database migrations and schedules take effect only when the pushed commit builds and deploys successfully. See [Deploy](/how-to/deploy).
+    Wait for the deployment to succeed so the hosted `notes` database has its migrations applied. Pushed agent configuration can take effect before deployment finishes: the runtime refreshes from `main` when it opens and before accepting new input, including in existing conversations. See [When configuration changes](/core-concepts/slate/agents#when-configuration-changes) for the shared configuration's lifetime and [Deploy](/how-to/deploy) for checking publication and schedule installation.
   </Step>
   <Step title="Start a conversation and read its answer">
     Hosted conversations run through the platform API, and only on private slates. Use [the API CLI](/how-to/use-the-platform-api) with your saved login. Running it from your checkout still uses hosted resources; it does not run the agent against local files or databases.
@@ -122,9 +122,9 @@ An agent-only slate that declares a database must also supply its [Kysely config
 
     The conversation view includes recent entries and current native documents, including usage and execution state. Entry listing reads history page by page. If a page returns `data.next`, JSON-encode that unchanged object as the next request's `cursor` parameter, preserving the same scan and actor. Use each operation's `--describe` for its complete native contract. The directory includes Pi's root, created at runtime startup without submitting a task, and any task-owned child conversations; it is not just a list of manual requests.
 
-    Every operation requires an actor in `--params`, which the CLI places in the URL path. Use `"actor":"user"` for your instance, including create and submit. Use `"actor":"app"` to read the app instance. Keep the selected actor with every ID and cursor: an ID from one instance does not identify a record in another.
+    Conversation, submission, and provisioned-schedule operations require an actor in `--params`, which the CLI places in the URL path. Use `"actor":"user"` for this walkthrough's manual conversations, including create and submit. Keep it with every ID and cursor you save: the same native ID can exist in another instance. See [Address an agent instance](/core-concepts/slate/agents#address-an-agent-instance) before reading app-scoped work.
 
-    Private-slate viewers can create conversations, submit input, list conversations, and check submissions. Reading the conversation view or entries, including answer text, requires slate management permission, as does schedule inspection. Use your management login for this walkthrough. These APIs do not expose stopping or deleting work.
+    Use the account with management permission chosen at the start of this walkthrough to read answer text and inspect schedules. [Who can do what](/core-concepts/owners-and-viewers#who-can-do-what) distinguishes these reads from operations that need only viewing permission. The API does not expose stopping or deleting work.
   </Step>
   <Step title="Schedule it">
     A schedule is a Markdown file in the agent's `schedules` directory. Its YAML front matter sets `cron`, and its body is the prompt each firing sends.
@@ -142,10 +142,7 @@ An agent-only slate that declares a database must also supply its [Kysely config
 
     Schedules come from Git. When a push to `main` deploys successfully, ContextLayer replaces the agent's schedules with the files in that commit. Delete a file and push, and that deployment removes its schedule. [List an agent's provisioned schedules](/api-reference/agents/list-an-agents-provisioned-schedules) and [Get a provisioned agent schedule](/api-reference/agents/get-a-provisioned-agent-schedule) show what is installed.
 
-    Each firing creates a fresh conversation in the existing agent instance and submits the file's body as its input. Preparation uses the latest instructions and resources from `main`; the schedule does not pin the revision that installed it. Who the agent acts for follows its declaration:
-
-    - An agent with no viewer-mode resources, like `digest`, starts one conversation for the slate at each firing. This app actor does not require an authored UI app.
-    - An agent with any viewer-mode connection, database or secret starts one conversation for each slate member at each firing, using that member's viewer-mode resources. A person becomes a slate member when they complete the slate's setup; ContextLayer then migrates their viewer-mode databases and installs the agent's schedules for them in the background.
+    Each firing creates a fresh conversation in the existing agent instance and submits the installed prompt as its input. Preparation uses the latest instructions and resources from `main`; the schedule does not pin the revision that installed it. This `digest` has no viewer-mode resources, so it runs once for the slate using the app actor. [Schedules](/core-concepts/slate/agents#schedules) explains how adding a viewer-mode requirement changes scheduled execution to run for each slate member.
 
     Use `"actor":"app"` in `--params` when listing or reading this owner-only agent's provisioned schedules, and check that the list includes `daily`. For an agent with member-scoped schedules, use `"actor":"user"` to inspect your own installed schedules. A list for an actor with no installed schedules is empty. For this owner-only agent, use `listAgentConversations` with `"actor":"app"` to find scheduled conversations. Their input entries have kind `slate.schedule`, with the authored name in `data.schedule` and native schedule ID in `data.scheduleId`. Removing the schedule leaves that history intact.
   </Step>

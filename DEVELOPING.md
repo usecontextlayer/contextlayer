@@ -276,7 +276,7 @@ Inspect background membership provisioning in `contextlayer-member-provisioning`
 
 ### Deploying and inspecting an agent
 
-Commit `agents/<name>/instructions.md` and keep every `agents/<name>/slate.json` valid; keep `app/slate.json` valid when the slate includes `app/`. Hosted agents do not require an app or static files. Declare schedules in `agents/<name>/schedules/<prompt>.md` with YAML frontmatter such as `cron: "0 7 * * 1-5"` and the user prompt in the Markdown body. Cron is canonical five-field UTC. Push through the normal slate deployment workflow to publish changes and provision schedules.
+Follow [Build an agent](docs/how-to/build-an-agent.mdx) to author instructions and declarations, supply model access, push source, submit input, and inspect answers and schedules. Agent-only slates use the same deployment workflow without requiring an app or static files. Pushed configuration can take effect before deployment completes under the [agent refresh contract](ARCHITECTURE.md#authored-agents); wait for the required migrations and schedule provisioning before verifying those changes. Use the [DevEnv command runner](#start-and-sign-in) for development and verification against unpublished platform changes.
 
 Follow platform guidance for [hosted model configuration](packages/platform/AGENTS.md#hosted-model-configuration), [Authored agents](ARCHITECTURE.md#authored-agents) for inspection and authorization semantics, and [model-test prerequisites](TESTING.md#provider-accounts-and-model-credentials) for verification.
 

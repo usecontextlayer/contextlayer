@@ -135,7 +135,7 @@ Every slate supplies a package manifest, committed pnpm lockfile, and build scri
 3. Publish its native Cloudflare build output, including any Worker and static assets.
 4. Install the agent schedules from that commit.
 
-If a migration fails, that commit is not deployed. A push publishes source to the repository; the hosted content changes when deployment succeeds. An empty or agents-only slate can deploy successfully without providing a home page. See [Deploy a slate](/how-to/deploy) for build requirements and the publication workflow.
+If a migration fails, that commit is not deployed. A push publishes source to the repository; app code, static assets, and MCP tools change when deployment succeeds. Hosted resource preparation uses declarations from `main`, and agents load instructions at their [configuration refresh boundary](/core-concepts/slate/agents#when-configuration-changes), independently of deployment success. An empty or agents-only slate can deploy successfully without providing a home page. See [Deploy a slate](/how-to/deploy) for build requirements and the publication workflow.
 
 Only the owning user, or a member of the owning organization, can clone, pull or push a slate, whether it is private or public.
 

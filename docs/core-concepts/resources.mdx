@@ -87,13 +87,15 @@ Assigning an owner-mode connection or saving an owner-mode secret requires autho
 
 Viewer-mode resources require a signed-in person on a private slate. Once setup for the whole slate is complete—every app and agent connection is assigned, and every viewer-mode secret is supplied—ContextLayer establishes that person's [slate membership](/core-concepts/owners-and-viewers#slate-members) through a setup change or first viewer-mode use. It then provisions their databases and schedules. No separate join step is needed. A public slate has no members and cannot use viewer-mode resources. An agent acting for the app also has no person from whom to select a viewer-mode resource.
 
-An agent's own modes also determine who its scheduled runs act for. If the agent requires any viewer-mode resource, its schedules run for slate members. If it requires none, they run once for the app actor. That actor represents the slate and does not require an authored app. In the `digest` example above, the viewer-mode Gmail connection makes scheduled execution member-scoped, even though the notes database and API key use owner mode.
+An agent's own modes also determine who its scheduled runs act for; see [Schedules](/core-concepts/slate/agents#schedules) for app- and member-scoped execution. In the `digest` example above, the viewer-mode Gmail connection makes scheduled execution member-scoped, even though the notes database and API key use owner mode.
 
 In local app development, modes select no Owner. The app uses the developer's personal accounts for every connection, environment variables for secrets, and local databases. The declared modes apply when the slate runs hosted.
 
 ## Hosted and local configuration
 
 ContextLayer prepares hosted resource configuration from declarations in the latest commit on the slate's `main` branch. The deployed app is not the source of those declarations. Configure account assignments and supply secrets through the [chrome](/core-concepts/slate#the-chrome), the CLI, or the slate resource API, such as [List declared resources and their configuration](https://docs.usecontextlayer.com/api-reference/slate-resources/list-declared-resources-and-their-configuration). Before the first push to `main`, there are no hosted declarations to configure.
+
+For when hosted agents pick up changed declarations or account assignments, see [When configuration changes](/core-concepts/slate/agents#when-configuration-changes).
 
 A checkout reads its declarations from disk. Its account assignments and database state live under the ignored `.contextlayer/` directory, and its secret values come from environment variables. Local configuration does not change hosted configuration. The app starter's `pnpm dev` runs React Router's development server, prepares its resource bindings, and applies pending local database migrations. Restart it after changing declarations or local configuration so startup can prepare the new values.
 

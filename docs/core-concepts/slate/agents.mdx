@@ -24,7 +24,7 @@ Create a conversation and submit input through the API, or let a schedule do bot
 
 The agent's name is its directory name. Use the agents scaffold for a minimal `agents/agent/` directory, then rename it and author its instructions and resources. Select it with `init --scaffold-agents` or add it later with `scaffold agents`; CLI help describes both commands. The scaffold supplies source, not a working agent or model credential. Writing the same files directly has the same effect.
 
-Every slate includes package and Vite/Cloudflare build tooling, even when it contains only agents. Keep that tooling and its lockfile when authoring an agent-only slate. Pushing `main` starts the normal deployment pipeline. Hosted instruction and resource preparation reads the latest commit on `main`; migrations and schedules are applied during successful deployment.
+Every slate includes package and Vite/Cloudflare build tooling, even when it contains only agents. Keep that tooling and its lockfile when authoring an agent-only slate. Pushing `main` starts the normal [deployment pipeline](/how-to/deploy#what-the-pipeline-does). Instructions and resource configuration follow the separate [refresh boundary](#when-configuration-changes) below.
 
 An agent uses only the resources in its own declaration; it does not inherit the app's requirements. The app and agents share a namespace per resource kind. If both declare the same database slug, they refer to the same logical database and must agree on its mode. They use the same stored database when that mode selects the same Owner. Different people's viewer-mode databases remain separate. [Resources](/core-concepts/resources) explains declarations and modes.
 
@@ -41,23 +41,31 @@ If both are declared, the API key takes precedence. The secret's `owner` or `vie
 
 The default model is `claude-haiku-4-5`. To choose another, declare an `ANTHROPIC_MODEL` secret and save a full Anthropic model ID as its value. Once declared, the model value is required. A changed model applies to new conversations; existing conversations retain their selected model. The runtime selects the provider secret's Owner when it refreshes configuration. For API-key access, it loads the actual value when authenticating each model request. See [Secrets](/core-concepts/resources/secrets).
 
-## Conversations and submissions
+## Address an agent instance
 
 The **run actor** is the person or app the agent acts for, independently of who owns its resources. One hosted instance, called a **SlateAgent**, belongs to a particular slate, named agent, and actor. Your manual API calls create conversations and submit input in your instance. App-scoped schedules use the app instance. Neither selects another person's private instance.
 
+Conversation, submission, and provisioned-schedule operations address an instance under `/api/slates/{target}/agents/{name}/{actor}/…`. The actor is required: `user` selects the authenticated caller's instance and `app` selects the named agent's app instance. Create and submit accept only `user`; reads accept either. Reading the authored agent definition addresses its source and needs no actor.
+
+Keep the slate, agent name, and actor together with every record ID and page cursor. Native IDs can repeat in different instances: conversation `7` under `user` and conversation `7` under `app` can be different records. The API has no default actor and does not search or combine instances.
+
+The conversation API is available only for private slates. Use a platform login, such as the saved CLI login; [Who can do what](/core-concepts/owners-and-viewers#who-can-do-what) explains which operations require viewing or management permission. In particular, reading answer text through conversation views or entries requires management permission. Schedule inspection also requires management permission and is available for public slates too.
+
+## Conversations and submissions
+
 Create a conversation for a fresh history, then submit a prompt to it. Submit another prompt to the same conversation to continue its context. Every submission has its own native Pi identifier, status, and outcome. Acceptance does not wait for an answer, and work continues after the caller disconnects. Return later with the same slate, agent, actor, and IDs to read its state. [Build an agent](/how-to/build-an-agent#start-a-conversation-and-read-its-answer) shows the sequence.
 
-The conversation directory includes Pi's native root and task-owned child conversations. Starting the runtime creates its root without submitting work, so a conversation's presence alone does not show that a user prompt or scheduled task has run.
-
-Instructions and resources refresh from current source when the hosted runtime opens and before it accepts new input, whether submitted manually or by a schedule. The same refresh selects assigned accounts and declared secret Owners. One submission can produce several model and tool rounds without another refresh. Starting a new conversation does not freeze the agent's instructions or resources: conversations share installed configuration, so input to one conversation can affect later work in another. A tool call already in flight keeps the binding it captured.
-
-Opening a cold runtime also loads its configuration and connection-tool definitions before recovering accepted work. Reading history or inspecting schedules can therefore wait for those services or fail if they are unavailable. Reading configuration or history does not enroll you as a slate member; membership follows [setup and first use of viewer-mode resources](/core-concepts/owners-and-viewers#slate-members).
+The conversation directory includes Pi's native root and task-owned child conversations. Starting the runtime creates its root without submitting work, so a conversation's presence alone does not show that a user prompt or scheduled task has run. The API has no operation to stop work or delete conversations.
 
 Conversations in the same SlateAgent share its computer and connection-tool working context. A fresh conversation does not clear those files or create a separate computer. Different SlateAgents have separate computers and connection sessions. They can still share declared resources: your manual digest and an app-scoped digest can read the same owner-mode notes database. Conversation records, computer scratch files, and persistent database rows have separate lifetimes. For the wider relationship between agents, interfaces, and shared data, see [How the parts work together](/core-concepts/slate#how-the-parts-work-together).
 
-Anyone who can view a private slate can create conversations, submit input, list conversations, and read submission status. Every conversation or schedule request names its actor in the URL path: `user` selects your instance and `app` selects the named agent's app instance. Create and submit require `user`; reads accept either. There is no default actor. Native IDs and page cursors belong to that selected instance. Reading conversation views or entries, including the answer text, requires slate management permission, as does inspecting schedules: these payloads can reveal instructions, tool arguments, and private data. Schedule inspection is also available on public slates to callers with management permission. A schedule list shows only the selected actor's installed schedules; selecting an actor does not change where scheduled work runs. The API has no operation to stop work or delete conversations.
+### When configuration changes
 
-<Note>Public slates cannot use the hosted conversation API yet.</Note>
+Instructions and resources refresh from current source when the hosted runtime opens and before it accepts new input, whether submitted manually or by a schedule. The same refresh selects assigned accounts and declared secret Owners. One submission can produce several model and tool rounds without another refresh. Starting a new conversation does not freeze the agent's instructions or resources: conversations share installed configuration, so input to one conversation can affect later work in another. A tool call already in flight keeps the binding it captured.
+
+Each refresh reads a coherent revision from the latest commit on `main`, independently of whether that commit has deployed successfully. Database migrations and schedule installation follow the deployment pipeline instead. Keep pushed instructions and declarations compatible with the database schema and installed schedules that may still be in use. [Model selection](#model-and-authentication) has its own lifetime: existing conversations retain their selected model.
+
+Opening a cold runtime also loads its configuration and connection-tool definitions before recovering accepted work. Reading history or inspecting schedules can therefore wait for those services or fail if they are unavailable. Reads on an already-open runtime do not themselves refresh configuration. Reading configuration or history does not enroll you as a slate member; membership follows [setup and first use of viewer-mode resources](/core-concepts/owners-and-viewers#slate-members).
 
 ## Schedules
 
@@ -80,6 +88,8 @@ Who a scheduled agent acts for depends on its own declaration:
 - An agent that declares **any viewer-mode resource** is **member-scoped**: each scheduled firing acts for a particular [slate member](/core-concepts/owners-and-viewers#slate-members), with schedules installed for the members. A personal-inbox digest can run separately for each member.
 
 Scope follows the agent's requirements, including its connections, databases, and secrets. The app's declaration does not determine an agent's scope.
+
+To inspect installed schedules, [address the instance](#address-an-agent-instance) that runs them: `app` for app-scoped work, or `user` for your member-scoped work. A schedule list shows only that instance's installed schedules and is empty when it has none; a lookup does not search other instances. Choosing an actor for inspection does not change where schedules are installed or executed.
 
 ## Tools a hosted agent gets
 
