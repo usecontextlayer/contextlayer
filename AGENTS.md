@@ -93,6 +93,10 @@ Conceptual integrity informs both the architecture and the way we change it: [Co
 
 Ask clarifying questions when requirements are ambiguous or there are multiple plausible interpretations. Confirm scope and intent before implementing; do not continue too far on assumptions.
 
+### Delegate Test Work
+
+Implementation agents delegate test creation and modification to a fresh-context testing subagent under [TESTING.md's delegation policy](TESTING.md#delegate-test-work). Give it an outcome-focused brief and have it load [testing-as-a-subagent](.agents/skills/testing-as-a-subagent/SKILL.md). Use this division of work throughout implementation.
+
 ### Escalate Permissions Early
 
 When a required action is blocked by sandbox or permission limits, escalate and request approval. Do not spend time on hacky workarounds when escalation is the correct path.
