@@ -23,7 +23,7 @@ import {
 	type agentSchema,
 	agentSubmissionSchema,
 } from "@/agents.schema"
-import { listOrganizations } from "@/auth.server"
+import { hasManagementAuthority, listOrganizations } from "@/auth.server"
 import type { PlatformEnv } from "@/context"
 import type { PlatformDb } from "@/database"
 import type { SlateId } from "@/database/models/public/Slate"
@@ -36,15 +36,17 @@ import {
 	resolveSlateResourceConfiguration,
 } from "@/slate-resource-configuration.server"
 import type { Slate } from "@/slates.schema"
-import {
-	authorizeSlateManagement,
-	type OwnerSlateAccess,
-	type SlateAccess,
-} from "@/slates.server"
+import { authorizeSlateManagement, type SlateAccess } from "@/slates.server"
+
+export function authorizeAgentConversationAccess({ slate, identity }: SlateAccess) {
+	if (!hasManagementAuthority(identity) || slate.visibility === "public")
+		return { allowed: false, reason: "forbidden" } as const
+	return { allowed: true } as const
+}
 
 export async function getAgent(
 	artifacts: Artifacts,
-	access: OwnerSlateAccess,
+	access: SlateAccess,
 	issuer: string,
 	name: string,
 ) {
@@ -54,9 +56,11 @@ export async function getAgent(
 }
 
 async function authorizeAgentManagement(
-	{ slate, identity }: OwnerSlateAccess,
+	{ slate, identity }: SlateAccess,
 	issuer: string,
 ) {
+	if (!hasManagementAuthority(identity))
+		return { allowed: false, reason: "forbidden" } as const
 	const organizations = slate.owner_organization_id
 		? await listOrganizations(identity, issuer)
 		: []
@@ -311,7 +315,7 @@ export async function listAgentConversations(
 
 export async function getAgentConversation(
 	agents: DurableObjectNamespace<SlateAgent>,
-	access: OwnerSlateAccess,
+	access: SlateAccess,
 	issuer: string,
 	name: string,
 	actorType: AgentActor["type"],
@@ -329,7 +333,7 @@ export async function getAgentConversation(
 
 export async function listAgentEntries(
 	agents: DurableObjectNamespace<SlateAgent>,
-	access: OwnerSlateAccess,
+	access: SlateAccess,
 	issuer: string,
 	name: string,
 	actorType: AgentActor["type"],
@@ -357,7 +361,7 @@ export async function listAgentEntries(
 
 export async function listAgentSchedules(
 	agents: DurableObjectNamespace<SlateAgent>,
-	access: OwnerSlateAccess,
+	access: SlateAccess,
 	issuer: string,
 	name: string,
 	actorType: AgentActor["type"],
@@ -374,7 +378,7 @@ export async function listAgentSchedules(
 
 export async function getAgentSchedule(
 	agents: DurableObjectNamespace<SlateAgent>,
-	access: OwnerSlateAccess,
+	access: SlateAccess,
 	issuer: string,
 	name: string,
 	actorType: AgentActor["type"],

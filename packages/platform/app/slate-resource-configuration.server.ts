@@ -6,7 +6,7 @@ import { getCredentialOwner, getSlateOwner, type Owner } from "@/owner"
 import { listSharedSecretNames, secretKey } from "@/secrets.server"
 import { assignmentOwner } from "@/slate-connections.schema"
 import type { Slate } from "@/slates.schema"
-import type { OwnerSlateAccess } from "@/slates.server"
+import type { ManagementSlateAccess } from "@/slates.server"
 
 export function resolveSlateResourceConfiguration(
 	configuration: SlateResourceConfiguration,
@@ -146,7 +146,7 @@ function getSlateConnectionAssignments(
 export async function listSlateResources(
 	db: PlatformDb,
 	config: PlatformConfig,
-	access: OwnerSlateAccess,
+	access: ManagementSlateAccess,
 	resources: Resources,
 ) {
 	return {
@@ -164,7 +164,7 @@ export async function listSlateResources(
 export async function listSlateConnections(
 	db: PlatformDb,
 	config: PlatformConfig,
-	access: OwnerSlateAccess,
+	access: ManagementSlateAccess,
 	resources: Resources,
 ) {
 	const configured = await listSlateResources(db, config, access, {

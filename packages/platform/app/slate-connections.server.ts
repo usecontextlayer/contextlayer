@@ -7,13 +7,13 @@ import { authorizeOwner } from "@/owner.server"
 import { assignmentOwner, type assignmentSchema } from "@/slate-connections.schema"
 import type { SlateDeclarationSnapshot } from "@/slate-declarations.server"
 import { addSlateMember } from "@/slate-members.server"
-import type { OwnerSlateAccess } from "@/slates.server"
+import type { ManagementSlateAccess } from "@/slates.server"
 
 export async function assignSlateConnection(
 	db: PlatformDb,
 	memberProvisioning: PlatformEnv["Bindings"]["MEMBER_PROVISIONING"],
 	config: PlatformConfig,
-	access: OwnerSlateAccess,
+	access: ManagementSlateAccess,
 	assignment: z.infer<typeof assignmentSchema>,
 	snapshot: SlateDeclarationSnapshot,
 ) {

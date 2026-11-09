@@ -2,7 +2,7 @@ import { Buffer } from "node:buffer"
 import { createHash } from "node:crypto"
 import { ownerSchema } from "@usecontextlayer/shared/slate-usage"
 import { z } from "zod"
-import type { OwnerIdentity } from "@/auth.server"
+import type { ManagementIdentity } from "@/auth.server"
 import type { PlatformEnv } from "@/context"
 import { type PlatformBindings, type PlatformConfig, parseSharedSecretsEnv } from "@/env"
 import type { Owner } from "@/owner"
@@ -85,7 +85,7 @@ export async function loadSharedSecret(
 export async function setSharedSecret(
 	meridian: PlatformEnv["Bindings"]["MERIDIAN"],
 	config: PlatformConfig,
-	identity: OwnerIdentity,
+	identity: ManagementIdentity,
 	owner: Owner,
 	name: string,
 	input: SetSecretRequest,
@@ -114,7 +114,7 @@ export async function setSharedSecret(
 export async function dropSharedSecret(
 	meridian: PlatformEnv["Bindings"]["MERIDIAN"],
 	config: PlatformConfig,
-	identity: OwnerIdentity,
+	identity: ManagementIdentity,
 	owner: Owner,
 	name: string,
 ) {

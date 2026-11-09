@@ -1,7 +1,7 @@
 import { Composio } from "@composio/core"
 import type { z } from "zod"
 import { accountLinkSchema, accountSchema } from "@/accounts.schema"
-import type { OwnerIdentity } from "@/auth.server"
+import type { ManagementIdentity } from "@/auth.server"
 import type { PlatformConfig } from "@/env"
 import type { Owner } from "@/owner"
 import { authorizeOwner } from "@/owner.server"
@@ -24,7 +24,7 @@ export async function createAccountSession(
 
 export async function connectAccount(
 	config: PlatformConfig,
-	identity: OwnerIdentity,
+	identity: ManagementIdentity,
 	owner: Owner,
 	toolkit: string,
 ) {
@@ -68,7 +68,7 @@ async function listConnectedAccounts(apiKey: string, ownerId: string, toolkit?: 
 
 export async function listAccounts(
 	config: PlatformConfig,
-	identity: OwnerIdentity,
+	identity: ManagementIdentity,
 	owner: Owner,
 ) {
 	if (!(await authorizeOwner(identity, config.CTX_AUTH_ISSUER, owner)))
@@ -81,7 +81,7 @@ export async function listAccounts(
 
 export async function listPersonalAccounts(
 	config: PlatformConfig,
-	identity: OwnerIdentity,
+	identity: ManagementIdentity,
 	toolkit: string,
 ) {
 	return {

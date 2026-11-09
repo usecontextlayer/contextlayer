@@ -11,7 +11,7 @@ import { Fragment, useCallback, useEffect, useRef, useState } from "react"
 import { data, Form, redirectDocument, useFetcher } from "react-router"
 import { z } from "zod"
 import { connectAccount, listAccounts, listToolkits } from "@/accounts.server"
-import { getCurrentUser, type OwnerIdentity } from "@/auth.server"
+import { getCurrentUser, type ManagementIdentity } from "@/auth.server"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -83,7 +83,7 @@ const chromeActionSchema = z.discriminatedUnion("intent", [
 
 async function getChromeSlate(
 	{ params, context }: Pick<Route.LoaderArgs, "params" | "context">,
-	identity: OwnerIdentity,
+	identity: ManagementIdentity,
 ) {
 	const access = await resolveSlateForViewing(
 		context.get(databaseContext),

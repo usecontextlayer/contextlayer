@@ -3,7 +3,7 @@ import {
 	INSPECTION_SLATE_ID_HEADER,
 	inspectionConfigurationSchema,
 } from "@usecontextlayer/shared/inspection"
-import type { OwnerAuthenticatedEnv } from "@/auth.middleware"
+import type { ManagementAuthenticatedEnv } from "@/auth.middleware"
 import { requireAuth } from "@/auth.middleware"
 import { slateTargetSchema } from "@/slates.schema"
 import { getSlate } from "@/slates.server"
@@ -42,7 +42,7 @@ const routes = [
 ] as const
 
 export function createInspectionApi() {
-	const api = new OpenAPIHono<OwnerAuthenticatedEnv>()
+	const api = new OpenAPIHono<ManagementAuthenticatedEnv>()
 	api.use("*", requireAuth)
 	for (const [path, operationId, summary, description, schema, params] of routes) {
 		const route = createRoute({

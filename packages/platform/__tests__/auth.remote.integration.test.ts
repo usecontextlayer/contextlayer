@@ -49,6 +49,14 @@ test("viewer cookies authenticate runtime requests but not management APIs", asy
 		["POST", "/slates"],
 		["PATCH", `/slates/${slate.id}`],
 		["GET", `/slates/${slate.id}/agents/example`],
+		["POST", `/slates/${slate.id}/agents/example/user/conversations`],
+		["GET", `/slates/${slate.id}/agents/example/user/conversations`],
+		["POST", `/slates/${slate.id}/agents/example/user/conversations/1/submissions`],
+		["GET", `/slates/${slate.id}/agents/example/user/submissions/1`],
+		["GET", `/slates/${slate.id}/agents/example/user/conversations/1`],
+		["GET", `/slates/${slate.id}/agents/example/user/conversations/1/entries`],
+		["GET", `/slates/${slate.id}/agents/example/user/schedules`],
+		["GET", `/slates/${slate.id}/agents/example/user/schedules/1`],
 		["GET", `/slates/${slate.id}/cloudflare`],
 		["GET", `/accounts/${owner}`],
 		["POST", `/accounts/${owner}`],
@@ -65,6 +73,27 @@ test("viewer cookies authenticate runtime requests but not management APIs", asy
 			method,
 		})
 		expect(response.status, `${method} ${path}`).toBe(401)
+	}
+})
+
+test("explicit Authorization takes precedence over valid management and viewer sessions", async ({
+	slate,
+	webSession,
+	platform: { origin },
+	viewerHeaders,
+}) => {
+	const resolve = `/api/slates/resolve?hostname=${slate.public_hostname}&pathname=/slate.json`
+	for (const [path, sessionHeaders] of [
+		["/api/slates", webSession.headers],
+		[resolve, viewerHeaders],
+	] as const) {
+		expect((await fetch(`${origin}${path}`, { headers: sessionHeaders })).status).toBe(
+			200,
+		)
+		const headers = new Headers(sessionHeaders)
+		headers.set("authorization", "Bearer invalid-access-token")
+		const response = await fetch(`${origin}${path}`, { headers })
+		expect(response.status).toBe(401)
 	}
 })
 

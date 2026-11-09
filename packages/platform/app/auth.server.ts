@@ -1,6 +1,6 @@
 import {
 	parseAccessTokenAuthorization,
-	requestToResourceInput,
+	type ResourceRequestInput,
 	verifyAccessTokenRequest,
 } from "better-auth/oauth2"
 import type { JWTPayload } from "jose"
@@ -9,6 +9,13 @@ import { z } from "zod"
 export const userSchema = z.object({ id: z.string().min(1) })
 const sessionSchema = z.object({ user: userSchema }).nullable()
 
+export const PLATFORM_RESOURCE = "https://platform.usecontextlayer.com"
+export const PLATFORM_SCOPE = "platform:access"
+
+export type SessionCredential =
+	| { type: "cookie"; cookie: string }
+	| { type: "session"; token: string }
+
 type OAuthCredential = {
 	type: "access-token"
 	token: string
@@ -16,19 +23,33 @@ type OAuthCredential = {
 	resource: string
 }
 
-export type OwnerIdentity = {
-	type: "owner"
+export type CredentialAssertion =
+	| SessionCredential
+	| { type: "access-token"; input: ResourceRequestInput }
+
+export type AuthIdentity = {
 	user: z.infer<typeof userSchema>
-	credential: OAuthCredential | { type: "cookie"; cookie: string }
+	credential: OAuthCredential | SessionCredential
 }
 
-export type ViewerIdentity = {
-	type: "viewer"
-	user: z.infer<typeof userSchema>
-	credential: OAuthCredential | { type: "session"; token: string }
+export type ManagementIdentity = AuthIdentity & {
+	credential:
+		| Extract<SessionCredential, { type: "cookie" }>
+		| (OAuthCredential & { resource: typeof PLATFORM_RESOURCE })
 }
 
-export type AuthIdentity = OwnerIdentity | ViewerIdentity
+export function hasManagementAuthority(
+	identity: AuthIdentity,
+): identity is ManagementIdentity {
+	const credential = identity.credential
+	return (
+		credential.type === "cookie" ||
+		(credential.type === "access-token" &&
+			credential.resource === PLATFORM_RESOURCE &&
+			typeof credential.claims.scope === "string" &&
+			credential.claims.scope.split(" ").includes(PLATFORM_SCOPE))
+	)
+}
 
 export function credentialHeaders(credential: AuthIdentity["credential"]) {
 	const headers = new Headers()
@@ -49,7 +70,7 @@ export const organizationSchema = z.object({
 })
 export type Organization = z.infer<typeof organizationSchema>
 
-export async function listOrganizations(identity: OwnerIdentity, issuer: string) {
+export async function listOrganizations(identity: ManagementIdentity, issuer: string) {
 	const url = new URL(issuer)
 	url.pathname = "/api/platform/organizations"
 	const response = await fetch(url, { headers: credentialHeaders(identity.credential) })
@@ -60,7 +81,7 @@ export async function listOrganizations(identity: OwnerIdentity, issuer: string)
 }
 
 export async function checkViewerOrganizationMembership(
-	identity: ViewerIdentity,
+	identity: AuthIdentity,
 	organizationId: string,
 	issuer: string,
 ) {
@@ -77,13 +98,13 @@ export async function checkViewerOrganizationMembership(
 }
 
 export async function authenticateAccessToken(
-	request: Request,
+	input: ResourceRequestInput,
 	issuer: string,
-): Promise<OwnerIdentity> {
-	const resource = "https://platform.usecontextlayer.com"
-	const claims = await verifyAccessTokenRequest(requestToResourceInput(request), {
+): Promise<AuthIdentity> {
+	const resource = PLATFORM_RESOURCE
+	const claims = await verifyAccessTokenRequest(input, {
 		jwksUrl: `${issuer.replace(/\/$/, "")}/jwks`,
-		requiredScopes: ["platform:access"],
+		requiredScopes: [PLATFORM_SCOPE],
 		verifyOptions: {
 			audience: resource,
 			issuer,
@@ -93,16 +114,15 @@ export async function authenticateAccessToken(
 	const token = z
 		.string()
 		.min(1)
-		.parse(parseAccessTokenAuthorization(request.headers.get("authorization"))?.token)
+		.parse(parseAccessTokenAuthorization(input.authorizationHeader)?.token)
 	return {
 		credential: { claims, resource, token, type: "access-token" },
-		type: "owner",
 		user: userSchema.parse({ id: claims.sub }),
 	}
 }
 
 export async function authenticateSession(
-	credential: Exclude<AuthIdentity["credential"], { type: "access-token" }>,
+	credential: SessionCredential,
 	issuer: string,
 ): Promise<AuthIdentity | null> {
 	const headers = credentialHeaders(credential)
@@ -116,13 +136,11 @@ export async function authenticateSession(
 	if (!response.ok) throw new Error(`Session lookup failed: ${response.status}`)
 	const user = sessionSchema.parse(await response.json())?.user
 	if (!user) return null
-	return credential.type === "cookie"
-		? { credential, type: "owner", user }
-		: { credential, type: "viewer", user }
+	return { credential, user }
 }
 
 export async function findOrganizationBySlug(
-	identity: OwnerIdentity,
+	identity: ManagementIdentity,
 	issuer: string,
 	slug: string,
 ) {
@@ -130,7 +148,7 @@ export async function findOrganizationBySlug(
 	return organizations.find((organization) => organization.slug === slug)
 }
 
-export async function getCurrentUser(identity: OwnerIdentity, issuer: string) {
+export async function getCurrentUser(identity: ManagementIdentity, issuer: string) {
 	const response = await fetch(new URL("/api/me", issuer), {
 		headers: credentialHeaders(identity.credential),
 	})

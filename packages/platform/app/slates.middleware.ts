@@ -2,12 +2,12 @@ import { createMiddleware } from "hono/factory"
 import type {
 	AuthenticatedEnv,
 	IdentityEnv,
-	OwnerAuthenticatedEnv,
+	ManagementAuthenticatedEnv,
 } from "@/auth.middleware"
 import type { AuthIdentity } from "@/auth.server"
 import { type Slate, slateTargetSchema } from "@/slates.schema"
 import {
-	type OwnerSlateAccess,
+	type ManagementSlateAccess,
 	resolveSlateForViewing,
 	type SlateAccess,
 } from "@/slates.server"
@@ -20,9 +20,9 @@ export type AuthenticatedViewingEnv = ViewingEnv &
 		Variables: { slateAccess: SlateAccess }
 	}
 
-export type OwnerViewingEnv = AuthenticatedViewingEnv &
-	OwnerAuthenticatedEnv & {
-		Variables: { slateAccess: OwnerSlateAccess }
+export type ManagementViewingEnv = AuthenticatedViewingEnv &
+	ManagementAuthenticatedEnv & {
+		Variables: { slateAccess: ManagementSlateAccess }
 	}
 
 export const slateViewingErrorStatus = {

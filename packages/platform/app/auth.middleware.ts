@@ -1,4 +1,5 @@
 import { isAPIError } from "better-auth/api"
+import { requestToResourceInput } from "better-auth/oauth2"
 import type { Context } from "hono"
 import { accepts } from "hono/accepts"
 import { except } from "hono/combine"
@@ -10,21 +11,23 @@ import {
 	type AuthIdentity,
 	authenticateAccessToken,
 	authenticateSession,
-	type OwnerIdentity,
+	type CredentialAssertion,
+	hasManagementAuthority,
+	type ManagementIdentity,
 } from "@/auth.server"
 import type { PlatformEnv } from "@/context"
 import { authenticateMcpRequest } from "@/mcp.server"
 import type { resolveSlateQuerySchema } from "@/slates.schema"
 
 export type IdentityEnv = PlatformEnv & { Variables: { identity: AuthIdentity | null } }
-export type OwnerIdentityEnv = IdentityEnv & {
-	Variables: { identity: OwnerIdentity | null }
+export type ManagementIdentityEnv = IdentityEnv & {
+	Variables: { identity: ManagementIdentity | null }
 }
 export type AuthenticatedEnv = IdentityEnv & {
 	Variables: { identity: AuthIdentity }
 }
-export type OwnerAuthenticatedEnv = AuthenticatedEnv & {
-	Variables: { identity: OwnerIdentity }
+export type ManagementAuthenticatedEnv = AuthenticatedEnv & {
+	Variables: { identity: ManagementIdentity }
 }
 
 function createRequireAuth({ signInRedirect = false } = {}) {
@@ -59,30 +62,39 @@ export const requireCsrf = except(
 	csrf(),
 )
 
-async function getRequestIdentity<E extends IdentityEnv>(
+function getRequestCredential<E extends IdentityEnv>(
 	c: Context<E>,
 	{ viewerCookie }: { viewerCookie: boolean },
-) {
-	const session = viewerCookie ? getCookie(c, "ctx-viewer-auth") : undefined
-	const cookie = c.req.header("cookie")
+): CredentialAssertion | null {
 	if (c.req.header("authorization") !== undefined) {
-		try {
-			return await authenticateAccessToken(c.req.raw, c.var.config.CTX_AUTH_ISSUER)
-		} catch (error) {
-			if (isAPIError(error) && [401, 403].includes(error.statusCode)) return null
-			throw error
-		}
+		return { input: requestToResourceInput(c.req.raw), type: "access-token" }
 	}
-	const credential = session
-		? ({ token: session, type: "session" } as const)
-		: cookie
-			? ({ cookie, type: "cookie" } as const)
-			: null
-	return credential ? authenticateSession(credential, c.var.config.CTX_AUTH_ISSUER) : null
+	const session = viewerCookie ? getCookie(c, "ctx-viewer-auth") : undefined
+	if (session) return { token: session, type: "session" }
+	const cookie = c.req.header("cookie")
+	return cookie ? { cookie, type: "cookie" } : null
 }
 
-export const identifyUser = createMiddleware<IdentityEnv>(async (c, next) => {
-	c.set("identity", await getRequestIdentity(c, { viewerCookie: false }))
+async function getRequestIdentity<E extends IdentityEnv>(
+	c: Context<E>,
+	options: { viewerCookie: boolean },
+) {
+	const credential = getRequestCredential(c, options)
+	if (!credential) return null
+	if (credential.type !== "access-token") {
+		return authenticateSession(credential, c.var.config.CTX_AUTH_ISSUER)
+	}
+	try {
+		return await authenticateAccessToken(credential.input, c.var.config.CTX_AUTH_ISSUER)
+	} catch (error) {
+		if (isAPIError(error) && [401, 403].includes(error.statusCode)) return null
+		throw error
+	}
+}
+
+export const identifyUser = createMiddleware<ManagementIdentityEnv>(async (c, next) => {
+	const identity = await getRequestIdentity(c, { viewerCookie: false })
+	c.set("identity", identity && hasManagementAuthority(identity) ? identity : null)
 	await next()
 })
 
@@ -91,5 +103,9 @@ export async function getSlateViewerIdentity<E extends IdentityEnv>(
 	input: z.infer<typeof resolveSlateQuerySchema>,
 ) {
 	if (input.pathname !== "/mcp") return getRequestIdentity(c, { viewerCookie: true })
-	return authenticateMcpRequest(c.req.raw, input.hostname, c.var.config.CTX_AUTH_ISSUER)
+	return authenticateMcpRequest(
+		requestToResourceInput(c.req.raw),
+		input.hostname,
+		c.var.config.CTX_AUTH_ISSUER,
+	)
 }

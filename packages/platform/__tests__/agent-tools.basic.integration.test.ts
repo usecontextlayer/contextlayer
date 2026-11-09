@@ -5,7 +5,7 @@ import { expect } from "vitest"
 import { z } from "zod"
 import { createAccountSession, listPersonalAccounts } from "@/accounts.server"
 import { createAgentTools } from "@/agent-tools"
-import { authenticateSession } from "@/auth.server"
+import { authenticateSession, hasManagementAuthority } from "@/auth.server"
 import { parsePlatformEnv } from "@/env"
 
 test("agent tools expose native action inputs and session result schemas to Code Mode", async ({
@@ -17,7 +17,10 @@ test("agent tools expose native action inputs and session result schemas to Code
 		{ cookie: z.string().parse(webSession.headers.get("cookie")), type: "cookie" },
 		config.CTX_AUTH_ISSUER,
 	)
-	assert(identity?.type === "owner", "DevEnv web session must authenticate as an Owner")
+	assert(
+		identity && hasManagementAuthority(identity),
+		"DevEnv web session must grant management authority",
+	)
 	const { accounts } = await listPersonalAccounts(config, identity, "gmail")
 	const account = accounts[0]
 	if (!account) throw new Error("Connect a Gmail account to the DevEnv user")
