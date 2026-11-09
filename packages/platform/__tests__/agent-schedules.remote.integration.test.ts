@@ -53,8 +53,8 @@ test("authored cron firings create separate conversations and retain results aft
 		join(directory, "agents/brief/instructions.md"),
 		"Answer briefly without using tools.\n",
 	)
-	// A recurring minute cannot be missed while the repository or runtime is preparing.
-	const cron = "* * * * *"
+	// Recurrence keeps the scenario independent of how long setup takes.
+	const cron = "*/10 * * * * *"
 	const prompt = "Say hello in one sentence."
 	await writeFile(
 		join(directory, "agents/brief/schedules/greeting.md"),

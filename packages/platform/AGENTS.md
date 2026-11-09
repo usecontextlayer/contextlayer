@@ -137,7 +137,7 @@ Pass trusted typed RPC results through; do not reparse them into application-own
 
 ### Agent schedule provisioning
 
-Parse authored schedule frontmatter with the standard YAML parser and validate it through `agentScheduleSchema`; require five-field UTC cron and use the Markdown body as the prompt. Preserve the authored delimiter/body format. Git remains the authoring authority. Compose native `Scheduler` with the SlateAgent's Lifecycle so scheduling and Durable Object alarms own timing and recurrence; do not introduce a schedule configuration store or custom scheduler.
+Parse authored schedule frontmatter with the standard YAML parser and validate its shape through `agentScheduleSchema`; let the native `Scheduler` validate cron syntax, interpreted in UTC, and use the Markdown body as the prompt. Preserve the authored delimiter/body format. Git remains the authoring authority. Compose native `Scheduler` with the SlateAgent's Lifecycle so scheduling and Durable Object alarms own timing and recurrence; do not introduce a schedule configuration store or custom scheduler.
 
 `prepareSlateProvisioning` must remain pure. Build and membership supply their selected snapshot and actors; preparation derives one `SlateProvisioning` value with deduplicated database targets. Migration and schedule phases consume it without selecting another revision or actor set. Read schedule files through the snapshot's discovered agent trees. Follow [the migration lifecycle](../../ARCHITECTURE.md#slate-databases-and-authored-migrations) and delegate migration execution to Build's [shared migration step](../build/AGENTS.md).
 

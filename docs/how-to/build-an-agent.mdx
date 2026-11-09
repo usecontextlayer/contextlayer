@@ -136,7 +136,7 @@ An agent-only slate that declares a database must also supply its [Kysely config
     Summarize the notes in two or three sentences.
     ```
 
-    `cron` takes five fields and is read in UTC. This one fires at 09:00 UTC every day. The file name without `.md` is the schedule's name.
+    This expression fires at 09:00 UTC every day. The file name without `.md` is the schedule's name. See [Schedules](/core-concepts/slate/agents#schedules) for accepted cron syntax, including optional seconds and shorthand.
 
     Commit `agents/digest/schedules/daily.md`, push `main`, and wait for that deployment to succeed before checking the installed schedule.
 

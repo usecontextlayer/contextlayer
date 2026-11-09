@@ -264,12 +264,7 @@ export const agentConversationViewSchema = z
 	})
 
 export const agentScheduleSchema = z.object({
-	cron: z
-		.string()
-		.trim()
-		.refine((cron) => cron.split(/\s+/).length === 5, {
-			message: "Use a five-field cron expression in UTC",
-		}),
+	cron: z.string().trim(),
 	name: z.string().min(1),
 	prompt: z.string().min(1).openapi({
 		description:

@@ -69,7 +69,9 @@ Opening a cold runtime also loads its configuration and connection-tool definiti
 
 ## Schedules
 
-A schedule is a Markdown file in `agents/<name>/schedules/`. Its YAML front matter sets `cron`, a five-field cron expression in UTC; its body is the prompt. The file name without `.md` is the schedule's name.
+A schedule is a Markdown file in `agents/<name>/schedules/`. Its YAML front matter sets `cron`, interpreted in UTC; its body is the prompt. The file name without `.md` is the schedule's name.
+
+The native Scheduler validates cron syntax during provisioning. It accepts five-field expressions (`minute hour day-of-month month day-of-week`), six-field expressions with seconds first, and supported shorthand such as `@daily`. For example, `*/10 * * * * *` fires every ten seconds, while `*/10 * * * *` fires every ten minutes. Invalid expressions fail provisioning.
 
 ```markdown agents/digest/schedules/weekly.md
 ---
