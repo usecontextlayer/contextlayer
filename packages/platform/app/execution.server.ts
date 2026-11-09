@@ -9,6 +9,7 @@ import type { PlatformEnv } from "@/context"
 import { createPlatformDb, type PlatformDb } from "@/database"
 import { type PlatformConfig, parsePlatformEnv } from "@/env"
 import { getSlateOwner } from "@/owner"
+import { createSlateApi } from "@/slate.api"
 import { querySlateDatabase } from "@/slate-databases.server"
 import { slateSchema } from "@/slates.schema"
 import { resolveSlateForViewing } from "@/slates.server"
@@ -37,10 +38,16 @@ async function getViewerAccess(
 	return { allowed: true, identity, slate: access.slate } as const
 }
 
+const slateApi = createSlateApi()
+
 export class Execution
 	extends WorkerEntrypoint<PlatformEnv["Bindings"]>
 	implements HostedExecution
 {
+	fetch(request: Request) {
+		return slateApi.fetch(request, this.env, this.ctx)
+	}
+
 	async callTool(
 		slateId: string,
 		viewerSessionToken: string,

@@ -40,6 +40,8 @@ app.all("/mcp", async (c) => {
 
 app.use("*", browserSecurity)
 
+app.all("/.ctx/agents/*", (c) => c.env.EXECUTION.fetch(c.req.raw))
+
 app.all("*", async (c) => {
 	const env = parseEnv(c.env)
 	const session = getCookie(c, "ctx-viewer-auth")

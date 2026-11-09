@@ -7,7 +7,7 @@ export interface Bindings {
 	CTX_PLATFORM_URL: string
 	CTX_VIEWER_AUTH_URL?: string
 	SLATES: DispatchNamespace
-	EXECUTION: HostedExecution
+	EXECUTION: HostedExecution & Fetcher
 }
 
 export function parseEnv(bindings: Bindings) {
