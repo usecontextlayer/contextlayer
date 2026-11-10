@@ -8,7 +8,7 @@ import {
 	UsageDoc,
 	UserEntry,
 } from "@earendil-works/pi-durable"
-import { test } from "@tests/integration"
+import { dispatcherTest as test } from "@tests/integration"
 import { copySlateProject } from "@usecontextlayer/dev-env/slate"
 import { signInViewer } from "@usecontextlayer/dev-env/viewer"
 import { expect } from "vitest"
@@ -26,7 +26,10 @@ import { slateSchema } from "@/slates.schema"
 test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
 	"API conversations without an app using %s retain their results and history",
 	{ timeout: 240_000 },
-	async (providerSecret, { db, directory, git, platform, webEnv, webSession }) => {
+	async (
+		providerSecret,
+		{ db, directory, dispatcher, git, platform, webEnv, webSession },
+	) => {
 		const { origin, worker } = platform
 		const headers = new Headers(webSession.headers)
 		headers.set("origin", origin)
@@ -69,8 +72,15 @@ test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
 			"Author Pi API acceptance agent",
 		)
 		await git("push", `${origin}/git/${slate.id}`, "main")
+		const viewerHeaders = await signInViewer({
+			authURL: webEnv.CTX_VIEWER_AUTH_URL,
+			returnTo: `https://${slate.public_hostname}/`,
+			webHeaders: webSession.headers,
+		})
+		viewerHeaders.set("content-type", "application/json")
+		const slateUrl = `https://${slate.public_hostname}/.ctx/agents/brief/user`
 		const agentUrl = `${origin}/api/slates/${slate.id}/agents/brief`
-		const url = `${agentUrl}/user`
+		const platformUrl = `${agentUrl}/user`
 		for (const path of ["conversations?limit=10", "submissions/1", "schedules"]) {
 			expect((await fetch(`${agentUrl}/${path}`, { headers })).status).toBe(404)
 		}
@@ -88,7 +98,11 @@ test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
 			}
 		}
 		expect(
-			(await fetch(`${agentUrl}/invalid/conversations?limit=10`, { headers })).status,
+			(
+				await fetch(`${agentUrl}/invalid/conversations?limit=10`, {
+					headers,
+				})
+			).status,
 		).toBe(400)
 		const membership = db
 			.selectFrom("slate_member")
@@ -96,7 +110,7 @@ test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
 			.where("slate_id", "=", slate.id)
 			.where("user_id", "=", slateMemberSchema.shape.user_id.parse(webSession.user.id))
 		expect(await membership.executeTakeFirst()).toBeUndefined()
-		const discovered = await fetch(`${url}/conversations?limit=10`, { headers })
+		const discovered = await fetch(`${platformUrl}/conversations?limit=10`, { headers })
 		expect(discovered.status).toBe(200)
 		expect(await membership.executeTakeFirst()).toBeUndefined()
 		const completedConversations = []
@@ -110,19 +124,25 @@ test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
 			)
 		}
 		for (const [index, prompt] of prompts.entries()) {
-			const created = await fetch(`${url}/conversations`, { headers, method: "POST" })
-			expect(created.status).toBe(201)
-			expect(await membership.executeTakeFirst()).toEqual({ user_id: webSession.user.id })
-			const conversation = agentConversationSchema.parse(await created.json())
-			const conversationUrl = `${url}/conversations/${conversation.id}`
-			expect(new URL(created.headers.get("location") ?? "", origin).href).toBe(
-				conversationUrl,
-			)
-			const submitted = await fetch(`${conversationUrl}/submissions`, {
-				body: JSON.stringify({ content: prompt }),
+			const created = await fetch(`${platformUrl}/conversations`, {
 				headers,
 				method: "POST",
 			})
+			expect(created.status).toBe(201)
+			expect(await membership.executeTakeFirst()).toEqual({ user_id: webSession.user.id })
+			const conversation = agentConversationSchema.parse(await created.json())
+			const conversationUrl = `${platformUrl}/conversations/${conversation.id}`
+			expect(new URL(created.headers.get("location") ?? "", origin).href).toBe(
+				conversationUrl,
+			)
+			const submitted = await dispatcher.fetch(
+				`${slateUrl}/conversations/${conversation.id}/submissions`,
+				{
+					body: JSON.stringify({ content: prompt }),
+					headers: Object.fromEntries(viewerHeaders),
+					method: "POST",
+				},
+			)
 			expect(submitted.status).toBe(202)
 			const submission = agentSubmissionSchema.parse(await submitted.json())
 			expect(submission.type).toBe("input")
@@ -131,7 +151,7 @@ test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
 			await expect
 				.poll(
 					async () => {
-						const response = await fetch(`${url}/submissions/${submission.id}`, {
+						const response = await fetch(`${platformUrl}/submissions/${submission.id}`, {
 							headers,
 						})
 						expect(response.status).toBe(200)
@@ -223,6 +243,19 @@ test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
 				usage.models[`${assistant.provider}/${assistant.model}`]?.totalTokens,
 			).toBeGreaterThan(0)
 			expect(view.docs[InboxDoc.definition.kind]).toMatchObject({ items: [] })
+			for (const path of [
+				`submissions/${result.id}`,
+				`conversations/${conversation.id}`,
+				`conversations/${conversation.id}/entries?limit=100&order=ascending`,
+			]) {
+				const slateResponse = await dispatcher.fetch(`${slateUrl}/${path}`, {
+					headers: Object.fromEntries(viewerHeaders),
+				})
+				const platformResponse = await fetch(`${platformUrl}/${path}`, { headers })
+				expect(slateResponse.status).toBe(200)
+				expect(platformResponse.status).toBe(200)
+				expect(await slateResponse.json()).toEqual(await platformResponse.json())
+			}
 			completedConversations.push({ answer, conversation, prompts: [prompt], result })
 		}
 		if (providerSecret === "CLAUDE_CODE_OAUTH_TOKEN") return
@@ -230,7 +263,7 @@ test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
 		const second = completedConversations[1]
 		assert(first && second)
 		expect(first.conversation.id).not.toBe(second.conversation.id)
-		const firstUrl = `${url}/conversations/${first.conversation.id}`
+		const firstUrl = `${platformUrl}/conversations/${first.conversation.id}`
 		const revisedInstructions =
 			"You are a concise assistant. Explain completed work in plain language.\n"
 		await writeFile(`${directory}/agents/brief/instructions.md`, revisedInstructions)
@@ -252,7 +285,7 @@ test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
 		await expect
 			.poll(
 				async () => {
-					const response = await fetch(`${url}/submissions/${continuation.id}`, {
+					const response = await fetch(`${platformUrl}/submissions/${continuation.id}`, {
 						headers,
 					})
 					expect(response.status).toBe(200)
@@ -310,7 +343,7 @@ test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
 		const conversations: z.infer<typeof agentConversationsPageSchema>["items"] = []
 		let conversationPage: z.infer<typeof agentConversationsPageSchema>
 		do {
-			const response = await fetch(`${url}/conversations?${conversationsQuery}`, {
+			const response = await fetch(`${platformUrl}/conversations?${conversationsQuery}`, {
 				headers,
 			})
 			expect(response.status).toBe(200)
@@ -328,7 +361,7 @@ test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
 		)
 		for (const [path, query] of [
 			[`${firstUrl}/entries`, pageQuery],
-			[`${url}/conversations`, conversationsQuery],
+			[`${platformUrl}/conversations`, conversationsQuery],
 		] as const) {
 			for (const [name, value] of [
 				["cursor", "{}"],
@@ -344,17 +377,17 @@ test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
 		expect(ids.length).toBeGreaterThan(0)
 		for (const id of ids) await worker.evictDurableObject("SlateAgent", { id })
 		for (const { answer, conversation, prompts, result } of completedConversations) {
-			const retained = await fetch(`${url}/submissions/${result.id}`, { headers })
+			const retained = await fetch(`${platformUrl}/submissions/${result.id}`, { headers })
 			expect(retained.status).toBe(200)
 			expect(agentSubmissionSchema.parse(await retained.json())).toEqual(result)
 			const answered = await fetch(
-				`${url}/conversations/${conversation.id}/entries?minEntryId=${result.answer}&maxEntryId=${result.answer}&limit=1`,
+				`${platformUrl}/conversations/${conversation.id}/entries?minEntryId=${result.answer}&maxEntryId=${result.answer}&limit=1`,
 				{ headers },
 			)
 			expect(answered.status).toBe(200)
 			expect(agentEntriesPageSchema.parse(await answered.json()).items).toEqual([answer])
 			const history = await fetch(
-				`${url}/conversations/${conversation.id}/entries?limit=100&order=ascending`,
+				`${platformUrl}/conversations/${conversation.id}/entries?limit=100&order=ascending`,
 				{ headers },
 			)
 			expect(history.status).toBe(200)
@@ -369,25 +402,26 @@ test.for(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"] as const)(
 					),
 			).toEqual(prompts)
 		}
-		const viewerHeaders = await signInViewer({
-			authURL: webEnv.CTX_VIEWER_AUTH_URL,
-			returnTo: `https://${slate.public_hostname}/`,
-			webHeaders: webSession.headers,
-		})
-		const inspectionPaths = ["", "/entries?limit=10"]
-		for (const path of inspectionPaths) {
-			const denied = await fetch(`${firstUrl}${path}`, { headers: viewerHeaders })
-			expect(denied.status).toBe(401)
-		}
 		const publicSlate = await fetch(`${origin}/api/slates/${slate.id}`, {
 			body: JSON.stringify({ visibility: "public" }),
 			headers,
 			method: "PATCH",
 		})
 		expect(publicSlate.status).toBe(200)
-		for (const path of inspectionPaths) {
-			const denied = await fetch(`${firstUrl}${path}`, { headers })
-			expect(denied.status).toBe(403)
+		for (const [method, path] of [
+			["POST", "conversations"],
+			["GET", "conversations?limit=10"],
+			["POST", `conversations/${first.conversation.id}/submissions`],
+			["GET", `submissions/${first.result.id}`],
+			["GET", `conversations/${first.conversation.id}`],
+			["GET", `conversations/${first.conversation.id}/entries?limit=10`],
+		] as const) {
+			const denied = await fetch(`${platformUrl}/${path}`, {
+				body: method === "POST" ? JSON.stringify({ content: "Public slate" }) : undefined,
+				headers,
+				method,
+			})
+			expect(denied.status, `${method} ${path}`).toBe(403)
 		}
 		const privateSlate = await fetch(`${origin}/api/slates/${slate.id}`, {
 			body: JSON.stringify({ visibility: "private" }),

@@ -12,7 +12,10 @@ import {
 	authenticateAccessToken,
 	authenticateSession,
 	type Credential,
+	hasPlatformCredential,
 	type PlatformCredential,
+	type PlatformOAuthCredential,
+	type ViewerSessionCredential,
 } from "@/auth.server"
 import type { PlatformEnv } from "@/context"
 import { authenticateMcpRequest } from "@/mcp.server"
@@ -63,17 +66,25 @@ export const requireCsrf = except((c: Context<IdentityEnv>) => {
 	}
 }, csrf())
 
+async function getPlatformBearerIdentity<E extends IdentityEnv>(
+	c: Context<E>,
+): Promise<AuthIdentity<PlatformOAuthCredential> | null> {
+	try {
+		return await authenticateAccessToken(
+			requestToResourceInput(c.req.raw),
+			c.var.config.CTX_AUTH_ISSUER,
+		)
+	} catch (error) {
+		if (isAPIError(error) && [401, 403].includes(error.statusCode)) return null
+		throw error
+	}
+}
+
 async function getPlatformRequestIdentity<E extends IdentityEnv>(
 	c: Context<E>,
 ): Promise<AuthIdentity<PlatformCredential> | null> {
 	if (c.req.header("authorization") !== undefined) {
-		const input = requestToResourceInput(c.req.raw)
-		try {
-			return await authenticateAccessToken(input, c.var.config.CTX_AUTH_ISSUER)
-		} catch (error) {
-			if (isAPIError(error) && [401, 403].includes(error.statusCode)) return null
-			throw error
-		}
+		return getPlatformBearerIdentity(c)
 	}
 	const cookie = c.req.header("cookie")
 	return cookie
@@ -84,6 +95,36 @@ async function getPlatformRequestIdentity<E extends IdentityEnv>(
 export const identifyPlatformUser = createMiddleware<IdentityEnv<PlatformCredential>>(
 	async (c, next) => {
 		c.set("identity", await getPlatformRequestIdentity(c))
+		await next()
+	},
+)
+
+export const identifySlateUser = createMiddleware<
+	IdentityEnv<PlatformOAuthCredential | ViewerSessionCredential>
+>(async (c, next) => {
+	if (c.req.header("authorization") !== undefined) {
+		c.set("identity", await getPlatformBearerIdentity(c))
+	} else {
+		const token = getCookie(c, "ctx-viewer-auth")
+		c.set(
+			"identity",
+			token
+				? await authenticateSession(
+						{ token, type: "viewer-session" },
+						c.var.config.CTX_AUTH_ISSUER,
+					)
+				: null,
+		)
+	}
+	await next()
+})
+
+export const requirePlatformCredential = createMiddleware<AuthenticatedEnv>(
+	async (c, next) => {
+		if (!hasPlatformCredential(c.var.identity)) {
+			c.header("WWW-Authenticate", 'Bearer realm="ContextLayer"')
+			return c.body(null, 401)
+		}
 		await next()
 	},
 )

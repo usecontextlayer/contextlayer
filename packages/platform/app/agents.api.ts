@@ -20,7 +20,6 @@ import {
 	agentSubmitInputParamsSchema,
 } from "@/agents.schema"
 import {
-	authorizeAgentConversationAccess,
 	createAgentConversation,
 	getAgent,
 	getAgentConversation,
@@ -31,8 +30,9 @@ import {
 	listAgentSchedules,
 	submitAgentInput,
 } from "@/agents.server"
+import { requirePlatformCredential } from "@/auth.middleware"
 import { platformCredentialSecurity as security } from "@/auth.schema"
-import type { PlatformCredential } from "@/auth.server"
+import type { PlatformCredential, ViewerSessionCredential } from "@/auth.server"
 import type { AuthenticatedViewingEnv } from "@/slates.middleware"
 import { slateTargetSchema } from "@/slates.schema"
 import { connectionRequiredSchema } from "@/tools.schema"
@@ -61,8 +61,12 @@ export function createAgentsApi(
 	const agentScheduleParams = agentScheduleParamsSchema
 		.omit({ target: true })
 		.extend(slateParams.shape)
-	const agents = new OpenAPIHono<AuthenticatedViewingEnv<PlatformCredential>>()
-	agents.openapi(
+	const agents = new OpenAPIHono<
+		AuthenticatedViewingEnv<PlatformCredential | ViewerSessionCredential>
+	>()
+	const agentManagement = new OpenAPIHono<AuthenticatedViewingEnv<PlatformCredential>>()
+	agentManagement.use("*", requirePlatformCredential)
+	agentManagement.openapi(
 		createRoute({
 			description:
 				"Read an authored agent definition from the latest commit on main. Requires slate management permission because instructions are source.",
@@ -107,14 +111,13 @@ export function createAgentsApi(
 			return c.json(result.agent, 200)
 		},
 	)
-	const agentInstance = new OpenAPIHono<AuthenticatedViewingEnv<PlatformCredential>>()
-	agentInstance.openapi(
+	agentManagement.openapi(
 		createRoute({
 			description:
 				"Inspect native authored cron schedules in the addressed user or app SlateAgent. Requires slate management permission, including for public slates. Schedule authoring and removal happen through Git and deployment; framework lifecycle callbacks are excluded.",
 			method: "get",
 			operationId: "listAgentSchedules",
-			path: "/schedules",
+			path: "/{actor}/schedules",
 			request: { params: agentInstanceParams },
 			responses: {
 				200: {
@@ -152,13 +155,13 @@ export function createAgentsApi(
 			return c.json(result.schedules, 200)
 		},
 	)
-	agentInstance.openapi(
+	agentManagement.openapi(
 		createRoute({
 			description:
 				"Inspect one native authored schedule by scheduleId in the addressed user or app SlateAgent. Requires slate management permission, including for public slates.",
 			method: "get",
 			operationId: "getAgentSchedule",
-			path: "/schedules/{scheduleId}",
+			path: "/{actor}/schedules/{scheduleId}",
 			request: { params: agentScheduleParams },
 			responses: {
 				200: {
@@ -196,21 +199,18 @@ export function createAgentsApi(
 		},
 	)
 
-	const agentExecution = new OpenAPIHono<AuthenticatedViewingEnv<PlatformCredential>>()
+	const agentExecution = new OpenAPIHono<
+		AuthenticatedViewingEnv<PlatformCredential | ViewerSessionCredential>
+	>()
 	agentExecution.onError((error, c) => {
 		// Durable Object RPC preserves error names, not custom class identity.
 		if (error.name === "StorageRequestError") return c.text(error.message, 400)
 		throw error
 	})
-	agentExecution.use("*", async (c, next) => {
-		if (!authorizeAgentConversationAccess(c.var.slateAccess).allowed)
-			return c.body(null, 403)
-		await next()
-	})
 	agentExecution.openapi(
 		createRoute({
 			description:
-				"Create a conversation for the authenticated user in this named agent's shared runtime. New conversations use the current model and creation defaults. Returns the native Pi conversation record.",
+				"Create a conversation for the authenticated user in this named agent's shared runtime. Viewer sessions may access only their own user instance on a private slate. New conversations use the current model and creation defaults. Returns the native Pi conversation record.",
 			method: "post",
 			operationId: "createAgentConversation",
 			path: "/conversations",
@@ -228,7 +228,10 @@ export function createAgentsApi(
 				},
 				400: { description: "Invalid slate target, agent name, or actor" },
 				401: { description: "A valid ContextLayer login is required" },
-				403: { description: "Slate viewing is forbidden or the slate is public" },
+				403: {
+					description:
+						"Slate viewing or actor access is forbidden, or the slate is public",
+				},
 				404: { description: "Slate or agent definition not found" },
 				409: {
 					content: {
@@ -272,7 +275,7 @@ export function createAgentsApi(
 	agentExecution.openapi(
 		createRoute({
 			description:
-				"Submit native Pi input to an existing conversation belonging to the authenticated user. Returns the native submission record after durable admission; execution continues after disconnection. An optional requestId deduplicates input within this conversation.",
+				"Submit native Pi input to an existing conversation belonging to the authenticated user. Viewer sessions may access only their own user instance on a private slate. Returns the native submission record after durable admission; execution continues after disconnection. An optional requestId deduplicates input within this conversation.",
 			method: "post",
 			operationId: "submitAgentInput",
 			path: "/conversations/{conversationId}/submissions",
@@ -293,7 +296,10 @@ export function createAgentsApi(
 						"Invalid slate target, agent name, actor, conversation ID, or input",
 				},
 				401: { description: "A valid ContextLayer login is required" },
-				403: { description: "Slate viewing is forbidden or the slate is public" },
+				403: {
+					description:
+						"Slate viewing or actor access is forbidden, or the slate is public",
+				},
 				404: { description: "Slate, agent definition, or conversation not found" },
 				409: {
 					content: {
@@ -335,7 +341,7 @@ export function createAgentsApi(
 	agentExecution.openapi(
 		createRoute({
 			description:
-				"Read a native Pi submission in the selected user or app agent instance. A completed input's answer identifies its exact entry; retrieve it through listAgentEntries with equal minEntryId and maxEntryId and limit=1. This operation does not wait for completion.",
+				"Read a native Pi submission in the selected user or app agent instance. Own-user reads require private-slate viewing access; app reads additionally require a platform credential and slate management. A completed input's answer identifies its exact entry; retrieve it through listAgentEntries with equal minEntryId and maxEntryId and limit=1. This operation does not wait for completion.",
 			method: "get",
 			operationId: "getAgentSubmission",
 			path: "/submissions/{submissionId}",
@@ -349,7 +355,10 @@ export function createAgentsApi(
 				},
 				400: { description: "Invalid slate target, agent name, submission ID, or actor" },
 				401: { description: "A valid ContextLayer login is required" },
-				403: { description: "Slate viewing is forbidden or the slate is public" },
+				403: {
+					description:
+						"Slate viewing or actor access is forbidden, or the slate is public",
+				},
 				404: { description: "Slate or submission not found" },
 			},
 			security,
@@ -358,21 +367,22 @@ export function createAgentsApi(
 		}),
 		async (c) => {
 			const { actor, name, submissionId } = c.req.valid("param")
-			const submission = await getAgentSubmission(
+			const result = await getAgentSubmission(
 				c.env.AGENTS,
 				c.var.slateAccess,
+				c.var.config.CTX_AUTH_ISSUER,
 				name,
 				actor,
 				submissionId,
 			)
-			if (!submission) return c.body(null, 404)
-			return c.json(submission, 200)
+			if (!result.allowed) return c.body(null, result.reason === "forbidden" ? 403 : 404)
+			return c.json(result.submission, 200)
 		},
 	)
 	agentExecution.openapi(
 		createRoute({
 			description:
-				"Page native Pi conversation records in the selected user or app agent instance. Native filters, IDs, and cursors apply within that one instance. The directory includes root and task-owned child conversations.",
+				"Page native Pi conversation records in the selected user or app agent instance. Own-user reads require private-slate viewing access; app reads additionally require a platform credential and slate management. Native filters, IDs, and cursors apply within that one instance. The directory includes root and task-owned child conversations.",
 			method: "get",
 			operationId: "listAgentConversations",
 			path: "/conversations",
@@ -387,7 +397,10 @@ export function createAgentsApi(
 				},
 				400: { description: "Invalid slate target, agent name, actor, or scan query" },
 				401: { description: "A valid ContextLayer login is required" },
-				403: { description: "Slate viewing is forbidden or the slate is public" },
+				403: {
+					description:
+						"Slate viewing or actor access is forbidden, or the slate is public",
+				},
 				404: { description: "Slate not found" },
 			},
 			security,
@@ -397,24 +410,24 @@ export function createAgentsApi(
 		async (c) => {
 			const { actor, name } = c.req.valid("param")
 			const { cursor, limit, ...query } = c.req.valid("query")
-			return c.json(
-				await listAgentConversations(
-					c.env.AGENTS,
-					c.var.slateAccess,
-					name,
-					actor,
-					query,
-					limit,
-					cursor,
-				),
-				200,
+			const result = await listAgentConversations(
+				c.env.AGENTS,
+				c.var.slateAccess,
+				c.var.config.CTX_AUTH_ISSUER,
+				name,
+				actor,
+				query,
+				limit,
+				cursor,
 			)
+			if (!result.allowed) return c.body(null, 403)
+			return c.json(result.conversations, 200)
 		},
 	)
 	agentExecution.openapi(
 		createRoute({
 			description:
-				"Inspect a native Pi conversation view in the selected user or app agent instance. Requires slate management permission because the view includes recent entries and internal documents, including rendered system instructions.",
+				"Inspect a native Pi conversation view in the selected user or app agent instance. Own-user reads require private-slate viewing access; app reads additionally require a platform credential and slate management. The view includes recent entries and internal documents, including rendered system instructions.",
 			method: "get",
 			operationId: "getAgentConversation",
 			path: "/conversations/{conversationId}",
@@ -431,7 +444,10 @@ export function createAgentsApi(
 					description: "Invalid slate target, agent name, conversation ID, or actor",
 				},
 				401: { description: "A valid ContextLayer login is required" },
-				403: { description: "Slate management is forbidden or the slate is public" },
+				403: {
+					description:
+						"Conversation inspection or actor access is forbidden, or the slate is public",
+				},
 				404: { description: "Slate or conversation not found" },
 			},
 			security,
@@ -452,7 +468,6 @@ export function createAgentsApi(
 				const status = {
 					forbidden: 403,
 					"not-found": 404,
-					"sign-in-required": 401,
 				} as const
 				return c.body(null, status[result.reason])
 			}
@@ -462,7 +477,7 @@ export function createAgentsApi(
 	agentExecution.openapi(
 		createRoute({
 			description:
-				"Page native Pi entries for a conversation in the selected user or app agent instance. Requires slate management permission. Entry bounds are inclusive; equal minEntryId and maxEntryId with limit=1 retrieves an exact answer. Preserve the selected actor when returning a native cursor.",
+				"Page native Pi entries for a conversation in the selected user or app agent instance. Own-user reads require private-slate viewing access; app reads additionally require a platform credential and slate management. Entry bounds are inclusive; equal minEntryId and maxEntryId with limit=1 retrieves an exact answer. Preserve the selected actor when returning a native cursor.",
 			method: "get",
 			operationId: "listAgentEntries",
 			path: "/conversations/{conversationId}/entries",
@@ -480,7 +495,10 @@ export function createAgentsApi(
 						"Invalid slate target, agent name, actor, conversation ID, or scan query",
 				},
 				401: { description: "A valid ContextLayer login is required" },
-				403: { description: "Slate management is forbidden or the slate is public" },
+				403: {
+					description:
+						"Conversation inspection or actor access is forbidden, or the slate is public",
+				},
 				404: { description: "Slate or conversation not found" },
 			},
 			security,
@@ -505,14 +523,13 @@ export function createAgentsApi(
 				const status = {
 					forbidden: 403,
 					"not-found": 404,
-					"sign-in-required": 401,
 				} as const
 				return c.body(null, status[result.reason])
 			}
 			return c.json(result.entries, 200)
 		},
 	)
-	agentInstance.route("/", agentExecution)
-	agents.route("/:actor", agentInstance)
+	agents.route("/:actor", agentExecution)
+	agents.route("/", agentManagement)
 	return agents
 }

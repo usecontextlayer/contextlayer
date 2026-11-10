@@ -1,4 +1,4 @@
-import { test as base } from "@tests/integration"
+import { dispatcherTest as base } from "@tests/integration"
 import { signInViewer } from "@usecontextlayer/dev-env/viewer"
 import { expect } from "vitest"
 import { type Slate, slateSchema } from "@/slates.schema"
@@ -95,6 +95,79 @@ test("explicit Authorization takes precedence over valid management and viewer s
 		const response = await fetch(`${origin}${path}`, { headers })
 		expect(response.status).toBe(401)
 	}
+})
+
+test("agent mounts admit their own browser cookie or a platform bearer without credential fallback", async ({
+	dispatcher,
+	identity,
+	slate,
+	webSession,
+	platform: { origin },
+	viewerHeaders,
+}) => {
+	const platformUrl = `${origin}/api/slates/${slate.id}/agents/example/user/conversations?limit=10`
+	const slateUrl = `https://${slate.public_hostname}/.ctx/agents/example/user/conversations?limit=10`
+	for (const credentials of [webSession.headers, identity.headers]) {
+		expect((await fetch(platformUrl, { headers: credentials })).status).toBe(200)
+	}
+	expect(
+		(
+			await fetch(
+				`${origin}/api/slates/${slate.id}/agents/example/app/conversations?limit=10`,
+				{
+					headers: identity.headers,
+				},
+			)
+		).status,
+	).toBe(200)
+	for (const credentials of [viewerHeaders, identity.headers]) {
+		expect(
+			(
+				await dispatcher.fetch(slateUrl, {
+					headers: Object.fromEntries(new Headers(credentials)),
+				})
+			).status,
+		).toBe(200)
+	}
+	expect((await fetch(platformUrl, { headers: viewerHeaders })).status).toBe(401)
+	expect(
+		(
+			await dispatcher.fetch(slateUrl, {
+				headers: Object.fromEntries(webSession.headers),
+			})
+		).status,
+	).toBe(401)
+	const invalidPlatform = new Headers(webSession.headers)
+	invalidPlatform.set("authorization", "Bearer invalid-access-token")
+	expect((await fetch(platformUrl, { headers: invalidPlatform })).status).toBe(401)
+	const invalidViewer = new Headers(viewerHeaders)
+	invalidViewer.set("authorization", "Bearer invalid-access-token")
+	expect(
+		(await dispatcher.fetch(slateUrl, { headers: Object.fromEntries(invalidViewer) }))
+			.status,
+	).toBe(401)
+	for (const path of ["", "/user/schedules"]) {
+		expect(
+			(
+				await dispatcher.fetch(
+					`https://${slate.public_hostname}/.ctx/agents/example${path}`,
+					{
+						headers: Object.fromEntries(viewerHeaders),
+					},
+				)
+			).status,
+		).toBe(401)
+	}
+	expect(
+		(
+			await dispatcher.fetch(
+				`https://${slate.public_hostname}/.ctx/agents/example/app/conversations?limit=10`,
+				{
+					headers: Object.fromEntries(viewerHeaders),
+				},
+			)
+		).status,
+	).toBe(403)
 })
 
 test("dashboard denies framing and chrome permits only its canonical slate", async ({

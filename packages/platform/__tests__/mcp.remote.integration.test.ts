@@ -98,6 +98,15 @@ test("native dispatcher and platform bind MCP to the slate and reject cookie fal
 	expect(
 		(await dispatcher.fetch(`https://${other.public_hostname}/mcp`, { headers })).status,
 	).toBe(401)
+	for (const path of [
+		`/api/slates/${slate.id}/agents/brief/user/conversations?limit=10`,
+		`https://${slate.public_hostname}/.ctx/agents/brief/user/conversations?limit=10`,
+	]) {
+		const response = path.startsWith("https:")
+			? await dispatcher.fetch(path, { headers })
+			: await platform.worker.fetch(path, { headers })
+		expect(response.status).toBe(401)
+	}
 	expect((await platform.worker.fetch("/api/slates", { headers })).status).toBe(401)
 	expect(
 		(

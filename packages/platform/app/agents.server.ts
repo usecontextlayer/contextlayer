@@ -23,7 +23,12 @@ import {
 	type agentSchema,
 	agentSubmissionSchema,
 } from "@/agents.schema"
-import { listOrganizations, type PlatformCredential } from "@/auth.server"
+import {
+	hasPlatformCredential,
+	listOrganizations,
+	type PlatformCredential,
+	type ViewerSessionCredential,
+} from "@/auth.server"
 import type { PlatformEnv } from "@/context"
 import type { PlatformDb } from "@/database"
 import type { SlateId } from "@/database/models/public/Slate"
@@ -38,10 +43,17 @@ import {
 import type { Slate } from "@/slates.schema"
 import { authorizeSlateManagement, type SlateAccess } from "@/slates.server"
 
-export function authorizeAgentConversationAccess({
-	slate,
-}: SlateAccess<PlatformCredential>) {
-	if (slate.visibility === "public")
+export async function authorizeAgentConversationAccess(
+	{ slate, identity }: SlateAccess<PlatformCredential | ViewerSessionCredential>,
+	issuer: string,
+	actorType: AgentActor["type"],
+) {
+	if (
+		slate.visibility === "public" ||
+		(actorType === "app" &&
+			(!hasPlatformCredential(identity) ||
+				!(await authorizeAgentManagement({ identity, slate }, issuer)).allowed))
+	)
 		return { allowed: false, reason: "forbidden" } as const
 	return { allowed: true } as const
 }
@@ -224,10 +236,16 @@ export async function createAgentConversation(
 	memberProvisioning: PlatformEnv["Bindings"]["MEMBER_PROVISIONING"],
 	agents: DurableObjectNamespace<SlateAgent>,
 	config: PlatformConfig,
-	access: SlateAccess,
+	access: SlateAccess<PlatformCredential | ViewerSessionCredential>,
 	name: string,
 	actorType: AgentActor["type"],
 ) {
+	const authorization = await authorizeAgentConversationAccess(
+		access,
+		config.CTX_AUTH_ISSUER,
+		actorType,
+	)
+	if (!authorization.allowed) return authorization
 	const prepared = await prepareAgentExecution(
 		db,
 		artifacts,
@@ -253,12 +271,18 @@ export async function submitAgentInput(
 	memberProvisioning: PlatformEnv["Bindings"]["MEMBER_PROVISIONING"],
 	agents: DurableObjectNamespace<SlateAgent>,
 	config: PlatformConfig,
-	access: SlateAccess,
+	access: SlateAccess<PlatformCredential | ViewerSessionCredential>,
 	name: string,
 	actorType: AgentActor["type"],
 	conversationId: ConversationId,
 	input: { content: UserInput; requestId?: string },
 ) {
+	const authorization = await authorizeAgentConversationAccess(
+		access,
+		config.CTX_AUTH_ISSUER,
+		actorType,
+	)
+	if (!authorization.allowed) return authorization
 	const prepared = await prepareAgentExecution(
 		db,
 		artifacts,
@@ -285,43 +309,53 @@ export async function submitAgentInput(
 
 export async function getAgentSubmission(
 	agents: DurableObjectNamespace<SlateAgent>,
-	access: SlateAccess,
+	access: SlateAccess<PlatformCredential | ViewerSessionCredential>,
+	issuer: string,
 	name: string,
 	actorType: AgentActor["type"],
 	id: SubmissionId,
 ) {
-	return agentSubmissionSchema
+	const authorization = await authorizeAgentConversationAccess(access, issuer, actorType)
+	if (!authorization.allowed) return authorization
+	const submission = agentSubmissionSchema
 		.optional()
 		.parse(await getAgentInstance(agents, access, name, actorType).getSubmission(id))
+	return submission
+		? ({ allowed: true, submission } as const)
+		: ({ allowed: false, reason: "not-found" } as const)
 }
 
 export async function listAgentConversations(
 	agents: DurableObjectNamespace<SlateAgent>,
-	access: SlateAccess,
+	access: SlateAccess<PlatformCredential | ViewerSessionCredential>,
+	issuer: string,
 	name: string,
 	actorType: AgentActor["type"],
 	query: ConversationQuery,
 	limit: number,
 	cursor?: Cursor,
 ) {
-	return agentConversationsPageSchema.parse(
+	const authorization = await authorizeAgentConversationAccess(access, issuer, actorType)
+	if (!authorization.allowed) return authorization
+	const conversations = agentConversationsPageSchema.parse(
 		await getAgentInstance(agents, access, name, actorType).listConversations(
 			query,
 			limit,
 			cursor,
 		),
 	)
+	return { allowed: true, conversations } as const
 }
 
 export async function getAgentConversation(
 	agents: DurableObjectNamespace<SlateAgent>,
-	access: SlateAccess<PlatformCredential>,
+	access: SlateAccess<PlatformCredential | ViewerSessionCredential>,
 	issuer: string,
 	name: string,
 	actorType: AgentActor["type"],
 	id: ConversationId,
 ) {
-	const authorization = await authorizeAgentManagement(access, issuer)
+	const authorization = await authorizeAgentConversationAccess(access, issuer, actorType)
 	if (!authorization.allowed) return authorization
 	const conversation = agentConversationViewSchema
 		.optional()
@@ -333,7 +367,7 @@ export async function getAgentConversation(
 
 export async function listAgentEntries(
 	agents: DurableObjectNamespace<SlateAgent>,
-	access: SlateAccess<PlatformCredential>,
+	access: SlateAccess<PlatformCredential | ViewerSessionCredential>,
 	issuer: string,
 	name: string,
 	actorType: AgentActor["type"],
@@ -342,7 +376,7 @@ export async function listAgentEntries(
 	limit: number,
 	cursor?: Cursor,
 ) {
-	const authorization = await authorizeAgentManagement(access, issuer)
+	const authorization = await authorizeAgentConversationAccess(access, issuer, actorType)
 	if (!authorization.allowed) return authorization
 	const entries = agentEntriesPageSchema
 		.optional()

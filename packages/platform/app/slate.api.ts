@@ -1,7 +1,7 @@
 import { OpenAPIHono, z } from "@hono/zod-openapi"
 import { createAgentsApi } from "@/agents.api"
-import { identifyPlatformUser, requireAuth, requireCsrf } from "@/auth.middleware"
-import type { PlatformCredential } from "@/auth.server"
+import { identifySlateUser, requireAuth, requireCsrf } from "@/auth.middleware"
+import type { PlatformOAuthCredential, ViewerSessionCredential } from "@/auth.server"
 import { platformContext } from "@/platform.middleware"
 import {
 	type AuthenticatedViewingEnv,
@@ -10,8 +10,10 @@ import {
 import { resolveSlateForViewing } from "@/slates.server"
 
 export function createSlateApi() {
-	const api = new OpenAPIHono<AuthenticatedViewingEnv<PlatformCredential>>()
-	api.use("*", platformContext, identifyPlatformUser, requireCsrf, requireAuth)
+	const api = new OpenAPIHono<
+		AuthenticatedViewingEnv<PlatformOAuthCredential | ViewerSessionCredential>
+	>()
+	api.use("*", platformContext, identifySlateUser, requireCsrf, requireAuth)
 	api.use("*", async (c, next) => {
 		const access = await resolveSlateForViewing(
 			c.var.db,
