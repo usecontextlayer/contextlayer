@@ -1,7 +1,7 @@
 import type { ToolRouterSessionExecuteResponse } from "@composio/core"
 import type { z } from "zod"
 import { createAccountSession } from "@/accounts.server"
-import type { ManagementIdentity } from "@/auth.server"
+import type { AuthIdentity, PlatformCredential } from "@/auth.server"
 import { checkSlateBilling } from "@/billing.server"
 import type { PlatformEnv } from "@/context"
 import type { PlatformDb } from "@/database"
@@ -49,7 +49,7 @@ export async function callTool(
 export async function callAccountTool(
 	db: PlatformDb,
 	config: PlatformConfig,
-	identity: ManagementIdentity,
+	identity: AuthIdentity<PlatformCredential>,
 	accountId: string,
 	call: z.infer<typeof accountToolCallSchema>,
 ) {

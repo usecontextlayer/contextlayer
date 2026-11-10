@@ -73,10 +73,10 @@ app.all("*", async (c) => {
 	const props = session
 		? {
 				databases: entrypoints.Databases({
-					props: { credential: { token: session, type: "session" }, slateId: id },
+					props: { credential: { token: session, type: "viewer-session" }, slateId: id },
 				}),
 				tools: entrypoints.Tools({
-					props: { credential: { token: session, type: "session" }, slateId: id },
+					props: { credential: { token: session, type: "viewer-session" }, slateId: id },
 				}),
 			}
 		: {}

@@ -12,53 +12,53 @@ const sessionSchema = z.object({ user: userSchema }).nullable()
 export const PLATFORM_RESOURCE = "https://platform.usecontextlayer.com"
 export const PLATFORM_SCOPE = "platform:access"
 
-export type SessionCredential =
-	| { type: "cookie"; cookie: string }
-	| { type: "session"; token: string }
-
-type OAuthCredential = {
-	type: "access-token"
+export type WebSessionCredential = { type: "web-session"; cookie: string }
+export type ViewerSessionCredential = { type: "viewer-session"; token: string }
+export type PlatformOAuthCredential = {
+	type: "platform-oauth"
+	token: string
+	claims: JWTPayload
+}
+export type SlateMcpOAuthCredential = {
+	type: "slate-mcp-oauth"
 	token: string
 	claims: JWTPayload
 	resource: string
 }
+export type Credential =
+	| WebSessionCredential
+	| ViewerSessionCredential
+	| PlatformOAuthCredential
+	| SlateMcpOAuthCredential
+export type PlatformCredential = WebSessionCredential | PlatformOAuthCredential
+export type ViewerCredential = ViewerSessionCredential | SlateMcpOAuthCredential
 
-export type CredentialAssertion =
-	| SessionCredential
-	| { type: "access-token"; input: ResourceRequestInput }
+export type AuthIdentity<C extends Credential = Credential> = C extends Credential
+	? { user: z.infer<typeof userSchema>; credential: C }
+	: never
 
-export type AuthIdentity = {
-	user: z.infer<typeof userSchema>
-	credential: OAuthCredential | SessionCredential
-}
-
-export type ManagementIdentity = AuthIdentity & {
-	credential:
-		| Extract<SessionCredential, { type: "cookie" }>
-		| (OAuthCredential & { resource: typeof PLATFORM_RESOURCE })
-}
-
-export function hasManagementAuthority(
+export function hasPlatformCredential(
 	identity: AuthIdentity,
-): identity is ManagementIdentity {
-	const credential = identity.credential
+): identity is AuthIdentity<PlatformCredential> {
 	return (
-		credential.type === "cookie" ||
-		(credential.type === "access-token" &&
-			credential.resource === PLATFORM_RESOURCE &&
-			typeof credential.claims.scope === "string" &&
-			credential.claims.scope.split(" ").includes(PLATFORM_SCOPE))
+		identity.credential.type === "web-session" ||
+		identity.credential.type === "platform-oauth"
 	)
 }
 
-export function credentialHeaders(credential: AuthIdentity["credential"]) {
+export function credentialHeaders(credential: Credential) {
 	const headers = new Headers()
-	if (credential.type === "access-token") {
-		headers.set("Authorization", `Bearer ${credential.token}`)
-	} else if (credential.type === "session") {
-		headers.set("Cookie", `ctx-viewer-auth=${encodeURIComponent(credential.token)}`)
-	} else {
-		headers.set("Cookie", credential.cookie)
+	switch (credential.type) {
+		case "platform-oauth":
+		case "slate-mcp-oauth":
+			headers.set("Authorization", `Bearer ${credential.token}`)
+			break
+		case "viewer-session":
+			headers.set("Cookie", `ctx-viewer-auth=${encodeURIComponent(credential.token)}`)
+			break
+		case "web-session":
+			headers.set("Cookie", credential.cookie)
+			break
 	}
 	return headers
 }
@@ -70,7 +70,10 @@ export const organizationSchema = z.object({
 })
 export type Organization = z.infer<typeof organizationSchema>
 
-export async function listOrganizations(identity: ManagementIdentity, issuer: string) {
+export async function listOrganizations(
+	identity: AuthIdentity<PlatformCredential>,
+	issuer: string,
+) {
 	const url = new URL(issuer)
 	url.pathname = "/api/platform/organizations"
 	const response = await fetch(url, { headers: credentialHeaders(identity.credential) })
@@ -81,7 +84,7 @@ export async function listOrganizations(identity: ManagementIdentity, issuer: st
 }
 
 export async function checkViewerOrganizationMembership(
-	identity: AuthIdentity,
+	identity: AuthIdentity<ViewerCredential>,
 	organizationId: string,
 	issuer: string,
 ) {
@@ -89,7 +92,7 @@ export async function checkViewerOrganizationMembership(
 		`/api/viewer/organizations/${encodeURIComponent(organizationId)}/membership`,
 		issuer,
 	)
-	if (identity.credential.type === "access-token") {
+	if (identity.credential.type === "slate-mcp-oauth") {
 		url.searchParams.set("resource", identity.credential.resource)
 	}
 	const response = await fetch(url, { headers: credentialHeaders(identity.credential) })
@@ -100,13 +103,12 @@ export async function checkViewerOrganizationMembership(
 export async function authenticateAccessToken(
 	input: ResourceRequestInput,
 	issuer: string,
-): Promise<AuthIdentity> {
-	const resource = PLATFORM_RESOURCE
+): Promise<AuthIdentity<PlatformOAuthCredential>> {
 	const claims = await verifyAccessTokenRequest(input, {
 		jwksUrl: `${issuer.replace(/\/$/, "")}/jwks`,
 		requiredScopes: [PLATFORM_SCOPE],
 		verifyOptions: {
-			audience: resource,
+			audience: PLATFORM_RESOURCE,
 			issuer,
 			requiredClaims: ["sub", "exp", "scope"],
 		},
@@ -116,19 +118,26 @@ export async function authenticateAccessToken(
 		.min(1)
 		.parse(parseAccessTokenAuthorization(input.authorizationHeader)?.token)
 	return {
-		credential: { claims, resource, token, type: "access-token" },
+		credential: { claims, token, type: "platform-oauth" },
 		user: userSchema.parse({ id: claims.sub }),
 	}
 }
 
+export function authenticateSession<
+	C extends WebSessionCredential | ViewerSessionCredential,
+>(credential: C, issuer: string): Promise<AuthIdentity<C> | null>
 export async function authenticateSession(
-	credential: SessionCredential,
+	credential: WebSessionCredential | ViewerSessionCredential,
 	issuer: string,
-): Promise<AuthIdentity | null> {
-	const headers = credentialHeaders(credential)
-	if (credential.type === "session") {
-		headers.delete("Cookie")
-		headers.set("Authorization", `Bearer ${credential.token}`)
+) {
+	const headers = new Headers()
+	switch (credential.type) {
+		case "web-session":
+			headers.set("Cookie", credential.cookie)
+			break
+		case "viewer-session":
+			headers.set("Authorization", `Bearer ${credential.token}`)
+			break
 	}
 	const response = await fetch(`${issuer.replace(/\/$/, "")}/get-session`, {
 		headers,
@@ -140,7 +149,7 @@ export async function authenticateSession(
 }
 
 export async function findOrganizationBySlug(
-	identity: ManagementIdentity,
+	identity: AuthIdentity<PlatformCredential>,
 	issuer: string,
 	slug: string,
 ) {
@@ -148,7 +157,10 @@ export async function findOrganizationBySlug(
 	return organizations.find((organization) => organization.slug === slug)
 }
 
-export async function getCurrentUser(identity: ManagementIdentity, issuer: string) {
+export async function getCurrentUser(
+	identity: AuthIdentity<PlatformCredential>,
+	issuer: string,
+) {
 	const response = await fetch(new URL("/api/me", issuer), {
 		headers: credentialHeaders(identity.credential),
 	})

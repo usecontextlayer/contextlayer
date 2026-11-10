@@ -31,8 +31,9 @@ import {
 	listAgentSchedules,
 	submitAgentInput,
 } from "@/agents.server"
-import { managementSecurity as security } from "@/auth.schema"
-import type { ManagementViewingEnv } from "@/slates.middleware"
+import { platformCredentialSecurity as security } from "@/auth.schema"
+import type { PlatformCredential } from "@/auth.server"
+import type { AuthenticatedViewingEnv } from "@/slates.middleware"
 import { slateTargetSchema } from "@/slates.schema"
 import { connectionRequiredSchema } from "@/tools.schema"
 
@@ -60,7 +61,7 @@ export function createAgentsApi(
 	const agentScheduleParams = agentScheduleParamsSchema
 		.omit({ target: true })
 		.extend(slateParams.shape)
-	const agents = new OpenAPIHono<ManagementViewingEnv>()
+	const agents = new OpenAPIHono<AuthenticatedViewingEnv<PlatformCredential>>()
 	agents.openapi(
 		createRoute({
 			description:
@@ -106,7 +107,7 @@ export function createAgentsApi(
 			return c.json(result.agent, 200)
 		},
 	)
-	const agentInstance = new OpenAPIHono<ManagementViewingEnv>()
+	const agentInstance = new OpenAPIHono<AuthenticatedViewingEnv<PlatformCredential>>()
 	agentInstance.openapi(
 		createRoute({
 			description:
@@ -195,7 +196,7 @@ export function createAgentsApi(
 		},
 	)
 
-	const agentExecution = new OpenAPIHono<ManagementViewingEnv>()
+	const agentExecution = new OpenAPIHono<AuthenticatedViewingEnv<PlatformCredential>>()
 	agentExecution.onError((error, c) => {
 		// Durable Object RPC preserves error names, not custom class identity.
 		if (error.name === "StorageRequestError") return c.text(error.message, 400)

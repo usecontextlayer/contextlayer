@@ -2,7 +2,7 @@ import type { SlateDatabase } from "@usecontextlayer/shared/database-worker"
 import type { SlateProvisioning } from "@usecontextlayer/shared/slate-provisioning"
 import { createContext } from "react-router"
 import type { SlateAgent } from "@/agent-runtime"
-import type { ManagementIdentity } from "@/auth.server"
+import type { AuthIdentity, PlatformCredential } from "@/auth.server"
 import type { PlatformDb } from "@/database"
 import type { PlatformBindings, PlatformConfig } from "@/env"
 import type { Meridian } from "@/meridian"
@@ -10,7 +10,9 @@ import type { Meridian } from "@/meridian"
 export const databaseContext = createContext<PlatformDb>()
 export const slatesContext = createContext<DispatchNamespace>()
 export const artifactsContext = createContext<Artifacts>()
-export const identityContext = createContext<ManagementIdentity | null>(null)
+export const identityContext = createContext<AuthIdentity<PlatformCredential> | null>(
+	null,
+)
 export const configContext = createContext<PlatformConfig>()
 export const memberProvisioningContext =
 	createContext<PlatformEnv["Bindings"]["MEMBER_PROVISIONING"]>()

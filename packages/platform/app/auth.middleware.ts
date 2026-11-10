@@ -11,23 +11,18 @@ import {
 	type AuthIdentity,
 	authenticateAccessToken,
 	authenticateSession,
-	type CredentialAssertion,
-	hasManagementAuthority,
-	type ManagementIdentity,
+	type Credential,
+	type PlatformCredential,
 } from "@/auth.server"
 import type { PlatformEnv } from "@/context"
 import { authenticateMcpRequest } from "@/mcp.server"
 import type { resolveSlateQuerySchema } from "@/slates.schema"
 
-export type IdentityEnv = PlatformEnv & { Variables: { identity: AuthIdentity | null } }
-export type ManagementIdentityEnv = IdentityEnv & {
-	Variables: { identity: ManagementIdentity | null }
+export type IdentityEnv<C extends Credential = Credential> = PlatformEnv & {
+	Variables: { identity: AuthIdentity<C> | null }
 }
-export type AuthenticatedEnv = IdentityEnv & {
-	Variables: { identity: AuthIdentity }
-}
-export type ManagementAuthenticatedEnv = AuthenticatedEnv & {
-	Variables: { identity: ManagementIdentity }
+export type AuthenticatedEnv<C extends Credential = Credential> = IdentityEnv<C> & {
+	Variables: { identity: AuthIdentity<C> }
 }
 
 function createRequireAuth({ signInRedirect = false } = {}) {
@@ -56,56 +51,62 @@ function createRequireAuth({ signInRedirect = false } = {}) {
 export const requireAuth = createRequireAuth()
 export const requireDashboardAuth = createRequireAuth({ signInRedirect: true })
 
-export const requireCsrf = except(
-	(c: Context<IdentityEnv>) =>
-		!c.var.identity || c.var.identity.credential.type === "access-token",
-	csrf(),
-)
+export const requireCsrf = except((c: Context<IdentityEnv>) => {
+	if (!c.var.identity) return true
+	switch (c.var.identity.credential.type) {
+		case "web-session":
+		case "viewer-session":
+			return false
+		case "platform-oauth":
+		case "slate-mcp-oauth":
+			return true
+	}
+}, csrf())
 
-function getRequestCredential<E extends IdentityEnv>(
+async function getPlatformRequestIdentity<E extends IdentityEnv>(
 	c: Context<E>,
-	{ viewerCookie }: { viewerCookie: boolean },
-): CredentialAssertion | null {
+): Promise<AuthIdentity<PlatformCredential> | null> {
 	if (c.req.header("authorization") !== undefined) {
-		return { input: requestToResourceInput(c.req.raw), type: "access-token" }
+		const input = requestToResourceInput(c.req.raw)
+		try {
+			return await authenticateAccessToken(input, c.var.config.CTX_AUTH_ISSUER)
+		} catch (error) {
+			if (isAPIError(error) && [401, 403].includes(error.statusCode)) return null
+			throw error
+		}
 	}
-	const session = viewerCookie ? getCookie(c, "ctx-viewer-auth") : undefined
-	if (session) return { token: session, type: "session" }
 	const cookie = c.req.header("cookie")
-	return cookie ? { cookie, type: "cookie" } : null
+	return cookie
+		? authenticateSession({ cookie, type: "web-session" }, c.var.config.CTX_AUTH_ISSUER)
+		: null
 }
 
-async function getRequestIdentity<E extends IdentityEnv>(
-	c: Context<E>,
-	options: { viewerCookie: boolean },
-) {
-	const credential = getRequestCredential(c, options)
-	if (!credential) return null
-	if (credential.type !== "access-token") {
-		return authenticateSession(credential, c.var.config.CTX_AUTH_ISSUER)
-	}
-	try {
-		return await authenticateAccessToken(credential.input, c.var.config.CTX_AUTH_ISSUER)
-	} catch (error) {
-		if (isAPIError(error) && [401, 403].includes(error.statusCode)) return null
-		throw error
-	}
-}
-
-export const identifyUser = createMiddleware<ManagementIdentityEnv>(async (c, next) => {
-	const identity = await getRequestIdentity(c, { viewerCookie: false })
-	c.set("identity", identity && hasManagementAuthority(identity) ? identity : null)
-	await next()
-})
+export const identifyPlatformUser = createMiddleware<IdentityEnv<PlatformCredential>>(
+	async (c, next) => {
+		c.set("identity", await getPlatformRequestIdentity(c))
+		await next()
+	},
+)
 
 export async function getSlateViewerIdentity<E extends IdentityEnv>(
 	c: Context<E>,
 	input: z.infer<typeof resolveSlateQuerySchema>,
-) {
-	if (input.pathname !== "/mcp") return getRequestIdentity(c, { viewerCookie: true })
-	return authenticateMcpRequest(
-		requestToResourceInput(c.req.raw),
-		input.hostname,
-		c.var.config.CTX_AUTH_ISSUER,
-	)
+): Promise<AuthIdentity | null> {
+	if (input.pathname === "/mcp") {
+		return authenticateMcpRequest(
+			requestToResourceInput(c.req.raw),
+			input.hostname,
+			c.var.config.CTX_AUTH_ISSUER,
+		)
+	}
+	if (c.req.header("authorization") === undefined) {
+		const token = getCookie(c, "ctx-viewer-auth")
+		if (token) {
+			return authenticateSession(
+				{ token, type: "viewer-session" },
+				c.var.config.CTX_AUTH_ISSUER,
+			)
+		}
+	}
+	return getPlatformRequestIdentity(c)
 }

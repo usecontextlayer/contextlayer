@@ -1,11 +1,12 @@
 import { adjectives, animals, colors, uniqueNamesGenerator } from "unique-names-generator"
 import {
 	type AuthIdentity,
+	type Credential,
 	checkViewerOrganizationMembership,
 	findOrganizationBySlug,
-	hasManagementAuthority,
+	hasPlatformCredential,
 	listOrganizations,
-	type ManagementIdentity,
+	type PlatformCredential,
 } from "@/auth.server"
 import type { PlatformDb } from "@/database"
 import type { SlateId } from "@/database/models/public/Slate"
@@ -23,13 +24,15 @@ import {
 	type UpdateSlateVisibilityRequest,
 } from "@/slates.schema"
 
-export type SlateAccess = { slate: Slate; identity: AuthIdentity }
-export type ManagementSlateAccess = SlateAccess & { identity: ManagementIdentity }
+export type SlateAccess<C extends Credential = Credential> = {
+	slate: Slate
+	identity: AuthIdentity<C>
+}
 
 export async function getSlate(
 	db: PlatformDb,
 	target: SlateTarget,
-	identity: ManagementIdentity,
+	identity: AuthIdentity<PlatformCredential>,
 	issuer: string,
 ) {
 	const slate = await resolveSlate(db, target)
@@ -50,7 +53,7 @@ export async function getSlate(
 export async function listSlates(
 	db: PlatformDb,
 	artifacts: Artifacts,
-	identity: ManagementIdentity,
+	identity: AuthIdentity<PlatformCredential>,
 	issuer: string,
 	filter: SlateOwnerFilter,
 ) {
@@ -92,14 +95,14 @@ export async function resolveSlateForViewing(
 	if (!slate) return { allowed: false, reason: "not-found" } as const
 	let isOwnerOrganizationMember = false
 	if (identity && slate.visibility === "private" && slate.owner_organization_id) {
-		isOwnerOrganizationMember = !hasManagementAuthority(identity)
-			? await checkViewerOrganizationMembership(
+		isOwnerOrganizationMember = hasPlatformCredential(identity)
+			? (await listOrganizations(identity, issuer)).some(
+					(organization) => organization.id === slate.owner_organization_id,
+				)
+			: await checkViewerOrganizationMembership(
 					identity,
 					slate.owner_organization_id,
 					issuer,
-				)
-			: (await listOrganizations(identity, issuer)).some(
-					(organization) => organization.id === slate.owner_organization_id,
 				)
 	}
 	return authorizeSlateViewing(slate, identity, isOwnerOrganizationMember)
@@ -125,11 +128,9 @@ export function authorizeSlateViewing(
 
 export function authorizeSlateManagement(
 	slate: Slate,
-	identity: AuthIdentity | null,
+	identity: AuthIdentity<PlatformCredential> | null,
 	isOwnerOrganizationMember: boolean,
 ) {
-	if (identity && !hasManagementAuthority(identity))
-		return { allowed: false, reason: "forbidden" } as const
 	return authorizeSlateOwnership(slate, identity, isOwnerOrganizationMember)
 }
 
@@ -154,7 +155,7 @@ export async function createSlate(
 		PlatformConfig,
 		"CTX_SLATES_DOMAIN" | "CTX_AUTH_ISSUER" | "CTX_APP_OAUTH_PROVISIONING_SECRET"
 	>,
-	identity: ManagementIdentity,
+	identity: AuthIdentity<PlatformCredential>,
 	input: CreateSlateRequest,
 ) {
 	const organization = input.organization_slug
@@ -197,7 +198,7 @@ export async function createSlate(
 
 export async function updateSlateVisibility(
 	db: PlatformDb,
-	{ slate, identity }: ManagementSlateAccess,
+	{ slate, identity }: SlateAccess<PlatformCredential>,
 	issuer: string,
 	input: UpdateSlateVisibilityRequest,
 ) {
@@ -224,7 +225,7 @@ export async function getGitAccess(
 	artifacts: Artifacts,
 	id: SlateId,
 	write: boolean,
-	identity: ManagementIdentity,
+	identity: AuthIdentity<PlatformCredential>,
 	issuer: string,
 ) {
 	const access = await getSlate(db, { id }, identity, issuer)

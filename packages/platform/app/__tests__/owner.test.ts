@@ -1,5 +1,5 @@
 import { expect, test } from "vitest"
-import type { ManagementIdentity } from "@/auth.server"
+import type { AuthIdentity, PlatformCredential } from "@/auth.server"
 import { ownerParamsSchema } from "@/owner.schema"
 import { slateSchema } from "@/slates.schema"
 import { authorizeSlateManagement, authorizeSlateViewing } from "@/slates.server"
@@ -91,9 +91,9 @@ test.each([
 		})
 		const identity = user
 			? ({
-					credential: { cookie: "native-session", type: "cookie" },
+					credential: { cookie: "native-session", type: "web-session" },
 					user: { id: user },
-				} as const satisfies ManagementIdentity)
+				} as const satisfies AuthIdentity<PlatformCredential>)
 			: null
 		expect(authorizeSlateViewing(slate, identity, member)).toEqual(
 			viewing === "allowed"

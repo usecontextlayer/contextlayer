@@ -15,16 +15,15 @@ import {
 import { connectAccount, listAccounts, listPersonalAccounts } from "@/accounts.server"
 import { createAgentsApi } from "@/agents.api"
 import {
+	type AuthenticatedEnv,
 	getSlateViewerIdentity,
 	type IdentityEnv,
-	identifyUser,
-	type ManagementAuthenticatedEnv,
-	type ManagementIdentityEnv,
+	identifyPlatformUser,
 	requireAuth,
 	requireCsrf,
 } from "@/auth.middleware"
-import { managementSecurity as security } from "@/auth.schema"
-import type { AuthIdentity } from "@/auth.server"
+import { platformCredentialSecurity as security } from "@/auth.schema"
+import type { AuthIdentity, PlatformCredential } from "@/auth.server"
 import {
 	checkSlateBilling,
 	enrollFreeCustomer,
@@ -58,7 +57,7 @@ import {
 } from "@/slate-resources.schema"
 import { setSlateSecret } from "@/slate-secrets.server"
 import {
-	type ManagementViewingEnv,
+	type AuthenticatedViewingEnv,
 	requireSlateViewing,
 	slateViewingErrorStatus,
 } from "@/slates.middleware"
@@ -93,7 +92,7 @@ const noCommitResponse = {
 }
 
 export function createApi() {
-	const api = new OpenAPIHono<ManagementIdentityEnv>()
+	const api = new OpenAPIHono<IdentityEnv<PlatformCredential>>()
 	api.post("/polar/webhooks", async (c) => {
 		let payload: webhooks.WebhookPayload
 		try {
@@ -228,10 +227,10 @@ export function createApi() {
 		},
 	)
 	api.route("/slates", slateRouting)
-	api.use("*", identifyUser, requireCsrf)
+	api.use("*", identifyPlatformUser, requireCsrf)
 	api.route("/slates", createInspectionApi())
 
-	const slates = new OpenAPIHono<ManagementAuthenticatedEnv>()
+	const slates = new OpenAPIHono<AuthenticatedEnv<PlatformCredential>>()
 	slates.use("*", requireAuth)
 	slates.openapi(
 		createRoute({
@@ -360,7 +359,7 @@ export function createApi() {
 			return c.json(result.slate, 200)
 		},
 	)
-	const slate = new OpenAPIHono<ManagementViewingEnv>()
+	const slate = new OpenAPIHono<AuthenticatedViewingEnv<PlatformCredential>>()
 	slate.use("*", requireSlateViewing)
 	slate.openapi(
 		createRoute({
@@ -406,7 +405,9 @@ export function createApi() {
 	)
 
 	const slateResources = new OpenAPIHono<
-		ManagementViewingEnv & { Variables: { snapshot: SlateDeclarationSnapshot } }
+		AuthenticatedViewingEnv<PlatformCredential> & {
+			Variables: { snapshot: SlateDeclarationSnapshot }
+		}
 	>({
 		defaultHook: async (result, c) => {
 			if (!result.success || result.target !== "json") return
@@ -596,7 +597,7 @@ export function createApi() {
 	slates.route("/:target", slate)
 	api.route("/slates", slates)
 
-	const accounts = new OpenAPIHono<ManagementAuthenticatedEnv>()
+	const accounts = new OpenAPIHono<AuthenticatedEnv<PlatformCredential>>()
 	accounts.use("*", requireAuth)
 	accounts.openapi(
 		createRoute({
@@ -773,7 +774,7 @@ export function createApi() {
 	)
 	api.route("/accounts", accounts)
 
-	const secrets = new OpenAPIHono<ManagementAuthenticatedEnv>()
+	const secrets = new OpenAPIHono<AuthenticatedEnv<PlatformCredential>>()
 	secrets.use("*", requireAuth)
 	secrets.openapi(
 		createRoute({

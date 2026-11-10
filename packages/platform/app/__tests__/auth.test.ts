@@ -1,51 +1,52 @@
 import { expect, test } from "vitest"
-import { type AuthIdentity, hasManagementAuthority } from "@/auth.server"
+import { type AuthIdentity, hasPlatformCredential } from "@/auth.server"
 
 test.each<{
 	name: string
-	credential: AuthIdentity["credential"]
+	identity: AuthIdentity
 	allowed: boolean
 }>([
 	{
 		allowed: true,
-		credential: { cookie: "native-web-session", type: "cookie" },
+		identity: {
+			credential: { cookie: "native-web-session", type: "web-session" },
+			user: { id: "alice" },
+		},
 		name: "native web session",
 	},
 	{
 		allowed: false,
-		credential: { token: "viewer-session", type: "session" },
+		identity: {
+			credential: { token: "viewer-session", type: "viewer-session" },
+			user: { id: "alice" },
+		},
 		name: "viewer session",
 	},
 	{
 		allowed: true,
-		credential: {
-			claims: { scope: "openid platform:access", sub: "alice" },
-			resource: "https://platform.usecontextlayer.com",
-			token: "platform-access-token",
-			type: "access-token",
+		identity: {
+			credential: {
+				claims: { scope: "openid platform:access", sub: "alice" },
+				token: "platform-access-token",
+				type: "platform-oauth",
+			},
+			user: { id: "alice" },
 		},
 		name: "platform access token",
 	},
 	{
 		allowed: false,
-		credential: {
-			claims: { scope: "openid mcp:access platform:access", sub: "alice" },
-			resource: "https://brief.contextlayer.xyz/mcp",
-			token: "mcp-access-token",
-			type: "access-token",
+		identity: {
+			credential: {
+				claims: { scope: "openid mcp:access", sub: "alice" },
+				resource: "https://brief.contextlayer.xyz/mcp",
+				token: "mcp-access-token",
+				type: "slate-mcp-oauth",
+			},
+			user: { id: "alice" },
 		},
-		name: "slate MCP token carrying platform access scope",
+		name: "slate MCP token",
 	},
-	{
-		allowed: false,
-		credential: {
-			claims: { scope: "openid", sub: "alice" },
-			resource: "https://platform.usecontextlayer.com",
-			token: "access-token-without-platform-scope",
-			type: "access-token",
-		},
-		name: "platform token without platform access scope",
-	},
-])("$name grants management authority=$allowed", ({ allowed, credential }) => {
-	expect(hasManagementAuthority({ credential, user: { id: "alice" } })).toBe(allowed)
+])("$name is a platform credential=$allowed", ({ allowed, identity }) => {
+	expect(hasPlatformCredential(identity)).toBe(allowed)
 })

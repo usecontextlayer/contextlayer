@@ -3,11 +3,12 @@ import { RouterContextProvider } from "react-router"
 import { createHonoServer } from "react-router-hono-server/cloudflare"
 import { createApi } from "@/api"
 import {
-	identifyUser,
-	type ManagementIdentityEnv,
+	type IdentityEnv,
+	identifyPlatformUser,
 	requireCsrf,
 	requireDashboardAuth,
 } from "@/auth.middleware"
+import type { PlatformCredential } from "@/auth.server"
 import {
 	artifactsContext,
 	configContext,
@@ -28,7 +29,7 @@ export { Provisioning } from "@/provisioning.server"
 
 const publicDashboardPaths = ["/dashboard/chrome/slates/*", "/dashboard/__manifest"]
 
-export default await createHonoServer<ManagementIdentityEnv>({
+export default await createHonoServer<IdentityEnv<PlatformCredential>>({
 	configure(app) {
 		app.use(platformContext)
 		app.use("/dashboard/*", async (c, next) => {
@@ -37,7 +38,7 @@ export default await createHonoServer<ManagementIdentityEnv>({
 				c.header("Content-Security-Policy", "frame-ancestors 'none'")
 		})
 		app.route("/api", createApi())
-		app.use("*", except("/dashboard/__manifest", identifyUser))
+		app.use("*", except("/dashboard/__manifest", identifyPlatformUser))
 		app.use("*", requireCsrf)
 		app.route("/git", createGitApp())
 		app.use("/dashboard/*", except(publicDashboardPaths, requireDashboardAuth))

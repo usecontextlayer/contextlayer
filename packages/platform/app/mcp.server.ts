@@ -6,7 +6,11 @@ import {
 	type ResourceRequestInput,
 } from "better-auth/oauth2"
 import { z } from "zod"
-import { type AuthIdentity, userSchema } from "@/auth.server"
+import {
+	type AuthIdentity,
+	type SlateMcpOAuthCredential,
+	userSchema,
+} from "@/auth.server"
 
 const resourceClient = createAuthClient({ plugins: [oauthProviderResourceClient()] })
 const MCP_SCOPE = "mcp:access"
@@ -34,7 +38,7 @@ export async function authenticateMcpRequest(
 	input: ResourceRequestInput,
 	hostname: string,
 	issuer: string,
-): Promise<AuthIdentity> {
+): Promise<AuthIdentity<SlateMcpOAuthCredential>> {
 	const resource = mcpResource(hostname)
 	const claims = await resourceClient.verifyAccessTokenRequest(input, {
 		jwksUrl: `${issuer.replace(/\/$/, "")}/jwks`,
@@ -50,7 +54,7 @@ export async function authenticateMcpRequest(
 		.min(1)
 		.parse(parseAccessTokenAuthorization(input.authorizationHeader)?.token)
 	return {
-		credential: { claims, resource, token, type: "access-token" },
+		credential: { claims, resource, token, type: "slate-mcp-oauth" },
 		user: userSchema.parse({ id: claims.sub }),
 	}
 }

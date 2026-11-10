@@ -23,7 +23,7 @@ async function getViewerAccess(
 	viewerSessionToken: string,
 ) {
 	const id = slateSchema.shape.id.parse(slateId)
-	const credential = { token: viewerSessionToken, type: "session" } as const
+	const credential = { token: viewerSessionToken, type: "viewer-session" } as const
 	const identity = await authenticateSession(credential, config.CTX_AUTH_ISSUER)
 	if (!identity) return { allowed: false, reason: "sign-in-required" } as const
 	const access = await resolveSlateForViewing(

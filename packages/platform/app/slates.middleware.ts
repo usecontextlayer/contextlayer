@@ -1,28 +1,16 @@
 import { createMiddleware } from "hono/factory"
-import type {
-	AuthenticatedEnv,
-	IdentityEnv,
-	ManagementAuthenticatedEnv,
-} from "@/auth.middleware"
-import type { AuthIdentity } from "@/auth.server"
+import type { AuthenticatedEnv, IdentityEnv } from "@/auth.middleware"
+import type { AuthIdentity, Credential } from "@/auth.server"
 import { type Slate, slateTargetSchema } from "@/slates.schema"
-import {
-	type ManagementSlateAccess,
-	resolveSlateForViewing,
-	type SlateAccess,
-} from "@/slates.server"
+import { resolveSlateForViewing, type SlateAccess } from "@/slates.server"
 
-export type ViewingEnv = IdentityEnv & {
-	Variables: { slateAccess: { slate: Slate; identity: AuthIdentity | null } }
+export type ViewingEnv<C extends Credential = Credential> = IdentityEnv<C> & {
+	Variables: { slateAccess: { slate: Slate; identity: AuthIdentity<C> | null } }
 }
-export type AuthenticatedViewingEnv = ViewingEnv &
-	AuthenticatedEnv & {
-		Variables: { slateAccess: SlateAccess }
-	}
 
-export type ManagementViewingEnv = AuthenticatedViewingEnv &
-	ManagementAuthenticatedEnv & {
-		Variables: { slateAccess: ManagementSlateAccess }
+export type AuthenticatedViewingEnv<C extends Credential = Credential> = ViewingEnv<C> &
+	AuthenticatedEnv<C> & {
+		Variables: { slateAccess: SlateAccess<C> }
 	}
 
 export const slateViewingErrorStatus = {

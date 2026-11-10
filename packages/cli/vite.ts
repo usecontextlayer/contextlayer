@@ -42,7 +42,10 @@ export async function getLocalResourcesBindings() {
 		props: Object.keys(connections).length
 			? ({
 					connections,
-					credential: { token: await getAccessToken(env), type: "access-token" as const },
+					credential: {
+						token: await getAccessToken(env),
+						type: "platform-oauth" as const,
+					},
 					slateId: await getLocalSlateId(),
 				} satisfies LocalToolsProps)
 			: undefined,

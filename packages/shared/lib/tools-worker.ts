@@ -52,13 +52,13 @@ export interface HostedExecution {
 
 export interface ToolsProps {
 	slateId: string
-	credential: { token: string; type: "session" }
+	credential: { token: string; type: "viewer-session" }
 }
 
 export interface LocalToolsProps {
 	slateId: string
 	connections: LocalResourceConfiguration["connections"]
-	credential: { token: string; type: "access-token" }
+	credential: { token: string; type: "platform-oauth" }
 }
 
 export class Tools extends WorkerEntrypoint<{ EXECUTION: HostedExecution }, ToolsProps> {
