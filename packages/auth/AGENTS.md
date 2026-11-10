@@ -6,7 +6,7 @@ Follow the [domain model](../../ARCHITECTURE.md#domain-model) and [viewer sign-i
 
 - Return destinations must be HTTPS on exactly one slate subdomain of `CTX_SLATES_DOMAIN`, excluding `auth`, ports and URL credentials. A caller-supplied return URL must not expand the handoff to another origin.
 - Bind the random state and return URL to the browser initiating the handoff through the host-only HttpOnly `__Host-ctx_handoff` cookie. Validate callback state before exchanging the one-time token, and clear the handoff cookie after exchange.
-- Keep the viewer credential in the domain-wide HttpOnly `ctx-viewer-auth` cookie, expiring with the returned Better Auth session. Cookie transport must preserve the architecture's distinction between viewer and management authority; never pass session credentials to authored Workers.
+- Keep the viewer credential in the domain-wide HttpOnly `ctx-viewer-auth` cookie, expiring with the returned Better Auth session. Cookie transport must preserve the architecture's distinction between viewer and platform credentials; never pass session credentials to authored Workers.
 - Keep callback responses uncached and without a referrer so the handoff does not persist in caches or propagate through referrer headers.
 
 ## Deployment configuration
